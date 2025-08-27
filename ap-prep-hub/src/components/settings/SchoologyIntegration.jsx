@@ -12,8 +12,7 @@ import {
   Clock, 
   BookOpen,
   AlertCircle,
-  Loader,
-  History
+  Loader
 } from 'lucide-react';
 import { Button, Card, CardHeader, CardTitle, CardContent } from '../ui/UIComponents';
 import { useAuth } from '../../contexts/AuthContext';

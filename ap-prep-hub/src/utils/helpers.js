@@ -1,7 +1,7 @@
-// Utility function for conditional class names (similar to clsx)
-export const cn = (...classes) => {
-    return classes.filter(Boolean).join(' ');
-};
+import { clsx } from 'clsx';
+
+// Utility function for conditional class names (using clsx)
+export const cn = clsx;
 
 export const createPageUrl = (pageName, param = '') => `/${pageName}${param ? `/${param}` : ''}`;
 
@@ -12,7 +12,7 @@ export const formatDate = (date) => {
 
 export const formatTime = (date) => {
     if (!date) return '';
-    return new Date(date).toLocaleTimeString();
+    return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
 export const getDifficultyColor = (difficulty) => {

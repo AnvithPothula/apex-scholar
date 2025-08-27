@@ -34,14 +34,15 @@ try {
   db = getFirestore(app);
   console.log("✅ Firestore initialized successfully");
 
-  // Add connection monitoring
+    // Add connection monitoring
   const monitorConnection = () => {
     // Simple connection test
     setTimeout(async () => {
       try {
-        // Try a simple auth state check
-        const currentUser = auth.currentUser;
-        console.log("🔍 Firebase connection check - Current user:", currentUser ? "authenticated" : "not authenticated");
+        // Try a simple auth state check - accessing currentUser
+        if (auth.currentUser !== undefined) {
+          // Connection is working
+        }
       } catch (error) {
         console.warn("⚠️ Firebase connection check failed:", error.message);
       }
