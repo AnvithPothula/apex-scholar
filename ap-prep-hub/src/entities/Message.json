@@ -1,0 +1,33 @@
+{
+    "name": "Message",
+    "type": "object",
+    "properties": {
+      "conversation_id": {
+        "type": "string",
+        "description": "ID of the conversation this message belongs to"
+      },
+      "content": {
+        "type": "string",
+        "description": "Message content"
+      },
+      "role": {
+        "type": "string",
+        "enum": ["user", "assistant"],
+        "description": "Who sent the message"
+      },
+      "timestamp": {
+        "type": "string",
+        "format": "date-time",
+        "description": "When the message was sent"
+      },
+      "file_url": {
+        "type": "string",
+        "description": "URL of an attached file"
+      },
+      "file_type": {
+        "type": "string",
+        "description": "MIME type of the attached file (e.g., image/png)"
+      }
+    },
+    "required": ["conversation_id", "content", "role"]
+  }

@@ -1,0 +1,49 @@
+{
+    "name": "Task",
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "description": "Task name"
+      },
+      "deadline": {
+        "type": "string",
+        "format": "date-time",
+        "description": "Task deadline"
+      },
+      "subject": {
+        "type": "string",
+        "description": "Subject area"
+      },
+      "estimated_time": {
+        "type": "number",
+        "description": "Estimated time in minutes"
+      },
+      "difficulty": {
+        "type": "string",
+        "enum": ["Easy", "Medium", "Hard"],
+        "description": "Task difficulty level"
+      },
+      "scheduled_start": {
+        "type": "string",
+        "format": "date-time",
+        "description": "Scheduled start time"
+      },
+      "scheduled_end": {
+        "type": "string",
+        "format": "date-time",
+        "description": "Scheduled end time"
+      },
+      "is_completed": {
+        "type": "boolean",
+        "default": false,
+        "description": "Whether task is completed"
+      },
+      "is_scheduled": {
+        "type": "boolean",
+        "default": false,
+        "description": "Whether task is scheduled"
+      }
+    },
+    "required": ["name", "deadline", "subject", "estimated_time", "difficulty"]
+  }

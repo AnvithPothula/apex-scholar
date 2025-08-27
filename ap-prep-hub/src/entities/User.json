@@ -1,0 +1,27 @@
+{
+    "name": "User",
+    "type": "object",
+    "properties": {
+        "profile_picture_url": {
+            "type": "string",
+            "description": "URL for the user's profile picture"
+        },
+        "chatbot_context": {
+            "type": "string",
+            "description": "Personal information the user wants the chatbot to know"
+        },
+        "blackout_schedule": {
+            "type": "object",
+            "description": "Times the user is unavailable for studying",
+            "properties": {
+                "monday": { "type": "array", "items": { "type": "string" } },
+                "tuesday": { "type": "array", "items": { "type": "string" } },
+                "wednesday": { "type": "array", "items": { "type": "string" } },
+                "thursday": { "type": "array", "items": { "type": "string" } },
+                "friday": { "type": "array", "items": { "type": "string" } },
+                "saturday": { "type": "array", "items": { "type": "string" } },
+                "sunday": { "type": "array", "items": { "type": "string" } }
+            }
+        }
+    }
+}

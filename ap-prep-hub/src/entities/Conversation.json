@@ -1,0 +1,20 @@
+{
+    "name": "Conversation",
+    "type": "object",
+    "properties": {
+      "subject": {
+        "type": "string",
+        "description": "AP subject for this conversation"
+      },
+      "title": {
+        "type": "string",
+        "description": "Auto-generated conversation title"
+      },
+      "last_message_at": {
+        "type": "string",
+        "format": "date-time",
+        "description": "Timestamp of last message"
+      }
+    },
+    "required": ["subject"]
+  }
