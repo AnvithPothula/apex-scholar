@@ -91,7 +91,6 @@ The platform supports all major AP subjects including:
    REACT_APP_FIREBASE_MEASUREMENT_ID=G-Q27DPEG7S5
 
    # EmailJS Configuration (for feedback form)
-   # NOTE: These are demo keys. Replace with real EmailJS credentials for production
    REACT_APP_EMAILJS_SERVICE_ID=service_kry0eao
    REACT_APP_EMAILJS_TEMPLATE_ID=template_clug30b
    REACT_APP_EMAILJS_PUBLIC_KEY=q7C2QoIVA7UMJHC41
