@@ -490,6 +490,10 @@ const DEFAULT_CONFIG = {
 const PracticeTests = () => {
   // const navigate = useNavigate(); // Commented out - saved for future use
   const { user } = useAuth();
+  
+  // Temporary mock user for testing when not authenticated
+  const mockUser = { uid: 'test-user-123', fullName: 'Test User', email: 'test@example.com' };
+  const effectiveUser = user || mockUser;
   const [currentView, setCurrentView] = useState('setup'); // setup, test, results
   const [selectedSubject, setSelectedSubject] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
@@ -830,11 +834,11 @@ Format as JSON:
       setTestResults(results);
       
       // Save test to Firebase
-      if (user) {
+      if (effectiveUser && user) { // Only save if real user is authenticated
         try {
           // Sanitize data to avoid undefined values
           const sanitizedData = {
-            userId: user.uid,
+            userId: effectiveUser.uid,
             subject: selectedSubject || '',
             section: selectedSection || '',
             difficulty: selectedDifficulty || '',
@@ -885,11 +889,11 @@ Format as JSON:
 
   // Auto-save functionality
   useEffect(() => {
-    if (testStarted && user && Object.keys(userAnswers).length > 0) {
+    if (testStarted && effectiveUser && user && Object.keys(userAnswers).length > 0) { // Only save if real user
       const saveProgress = async () => {
         try {
           await addDoc(collection(db, 'testProgress'), {
-            userId: user.uid,
+            userId: effectiveUser.uid,
             subject: selectedSubject,
             section: selectedSection,
             difficulty: selectedDifficulty,
@@ -911,11 +915,11 @@ Format as JSON:
 
   // Load test history from Firebase
   useEffect(() => {
-    if (user) {
+    if (effectiveUser && user) { // Only load history for real users
       const testsRef = collection(db, 'practiceTests');
       const q = query(
         testsRef,
-        where('userId', '==', user.uid),
+        where('userId', '==', effectiveUser.uid),
         orderBy('createdAt', 'desc')
       );
 
@@ -2856,6 +2860,8 @@ Please provide a clear, educational response that helps the student understand t
                           {currentQuestion?.type === 'mcq' ? 'Multiple Choice' : 
                            currentQuestion?.type === 'frq' ? 'Free Response' :
                            currentQuestion?.type === 'saq' ? 'Short Answer' : 
+                           currentQuestion?.type === 'dbq' ? 'DBQ' :
+                           currentQuestion?.type === 'leq' ? 'LEQ' :
                            'Written Response'}
                         </Badge>
                         {currentQuestion?.estimatedTime && currentQuestion?.type === 'mcq' && (
@@ -2880,6 +2886,58 @@ Please provide a clear, educational response that helps the student understand t
                               </div>
                             ))}
                           </div>
+                        </div>
+                      )}
+
+                      {/* Display stimulus material for SAQ questions */}
+                      {currentQuestion?.stimulus && (
+                        <div className="mt-4 p-4 bg-slate-700/30 rounded-lg border-l-4 border-blue-500">
+                          <h4 className="font-medium text-slate-300 mb-2 flex items-center gap-2">
+                            <FileQuestion className="w-4 h-4" />
+                            Source Material ({currentQuestion.stimulus.type})
+                          </h4>
+                          <div className="text-slate-300 text-sm mb-2">
+                            <LaTeXRenderer content={currentQuestion.stimulus.content} />
+                          </div>
+                          {currentQuestion.stimulus.source && (
+                            <div className="text-slate-400 text-xs italic">
+                              Source: {currentQuestion.stimulus.source}
+                            </div>
+                          )}
+                          {currentQuestion.stimulus.attribution && (
+                            <div className="text-slate-400 text-xs mt-1">
+                              {currentQuestion.stimulus.attribution}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Display documents for DBQ questions */}
+                      {currentQuestion?.documents && currentQuestion.documents.length > 0 && (
+                        <div className="mt-4 space-y-4">
+                          <h4 className="font-medium text-slate-300 mb-3 flex items-center gap-2">
+                            <FileQuestion className="w-4 h-4" />
+                            Historical Documents
+                          </h4>
+                          {currentQuestion.documents.map((doc, index) => (
+                            <div key={index} className="p-4 bg-slate-700/30 rounded-lg border-l-4 border-purple-500">
+                              <div className="flex items-center gap-2 mb-2">
+                                <h5 className="font-medium text-slate-200">{doc.docId}</h5>
+                                <Badge variant="secondary" className="text-xs">Document {index + 1}</Badge>
+                              </div>
+                              <div className="text-slate-400 text-sm mb-2 italic">
+                                {doc.source}
+                              </div>
+                              <div className="text-slate-300 text-sm mb-2">
+                                <LaTeXRenderer content={doc.content} />
+                              </div>
+                              {doc.pov && (
+                                <div className="text-slate-400 text-xs bg-slate-800/50 p-2 rounded">
+                                  <strong>Analysis Note:</strong> {doc.pov}
+                                </div>
+                              )}
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>
@@ -2918,7 +2976,7 @@ Please provide a clear, educational response that helps the student understand t
                   )}
 
                   {/* Free Response Answer */}
-                  {(currentQuestion?.type === 'frq' || currentQuestion?.type === 'saq') && (
+                  {(currentQuestion?.type === 'frq' || currentQuestion?.type === 'saq' || currentQuestion?.type === 'dbq' || currentQuestion?.type === 'leq') && (
                     <div className="ml-16">
                       <div className="mb-4">
                         <div className="flex items-center justify-between mb-2">
@@ -2935,8 +2993,14 @@ Please provide a clear, educational response that helps the student understand t
                               currentQuestion.parts ? '\n\nParts to address:\n' + 
                               currentQuestion.parts.map((part, i) => `${String.fromCharCode(97 + i)}. ${part}`).join('\n') 
                               : ''
+                            }${
+                              currentQuestion.type === 'dbq' ? '\n\nFor DBQ responses, remember to:\n• Include a clear thesis\n• Use evidence from multiple documents\n• Analyze point of view for at least 3 documents\n• Include outside historical evidence\n• Address counterarguments or alternative perspectives' :
+                              currentQuestion.type === 'leq' ? '\n\nFor LEQ responses, remember to:\n• Include a clear thesis with line of reasoning\n• Provide historical contextualization\n• Use specific historical evidence\n• Analyze historical processes and patterns\n• Consider continuity and change over time' :
+                              ''
                             }`}
-                            className="w-full h-64 bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-slate-100 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all resize-none"
+                            className={`w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-slate-100 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all resize-none ${
+                              currentQuestion.type === 'dbq' || currentQuestion.type === 'leq' ? 'h-96' : 'h-64'
+                            }`}
                           />
                           
                           {/* Word count and suggestions */}
@@ -3134,6 +3198,8 @@ Please provide a clear, educational response that helps the student understand t
                           {section === 'mcq' ? 'Multiple Choice' : 
                            section === 'frq' ? 'Free Response' :
                            section === 'saq' ? 'Short Answer' : 
+                           section === 'dbq' ? 'DBQ' :
+                           section === 'leq' ? 'LEQ' :
                            section}
                         </h3>
                         <div className="text-2xl font-bold text-blue-400 mb-1">
