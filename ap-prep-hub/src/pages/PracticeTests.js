@@ -490,10 +490,6 @@ const DEFAULT_CONFIG = {
 const PracticeTests = () => {
   // const navigate = useNavigate(); // Commented out - saved for future use
   const { user } = useAuth();
-  
-  // Temporary mock user for testing when not authenticated
-  const mockUser = { uid: 'test-user-123', fullName: 'Test User', email: 'test@example.com' };
-  const effectiveUser = user || mockUser;
   const [currentView, setCurrentView] = useState('setup'); // setup, test, results
   const [selectedSubject, setSelectedSubject] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
@@ -834,11 +830,11 @@ Format as JSON:
       setTestResults(results);
       
       // Save test to Firebase
-      if (effectiveUser && user) { // Only save if real user is authenticated
+      if (user) {
         try {
           // Sanitize data to avoid undefined values
           const sanitizedData = {
-            userId: effectiveUser.uid,
+            userId: user.uid,
             subject: selectedSubject || '',
             section: selectedSection || '',
             difficulty: selectedDifficulty || '',
@@ -889,11 +885,11 @@ Format as JSON:
 
   // Auto-save functionality
   useEffect(() => {
-    if (testStarted && effectiveUser && user && Object.keys(userAnswers).length > 0) { // Only save if real user
+    if (testStarted && user && Object.keys(userAnswers).length > 0) {
       const saveProgress = async () => {
         try {
           await addDoc(collection(db, 'testProgress'), {
-            userId: effectiveUser.uid,
+            userId: user.uid,
             subject: selectedSubject,
             section: selectedSection,
             difficulty: selectedDifficulty,
@@ -915,11 +911,11 @@ Format as JSON:
 
   // Load test history from Firebase
   useEffect(() => {
-    if (effectiveUser && user) { // Only load history for real users
+    if (user) {
       const testsRef = collection(db, 'practiceTests');
       const q = query(
         testsRef,
-        where('userId', '==', effectiveUser.uid),
+        where('userId', '==', user.uid),
         orderBy('createdAt', 'desc')
       );
 
