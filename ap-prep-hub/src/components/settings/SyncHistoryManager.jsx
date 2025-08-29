@@ -15,12 +15,6 @@ const SyncHistoryManager = () => {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
 
-  useEffect(() => {
-    if (currentUser) {
-      loadSyncData();
-    }
-  }, [currentUser]);
-
   const loadSyncData = useCallback(async () => {
     if (!currentUser) return;
     
@@ -38,6 +32,12 @@ const SyncHistoryManager = () => {
     }
     setLoading(false);
   }, [currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+      loadSyncData();
+    }
+  }, [currentUser, loadSyncData]);
 
   const clearSyncHistory = async () => {
     if (!currentUser) return;

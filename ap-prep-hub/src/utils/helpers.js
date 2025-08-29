@@ -1,4 +1,5 @@
 import { clsx } from 'clsx';
+import { formatDateInUserTimezone, formatTimeInUserTimezone } from './timezone';
 
 // Utility function for conditional class names (using clsx)
 export const cn = clsx;
@@ -7,12 +8,12 @@ export const createPageUrl = (pageName, param = '') => `/${pageName}${param ? `/
 
 export const formatDate = (date) => {
     if (!date) return '';
-    return new Date(date).toLocaleDateString();
+    return formatDateInUserTimezone(date);
 };
 
 export const formatTime = (date) => {
     if (!date) return '';
-    return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return formatTimeInUserTimezone(date);
 };
 
 export const getDifficultyColor = (difficulty) => {

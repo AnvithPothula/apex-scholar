@@ -18,6 +18,7 @@
  */
 
 import emailjs from '@emailjs/browser';
+import { formatDateTimeInUserTimezone, getUserTimezone } from '../utils/timezone';
 
 class EmailService {
   constructor() {
@@ -59,7 +60,8 @@ class EmailService {
         to_name: 'Apex Scholar Team',
         to_email: 'anvithpothula@gmail.com',
         subject: 'EmailJS Test',
-        timestamp: new Date().toLocaleString(),
+        timestamp: formatDateTimeInUserTimezone(new Date()),
+        timezone: getUserTimezone(),
         user_id: 'test-user-id'
       };
       
@@ -114,8 +116,9 @@ class EmailService {
       to_name: 'Apex Scholar Team',
       to_email: 'anvithpothula@gmail.com',
       subject: `Apex Scholar Feedback - ${title}`,
-      // Add timestamp for better tracking
-      timestamp: new Date().toLocaleString(),
+      // Add timezone-aware timestamp for better tracking
+      timestamp: formatDateTimeInUserTimezone(new Date()),
+      timezone: getUserTimezone(),
       // Add user ID if available
       user_id: user?.uid || 'N/A'
     };
@@ -162,7 +165,7 @@ User Information:
 Name: ${user?.displayName || user?.fullName || user?.full_name || 'Anonymous User'}
 Email: ${user?.email || 'No email provided'}
 User ID: ${user?.uid || 'N/A'}
-Timestamp: ${new Date().toLocaleString()}
+Timestamp: ${formatDateTimeInUserTimezone(new Date())} (${getUserTimezone()})
       `
     };
 

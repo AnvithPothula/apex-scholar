@@ -25,17 +25,19 @@
     {
       "src": "logo192.png",
       "type": "image/png",
-      "sizes": "192x192"
+      "sizes": "192x192",
+      "purpose": "any maskable"
     },
     {
       "src": "logo512.png",
       "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "512x512",
+      "purpose": "any maskable"
     },
     {
-      "src": "Apex_Scholar_Logo.png",
+      "src": "Apex_Scholar_Logo_NoText.png",
       "type": "image/png",
-      "sizes": "1271x1073",
+      "sizes": "512x512",
       "purpose": "any"
     }
   ],

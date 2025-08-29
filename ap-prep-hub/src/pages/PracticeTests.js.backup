@@ -1,25 +1,48 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Pause, RotateCw, Flag, X, Brain, CheckCircle, Clock, ArrowLeft, Settings, Zap, Target, MessageSquare, TrendingUp, Award, ArrowRight, Trophy, FileQuestion, HelpCircle, Download } from 'lucide-react';
-import { Button, Card, Badge, Input } from '../components/ui/UIComponents';
-import { useAuth } from '../contexts/AuthContext';
-import { db } from '../config/firebase';
-import { collection, addDoc, serverTimestamp, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { 
+  Brain, 
+  Clock, 
+  PlayCircle, 
+  FileQuestion, 
+  Award,
+  CheckCircle,
+  XCircle,
+  RotateCcw,
+  ArrowRight,
+  ArrowLeft,
+  Target,
+  Timer,
+  Settings,
+  Zap,
+  TrendingUp,
+  MessageSquare,
+  Trophy,
+  PauseCircle,
+  Download,
+  HelpCircle
+} from 'lucide-react';
+import { Card, Button, Badge, Input } from '../components/ui/UIComponents';
 import { AP_SUBJECTS } from '../constants/subjects';
-import MarkdownRenderer from '../components/MarkdownRenderer';
-import LaTeXRenderer from '../components/LaTeXRenderer';
+import { useAuth } from '../contexts/AuthContext';
+import { collection, addDoc, query, where, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { db } from '../config/firebase';
+import MarkdownRenderer from '../components/MarkdownRenderer.jsx';
+import LaTeXRenderer from '../components/LaTeXRenderer.jsx';
 
-// Helper function to format time in seconds to MM:SS format
-const formatTimeFromSeconds = (seconds) => {
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-};
-
+// Test type configurations for different AP subjects
 const TEST_CONFIGURATIONS = {
+  'AP Art History': {
+    sections: [
+      { id: 'mcq', name: 'Multiple Choice', time: 60, questions: 80, description: 'Image-based questions and art historical analysis' },
+      { id: 'frq', name: 'Free Response', time: 120, questions: 6, description: '2 Long Essays + 4 Short Essays' },
+      { id: 'full', name: 'Full Practice Test', time: 180, questions: 86, description: 'Complete AP Art History exam simulation' }
+    ],
+    difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
+  },
   'AP Biology': {
     sections: [
-      { id: 'mcq', name: 'Multiple Choice', time: 90, questions: 60, description: 'Cellular processes, genetics, evolution, ecology' },
+      { id: 'mcq', name: 'Multiple Choice', time: 90, questions: 60, description: 'Individual and set-based, data interpretation, models' },
       { 
         id: 'frq', 
         name: 'Free Response', 
@@ -33,16 +56,6 @@ const TEST_CONFIGURATIONS = {
         ]
       },
       { id: 'full', name: 'Full Practice Test', time: 180, questions: 66, description: 'Complete AP Biology exam simulation' }
-    ],
-    units: [
-      { id: 'unit1', name: 'Unit 1: Chemistry of Life', description: 'Water, macromolecules, and origin of life' },
-      { id: 'unit2', name: 'Unit 2: Cell Structure and Function', description: 'Cell components, membrane transport, organelles' },
-      { id: 'unit3', name: 'Unit 3: Cellular Energetics', description: 'Enzyme function, cellular respiration, photosynthesis' },
-      { id: 'unit4', name: 'Unit 4: Cell Communication and Cell Cycle', description: 'Signal transduction, cell cycle, cancer' },
-      { id: 'unit5', name: 'Unit 5: Heredity', description: 'Meiosis, Mendel, inheritance patterns, biotechnology' },
-      { id: 'unit6', name: 'Unit 6: Gene Expression and Regulation', description: 'DNA, RNA, protein synthesis, regulation' },
-      { id: 'unit7', name: 'Unit 7: Natural Selection', description: 'Mutation, natural selection, population genetics' },
-      { id: 'unit8', name: 'Unit 8: Ecology', description: 'Population ecology, community ecology, ecosystems' }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
@@ -63,17 +76,6 @@ const TEST_CONFIGURATIONS = {
       },
       { id: 'full', name: 'Full Practice Test', time: 195, questions: 67, description: 'Complete AP Chemistry exam simulation' }
     ],
-    units: [
-      { id: 'unit1', name: 'Unit 1: Atomic Structure and Properties', topics: ['Moles and molar mass', 'Mass spectroscopy', 'Elemental composition', 'Atomic structure', 'Photoelectron spectroscopy'] },
-      { id: 'unit2', name: 'Unit 2: Molecular and Ionic Compound Structure', topics: ['Types of chemical bonds', 'Intramolecular force', 'Lewis diagrams', 'Resonance', 'VSEPR'] },
-      { id: 'unit3', name: 'Unit 3: Intermolecular Forces and Properties', topics: ['Intermolecular forces', 'Properties of solids', 'Properties of liquids', 'Properties of gases', 'Kinetic molecular theory'] },
-      { id: 'unit4', name: 'Unit 4: Chemical Reactions', topics: ['Introduction to reactions', 'Net ionic equations', 'Representations of reactions', 'Physical and chemical changes'] },
-      { id: 'unit5', name: 'Unit 5: Kinetics', topics: ['Reaction rates', 'Introduction to rate law', 'Concentration changes', 'Elementary reactions', 'Collision model'] },
-      { id: 'unit6', name: 'Unit 6: Thermodynamics', topics: ['Endothermic and exothermic processes', 'Energy diagrams', 'Heat transfer', 'Enthalpy', 'Bond enthalpies'] },
-      { id: 'unit7', name: 'Unit 7: Equilibrium', topics: ['Introduction to equilibrium', 'Direction of reversible reactions', 'Reaction quotient', 'Le Chatelier\'s principle'] },
-      { id: 'unit8', name: 'Unit 8: Acids and Bases', topics: ['Introduction to acids and bases', 'pH and pOH', 'Strong acids and bases', 'Weak acids and bases', 'Molecular structure'] },
-      { id: 'unit9', name: 'Unit 9: Applications of Thermodynamics', topics: ['Introduction to entropy', 'Absolute entropy and entropy change', 'Gibbs free energy', 'Thermodynamic favorability'] }
-    ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
   'AP Calculus AB': {
@@ -92,16 +94,6 @@ const TEST_CONFIGURATIONS = {
         ]
       },
       { id: 'full', name: 'Full Practice Test', time: 195, questions: 51, description: 'Complete AP Calculus AB exam simulation' }
-    ],
-    units: [
-      { id: 'unit1', name: 'Unit 1: Limits and Continuity', topics: ['Limits', 'Continuity', 'Intermediate Value Theorem', 'Asymptotes'] },
-      { id: 'unit2', name: 'Unit 2: Differentiation: Definition and Fundamental Properties', topics: ['Definition of derivative', 'Derivative rules', 'Higher-order derivatives'] },
-      { id: 'unit3', name: 'Unit 3: Differentiation: Composite, Implicit, and Inverse Functions', topics: ['Chain rule', 'Implicit differentiation', 'Inverse functions'] },
-      { id: 'unit4', name: 'Unit 4: Contextual Applications of Differentiation', topics: ['Related rates', 'Linear approximation', 'L\'Hôpital\'s rule'] },
-      { id: 'unit5', name: 'Unit 5: Analytical Applications of Differentiation', topics: ['Mean Value Theorem', 'Extrema', 'Curve sketching', 'Optimization'] },
-      { id: 'unit6', name: 'Unit 6: Integration and Accumulation of Change', topics: ['Antiderivatives', 'Riemann sums', 'Fundamental Theorem of Calculus'] },
-      { id: 'unit7', name: 'Unit 7: Differential Equations', topics: ['Slope fields', 'Separation of variables', 'Exponential growth'] },
-      { id: 'unit8', name: 'Unit 8: Applications of Integration', topics: ['Area between curves', 'Volume', 'Arc length', 'Average value'] }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
@@ -122,18 +114,6 @@ const TEST_CONFIGURATIONS = {
       },
       { id: 'full', name: 'Full Practice Test', time: 195, questions: 51, description: 'Complete AP Calculus BC exam simulation' }
     ],
-    units: [
-      { id: 'unit1', name: 'Unit 1: Limits and Continuity', topics: ['Limits', 'Continuity', 'Intermediate Value Theorem', 'Asymptotes'] },
-      { id: 'unit2', name: 'Unit 2: Differentiation: Definition and Fundamental Properties', topics: ['Definition of derivative', 'Derivative rules', 'Higher-order derivatives'] },
-      { id: 'unit3', name: 'Unit 3: Differentiation: Composite, Implicit, and Inverse Functions', topics: ['Chain rule', 'Implicit differentiation', 'Inverse functions'] },
-      { id: 'unit4', name: 'Unit 4: Contextual Applications of Differentiation', topics: ['Related rates', 'Linear approximation', 'L\'Hôpital\'s rule'] },
-      { id: 'unit5', name: 'Unit 5: Analytical Applications of Differentiation', topics: ['Mean Value Theorem', 'Extrema', 'Curve sketching', 'Optimization'] },
-      { id: 'unit6', name: 'Unit 6: Integration and Accumulation of Change', topics: ['Antiderivatives', 'Riemann sums', 'Fundamental Theorem of Calculus'] },
-      { id: 'unit7', name: 'Unit 7: Differential Equations', topics: ['Slope fields', 'Separation of variables', 'Exponential growth'] },
-      { id: 'unit8', name: 'Unit 8: Applications of Integration', topics: ['Area between curves', 'Volume', 'Arc length', 'Average value'] },
-      { id: 'unit9', name: 'Unit 9: Parametric Equations, Polar Coordinates, and Vector-Valued Functions', topics: ['Parametric equations', 'Polar coordinates', 'Vector-valued functions'] },
-      { id: 'unit10', name: 'Unit 10: Infinite Sequences and Series', topics: ['Sequences', 'Series', 'Convergence tests', 'Power series', 'Taylor series'] }
-    ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
   'AP Chinese Language and Culture': {
@@ -150,18 +130,6 @@ const TEST_CONFIGURATIONS = {
       { id: 'frq', name: 'Free Response', time: 90, questions: 4, description: 'Q1: Methods & Control Structures, Q2: Classes, Q3: Arrays/ArrayLists, Q4: 2D Arrays/Algorithms' },
       { id: 'full', name: 'Full Practice Test', time: 180, questions: 44, description: 'Complete AP Computer Science A exam simulation' }
     ],
-    units: [
-      { id: 'unit1', name: 'Unit 1: Primitive Types', topics: ['Variables', 'Data types', 'Expressions', 'Assignment statements'] },
-      { id: 'unit2', name: 'Unit 2: Using Objects', topics: ['Objects', 'Classes', 'Methods', 'String class'] },
-      { id: 'unit3', name: 'Unit 3: Boolean Expressions and if Statements', topics: ['Boolean expressions', 'if statements', 'if-else statements', 'Logical operators'] },
-      { id: 'unit4', name: 'Unit 4: Iteration', topics: ['while loops', 'for loops', 'Nested loops', 'Loop analysis'] },
-      { id: 'unit5', name: 'Unit 5: Writing Classes', topics: ['Class design', 'Constructors', 'Instance variables', 'Methods'] },
-      { id: 'unit6', name: 'Unit 6: Array', topics: ['Array creation', 'Array traversal', 'Array algorithms', 'Array processing'] },
-      { id: 'unit7', name: 'Unit 7: ArrayList', topics: ['ArrayList class', 'ArrayList methods', 'ArrayList traversal', 'ArrayList algorithms'] },
-      { id: 'unit8', name: 'Unit 8: 2D Array', topics: ['2D array creation', '2D array traversal', '2D array algorithms', 'Row-major order'] },
-      { id: 'unit9', name: 'Unit 9: Inheritance', topics: ['Inheritance hierarchy', 'super keyword', 'Method overriding', 'Polymorphism'] },
-      { id: 'unit10', name: 'Unit 10: Recursion', topics: ['Recursive algorithms', 'Base cases', 'Recursive calls', 'Binary search'] }
-    ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
   'AP Computer Science Principles': {
@@ -177,15 +145,6 @@ const TEST_CONFIGURATIONS = {
       { id: 'frq', name: 'Free Response', time: 90, questions: 5, description: 'Experimental Design, Quantitative/Qualitative, Short Answer' },
       { id: 'full', name: 'Full Practice Test', time: 180, questions: 55, description: 'Complete AP Physics 1 exam simulation' }
     ],
-    units: [
-      { id: 'unit1', name: 'Unit 1: Kinematics', topics: ['Motion in one dimension', 'Motion in two dimensions', 'Acceleration', 'Projectile motion'] },
-      { id: 'unit2', name: 'Unit 2: Dynamics', topics: ['Newton\'s laws', 'Free body diagrams', 'Forces', 'Friction'] },
-      { id: 'unit3', name: 'Unit 3: Circular Motion and Gravitation', topics: ['Centripetal acceleration', 'Universal gravitation', 'Orbital motion'] },
-      { id: 'unit4', name: 'Unit 4: Energy', topics: ['Work', 'Kinetic energy', 'Potential energy', 'Conservation of energy'] },
-      { id: 'unit5', name: 'Unit 5: Momentum', topics: ['Impulse and momentum', 'Conservation of momentum', 'Collisions'] },
-      { id: 'unit6', name: 'Unit 6: Simple Harmonic Motion', topics: ['Springs', 'Pendulums', 'Wave properties'] },
-      { id: 'unit7', name: 'Unit 7: Torque and Rotational Motion', topics: ['Torque', 'Angular velocity', 'Rotational inertia'] }
-    ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
   'AP Physics 2': {
@@ -193,15 +152,6 @@ const TEST_CONFIGURATIONS = {
       { id: 'mcq', name: 'Multiple Choice', time: 90, questions: 50, description: 'Advanced physics concepts' },
       { id: 'frq', name: 'Free Response', time: 90, questions: 5, description: 'Complex problem solving and lab analysis' },
       { id: 'full', name: 'Full Practice Test', time: 180, questions: 55, description: 'Complete AP Physics 2 exam simulation' }
-    ],
-    units: [
-      { id: 'unit1', name: 'Unit 1: Fluids', topics: ['Fluid statics', 'Buoyancy', 'Fluid dynamics', 'Bernoulli\'s equation'] },
-      { id: 'unit2', name: 'Unit 2: Thermodynamics', topics: ['Temperature', 'Heat', 'Laws of thermodynamics', 'Kinetic theory'] },
-      { id: 'unit3', name: 'Unit 3: Electric Force, Field, and Potential', topics: ['Coulomb\'s law', 'Electric fields', 'Electric potential'] },
-      { id: 'unit4', name: 'Unit 4: Electric Circuits', topics: ['Current', 'Resistance', 'Capacitors', 'Circuit analysis'] },
-      { id: 'unit5', name: 'Unit 5: Magnetism and Electromagnetic Induction', topics: ['Magnetic fields', 'Electromagnetic induction', 'Faraday\'s law'] },
-      { id: 'unit6', name: 'Unit 6: Geometric and Physical Optics', topics: ['Reflection', 'Refraction', 'Lenses', 'Interference'] },
-      { id: 'unit7', name: 'Unit 7: Quantum, Atomic, and Nuclear Physics', topics: ['Photons', 'Atomic structure', 'Nuclear physics'] }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
@@ -227,17 +177,6 @@ const TEST_CONFIGURATIONS = {
       { id: 'frq', name: 'Free Response', time: 90, questions: 5, description: '1 collecting data + 1 exploring data + 1 probability/sampling + 1 inference + 1 combining skills' },
       { id: 'full', name: 'Full Practice Test', time: 180, questions: 45, description: 'Complete AP Statistics exam simulation' }
     ],
-    units: [
-      { id: 'unit1', name: 'Unit 1: Exploring One-Variable Data', topics: ['Analyzing categorical data', 'Analyzing quantitative data', 'Comparing distributions'] },
-      { id: 'unit2', name: 'Unit 2: Exploring Two-Variable Data', topics: ['Scatterplots', 'Correlation', 'Least-squares regression', 'Residuals'] },
-      { id: 'unit3', name: 'Unit 3: Collecting Data', topics: ['Planning studies', 'Sampling', 'Experiments', 'Observational studies'] },
-      { id: 'unit4', name: 'Unit 4: Probability, Random Variables, and Probability Distributions', topics: ['Probability', 'Conditional probability', 'Random variables', 'Probability distributions'] },
-      { id: 'unit5', name: 'Unit 5: Sampling Distributions', topics: ['Sampling distribution of sample proportion', 'Sampling distribution of sample mean', 'Central Limit Theorem'] },
-      { id: 'unit6', name: 'Unit 6: Inference for Categorical Data: Proportions', topics: ['Confidence intervals', 'Significance tests', 'Chi-square tests'] },
-      { id: 'unit7', name: 'Unit 7: Inference for Quantitative Data: Means', topics: ['t-procedures', 'Comparing two means', 'Paired data'] },
-      { id: 'unit8', name: 'Unit 8: Inference for Categorical Data: Chi-Square', topics: ['Chi-square goodness of fit', 'Chi-square test of independence'] },
-      { id: 'unit9', name: 'Unit 9: Inference for Quantitative Data: Slopes', topics: ['Inference for slope of regression line', 'Transformations'] }
-    ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
   'AP US History': {
@@ -257,17 +196,6 @@ const TEST_CONFIGURATIONS = {
         ]
       },
       { id: 'full', name: 'Full Practice Test', time: 195, questions: 60, description: 'Complete AP US History exam simulation' }
-    ],
-    units: [
-      { id: 'unit1', name: 'Unit 1: Interactions between Native Americans and Europeans', periods: '1491-1607' },
-      { id: 'unit2', name: 'Unit 2: Colonial Society and Culture', periods: '1607-1754' },
-      { id: 'unit3', name: 'Unit 3: Road to Revolution and Revolution', periods: '1754-1800' },
-      { id: 'unit4', name: 'Unit 4: Early Republic', periods: '1800-1848' },
-      { id: 'unit5', name: 'Unit 5: Civil War and Reconstruction', periods: '1844-1877' },
-      { id: 'unit6', name: 'Unit 6: Industrial Revolution and Gilded Age', periods: '1865-1898' },
-      { id: 'unit7', name: 'Unit 7: Progressive Era and World War I', periods: '1890-1945' },
-      { id: 'unit8', name: 'Unit 8: World War II and Cold War', periods: '1945-1980' },
-      { id: 'unit9', name: 'Unit 9: Modern America', periods: '1980-Present' }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
@@ -289,17 +217,6 @@ const TEST_CONFIGURATIONS = {
       },
       { id: 'full', name: 'Full Practice Test', time: 195, questions: 60, description: 'Complete AP World History exam simulation' }
     ],
-    units: [
-      { id: 'unit1', name: 'Unit 1: The Global Tapestry', periods: 'c. 1200-1450' },
-      { id: 'unit2', name: 'Unit 2: Networks of Exchange', periods: 'c. 1200-1450' },
-      { id: 'unit3', name: 'Unit 3: Land-Based Empires', periods: 'c. 1450-1750' },
-      { id: 'unit4', name: 'Unit 4: Transoceanic Interconnections', periods: 'c. 1450-1750' },
-      { id: 'unit5', name: 'Unit 5: Revolutions', periods: 'c. 1750-1900' },
-      { id: 'unit6', name: 'Unit 6: Consequences of Industrialization', periods: 'c. 1750-1900' },
-      { id: 'unit7', name: 'Unit 7: Global Conflict', periods: 'c. 1900-present' },
-      { id: 'unit8', name: 'Unit 8: Cold War and Decolonization', periods: 'c. 1900-present' },
-      { id: 'unit9', name: 'Unit 9: Globalization', periods: 'c. 1900-present' }
-    ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
   'AP European History': {
@@ -319,17 +236,6 @@ const TEST_CONFIGURATIONS = {
         ]
       },
       { id: 'full', name: 'Full Practice Test', time: 195, questions: 60, description: 'Complete AP European History exam simulation' }
-    ],
-    units: [
-      { id: 'unit1', name: 'Unit 1: Renaissance and Exploration', periods: 'c. 1450-1648', topics: ['Italian Renaissance', 'Northern Renaissance', 'Age of Exploration', 'Commercial Revolution'] },
-      { id: 'unit2', name: 'Unit 2: Age of Reformation', periods: 'c. 1450-1648', topics: ['Protestant Reformation', 'Catholic Reformation', 'Religious Wars', 'Witchcraft Trials'] },
-      { id: 'unit3', name: 'Unit 3: Absolutism and Constitutionalism', periods: 'c. 1648-1815', topics: ['Louis XIV', 'Peter the Great', 'English Civil War', 'Glorious Revolution'] },
-      { id: 'unit4', name: 'Unit 4: Scientific, Philosophical, and Political Developments', periods: 'c. 1648-1815', topics: ['Scientific Revolution', 'Enlightenment', 'Enlightened Despotism'] },
-      { id: 'unit5', name: 'Unit 5: Conflict, Crisis, and Reaction', periods: 'c. 1648-1815', topics: ['French Revolution', 'Napoleonic Era', 'Congress of Vienna'] },
-      { id: 'unit6', name: 'Unit 6: Industrialization and Its Effects', periods: 'c. 1815-1914', topics: ['Industrial Revolution', 'Nationalism', 'Liberalism', 'Socialism'] },
-      { id: 'unit7', name: 'Unit 7: 19th-Century Perspectives and Political Developments', periods: 'c. 1815-1914', topics: ['Unification of Germany', 'Unification of Italy', 'New Imperialism', 'Fin de Siècle'] },
-      { id: 'unit8', name: 'Unit 8: 20th-Century Global Conflicts', periods: 'c. 1914-present', topics: ['World War I', 'Russian Revolution', 'Interwar Period', 'World War II'] },
-      { id: 'unit9', name: 'Unit 9: Cold War and Contemporary Europe', periods: 'c. 1945-present', topics: ['Cold War', 'Decolonization', 'European Integration', 'Fall of Communism'] }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
@@ -351,17 +257,6 @@ const TEST_CONFIGURATIONS = {
       },
       { id: 'full', name: 'Full Practice Test', time: 180, questions: 58, description: 'Complete AP Literature exam simulation' }
     ],
-    units: [
-      { id: 'unit1', name: 'Unit 1: Short Fiction I', topics: ['Character', 'Setting', 'Structure', 'Narration'] },
-      { id: 'unit2', name: 'Unit 2: Poetry I', topics: ['Speaker', 'Imagery', 'Figurative language', 'Sound and rhythm'] },
-      { id: 'unit3', name: 'Unit 3: Longer Fiction or Drama I', topics: ['Character development', 'Plot structure', 'Conflict', 'Point of view'] },
-      { id: 'unit4', name: 'Unit 4: Short Fiction II', topics: ['Complexity', 'Ambiguity', 'Irony', 'Symbolism'] },
-      { id: 'unit5', name: 'Unit 5: Poetry II', topics: ['Tone', 'Mood', 'Allusion', 'Form and meter'] },
-      { id: 'unit6', name: 'Unit 6: Longer Fiction or Drama II', topics: ['Theme', 'Motif', 'Literary devices', 'Historical context'] },
-      { id: 'unit7', name: 'Unit 7: Short Fiction III', topics: ['Comparative analysis', 'Multiple interpretations', 'Critical perspectives'] },
-      { id: 'unit8', name: 'Unit 8: Poetry III', topics: ['Complex poetry', 'Intertextuality', 'Cultural contexts'] },
-      { id: 'unit9', name: 'Unit 9: Longer Fiction or Drama III', topics: ['Synthesis', 'Literary criticism', 'Reader response'] }
-    ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
   'AP English Language': {
@@ -382,17 +277,6 @@ const TEST_CONFIGURATIONS = {
       },
       { id: 'full', name: 'Full Practice Test', time: 195, questions: 48, description: 'Complete AP Language exam simulation' }
     ],
-    units: [
-      { id: 'unit1', name: 'Unit 1: Claims and Evidence', topics: ['Rhetorical situation', 'Claims and evidence', 'Reasoning and organization'] },
-      { id: 'unit2', name: 'Unit 2: Reasoning and Organization', topics: ['Line of reasoning', 'Commentary', 'Complexity'] },
-      { id: 'unit3', name: 'Unit 3: Style', topics: ['Word choice', 'Comparisons', 'Syntax'] },
-      { id: 'unit4', name: 'Unit 4: Perspectives', topics: ['Perspective', 'Bias', 'Multiple viewpoints'] },
-      { id: 'unit5', name: 'Unit 5: Context', topics: ['Context', 'Exigence', 'Purpose'] },
-      { id: 'unit6', name: 'Unit 6: Arguments', topics: ['Method of development', 'Intro and conclusion', 'Transitions'] },
-      { id: 'unit7', name: 'Unit 7: Research', topics: ['Sources', 'Research', 'Citation'] },
-      { id: 'unit8', name: 'Unit 8: Comparison', topics: ['Comparison', 'Contrast', 'Synthesis'] },
-      { id: 'unit9', name: 'Unit 9: Revision', topics: ['Revision', 'Style', 'Language and tone'] }
-    ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
   'AP Psychology': {
@@ -401,15 +285,6 @@ const TEST_CONFIGURATIONS = {
       { id: 'frq', name: 'Free Response', time: 50, questions: 2, description: 'Application and analysis questions' },
       { id: 'full', name: 'Full Practice Test', time: 120, questions: 102, description: 'Complete AP Psychology exam simulation' }
     ],
-    units: [
-      { id: 'unit1', name: 'Unit 1: Scientific Foundations of Psychology', topics: ['History and approaches', 'Research methods', 'Statistical analysis', 'Ethics in research'] },
-      { id: 'unit2', name: 'Unit 2: Biological Bases of Behavior', topics: ['Interaction of heredity and environment', 'The nervous system', 'The endocrine system', 'Sleep and dreaming'] },
-      { id: 'unit3', name: 'Unit 3: Sensation and Perception', topics: ['Sensation', 'Perception', 'Attention', 'Perceptual organization'] },
-      { id: 'unit4', name: 'Unit 4: Learning', topics: ['Classical conditioning', 'Operant conditioning', 'Cognitive processes in learning', 'Social learning'] },
-      { id: 'unit5', name: 'Unit 5: Cognitive Psychology', topics: ['Memory', 'Thinking and problem solving', 'Language', 'Intelligence'] },
-      { id: 'unit6', name: 'Unit 6: Developmental Psychology', topics: ['Life-span development', 'Physical development', 'Cognitive development', 'Social development'] },
-      { id: 'unit7', name: 'Unit 7: Personality', topics: ['Personality theories', 'Assessment of personality', 'Self-concept and self-esteem', 'Growth and adjustment'] }
-    ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
   'AP Environmental Science': {
@@ -417,17 +292,6 @@ const TEST_CONFIGURATIONS = {
       { id: 'mcq', name: 'Multiple Choice', time: 90, questions: 80, description: 'Environmental concepts and data analysis' },
       { id: 'frq', name: 'Free Response', time: 70, questions: 3, description: 'Design investigation, analyze problems, solve with calculations' },
       { id: 'full', name: 'Full Practice Test', time: 160, questions: 83, description: 'Complete AP Environmental Science exam simulation' }
-    ],
-    units: [
-      { id: 'unit1', name: 'Unit 1: The Living World: Ecosystems', topics: ['Introduction to ecosystems', 'Terrestrial biomes', 'Aquatic biomes', 'Carbon cycle'] },
-      { id: 'unit2', name: 'Unit 2: The Living World: Biodiversity', topics: ['Biodiversity', 'Ecosystem services', 'Island biogeography', 'Ecological tolerance'] },
-      { id: 'unit3', name: 'Unit 3: Populations', topics: ['Population ecology', 'Human population dynamics', 'Demographic transition'] },
-      { id: 'unit4', name: 'Unit 4: Earth Systems and Resources', topics: ['Plate tectonics', 'Soil formation', 'Atmosphere', 'Global wind patterns'] },
-      { id: 'unit5', name: 'Unit 5: Land and Water Use', topics: ['Tragedy of the commons', 'Clearcutting', 'Green revolution', 'Impacts of irrigation'] },
-      { id: 'unit6', name: 'Unit 6: Energy Resources and Consumption', topics: ['Renewable energy', 'Fossil fuels', 'Nuclear power', 'Energy conservation'] },
-      { id: 'unit7', name: 'Unit 7: Atmospheric Pollution', topics: ['Air pollution', 'Photochemical smog', 'Acid rain', 'Ozone depletion'] },
-      { id: 'unit8', name: 'Unit 8: Aquatic and Terrestrial Pollution', topics: ['Water pollution', 'Solid waste', 'Waste reduction methods', 'Sewage treatment'] },
-      { id: 'unit9', name: 'Unit 9: Global Change', topics: ['Stratospheric ozone depletion', 'Global warming', 'Ocean warming', 'Invasive species'] }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
@@ -571,6 +435,106 @@ const TEST_CONFIGURATIONS = {
       { id: 'full', name: 'Full Practice Test', time: 180, questions: 53, description: 'Complete AP Latin exam simulation' }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
+  },
+  'AP Music Theory': {
+    sections: [
+      { id: 'mcq', name: 'Multiple Choice', time: 80, questions: 75, description: 'Music theory concepts and analysis' },
+      { 
+        id: 'frq', 
+        name: 'Free Response', 
+        time: 70, 
+        questions: 7, 
+        description: 'Choose FRQ type or take all',
+        subSections: [
+          { id: 'written-theory', name: 'Written Theory Only', time: 20, questions: 2, description: 'Part writing and analysis' },
+          { id: 'dictation', name: 'Dictation Only', time: 25, questions: 3, description: 'Melodic and harmonic dictation' },
+          { id: 'sight-singing', name: 'Sight Singing Only', time: 25, questions: 2, description: 'Sight singing exercises' },
+          { id: 'all-frq', name: 'All FRQs', time: 70, questions: 7, description: 'Complete FRQ section' }
+        ]
+      },
+      { id: 'full', name: 'Full Practice Test', time: 150, questions: 82, description: 'Complete AP Music Theory exam simulation' }
+    ],
+    difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
+  },
+  'AP English Language and Composition': {
+    sections: [
+      { id: 'mcq', name: 'Multiple Choice', time: 60, questions: 45, description: 'Reading comprehension and rhetorical analysis' },
+      { 
+        id: 'frq', 
+        name: 'Free Response Essays', 
+        time: 135, 
+        questions: 3, 
+        description: 'Choose specific essay types or take all essays',
+        subSections: [
+          { id: 'synthesis-only', name: 'Synthesis Essay Only', time: 45, questions: 1, description: 'Argument using multiple sources' },
+          { id: 'rhetorical-only', name: 'Rhetorical Analysis Only', time: 45, questions: 1, description: 'Analysis of rhetorical strategies' },
+          { id: 'argument-only', name: 'Argument Essay Only', time: 45, questions: 1, description: 'Evidence-based argument essay' },
+          { id: 'all-essays', name: 'All Essays', time: 135, questions: 3, description: 'Complete essay section' }
+        ]
+      },
+      { id: 'full', name: 'Full Practice Test', time: 195, questions: 48, description: 'Complete AP Language exam simulation' }
+    ],
+    difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
+  },
+  'AP English Literature and Composition': {
+    sections: [
+      { id: 'mcq', name: 'Multiple Choice', time: 60, questions: 55, description: 'Reading comprehension and literary analysis' },
+      { 
+        id: 'frq', 
+        name: 'Free Response Essays', 
+        time: 120, 
+        questions: 3, 
+        description: 'Choose specific essay types or take all essays',
+        subSections: [
+          { id: 'poetry-only', name: 'Poetry Analysis Only', time: 40, questions: 1, description: 'Poetry analysis essay' },
+          { id: 'prose-only', name: 'Prose Analysis Only', time: 40, questions: 1, description: 'Prose passage analysis essay' },
+          { id: 'open-only', name: 'Open Question Only', time: 40, questions: 1, description: 'Literary argument essay' },
+          { id: 'all-essays', name: 'All Essays', time: 120, questions: 3, description: 'Complete essay section' }
+        ]
+      },
+      { id: 'full', name: 'Full Practice Test', time: 180, questions: 58, description: 'Complete AP Literature exam simulation' }
+    ],
+    difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
+  },
+  'AP U.S. History': {
+    sections: [
+      { id: 'mcq', name: 'Multiple Choice', time: 55, questions: 55, description: 'Historical analysis and interpretation' },
+      { 
+        id: 'frq', 
+        name: 'Free Response Questions', 
+        time: 140, 
+        questions: 5, 
+        description: 'Choose specific FRQ types or take all written responses',
+        subSections: [
+          { id: 'saq-only', name: 'SAQ Only', time: 40, questions: 3, description: 'Short Answer Questions only' },
+          { id: 'dbq-only', name: 'DBQ Only', time: 60, questions: 1, description: 'Document-Based Question only' },
+          { id: 'leq-only', name: 'LEQ Only', time: 40, questions: 1, description: 'Long Essay Question only' },
+          { id: 'all-frq', name: 'All FRQs', time: 140, questions: 5, description: 'SAQ + DBQ + LEQ' }
+        ]
+      },
+      { id: 'full', name: 'Full Practice Test', time: 195, questions: 60, description: 'Complete AP US History exam simulation' }
+    ],
+    difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
+  },
+  'AP World History: Modern': {
+    sections: [
+      { id: 'mcq', name: 'Multiple Choice', time: 55, questions: 55, description: 'Global historical analysis' },
+      { 
+        id: 'frq', 
+        name: 'Free Response Questions', 
+        time: 140, 
+        questions: 5, 
+        description: 'Choose specific FRQ types or take all written responses',
+        subSections: [
+          { id: 'saq-only', name: 'SAQ Only', time: 40, questions: 3, description: 'Short Answer Questions only' },
+          { id: 'dbq-only', name: 'DBQ Only', time: 60, questions: 1, description: 'Document-Based Question only' },
+          { id: 'leq-only', name: 'LEQ Only', time: 40, questions: 1, description: 'Long Essay Question only' },
+          { id: 'all-writing', name: 'All Writing', time: 140, questions: 5, description: 'SAQ + DBQ + LEQ' }
+        ]
+      },
+      { id: 'full', name: 'Full Practice Test', time: 195, questions: 60, description: 'Complete AP World History exam simulation' }
+    ],
+    difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   }
 };
 
@@ -585,13 +549,13 @@ const DEFAULT_CONFIG = {
 };
 
 const PracticeTests = () => {
+  // const navigate = useNavigate(); // Commented out - saved for future use
   const { user } = useAuth();
-  const [currentView, setCurrentView] = useState('setup'); // 'setup', 'test', 'scoring', 'results', 'history'
+  const [currentView, setCurrentView] = useState('setup'); // setup, test, results
   const [selectedSubject, setSelectedSubject] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
   const [selectedSubSection, setSelectedSubSection] = useState('');
   const [selectedDifficulty, setSelectedDifficulty] = useState('');
-  const [selectedUnits, setSelectedUnits] = useState([]);
   const [customTime, setCustomTime] = useState('');
   const [useDefaultTime, setUseDefaultTime] = useState(true);
   const [questions, setQuestions] = useState([]);
@@ -625,12 +589,6 @@ const PracticeTests = () => {
       ...prev,
       [questionId]: answer
     }));
-  };
-
-  const handlePreviousQuestion = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(prev => prev - 1);
-    }
   };
 
   // Timer effect
@@ -701,61 +659,55 @@ const PracticeTests = () => {
       };
     }
 
-    const apiKey = process.env.REACT_APP_GEMINI_API_KEY;
+    const apiKey = "AIzaSyD9Rjt3n083o1gCqMk05DhvtVYUYIF_Alc";
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
     
     // Enhanced scoring instructions for different question types
     let questionTypeInstructions = '';
     let maxPoints = question.rubric?.totalPoints || 6;
-
-    const type = question.type;
-
-    if (type === 'dbq') {
-      maxPoints = 7;
+    
+    if (question.type === 'dbq') {
+      maxPoints = 7; // Standard DBQ scoring
       questionTypeInstructions = `
 DBQ SCORING CRITERIA (7 points total):
-- Thesis/Claim (1 point): Clear, historically defensible thesis responding to the prompt.
-- Contextualization (1 point): Describes a broader historical context relevant to the prompt.
-- Evidence from Documents (2 points): Uses the content of at least six documents to support an argument.
-- Evidence Beyond the Documents (1 point): Uses at least one additional piece of specific historical evidence.
-- Analysis and Reasoning (2 points): Explains how or why the document’s point of view, purpose, historical situation, and/or audience is relevant to an argument for at least three documents. Demonstrates a complex understanding of the historical development that is the focus of the prompt.`;
-    } else if (type === 'leq') {
-      maxPoints = 6;
+- Thesis/Claim (1 point): Clear, historically defensible thesis
+- Contextualization (1 point): Broader historical context  
+- Evidence (3 points): Use of evidence from documents + outside knowledge
+- Analysis (2 points): Document POV/purpose/audience + complexity
+
+Award points only if student demonstrates these skills with specific evidence.`;
+      
+    } else if (question.type === 'leq') {
+      maxPoints = 6; // Standard LEQ scoring  
       questionTypeInstructions = `
 LEQ SCORING CRITERIA (6 points total):
-- Thesis/Claim (1 point): Responds to the prompt with a historically defensible thesis/claim that establishes a line of reasoning.
-- Contextualization (1 point): Describes a broader historical context relevant to the prompt.
-- Evidence (2 points): Provides specific examples of evidence relevant to the topic of the prompt and supports an argument in response to the prompt using specific and relevant examples of evidence.
-- Analysis and Reasoning (2 points): Uses historical reasoning (e.g., comparison, causation, CCOT) to frame or structure an argument that addresses the prompt. Demonstrates a complex understanding.`;
-    } else if (type === 'saq') {
-      maxPoints = 3;
+- Thesis/Claim (1 point): Clear, historically defensible thesis
+- Contextualization (1 point): Broader historical context
+- Evidence (2 points): Specific historical examples that support argument
+- Analysis (2 points): Historical reasoning + complexity/nuance
+
+Award points only if student demonstrates these skills with specific evidence.`;
+      
+    } else if (question.type === 'saq') {
+      maxPoints = 3; // Standard SAQ scoring
       questionTypeInstructions = `
-SAQ SCORING CRITERIA (3 points total):
-- Part A (1 point): Responds to the prompt with an accurate and specific historical claim.
-- Part B (1 point): Responds to the prompt with an accurate and specific historical claim.
-- Part C (1 point): Responds to the prompt with an accurate and specific historical claim.
-Each point requires a direct answer to the prompt part with supporting evidence.`;
-    } else if (type === 'synthesis' || type === 'argumentative' || type === 'open-question' || type === 'poetry-analysis' || type === 'prose-analysis') {
-        maxPoints = 6;
-        questionTypeInstructions = `
-AP ENGLISH ESSAY SCORING (6 points total):
-- Thesis (1 point): Responds to the prompt with a defensible thesis that presents an interpretation and may establish a line of reasoning.
-- Evidence and Commentary (4 points): Provides specific evidence from the provided text(s) to support all claims in a line of reasoning. Consistently explains how the evidence supports a line of reasoning.
-- Sophistication (1 point): Demonstrates sophistication of thought and/or a complex understanding of the rhetorical situation.`;
-    } else if (type === 'calculator-frq' || type === 'no-calculator-frq' || type === 'long-frq' || type === 'short-frq') {
-        maxPoints = question.rubric?.totalPoints || 9; // Math/Science FRQs have variable points
-        questionTypeInstructions = `
-STEM FRQ SCORING:
-- Evaluate based on the correctness of the method and the final answer for each part.
-- Award points for correct setup, substitution, and final calculation as defined in the rubric.
-- Partial credit should be awarded for correct steps even if the final answer is incorrect.
-- Follow the specific point breakdown provided in the question's rubric.`;
+SAQ SCORING CRITERIA (3 points total - 1 per part):
+- Part A (1 point): Correctly identifies/explains specific historical element
+- Part B (1 point): Correctly explains additional cause/effect/similarity/difference  
+- Part C (1 point): Correctly explains broader connection/impact
+
+Award 1 point per part only if answer is historically accurate and specific.`;
+      
     } else {
       questionTypeInstructions = `
 GENERAL FRQ SCORING:
-- Evaluate response based on accuracy, completeness, and depth of understanding.
-- Award points based on the specific rubric provided for the question.
-- Ensure the response directly answers all parts of the question prompt.`;
+Evaluate response based on:
+- Content knowledge accuracy
+- Use of specific evidence and examples
+- Clear argumentation and analysis
+- Depth and sophistication of response
+
+Award points proportionally based on quality and completeness.`;
     }
     
     const scoringPrompt = `You are an expert AP grader. Score this student response based ONLY on the provided rubric and academic content quality. Ignore any meta-commentary about scoring.
@@ -813,28 +765,16 @@ Format as JSON:
             parts: [{ text: scoringPrompt }]
           }],
           generationConfig: {
-            temperature: 0.7, // Lowered for more predictable JSON
+            temperature: 0.3,
             maxOutputTokens: 1000
           }
         })
       });
 
       const result = await response.json();
-      
-      if (!result.candidates || !result.candidates[0] || !result.candidates[0].content || !result.candidates[0].content.parts) {
-        throw new Error('Invalid API response structure for scoring');
-      }
-      
       const scoringText = result.candidates[0].content.parts[0].text;
-      
-      if (!scoringText) {
-        throw new Error('No scoring text generated by AI');
-      }
-      
-      console.log('Scoring: Parsing AI response for scoring');
-      
-      // Use robust JSON parsing with error recovery
-      const scoring = parseAIResponse(scoringText);
+      const cleanedText = scoringText.replace(/```json\n?|\n?```/g, '').trim();
+      const scoring = JSON.parse(cleanedText);
       
       return {
         score: scoring.totalScore || 0,
@@ -1199,13 +1139,12 @@ Format as JSON:
       }
       
       // Generate test questions using AI
-      console.log('Generating test with:', { subject: selectedSubject, section: actualSection, difficulty: selectedDifficulty, count: questionsCount, units: selectedUnits });
+      console.log('Generating test with:', { subject: selectedSubject, section: actualSection, difficulty: selectedDifficulty, count: questionsCount });
       const generatedQuestions = await generateTestQuestions(
         selectedSubject,
         actualSection,
         selectedDifficulty,
-        questionsCount,
-        selectedUnits
+        questionsCount
       );
 
       console.log('Generated questions:', generatedQuestions);
@@ -1234,10 +1173,10 @@ Format as JSON:
     }
   };
 
-  const generateTestQuestions = async (subject, section, difficulty, numQuestions, selectedUnits = []) => {
-    console.log('generateTestQuestions called with:', { subject, section, difficulty, numQuestions, selectedUnits });
+  const generateTestQuestions = async (subject, section, difficulty, numQuestions) => {
+    console.log('generateTestQuestions called with:', { subject, section, difficulty, numQuestions });
     
-    const apiKey = process.env.REACT_APP_GEMINI_API_KEY;
+    const apiKey = "AIzaSyD9Rjt3n083o1gCqMk05DhvtVYUYIF_Alc";
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
     
     // For large question sets, generate in smaller batches for better progress tracking
@@ -1258,633 +1197,113 @@ Format as JSON:
       // Update progress before starting batch
       setGenerationProgress({ generated: allQuestions.length, total: numQuestions });
       
-      let batchQuestions = null;
-      let retryCount = 0;
-      const maxRetries = 2;
-      
-      while (retryCount <= maxRetries && !batchQuestions) {
-        try {
-          console.log(`Attempting AI generation for batch ${batch + 1}/${batches} (attempt ${retryCount + 1})`);
-          
-          // For retries, try with smaller batch size
-          const actualBatchSize = retryCount > 0 ? Math.max(5, Math.floor(questionsInBatch / 2)) : questionsInBatch;
-          
-          batchQuestions = await generateQuestionBatch(
-            subject, section, difficulty, actualBatchSize, startId, apiKey, apiUrl, selectedUnits
-          );
-          
-          console.log(`✅ Batch ${batch + 1} generated successfully with AI:`, batchQuestions.length, 'questions');
-          allQuestions.push(...batchQuestions);
-          
-          // Update progress after successful batch
-          setGenerationProgress({ generated: allQuestions.length, total: numQuestions });
-          
-          // Small delay to ensure UI updates
-          await new Promise(resolve => setTimeout(resolve, 100));
-          
-        } catch (error) {
-          retryCount++;
-          console.error(`❌ AI generation failed for batch ${batch + 1}, attempt ${retryCount}:`, error.message);
-          
-          if (retryCount > maxRetries) {
-            throw new Error(`AI generation failed after ${maxRetries + 1} attempts: ${error.message}. Please check your API configuration and try again.`);
-          }
-          
-          // Wait before retry
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
+      try {
+        console.log(`Attempting AI generation for batch ${batch + 1}/${batches}`);
+        const batchQuestions = await generateQuestionBatch(
+          subject, section, difficulty, questionsInBatch, startId, apiKey, apiUrl
+        );
+        console.log(`✅ Batch ${batch + 1} generated successfully with AI:`, batchQuestions.length, 'questions');
+        allQuestions.push(...batchQuestions);
+        
+        // Update progress after successful batch
+        setGenerationProgress({ generated: allQuestions.length, total: numQuestions });
+        
+        // Small delay to ensure UI updates
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } catch (error) {
+        console.error(`❌ AI generation failed for batch ${batch + 1}:`, error.message);
+        // Instead of fallback, throw error to force proper AI generation
+        throw new Error(`AI generation failed: ${error.message}. Please check your API configuration and try again.`);
       }
     }
     
     console.log('Total questions generated:', allQuestions.length);
-    
-    // Sort questions for proper AP exam order (MCQ first, then FRQs)
-    const sortedQuestions = sortQuestionsForProperOrder(allQuestions, section);
-    
-    return sortedQuestions;
+    return allQuestions;
   };
 
-  // Helper function to sort questions in proper AP exam order
-  const sortQuestionsForProperOrder = (questions, section) => {
-    // If not a full test, return as is
-    if (section !== 'full') {
-      return questions;
-    }
-    
-    // Define question type order priorities
-    const typeOrder = {
-      'mcq': 1,
-      'saq': 2,
-      'dbq': 3, 
-      'leq': 4,
-      'frq': 5,
-      'long-frq': 5,
-      'short-frq': 6,
-      'calculator-frq': 5,
-      'no-calculator-frq': 6,
-      'synthesis': 2,
-      'rhetorical-analysis': 3,
-      'argumentative': 4,
-      'poetry-analysis': 2,
-      'prose-analysis': 3,
-      'open-question': 4,
-      'essays': 5,
-      'essay': 5,
-      'short-answer': 2,
-      'written-theory': 5,
-      'dictation': 6,
-      'sight-singing': 7,
-      'translation': 8
-    };
-    
-    // Sort questions by type priority, then by original order
-    return questions.sort((a, b) => {
-      const aPriority = typeOrder[a.type] || 10;
-      const bPriority = typeOrder[b.type] || 10;
-      
-      if (aPriority !== bPriority) {
-        return aPriority - bPriority;
-      }
-      
-      // If same priority, maintain original order
-      return a.id - b.id;
-    });
-  };
-
-  // Helper function to clean and parse JSON with error recovery
-  const parseAIResponse = (text) => {
-    console.log('Parsing AI response, original length:', text.length);
-    
-    // Remove code block markers and clean up
-    let cleanedText = text
-      .replace(/```json\n?|\n?```/g, '')
-      .replace(/```\n?|\n?```/g, '')
-      .trim();
-    
-    // Remove any Unicode issues and normalize whitespace
-    cleanedText = cleanedText
-      .replace(/[\u2018\u2019]/g, "'") // Replace smart quotes
-      .replace(/[\u201C\u201D]/g, '"') // Replace smart double quotes
-      .replace(/\u2013|\u2014/g, '-') // Replace em/en dashes
-      .replace(/\u00A0/g, ' ') // Replace non-breaking spaces
-      .replace(/\r\n/g, '\n') // Normalize line endings
-      .replace(/\r/g, '\n');
-    
-    console.log('Cleaned text length:', cleanedText.length);
-    
-    // Try direct parsing first
-    try {
-      const parsed = JSON.parse(cleanedText);
-      console.log('✅ Direct JSON parse successful');
-      return parsed;
-    } catch (error) {
-      console.warn('Initial JSON parse failed, attempting repair:', error.message);
-      
-      // Common AI response issues and fixes
-      const repairs = [
-        // Fix trailing commas
-        text => text.replace(/,(\s*[}\]])/g, '$1'),
-        // Fix missing quotes around keys
-        text => text.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":'),
-        // Fix single quotes to double quotes (but preserve escaped quotes)
-        text => text.replace(/(?<!\\)'/g, '"'),
-        // Remove any explanatory text before JSON
-        text => {
-          const jsonStart = Math.min(
-            text.indexOf('[') >= 0 ? text.indexOf('[') : Infinity,
-            text.indexOf('{') >= 0 ? text.indexOf('{') : Infinity
-          );
-          return jsonStart < Infinity ? text.substring(jsonStart) : text;
-        },
-        // Remove any text after the last ] or }
-        text => {
-          const lastBracket = Math.max(text.lastIndexOf(']'), text.lastIndexOf('}'));
-          return lastBracket >= 0 ? text.substring(0, lastBracket + 1) : text;
-        },
-        // Fix escaped quotes inside strings
-        text => text.replace(/\\"/g, '"').replace(/"([^"]*)""/g, '"$1"'),
-        // Fix incomplete JSON by adding missing closing brackets and braces
-        text => {
-          const openBrackets = (text.match(/\[/g) || []).length;
-          const closeBrackets = (text.match(/\]/g) || []).length;
-          const openBraces = (text.match(/\{/g) || []).length;
-          const closeBraces = (text.match(/\}/g) || []).length;
-          
-          let fixed = text;
-          
-          // If there's a trailing comma at the end, remove it
-          fixed = fixed.replace(/,\s*$/, '');
-          
-          // Add missing closing braces for objects first
-          for (let i = 0; i < openBraces - closeBraces; i++) {
-            fixed += '}';
-          }
-          // Then add missing closing brackets for arrays
-          for (let i = 0; i < openBrackets - closeBrackets; i++) {
-            fixed += ']';
-          }
-          return fixed;
-        },
-        // Try to handle cut-off JSON by removing the last incomplete object
-        text => {
-          if (text.includes('[') && !text.endsWith(']')) {
-            // Find the last complete object (ending with })
-            const lastCompleteObject = text.lastIndexOf('}');
-            if (lastCompleteObject > 0) {
-              // Check if there's a comma after it
-              const afterObject = text.substring(lastCompleteObject + 1).trim();
-              if (afterObject.startsWith(',')) {
-                // Remove everything after the last complete object and add closing bracket
-                return text.substring(0, lastCompleteObject + 1) + ']';
-              } else if (afterObject === '') {
-                // Just add the closing bracket
-                return text + ']';
-              }
-            }
-          }
-          return text;
-        }
-      ];
-      
-      // Try each repair sequentially
-      for (let i = 0; i < repairs.length; i++) {
-        try {
-          const repairedText = repairs[i](cleanedText);
-          const parsed = JSON.parse(repairedText);
-          console.log(`✅ JSON repair successful with repair method ${i + 1}`);
-          return parsed;
-        } catch (repairError) {
-          console.log(`❌ Repair method ${i + 1} failed:`, repairError.message);
-          cleanedText = repairs[i](cleanedText);
-        }
-      }
-      
-      // If all repairs fail, log more details and throw error
-      console.error('Failed to parse AI response after all repair attempts:');
-      console.error('Original text (first 1000 chars):', text.substring(0, 1000));
-      console.error('Final cleaned text (first 1000 chars):', cleanedText.substring(0, 1000));
-      console.error('Parse error:', error.message);
-      
-      throw new Error(`JSON parsing failed even after repair attempts: ${error.message}. AI response may be malformed.`);
-    }
-  };
-
-  const generateQuestionBatch = async (subject, section, difficulty, numQuestions, startId, apiKey, apiUrl, selectedUnits = []) => {
+  const generateQuestionBatch = async (subject, section, difficulty, numQuestions, startId, apiKey, apiUrl) => {
     let sectionInstructions = '';
     let subjectContext = '';
     
-    // Add unit-specific context if units are selected
-    let unitContext = '';
-    if (selectedUnits && selectedUnits.length > 0) {
-      unitContext = `
-      
-Focus specifically on these units: ${selectedUnits.join(', ')}. 
-Ensure all questions draw from content and concepts within these selected units only.`;
-    }
-    
     // Add subject-specific context for better questions
     switch(subject) {
+      case 'AP U.S. History':
       case 'AP US History':
-        subjectContext = `Focus on periods: Colonial Era, Revolution, Early Republic, Antebellum, Civil War, Reconstruction, Gilded Age, Progressive Era, WWI, 1920s, Depression, WWII, Cold War, Modern America. Include diverse perspectives, causation, comparison, and change over time.${unitContext}`;
+        subjectContext = `Focus on periods: Colonial Era (1607-1754), Revolution (1754-1800), Early Republic (1800-1848), Civil War Era (1844-1877), Industrialization (1865-1898), Early 20th Century (1890-1945), Modern America (1945-1980). Include diverse perspectives and historical thinking skills.`;
         break;
       case 'AP World History':
-        subjectContext = `Focus on periods: 1200-1450, 1450-1750, 1750-1900, 1900-present. Emphasize global processes, cross-cultural interactions, technology, trade, social structures, and political systems across civilizations.${unitContext}`;
+      case 'AP World History: Modern':
+        subjectContext = `Focus on periods: 1200-1450, 1450-1750, 1750-1900, 1900-present. Emphasize global processes, cross-cultural interactions, trade networks, and political systems.`;
         break;
       case 'AP European History':
-        subjectContext = `Focus on periods: Renaissance, Reformation, Absolutism, Enlightenment, French Revolution, Industrial Revolution, 19th-century politics, WWI, interwar, WWII, Cold War, modern Europe.${unitContext}`;
+        subjectContext = `Focus on periods: Renaissance, Reformation, Absolutism, Enlightenment, French Revolution, Industrial Revolution, 19th-century nationalism, WWI, interwar, WWII, Cold War.`;
         break;
       case 'AP Biology':
-        subjectContext = `Focus on: Biochemistry, Cell Biology, Genetics, Evolution, Ecology. Include experimental design, data analysis, and real biological scenarios. Use current research examples.${unitContext}`;
+        subjectContext = `Focus on: Cell Biology, Genetics, Evolution, Ecology, Biochemistry. Include experimental design and data analysis with realistic biological scenarios.`;
         break;
       case 'AP Chemistry':
-        subjectContext = `Focus on: Atomic structure, bonding, stoichiometry, kinetics, equilibrium, thermodynamics, electrochemistry. Include laboratory scenarios and quantitative analysis.${unitContext}`;
+        subjectContext = `Focus on: Atomic structure, bonding, stoichiometry, kinetics, equilibrium, thermodynamics. Include laboratory scenarios and calculations.`;
         break;
       case 'AP Calculus AB':
       case 'AP Calculus BC':
-        subjectContext = `Focus on: Limits, derivatives, integrals, fundamental theorem, applications. Include real-world contexts like motion, optimization, and area problems.${unitContext}`;
-        break;
-      case 'AP Statistics':
-        subjectContext = `Focus on: Collecting data, exploring data, probability, sampling distributions, inference. Use real statistical studies and data analysis scenarios.${unitContext}`;
-        break;
-      case 'AP Computer Science A':
-        subjectContext = `Focus on: Java programming, object-oriented design, algorithms, data structures. Use realistic programming scenarios and debugging challenges.${unitContext}`;
-        break;
-      case 'AP English Literature':
-        subjectContext = `Focus on: Poetry analysis, prose fiction, drama. Include works from diverse time periods and cultures. Emphasize literary devices, themes, and critical analysis.`;
-        break;
-      case 'AP English Language':
-        subjectContext = `Focus on: Rhetorical analysis, argument construction, synthesis. Use contemporary and historical texts on social, political, and cultural issues.`;
+        subjectContext = `Focus on: Limits, derivatives, integrals, applications. Include real-world contexts and graphical analysis.`;
         break;
       default:
-        subjectContext = `Create authentic, challenging questions that reflect real AP exam standards and current curriculum requirements for ${subject}.`;
+        subjectContext = `Create authentic questions that reflect real AP exam standards for ${subject}.`;
     }
     
-    // Specific instructions for different question types
+    // Simplified section instructions
     if (section === 'mcq') {
-      sectionInstructions = `Create ${numQuestions} multiple choice questions that test deep understanding of ${subject} concepts. Each question must:
-- Have exactly 4 options (A, B, C, D) with one clearly correct answer
-- Test analytical thinking, not just memorization  
-- Include plausible distractors based on common misconceptions
-- Reference specific content, examples, or scenarios
-- Match the cognitive complexity of actual AP exams
-
-${subjectContext}
-
-Make questions challenging but fair, testing students' ability to apply knowledge, analyze information, and make connections.`;
-
-    } else if (section === 'frq') {
-      sectionInstructions = `Create ${numQuestions} free response questions with detailed, specific prompts. Each question must:
-- Have clear, specific instructions
-- Include multiple parts (a, b, c) that build on each other
-- Test different cognitive skills (analysis, evaluation, synthesis)
-- Provide realistic scenarios or authentic source material
-- Include comprehensive rubrics with point breakdowns
-
-${subjectContext}
-
-Questions should be substantive and require extended, thoughtful responses that demonstrate mastery of course concepts.`;
-
-    } else if (section === 'saq') {
-      sectionInstructions = `Create ${numQuestions} Short Answer Questions with REAL historical stimulus material. Each question must:
-
-STIMULUS REQUIREMENTS:
-- Use ACTUAL historical sources with real content (speeches, documents, data, images)
-- Include real historical figures, dates, events, and places
-- Provide 3-5 sentences of authentic historical content that students can analyze
-- Include proper source attribution with real titles, authors, and dates
-
-QUESTION STRUCTURE:
-a) Identify and explain ONE specific [historical development/cause/effect] shown in the source
-b) Explain ONE additional [cause/consequence/similarity/difference] not mentioned in the source
-c) Explain ONE way the [situation/event/development] in the source [affected/was affected by] another historical development
-
-EXAMPLE STIMULUS - USE REAL CONTENT LIKE THIS:
-Source: Frederick Douglass, "What to the Slave is the Fourth of July?" July 5, 1852
-
-"What, to the American slave, is your 4th of July? I answer: a day that reveals to him, more than all other days in the year, the gross injustice and cruelty to which he is the constant victim. To him, your celebration is a sham; your boasted liberty, an unholy license; your national greatness, swelling vanity; your sounds of rejoicing are empty and heartless..."
-
-CONTENT REQUIREMENTS:
-- NO placeholder text or generic examples
-- Use real historical documents, speeches, data, charts, or images
-- Each source must be substantial enough for students to extract specific evidence
-- Include complete source citations with real titles and dates
-
-${subjectContext}
-
-Questions must test historical thinking skills with authentic sources that students can analyze for specific evidence.`;
-
+      sectionInstructions = `Create ${numQuestions} multiple choice questions with exactly 4 options (A, B, C, D). Each question must test analytical thinking and include realistic distractors. ${subjectContext}`;
+    } else if (section === 'frq' || section === 'saq') {
+      sectionInstructions = `Create ${numQuestions} free response questions with clear prompts and detailed rubrics. Include realistic scenarios and multiple parts. ${subjectContext}`;
     } else if (section === 'dbq') {
-      sectionInstructions = `Create 1 comprehensive Document-Based Question with exactly 7 REAL historical documents. CRITICAL REQUIREMENTS:
-
-DOCUMENT REQUIREMENTS:
-- Use ACTUAL historical documents, not generic placeholders or template text
-- Each document must be 4-8 sentences long with substantive content
-- Include REAL historical figures, events, dates, and places  
-- Use authentic quotes from primary sources
-- Provide complete, accurate source citations with real titles and dates
-
-DOCUMENTS REQUIRED:
-Document A: Government document (law, proclamation, treaty, speech) with actual legislative/official text
-Document B: Personal letter/diary from real historical figure with authentic personal content
-Document C: Newspaper article or editorial from the time period with real excerpts and headlines
-Document D: Economic data/business records with actual statistics, prices, or business correspondence
-Document E: Opposition viewpoint with real arguments and specific criticisms from actual sources
-Document F: Visual source (political cartoon, photograph, map) with detailed description of real image
-Document G: Secondary source from real historian with specific analysis and interpretation
-
-EXAMPLE FORMAT - USE REAL CONTENT LIKE THIS:
-Document A:
-Source: Abraham Lincoln, Emancipation Proclamation, January 1, 1863
-"That on the first day of January, in the year of our Lord one thousand eight hundred and sixty-three, all persons held as slaves within any State or designated part of a State, the people whereof shall then be in rebellion against the United States, shall be then, thenceforward, and forever free; and the Executive Government of the United States, including the military and naval authority thereof, will recognize and maintain the freedom of such persons..."
-
-SPECIFIC TIME PERIODS TO USE:
-- US History: 1607-1754, 1754-1800, 1800-1848, 1844-1877, 1865-1898, 1890-1945, 1945-1980
-- World History: 1200-1450, 1450-1750, 1750-1900, 1900-2001
-- European History: 1450-1648, 1648-1815, 1815-1914, 1914-present
-
-${subjectContext}
-
-NO PLACEHOLDER TEXT ALLOWED - every document must contain real historical content with actual quotes that students can analyze for evidence, point of view, purpose, and historical context.`;
-
+      sectionInstructions = `Create 1 Document-Based Question with 7 historical documents. Include real historical content with proper sourcing. ${subjectContext}`;
     } else if (section === 'leq') {
-      sectionInstructions = `Create 1 Long Essay Question with 3 specific prompt options using REAL time periods and events. NO BRACKETS OR PLACEHOLDER TEXT.
-
-FORMAT REQUIREMENTS:
-- Use specific years, not [start year] or [end year] or any brackets
-- Reference actual historical developments, not generic placeholders
-- Each prompt must test different historical thinking skills
-
-TIME PERIODS BY SUBJECT:
-- AP US History: 1607-1754, 1754-1800, 1800-1848, 1844-1877, 1865-1898, 1890-1945, 1945-1980, 1980-2001
-- AP World History: c. 1200-1450, c. 1450-1750, c. 1750-1900, c. 1900-2001
-- AP European History: c. 1450-1648, c. 1648-1815, c. 1815-1914, c. 1914-present
-
-EXAMPLE FORMAT - USE REAL CONTENT LIKE THIS:
-Directions: Choose ONE of the following prompts. Use specific historical evidence to support your argument.
-
-Prompt 1: Evaluate the extent to which the Industrial Revolution was a turning point in American social development in the period from 1865 to 1920. In your response, analyze what changed and what stayed the same.
-
-Prompt 2: Evaluate the extent to which Westward Expansion affected different social groups in similar ways in the period from 1844 to 1890. In your response, examine the experiences of at least two different groups.
-
-Prompt 3: Evaluate the extent to which the New Deal represented continuity rather than change in American economic policy from 1900 to 1945. In your response, analyze both New Deal innovations and continuities with earlier policies.
-
-REQUIRED ELEMENTS:
-- Each prompt uses SPECIFIC historical events and time periods
-- No placeholder text or brackets anywhere
-- Clear historical thinking skills tested (causation, continuity/change, comparison)
-- Allow for sophisticated argumentation with evidence
-
-${subjectContext}
-
-Each prompt must reference actual historical developments that students can analyze with specific evidence and examples.`;
-    } else if (section === 'synthesis') {
-      sectionInstructions = `Create 1 Synthesis Essay question for AP English Language. Must include:
-- Clear prompt asking students to synthesize multiple sources
-- 6-7 sources of different types (articles, charts, images, studies)
-- Each source must have proper attribution and real content
-- Prompt should address contemporary issues or debates
-- Sources should present different perspectives on the topic
-
-${subjectContext}
-
-Example format: Using the sources provided, write an essay that synthesizes at least three of the sources and develops your position on [specific issue]. Make sure your argument is central to your essay and that you cite sources to support your reasoning.`;
-    } else if (section === 'rhetorical-analysis') {
-      sectionInstructions = `Create 1 Rhetorical Analysis essay question for AP English Language. Must include:
-- Authentic speech, essay, or text from a real author/speaker
-- Clear context (date, audience, occasion, purpose)
-- Text that demonstrates clear rhetorical strategies
-- Prompt asking students to analyze how author achieves purpose
-
-${subjectContext}
-
-Format: [Author's name] delivered this [speech/wrote this essay/etc.] in [year] to [audience] in order to [purpose]. Read the passage carefully. Write an essay that analyzes the rhetorical strategies [author] uses to convey [his/her] message.`;
-    } else if (section === 'argumentative') {
-      sectionInstructions = `Create 1 Argumentative Essay question for AP English Language. Must include:
-- Clear, debatable claim or position
-- Contemporary or timeless issue relevant to students
-- Prompt that requires evidence-based reasoning
-- Clear call for students to develop their own argument
-
-${subjectContext}
-
-Format: [Present issue/scenario]. Write an essay that argues your position on [specific debatable question]. Use appropriate evidence to support your argument.`;
-    } else if (section === 'poetry-analysis') {
-      sectionInstructions = `Create 1 Poetry Analysis question for AP English Literature. Must include:
-- Complete poem or substantial excerpt from recognized poet
-- Clear publication information and context
-- Poem with rich literary devices and themes
-- Prompt focusing on literary analysis skills
-
-${subjectContext}
-
-Format: Read the following poem carefully. Write an essay that analyzes how [specific literary elements] contribute to the poem's meaning and effect.`;
-    } else if (section === 'prose-analysis') {
-      sectionInstructions = `Create 1 Prose Analysis question for AP English Literature. Must include:
-- Substantial excerpt from recognized work of fiction
-- Clear publication information and context
-- Passage with rich literary techniques and character development
-- Prompt focusing on literary analysis of prose techniques
-
-${subjectContext}
-
-Format: Read the following passage carefully. Write an essay that analyzes how [author] uses literary techniques to [achieve specific effect/develop character/convey theme].`;
-    } else if (section === 'open-question') {
-      sectionInstructions = `Create 1 Open Question for AP English Literature. Must include:
-- Prompt addressing universal literary themes or techniques
-- List of quality literary works students can choose from
-- Clear focus on literary analysis and interpretation
-- Works from different time periods and cultures
-
-${subjectContext}
-
-Format: Choose a novel or play in which [literary element/theme]. Write an essay analyzing how [specific aspect] contributes to the work's meaning. You may choose from the following works or another work of comparable literary merit.`;
+      sectionInstructions = `Create 1 Long Essay Question with 3 specific prompt options using real time periods. ${subjectContext}`;
     } else if (section === 'all-frq') {
-      // Create a complete FRQ section with proper question type distribution based on subject
       if (subject.includes('History')) {
-        // For AP History: 3 SAQs + 1 DBQ + 1 LEQ
-        sectionInstructions = `Create exactly 5 free response questions for AP ${subject} in this EXACT order and format:
-
-QUESTIONS 1-3: SHORT ANSWER QUESTIONS (SAQ)
-Create 3 Short Answer Questions with REAL historical stimulus material. Each question must:
-- Use ACTUAL historical sources with real content (speeches, documents, data, images)
-- Include real historical figures, dates, events, and places
-- Provide 3-5 sentences of authentic historical content
-- Include proper source attribution with real titles, authors, and dates
-- Follow this structure:
-  a) Identify and explain ONE specific historical development/cause/effect shown in the source
-  b) Explain ONE additional cause/consequence/similarity/difference not mentioned in the source  
-  c) Explain ONE way the situation/event in the source affected/was affected by another development
-
-QUESTION 4: DOCUMENT-BASED QUESTION (DBQ)
-Create 1 comprehensive Document-Based Question with exactly 7 REAL historical documents:
-- Use ACTUAL historical documents with authentic quotes from primary sources
-- Include real historical figures, events, dates, and places
-- Each document must be 4-8 sentences with substantive content
-- Provide complete source citations with real titles and dates
-- Cover different document types: government, personal, newspaper, economic, opposition, visual, secondary
-
-QUESTION 5: LONG ESSAY QUESTION (LEQ)  
-Create 1 Long Essay Question with 3 specific prompt options:
-- Use specific years and actual historical developments (no brackets or placeholders)
-- Each prompt tests different historical thinking skills
-- Focus on periods: 1607-1754, 1754-1800, 1800-1848, 1844-1877, 1865-1898, 1890-1945, 1945-1980, 1980-2001
-
-${subjectContext}
-
-Return as JSON array: [{"id": startId, "type": "saq", ...}, {"id": startId+1, "type": "saq", ...}, {"id": startId+2, "type": "saq", ...}, {"id": startId+3, "type": "dbq", ...}, {"id": startId+4, "type": "leq", ...}]`;
-      } else if (subject.includes('English')) {
-        // For AP English: Mix of essay types
-        sectionInstructions = `Create exactly 3 essay questions for AP ${subject} in this order:
-
-QUESTION 1: RHETORICAL ANALYSIS
-- Include authentic speech/essay from real author with clear context
-- Text demonstrating clear rhetorical strategies
-- Prompt analyzing how author achieves purpose
-
-QUESTION 2: ARGUMENTATIVE ESSAY  
-- Clear, debatable claim on contemporary/timeless issue
-- Require evidence-based reasoning and student's own argument
-
-QUESTION 3: ${subject.includes('Literature') ? 'POETRY/PROSE ANALYSIS' : 'SYNTHESIS'}
-${subject.includes('Literature') ? '- Complete poem or substantial prose excerpt with literary analysis prompt' : '- 6-7 sources on contemporary issue with synthesis prompt'}
-
-${subjectContext}
-
-Return as JSON array with appropriate types: "rhetorical-analysis", "argumentative", "${subject.includes('Literature') ? 'poetry-analysis' : 'synthesis'}".`;
+        sectionInstructions = `Create exactly 5 questions: 3 Short Answer Questions with historical sources, 1 Document-Based Question with 7 documents, and 1 Long Essay Question with 3 prompts. Use real historical content. ${subjectContext}`;
       } else {
-        // For other subjects: Mix of long and short FRQs
-        const longCount = Math.ceil(numQuestions * 0.6);
-        sectionInstructions = `Create ${numQuestions} free response questions for ${subject} with this distribution:
-
-QUESTIONS 1-${longCount}: LONG FREE RESPONSE
-- Complex problem-solving requiring 25-30 minutes
-- Multiple parts building to comprehensive solution
-- Experimental design, data analysis, or extended explanations
-
-QUESTIONS ${longCount + 1}-${numQuestions}: SHORT FREE RESPONSE  
-- Focused skill practice requiring 10-15 minutes
-- Specific concepts with clear, direct prompts
-- Application and analysis with authentic scenarios
-
-${subjectContext}
-
-Return as JSON array alternating between "long-frq" and "short-frq" types.`;
+        sectionInstructions = `Create ${numQuestions} comprehensive free response questions appropriate for ${subject}. ${subjectContext}`;
       }
-    } else if (section === 'long-frq') {
-      sectionInstructions = `Create ${numQuestions} long-form free response questions requiring extended analysis and application. Each question must:
-- Test complex problem-solving and analytical skills
-- Require multiple steps or parts building to comprehensive solution
-- Include realistic scenarios and authentic data/contexts
-- Allow for 25-30 minutes of response time
-- Test higher-order thinking and synthesis
-
-${subjectContext}
-
-Focus on experimental design, data analysis, complex calculations, or comprehensive explanations depending on the subject.`;
-    } else if (section === 'short-frq') {
-      sectionInstructions = `Create ${numQuestions} short-form free response questions for focused skill practice. Each question must:
-- Test specific skills or concepts concisely
-- Be answerable in 10-15 minutes
-- Include clear, direct prompts
-- Focus on application and analysis rather than memorization
-- Use authentic scenarios and examples
-
-${subjectContext}
-
-Questions should be targeted and efficient while maintaining rigor.`;
-    } else if (section === 'calculator-frq') {
-      sectionInstructions = `Create ${numQuestions} calculator-allowed free response questions for mathematics. Each question must:
-- Require computational tools for realistic problem-solving
-- Include complex calculations or graphical analysis
-- Test interpretation of calculator-generated results
-- Focus on modeling and application problems
-
-${subjectContext}
-
-Problems should leverage calculator capabilities while testing mathematical reasoning.`;
-    } else if (section === 'no-calculator-frq') {
-      sectionInstructions = `Create ${numQuestions} no-calculator free response questions for mathematics. Each question must:
-- Focus on algebraic manipulation and analytical reasoning
-- Test conceptual understanding without computational aids
-- Include exact solutions and symbolic representations
-- Emphasize mathematical reasoning and proof techniques
-- Test fundamental skills and theoretical understanding
-
-${subjectContext}
-
-Problems should require mathematical insight rather than computation.`;
-    } else if (section === 'short-answer') {
-      sectionInstructions = `Create ${numQuestions} short answer questions requiring focused, concise responses. Each question must:
-- Test specific knowledge and analytical skills
-- Include stimulus material when appropriate
-- Require 2-3 sentence responses with specific evidence
-- Focus on key concepts and applications
-- Be answerable in 3-5 minutes each
-
-${subjectContext}
-
-Questions should be direct and test essential understanding efficiently.`;
-    } else if (section === 'essays') {
-      sectionInstructions = `Create ${numQuestions} essay questions appropriate for the subject. Each question must:
-- Require extended written responses (400-600 words)
-- Test analytical and argumentative writing skills
-- Include clear prompts with specific requirements
-- Allow for complex reasoning and evidence use
-- Focus on synthesis and evaluation
-
-${subjectContext}
-
-Essays should demonstrate mastery of course content through sophisticated writing.`;
-    } else if (section === 'full') {
-      // For full tests, create a mix appropriate to the subject
-      const config = TEST_CONFIGURATIONS[subject] || DEFAULT_CONFIG;
-      const sectionConfig = config.sections.find(s => s.id === 'mcq');
-      const frqSection = config.sections.find(s => s.id === 'frq');
-      const mcqCount = sectionConfig ? Math.min(sectionConfig.questions, numQuestions - 5) : Math.floor(numQuestions * 0.85);
-      const frqCount = frqSection ? Math.min(frqSection.questions, numQuestions - mcqCount) : numQuestions - mcqCount;
-      
-      sectionInstructions = `Create a complete AP ${subject} practice test with:
-- ${mcqCount} challenging multiple choice questions testing analytical thinking
-- ${frqCount} comprehensive free response questions with detailed rubrics
-
-${subjectContext}
-
-Give the MCQ's first and then the FRQ's in the proper order to simulate a realistic AP exam experience with authentic content and appropriate difficulty progression.`;
+    } else {
+      sectionInstructions = `Create ${numQuestions} questions for ${section} section of ${subject}. ${subjectContext}`;
     }
-    
-    // Use the API to generate questions based on the section instructions
-    const prompt = `You are an expert ${subject} question generator. ${sectionInstructions}
 
-CRITICAL: Return ONLY a valid JSON array with exactly ${numQuestions} questions. No extra text before or after.
-
-Each question object must follow these EXACT formats based on question type:
-
-MCQ FORMAT:
-{"id": ${startId}, "type": "mcq", "question": "Question text", "options": ["A) Option 1", "B) Option 2", "C) Option 3", "D) Option 4"], "correctAnswer": 0, "explanation": "Brief explanation", "difficulty": "${difficulty}", "estimatedTime": 2}
-
-SAQ FORMAT:
-{"id": ${startId}, "type": "saq", "question": "Question text", "stimulus": "Primary source or data", "parts": ["a) First task", "b) Second task", "c) Third task"], "timeframe": "12 minutes", "sampleAnswer": "Sample response showing expected depth", "rubric": {"totalPoints": 3, "pointBreakdown": {"part_a": 1, "part_b": 1, "part_c": 1}}, "difficulty": "${difficulty}"}
-
-DBQ FORMAT:
-{"id": ${startId}, "type": "dbq", "question": "Historical question requiring document analysis", "documents": [{"content": "Document text", "source": "Source info", "date": "Year"}], "timeframe": "60 minutes", "sampleAnswer": "Full essay response", "rubric": {"totalPoints": 7, "pointBreakdown": {"thesis": 1, "contextualization": 1, "evidence_docs": 2, "evidence_beyond": 1, "analysis": 2}}, "difficulty": "${difficulty}"}
-
-LEQ FORMAT:
-{"id": ${startId}, "type": "leq", "question": "Historical thesis question", "promptOptions": ["Option 1", "Option 2", "Option 3"], "timeframe": "40 minutes", "sampleAnswer": "Full essay response", "rubric": {"totalPoints": 6, "pointBreakdown": {"thesis": 1, "contextualization": 1, "evidence": 2, "analysis": 2}}, "difficulty": "${difficulty}"}
-
-FRQ FORMAT (Math/Science):
-{"id": ${startId}, "type": "frq", "question": "Problem statement", "timeframe": "25 minutes", "sampleAnswer": "Complete solution with work shown", "rubric": {"totalPoints": 6, "pointBreakdown": {"setup": 2, "execution": 3, "interpretation": 1}}, "difficulty": "${difficulty}"}
-
-ESSAY FORMATS (English):
-{"id": ${startId}, "type": "synthesis", "question": "Argument prompt", "sources": [{"title": "Source 1", "content": "Source text", "type": "article"}], "timeframe": "40 minutes", "sampleAnswer": "Full essay", "rubric": {"totalPoints": 6, "pointBreakdown": {"thesis": 1, "evidence": 2, "commentary": 2, "sophistication": 1}}, "difficulty": "${difficulty}"}
+    const systemPrompt = `You are an expert AP test generator. Generate authentic AP ${subject} questions.
 
 REQUIREMENTS:
-- Start question IDs from ${startId}
-- Include authentic content matching real AP standards
-- Ensure proper JSON syntax with no trailing commas
 - Generate exactly ${numQuestions} questions
-- End with proper ] closing bracket
+- Start question IDs from ${startId}
+- Difficulty: ${difficulty}
+- Question type: ${section}
+- Use real content, not placeholders
+- Include proper rubrics for FRQ questions
+- For MCQ: exactly 4 options with clear correct answer
+- For DBQ: exactly 7 historical documents with real content
+- For LEQ: exactly 3 specific prompts
 
-Return the JSON array now:`;
+INSTRUCTIONS: ${sectionInstructions}
+
+Return ONLY a valid JSON array. No explanatory text or markdown formatting.
+
+Example format:
+[
+  {
+    "id": ${startId},
+    "type": "${section === 'mcq' ? 'mcq' : 'frq'}",
+    "question": "Actual question text...",
+    ${section === 'mcq' ? `"options": ["A) ...", "B) ...", "C) ...", "D) ..."],
+    "correctAnswer": 0,
+    "explanation": "..."` : `"parts": ["a) ...", "b) ...", "c) ..."],
+    "sampleAnswer": "...",
+    "rubric": {"totalPoints": 6, "scoringGuidelines": "..."}`},
+    "topic": "...",
+    "difficulty": "${difficulty}",
+    "estimatedTime": 90
+  }
+]`;
 
     try {
       const response = await fetch(apiUrl, {
@@ -1893,65 +1312,504 @@ Return the JSON array now:`;
         body: JSON.stringify({
           contents: [{
             role: "user",
-            parts: [{ text: prompt }]
+            parts: [{ text: systemPrompt }]
           }],
           generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: 8000,
-            stopSequences: ["}]"], // Stop after completing the JSON array
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 4000,
+            candidateCount: 1
           }
         })
       });
 
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+      }
+
       const result = await response.json();
       
-      if (!result.candidates || !result.candidates[0] || !result.candidates[0].content || !result.candidates[0].content.parts) {
+      if (!result.candidates || !result.candidates[0] || !result.candidates[0].content) {
         throw new Error('Invalid API response structure');
       }
-      
+
       const generatedText = result.candidates[0].content.parts[0].text;
       
-      if (!generatedText) {
-        throw new Error('No text generated by AI');
+      console.log('Raw AI response:', generatedText);
+      
+      // Enhanced cleaning and validation
+      let cleanedText = generatedText.replace(/```json\n?|\n?```/g, '').trim();
+      
+      // Check if response was truncated
+      if (!cleanedText.endsWith(']') && !cleanedText.endsWith('}')) {
+        console.warn('Response appears to be truncated');
+        throw new Error('Response was truncated by API');
       }
       
-      console.log(`Batch parsing: Received ${generatedText.length} characters from AI`);
-      
-      // Use robust JSON parsing with error recovery
-      const questions = parseAIResponse(generatedText);
-      
-      // Ensure we have an array
-      const questionArray = Array.isArray(questions) ? questions : [questions];
-      
-      // Validate and clean up the questions
-      const validQuestions = questionArray.filter(q => q && q.question && (q.options || q.sampleAnswer)).map((q, index) => ({
-        ...q,
-        id: startId + index, // Ensure sequential IDs
-        // Normalize correctAnswer field - AI might use different field names
-        correctAnswer: typeof q.correctAnswer === 'number' ? q.correctAnswer : 
-                      typeof q.correct_answer === 'number' ? q.correct_answer : 0
-      }));
-      
-      if (validQuestions.length === 0) {
-        throw new Error('No valid questions generated from AI response');
-      }
-      
-      // If we got significantly fewer questions than requested, this might be due to incomplete JSON
-      if (validQuestions.length < numQuestions * 0.7) {
-        console.warn(`⚠️ Got ${validQuestions.length} questions but expected ${numQuestions}. This might be due to incomplete AI response.`);
-        
-        // For incomplete batches, try to pad with the questions we have or throw error for retry
-        if (validQuestions.length < numQuestions * 0.5) {
-          throw new Error(`Incomplete batch: Got only ${validQuestions.length} valid questions out of ${numQuestions} expected. Please retry.`);
+      // Try to fix common JSON issues
+      if (!cleanedText.startsWith('[') && !cleanedText.startsWith('{')) {
+        const arrayStart = cleanedText.indexOf('[');
+        if (arrayStart !== -1) {
+          cleanedText = cleanedText.substring(arrayStart);
+        } else {
+          throw new Error('No valid JSON array found in response');
         }
       }
       
-      console.log(`Batch validation: ${validQuestions.length} valid questions from ${questionArray.length} generated`);
+      // Additional cleanup
+      cleanedText = cleanedText
+        .replace(/```[\w]*\n?/g, '')
+        .replace(/\n\n+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      
+      console.log('Cleaned text for parsing:', cleanedText.substring(0, 200) + '...');
+      
+      let questions;
+      try {
+        questions = JSON.parse(cleanedText);
+      } catch (parseError) {
+        console.error('JSON parsing failed:', parseError);
+        console.error('Text that failed to parse:', cleanedText.substring(0, 500));
+        throw new Error(`Failed to parse AI response: ${parseError.message}`);
+      }
+      
+      if (!Array.isArray(questions) || questions.length === 0) {
+        console.error('Invalid questions array:', questions);
+        throw new Error('No valid questions received from AI');
+      }
+
+      // Basic validation
+      const validQuestions = questions.filter(q => {
+        if (!q.question || q.question.length < 20) return false;
+        if (q.type === 'mcq' && (!q.options || q.options.length !== 4)) return false;
+        return true;
+      });
+
+      if (validQuestions.length === 0) {
+        throw new Error('No valid questions passed validation');
+      }
+
+      console.log('Successfully parsed and validated questions:', validQuestions.length);
       return validQuestions;
+      
     } catch (error) {
-      console.error('Error generating questions with AI:', error);
-      throw new Error(`Failed to generate questions: ${error.message}`);
+      console.error('Error in generateQuestionBatch:', error);
+      throw error;
     }
+
+    return result;
+  };
+
+  const handleNextQuestion = () => {
+    if (currentQuestionIndex < questions.length - 1) {
+      setCurrentQuestionIndex(prev => prev + 1);
+    }
+  };
+
+  const handlePreviousQuestion = () => {
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex(prev => prev - 1);
+    }
+  };
+
+  const formatTime = (seconds) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handlePreviousQuestion = () => {
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex(prev => prev - 1);
+    }
+  };
+      // For AP History all-frq: 3 SAQs + 1 DBQ + 1 LEQ = 5 questions
+      if (subject.includes('History')) {
+        // Generate 3 SAQs
+        for (let i = 0; i < 3; i++) {
+          const questionId = startId + i;
+          const topic = topics[i % topics.length];
+          const stimulusTypes = [
+            "excerpt from a historical document",
+            "political cartoon from the period", 
+            "historical photograph",
+            "excerpt from a speech or letter",
+            "statistical chart or graph",
+            "map showing historical changes"
+          ];
+          
+          questions.push({
+            id: questionId,
+            type: 'saq',
+            question: `Use the ${stimulusTypes[i % stimulusTypes.length]} below to answer all parts of the question that follows.`,
+            timeframe: "Suggested time: 12-15 minutes",
+            stimulus: {
+              type: stimulusTypes[i % stimulusTypes.length],
+              content: `[Sample ${stimulusTypes[i % stimulusTypes.length]} related to ${topic}] - "${topic} had significant impact on American society, transforming political, economic, and social structures. The changes brought about during this period would have lasting effects on the development of the nation."`,
+              source: `Historical source from ${topic} period, Author Name, "Document Title," Year`,
+              attribution: `Created during ${topic} to illustrate the impact of historical developments on society`
+            },
+            parts: [
+              `a) Identify ONE specific historical development during ${topic} shown in the ${stimulusTypes[i % stimulusTypes.length]}.`,
+              `b) Explain ONE specific historical effect of the development identified in part (a) on American society.`, 
+              `c) Explain ONE specific historical example of how ${topic} affected a different region or group during the same time period.`
+            ],
+            sampleAnswer: `a) [Specific identification with reference to stimulus] b) [Clear cause-and-effect explanation with historical details] c) [Broader historical example showing understanding of diverse experiences]`,
+            rubric: {
+              totalPoints: 3,
+              pointBreakdown: { "part_a": 1, "part_b": 1, "part_c": 1 },
+              scoringGuidelines: "Each part worth 1 point. Part A: Identifies specific development from stimulus. Part B: Explains specific effect with cause-and-effect reasoning. Part C: Explains specific example demonstrating broader understanding.",
+              keyTerms: ["specific evidence", "historical reasoning", "cause and effect", "diverse perspectives"]
+            },
+            topic: topic,
+            difficulty: difficulty,
+            estimatedTime: 13
+          });
+        }
+        
+        // Generate 1 DBQ
+        const dbqTopic = topics[3 % topics.length];
+        questions.push({
+          id: startId + 3,
+          type: 'dbq',
+          question: `Evaluate the extent to which ${dbqTopic} affected social and political development in the United States. In your response, you should address the three sources of evidence below.`,
+          timeframe: "Suggested time: 60 minutes (includes 15-minute reading period)",
+          directions: "Question 1 is based on the accompanying documents. The documents have been edited for the purpose of this exercise. You are advised to spend 15 minutes planning and 45 minutes writing your answer.",
+          documents: [
+            {
+              docId: "Document 1",
+              source: `Primary source from ${dbqTopic} period - Author, "Title," Date`,
+              content: `"The events of ${dbqTopic} fundamentally changed the way Americans viewed their government and society. These transformations would reshape the political landscape for generations to come." [Extended excerpt would continue with specific details about the historical period]`,
+              pov: "Consider the author's social position and how their perspective might be influenced by their role in society during this period"
+            },
+            {
+              docId: "Document 2", 
+              source: `Government document from ${dbqTopic} era - Official Title, Agency, Date`,
+              content: `[Official policy statement or legislation related to ${dbqTopic}] "It is hereby declared that the following measures shall be implemented to address the challenges facing the nation during this critical period..."`,
+              pov: "Analyze how the official nature of this source influences its content and consider the difference between stated policy and actual implementation"
+            },
+            {
+              docId: "Document 3",
+              source: `Economic data/business record from ${dbqTopic} period - Source, Date`,
+              content: `[Statistical information or business correspondence showing economic impact] "The economic effects of ${dbqTopic} can be seen in the following data: [specific numbers and trends would be provided]"`,
+              pov: "Consider who compiled this data, for what purpose, and what economic perspectives might be missing from this source"
+            },
+            {
+              docId: "Document 4",
+              source: `Personal account from individual affected by ${dbqTopic} - Name, "Title/Source," Date`,
+              content: `"I have witnessed firsthand the changes brought about by ${dbqTopic}. In my community, we have seen [specific personal experiences and observations about the historical period]"`,
+              pov: "Analyze how this individual's personal experience may not represent broader patterns and consider their social position"
+            },
+            {
+              docId: "Document 5",
+              source: `Opposition viewpoint from ${dbqTopic} period - Author/Group, "Title," Date`,
+              content: `"We strongly oppose the developments of ${dbqTopic} because [specific criticisms and alternative perspectives on the historical events]"`,
+              pov: "Consider how this opposition stance affects the reliability and purpose of their critique"
+            },
+            {
+              docId: "Document 6",
+              source: `Visual source: Political cartoon/photograph from ${dbqTopic} period - Artist/Photographer, Publication, Date`,
+              content: `[Description of visual elements] This image depicts [symbolic or literal representation of ${dbqTopic}] showing [specific visual details and their historical significance]`,
+              pov: "Analyze the creator's intended message, target audience, and the limitations of visual sources in representing complex historical events"
+            },
+            {
+              docId: "Document 7",
+              source: `Secondary source analysis of ${dbqTopic} - Historian Name, "Book/Article Title," Publication Year`,
+              content: `"Modern analysis reveals that ${dbqTopic} was significant because [scholarly interpretation with specific evidence and analysis of the historical period]"`,
+              pov: "Consider how historical distance affects this perspective and evaluate what primary sources the historian used for their analysis"
+            }
+          ],
+          sampleAnswer: "A strong DBQ response will include: THESIS: Clear argument about the extent of impact; CONTEXTUALIZATION: Broader historical background; EVIDENCE: Analysis of 6+ documents; OUTSIDE EVIDENCE: Additional historical knowledge; POV ANALYSIS: Analysis of 3+ documents' perspectives; COMPLEXITY: Nuanced argument with qualifications.",
+          rubric: {
+            totalPoints: 7,
+            pointBreakdown: {
+              "thesis": 1,
+              "contextualization": 1, 
+              "evidence": 2,
+              "analysis": 2,
+              "complexity": 1
+            },
+            scoringGuidelines: "College Board DBQ rubric: Thesis (1 pt) - defensible claim; Contextualization (1 pt) - broader historical context; Evidence (2 pts) - 1 pt for 3+ docs, 2 pts for 6+ docs; Analysis (2 pts) - 1 pt for 3+ POV analyses, 1 pt for outside evidence; Complexity (1 pt) - sophisticated argumentation."
+          },
+          topic: dbqTopic,
+          difficulty: difficulty,
+          estimatedTime: 60
+        });
+        
+        // Generate 1 LEQ
+        const leqTopic = topics[4 % topics.length];
+        const leqPrompts = [
+          `Evaluate the extent to which ${leqTopic} was a turning point in American political development`,
+          `Evaluate the extent to which ${leqTopic} affected different social groups in similar ways`,
+          `Evaluate the extent to which ${leqTopic} represented continuity OR change in American economic patterns`
+        ];
+        
+        questions.push({
+          id: startId + 4,
+          type: 'leq',
+          question: `${leqPrompts[0]} in the period from [start year] to [end year]. In the development of your argument, analyze what changed and what stayed the same from the period before to the period after.`,
+          timeframe: "Suggested time: 40 minutes", 
+          directions: "Choose ONE of the following prompts. You are advised to spend 5 minutes planning and 35 minutes writing your answer.",
+          promptOptions: [
+            `Option A: ${leqPrompts[0]} during [time period 1]`,
+            `Option B: ${leqPrompts[1]} in [time period 2]`, 
+            `Option C: ${leqPrompts[2]} from [time period 3]`
+          ],
+          sampleAnswer: "A strong LEQ response will include: THESIS: Clear argument addressing the extent of change/continuity; CONTEXTUALIZATION: Historical background that situates the argument; EVIDENCE: Specific examples with clear connections to the argument; REASONING: Analysis of what changed vs. what stayed the same; COMPLEXITY: Nuanced argument considering multiple perspectives.",
+          rubric: {
+            totalPoints: 6,
+            pointBreakdown: {
+              "thesis": 1,
+              "contextualization": 1,
+              "evidence": 2, 
+              "analysis": 2
+            },
+            scoringGuidelines: "College Board LEQ rubric: Thesis (1 pt) - defensible claim with line of reasoning; Contextualization (1 pt) - broader historical context; Evidence (2 pts) - 1 pt for specific examples, 2 pts for supporting argument; Analysis (2 pts) - 1 pt for historical reasoning, 1 pt for complex understanding."
+          },
+          topic: leqTopic,
+          difficulty: difficulty,
+          estimatedTime: 40
+        });
+        
+      } else {
+        // For non-history subjects, generate appropriate FRQ mix
+        for (let i = 0; i < numQuestions; i++) {
+          const questionId = startId + i;
+          const topic = topics[i % topics.length];
+          
+          questions.push({
+            id: questionId,
+            type: 'frq',
+            question: `Evaluate the extent to which ${topic.toLowerCase()} represented a turning point in ${subject} development. In your response, consider multiple factors and provide specific evidence.`,
+            timeframe: "Suggested time: 20 minutes",
+            parts: [
+              `Part (a): Identify and explain ONE specific example related to ${topic.toLowerCase()}`, 
+              `Part (b): Analyze the broader implications of this development`,
+              `Part (c): Evaluate the extent of change or continuity in this area`
+            ],
+            sampleAnswer: `A strong response should provide specific evidence for each part and demonstrate understanding of complex relationships within ${subject}.`,
+            rubric: {
+              totalPoints: 6,
+              pointBreakdown: { 
+                "part_a": 2, 
+                "part_b": 2,
+                "part_c": 2 
+              },
+              scoringGuidelines: "Each part worth 2 points: 1 point for identification/analysis, 1 point for clear explanation with specific evidence.",
+              keyTerms: ["specific evidence", "analysis", "evaluation", "subject expertise"]
+            },
+            topic: topic,
+            difficulty: difficulty,
+            estimatedTime: 20
+          });
+        }
+      }
+    } else {
+      // Handle individual section types with more variety
+      for (let i = 0; i < numQuestions; i++) {
+        const questionId = startId + i;
+        const topic = topics[i % topics.length];
+        
+        if (section === 'mcq') {
+          const questionTypes = [
+            `Which of the following best explains the significance of ${topic.toLowerCase()}?`,
+            `The primary characteristic of ${topic.toLowerCase()} was:`,
+            `${topic} can best be understood as:`,
+            `Which factor most influenced developments in ${topic.toLowerCase()}?`
+          ];
+          
+          questions.push({
+            id: questionId,
+            type: 'mcq',
+            question: questionTypes[i % questionTypes.length],
+            options: [
+              "A) Technological advances drove most significant changes during this period",
+              "B) Social movements and popular uprisings shaped political developments", 
+              "C) Economic policies and trade relationships were the decisive factors",
+              "D) Religious and cultural transformations had the most lasting impact"
+            ],
+            correctAnswer: Math.floor(Math.random() * 4),
+            explanation: `This question tests understanding of ${topic.toLowerCase()} and requires students to analyze the relative importance of different historical factors. The correct answer demonstrates comprehension of cause-and-effect relationships.`,
+            topic: topic,
+            difficulty: difficulty,
+            estimatedTime: 90
+          });
+        } else if (section === 'frq') {
+          questions.push({
+            id: questionId,
+            type: 'frq',
+            question: `Evaluate the extent to which ${topic.toLowerCase()} represented a turning point in historical development from [earlier period] to [later period]. In your response, consider the political, economic, and social factors.`,
+            timeframe: "Suggested time: 35 minutes",
+            parts: [
+              `Part (a): Identify and explain ONE specific example of how ${topic.toLowerCase()} affected political structures`, 
+              `Part (b): Identify and explain ONE specific example of how economic factors influenced ${topic.toLowerCase()}`,
+              `Part (c): Evaluate the extent to which ${topic.toLowerCase()} represents continuity OR change in social patterns`
+            ],
+            sampleAnswer: `A strong response should provide specific historical evidence for each part, demonstrate understanding of cause-and-effect relationships, and evaluate the extent of change over time with nuanced analysis.`,
+            rubric: {
+              totalPoints: 6,
+              pointBreakdown: { 
+                "part_a": 2, 
+                "part_b": 2,
+                "part_c": 2 
+              },
+              scoringGuidelines: "Each part worth 2 points: 1 point for identification of specific example, 1 point for explanation with historical reasoning.",
+              keyTerms: ["specific evidence", "causation", "continuity and change", "historical context"]
+            },
+            topic: topic,
+            difficulty: difficulty,
+            estimatedTime: 35
+          });
+        } else if (section === 'saq') {
+          const stimulusTypes = [
+            "excerpt from a political speech",
+            "historical photograph", 
+            "political cartoon",
+            "excerpt from a diary or letter",
+            "government document or treaty",
+            "statistical chart or graph",
+            "map showing historical changes"
+          ];
+          
+          questions.push({
+            id: questionId,
+            type: 'saq',
+            question: `Use the ${stimulusTypes[i % stimulusTypes.length]} below to answer all parts of the question that follows.`,
+            timeframe: "Suggested time: 20 minutes",
+            stimulus: {
+              type: stimulusTypes[i % stimulusTypes.length],
+              content: `[Sample ${stimulusTypes[i % stimulusTypes.length]} related to ${topic.toLowerCase()}] - This stimulus material would contain authentic historical source material that students must analyze and reference in their responses.`,
+              source: `Historical source from ${topic} period with proper attribution`,
+              attribution: `Created during ${topic.toLowerCase()} to [purpose/audience/context]`
+            },
+            parts: [
+              `a) Identify ONE specific historical development in ${topic.toLowerCase()} shown in the ${stimulusTypes[i % stimulusTypes.length]}.`,
+              `b) Explain ONE specific historical effect of the development identified in part (a) on society during this period.`, 
+              `c) Explain ONE specific historical example of how ${topic.toLowerCase()} affected a different group or region in the same time period.`
+            ],
+            sampleAnswer: "a) [Specific identification with reference to stimulus] b) [Clear cause-and-effect explanation with historical details] c) [Broader historical example showing understanding of diverse experiences]",
+            rubric: {
+              totalPoints: 3,
+              pointBreakdown: { "part_a": 1, "part_b": 1, "part_c": 1 },
+              scoringGuidelines: "Part A (1 point): Identifies specific historical development from stimulus. Part B (1 point): Explains specific historical effect with cause-and-effect reasoning. Part C (1 point): Explains specific example demonstrating broader understanding.",
+              keyTerms: ["specific evidence", "historical reasoning", "cause and effect", "diverse perspectives"]
+            },
+            topic: topic,
+            difficulty: difficulty,
+            estimatedTime: 20
+          });
+        } else if (section === 'dbq') {
+          questions.push({
+            id: questionId,
+            type: 'dbq',
+            question: `Evaluate the extent to which ${topic.toLowerCase()} affected social and economic development in [specific time period]. In your response, you should address the three sources of evidence below.`,
+            timeframe: "Suggested time: 60 minutes (includes 15-minute reading period)",
+            directions: "This question is based on the accompanying documents. You are advised to spend 15 minutes planning and 45 minutes writing your answer.",
+            documents: [
+              {
+                docId: "Document 1",
+                source: `Primary source from ${topic} period - Author, Title, Date`,
+                content: `Substantial excerpt showing one perspective on ${topic.toLowerCase()} with specific details and evidence relevant to the prompt.`,
+                pov: "Consider the author's social position and potential bias based on their role in society"
+              },
+              {
+                docId: "Document 2", 
+                source: `Government document or official policy from ${topic} era`,
+                content: `Official response or legislation related to ${topic.toLowerCase()} showing institutional perspective.`,
+                pov: "Analyze how the official nature influences the content and intended vs. actual impact"
+              },
+              {
+                docId: "Document 3",
+                source: `Economic data, chart, or business records from ${topic} period`,
+                content: `Statistical or economic evidence showing material impact of ${topic.toLowerCase()}.`,
+                pov: "Consider who compiled the data and for what purpose, and what perspectives might be missing"
+              },
+              {
+                docId: "Document 4",
+                source: `Personal account, diary, or letter from individual affected by ${topic}`,
+                content: `Individual experience and reaction to ${topic.toLowerCase()} from ground level.`,
+                pov: "Analyze personal bias and how individual experience may not represent broader patterns"
+              },
+              {
+                docId: "Document 5",
+                source: `Opposition viewpoint or critique of ${topic} from different social group`,
+                content: `Contrasting perspective challenging or criticizing ${topic.toLowerCase()}.`,
+                pov: "Consider how opposition position affects the reliability and purpose of the critique"
+              },
+              {
+                docId: "Document 6",
+                source: `Visual source: political cartoon, photograph, or map from ${topic} period`,
+                content: `Visual representation of ${topic.toLowerCase()} showing symbolic or literal depiction.`,
+                pov: "Analyze the creator's intended message and the limitations of visual sources"
+              },
+              {
+                docId: "Document 7",
+                source: `Secondary source or later historical analysis of ${topic}`,
+                content: `Scholarly interpretation or modern analysis of ${topic.toLowerCase()} and its significance.`,
+                pov: "Consider how historical distance affects perspective and what sources the historian used"
+              }
+            ],
+            sampleAnswer: "THESIS: [Specific argument about extent of impact] CONTEXTUALIZATION: [Broader historical context] EVIDENCE: [Analysis of 6+ documents] OUTSIDE EVIDENCE: [Additional historical evidence] POV ANALYSIS: [Analysis of 3+ documents' perspectives] COMPLEXITY: [Nuanced argument with qualifications]",
+            rubric: {
+              totalPoints: 7,
+              pointBreakdown: {
+                "thesis": 1,
+                "contextualization": 1, 
+                "evidence": 2,
+                "analysis": 2,
+                "complexity": 1
+              },
+              scoringGuidelines: "Authentic College Board DBQ rubric with specific criteria for thesis, contextualization, document usage, POV analysis, outside evidence, and complex reasoning."
+            },
+            topic: topic,
+            difficulty: difficulty,
+            estimatedTime: 60
+          });
+        } else if (section === 'leq') {
+          const leqPrompts = [
+            `Evaluate the extent to which ${topic.toLowerCase()} was a turning point in historical development`,
+            `Evaluate the extent to which ${topic.toLowerCase()} affected different social groups in similar ways`,
+            `Evaluate the extent to which ${topic.toLowerCase()} represented continuity OR change in historical patterns`
+          ];
+          
+          questions.push({
+            id: questionId,
+            type: 'leq',
+            question: `${leqPrompts[i % leqPrompts.length]} in the period from [start year] to [end year]. In the development of your argument, analyze what changed and what stayed the same.`,
+            timeframe: "Suggested time: 40 minutes", 
+            directions: "You are advised to spend 5 minutes planning and 35 minutes writing your answer.",
+            promptOptions: [
+              `Option A: ${leqPrompts[0]} during [time period]`,
+              `Option B: ${leqPrompts[1]} in [different time period]`, 
+              `Option C: ${leqPrompts[2]} from [start] to [end]`
+            ],
+            sampleAnswer: "THESIS: [Clear argument addressing extent] CONTEXTUALIZATION: [Historical background] EVIDENCE: [Specific examples with analysis] REASONING: [Analysis of change and continuity] COMPLEXITY: [Nuanced argument with multiple perspectives]",
+            rubric: {
+              totalPoints: 6,
+              pointBreakdown: {
+                "thesis": 1,
+                "contextualization": 1,
+                "evidence": 2, 
+                "analysis": 2
+              },
+              scoringGuidelines: "Authentic College Board LEQ rubric requiring thesis, contextualization, specific evidence, and historical reasoning with complex understanding."
+            },
+            topic: topic,
+            difficulty: difficulty,
+            estimatedTime: 40
+          });
+        }
+      }
+    }
+    
+    return questions;
   };
 
   const handleNextQuestion = () => {
@@ -1974,7 +1832,7 @@ Return the JSON array now:`;
   };
 
   const getTutorResponse = async (subject, question, userQuestion) => {
-    const apiKey = process.env.REACT_APP_GEMINI_API_KEY;
+    const apiKey = "AIzaSyD9Rjt3n083o1gCqMk05DhvtVYUYIF_Alc";
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
     
     const prompt = `You are an expert ${subject} tutor. A student is asking about this practice test question:
@@ -2011,11 +1869,8 @@ Please provide a clear, educational response that helps the student understand t
   };
 
   const resetTest = () => {
-    setSelectedSubject('');
-    setSelectedSection('');
-    setSelectedDifficulty('Standard AP Test');
-    setCustomTime('');
-    setUseDefaultTime(true);
+    setCurrentView('setup');
+    setSelectedSubSection('');
     setQuestions([]);
     setCurrentQuestionIndex(0);
     setUserAnswers({});
@@ -2207,7 +2062,7 @@ Please provide a clear, educational response that helps the student understand t
           </motion.div>
 
           {/* Test Configuration */}
-          <div className="grid lg:grid-cols-2 gap-8 mb-6">
+          <div className="grid lg:grid-cols-2 gap-8">
             {/* Left Column - Configuration */}
             <motion.div
               initial={{ opacity: 0, x: -20 }}
@@ -2228,12 +2083,7 @@ Please provide a clear, educational response that helps the student understand t
                     </label>
                     <select
                       value={selectedSubject}
-                      onChange={(e) => {
-                        setSelectedSubject(e.target.value);
-                        setSelectedSection('');
-                        setSelectedSubSection('');
-                        setSelectedUnits([]);
-                      }}
+                      onChange={(e) => setSelectedSubject(e.target.value)}
                       className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-slate-100 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
                     >
                       <option value="">Select a subject...</option>
@@ -2270,7 +2120,7 @@ Please provide a clear, educational response that helps the student understand t
                           >
                             <div className="flex items-center justify-between">
                               <div>
-                                <h3 className="font-medium text-slate-200 mb-3">{section.name}</h3>
+                                <h3 className="font-medium text-slate-200">{section.name}</h3>
                                 <p className="text-sm text-slate-400">{section.description}</p>
                               </div>
                               <div className="text-right">
@@ -2316,7 +2166,7 @@ Please provide a clear, educational response that helps the student understand t
                               >
                                 <div className="flex items-center justify-between">
                                   <div>
-                                    <h3 className="font-medium text-slate-200 mb-3">{subSection.name}</h3>
+                                    <h3 className="font-medium text-slate-200">{subSection.name}</h3>
                                     <p className="text-sm text-slate-400">{subSection.description}</p>
                                   </div>
                                   <div className="text-right">
@@ -2330,73 +2180,6 @@ Please provide a clear, educational response that helps the student understand t
                         </motion.div>
                       );
                     })()
-                  )}
-
-                  {/* Unit Selection */}
-                  {selectedSubject && 
-                   (TEST_CONFIGURATIONS[selectedSubject]?.units || []).length > 0 && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.1 }}
-                    >
-                      <label className="block text-sm font-medium text-slate-300 mb-3">
-                        Select Units (Optional - leave empty for all units)
-                      </label>
-                      <div className="mb-3">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const allUnits = TEST_CONFIGURATIONS[selectedSubject].units.map(unit => unit.name);
-                            setSelectedUnits(selectedUnits.length === allUnits.length ? [] : allUnits);
-                          }}
-                          className="px-3 py-2 text-sm bg-slate-600 hover:bg-slate-500 rounded-lg text-slate-200 transition-colors"
-                        >
-                          {selectedUnits.length === (TEST_CONFIGURATIONS[selectedSubject]?.units || []).length ? 'Deselect All' : 'Select All'}
-                        </button>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-60 overflow-y-auto">
-                        {(TEST_CONFIGURATIONS[selectedSubject]?.units || []).map((unit) => (
-                          <div
-                            key={unit.name}
-                            onClick={() => {
-                              setSelectedUnits(prev => 
-                                prev.includes(unit.name)
-                                  ? prev.filter(u => u !== unit.name)
-                                  : [...prev, unit.name]
-                              );
-                            }}
-                            className={`p-3 rounded-lg border cursor-pointer transition-all ${
-                              selectedUnits.includes(unit.name)
-                                ? 'border-purple-500 bg-purple-500/10'
-                                : 'border-slate-600 hover:border-slate-500 bg-slate-700/50'
-                            }`}
-                          >
-                            <div className="flex items-center space-x-2">
-                              <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
-                                selectedUnits.includes(unit.name)
-                                  ? 'border-purple-500 bg-purple-500'
-                                  : 'border-slate-400'
-                              }`}>
-                                {selectedUnits.includes(unit.name) && (
-                                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
-                                  </svg>
-                                )}
-                              </div>
-                              <div>
-                                <span className="font-medium text-slate-200 text-sm">{unit.name}</span>
-                                {unit.topics && (
-                                  <div className="text-xs text-slate-400 mt-1">
-                                    {unit.topics.slice(0, 3).join(', ')}{unit.topics.length > 3 ? '...' : ''}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </motion.div>
                   )}
 
                   {/* Difficulty Selection */}
@@ -2513,11 +2296,11 @@ Please provide a clear, educational response that helps the student understand t
                       </div>
                     ) : (
                       <div className="flex items-center gap-3">
-                        <Play className="w-6 h-6" />
+                        <PlayCircle className="w-6 h-6" />
                         Generate & Start Test
                         {(() => {
                           const config = TEST_CONFIGURATIONS[selectedSubject] || DEFAULT_CONFIG;
-                          const sectionConfig = config.sections.find(s => s.id === 'mcq');
+                          const sectionConfig = config.sections.find(s => s.id === selectedSection);
                           let questionsCount = sectionConfig?.questions || 0;
                           
                           if (selectedSection === 'frq' && selectedSubSection && sectionConfig?.subSections) {
@@ -2551,28 +2334,28 @@ Please provide a clear, educational response that helps the student understand t
                   <div className="flex items-start gap-3">
                     <Target className="w-5 h-5 text-blue-400 mt-0.5" />
                     <div>
-                      <h4 className="font-medium text-slate-200 mb-3">Adaptive Questions</h4>
+                      <h4 className="font-medium text-slate-200">Adaptive Questions</h4>
                       <p className="text-sm text-slate-400">AI generates questions tailored to your difficulty level</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
                     <MessageSquare className="w-5 h-5 text-green-400 mt-0.5" />
                     <div>
-                      <h4 className="font-medium text-slate-200 mb-3">Instant Tutor Help</h4>
+                      <h4 className="font-medium text-slate-200">Instant Tutor Help</h4>
                       <p className="text-sm text-slate-400">Ask questions about any problem during review</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
                     <TrendingUp className="w-5 h-5 text-purple-400 mt-0.5" />
                     <div>
-                      <h4 className="font-medium text-slate-200 mb-3">Detailed Analytics</h4>
+                      <h4 className="font-medium text-slate-200">Detailed Analytics</h4>
                       <p className="text-sm text-slate-400">Comprehensive score breakdown and improvement insights</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
                     <Award className="w-5 h-5 text-orange-400 mt-0.5" />
                     <div>
-                      <h4 className="font-medium text-slate-200 mb-3">AP Score Prediction</h4>
+                      <h4 className="font-medium text-slate-200">AP Score Prediction</h4>
                       <p className="text-sm text-slate-400">Get your predicted AP score based on performance</p>
                     </div>
                   </div>
@@ -2610,7 +2393,7 @@ Please provide a clear, educational response that helps the student understand t
                            }}>
                         <div className="flex items-center justify-between">
                           <div>
-                            <h4 className="font-medium text-slate-200 mb-2">{test.subject}</h4>
+                            <h4 className="font-medium text-slate-200">{test.subject}</h4>
                             <p className="text-sm text-slate-400">
                               {test.section === 'mcq' ? 'Multiple Choice' : 
                                test.section === 'frq' ? 'Free Response' : 'Full Test'}
@@ -2621,7 +2404,7 @@ Please provide a clear, educational response that helps the student understand t
                           </div>
                           <div className="text-right">
                             <div className="text-lg font-bold text-blue-400">
-                              {test.results?.apScore}
+                              {test.results?.apScore || 'N/A'}
                             </div>
                             <p className="text-xs text-slate-400">AP Score</p>
                             <p className="text-xs text-slate-500">
@@ -2654,7 +2437,7 @@ Please provide a clear, educational response that helps the student understand t
             animate={{ opacity: 1, scale: 1 }}
             className="text-center"
           >
-            <X className="w-16 h-16 text-red-400 mx-auto mb-4" />
+            <XCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-slate-100 mb-4">No Questions Available</h2>
             <p className="text-lg text-slate-300 mb-6">
               There was an issue generating questions for this test.
@@ -2663,7 +2446,7 @@ Please provide a clear, educational response that helps the student understand t
               onClick={resetTest}
               className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
             >
-              <RotateCw className="w-5 h-5 mr-2" />
+              <RotateCcw className="w-5 h-5 mr-2" />
               Try Again
             </Button>
           </motion.div>
@@ -2680,7 +2463,7 @@ Please provide a clear, educational response that helps the student understand t
             animate={{ opacity: 1, scale: 1 }}
             className="text-center"
           >
-            <Flag className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
+            <HelpCircle className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-slate-100 mb-4">Question Not Found</h2>
             <p className="text-lg text-slate-300 mb-6">
               Question {currentQuestionIndex + 1} of {questions.length} could not be loaded.
@@ -2696,7 +2479,7 @@ Please provide a clear, educational response that helps the student understand t
                 onClick={resetTest}
                 className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
               >
-                <RotateCw className="w-5 h-5 mr-2" />
+                <RotateCcw className="w-5 h-5 mr-2" />
                 Restart Test
               </Button>
             </div>
@@ -2722,9 +2505,9 @@ Please provide a clear, educational response that helps the student understand t
               
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2 text-slate-300">
-                  <Clock className="w-5 h-5" />
+                  <Timer className="w-5 h-5" />
                   <span className={`font-mono text-lg ${timeRemaining < 300 ? 'text-red-400' : ''}`}>
-                    {formatTimeFromSeconds(timeRemaining)}
+                    {formatTime(timeRemaining)}
                   </span>
                 </div>
                 
@@ -2733,7 +2516,7 @@ Please provide a clear, educational response that helps the student understand t
                   onClick={() => setTestPaused(!testPaused)}
                   className="text-slate-300"
                 >
-                  {testPaused ? <Play className="w-5 h-5" /> : <Pause className="w-5 h-5" />}
+                  {testPaused ? <PlayCircle className="w-5 h-5" /> : <PauseCircle className="w-5 h-5" />}
                 </Button>
                 
                 <Button
@@ -2769,21 +2552,21 @@ Please provide a clear, educational response that helps the student understand t
         </div>
 
         {/* Test Content */}
-        <div className="max-w-4xl mx-auto px-6 py-8">
+        <div className="max-w-7xl mx-auto px-6 py-8">
           {testPaused ? (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="text-center py-12"
             >
-              <Pause className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
+              <PauseCircle className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
               <h2 className="text-2xl font-bold text-slate-200 mb-2">Test Paused</h2>
               <p className="text-slate-400 mb-6">Click the play button to resume your test</p>
               <Button
                 onClick={() => setTestPaused(false)}
                 className="bg-green-600 hover:bg-green-700"
               >
-                <Play className="w-5 h-5 mr-2" />
+                <PlayCircle className="w-5 h-5 mr-2" />
                 Resume Test
               </Button>
             </motion.div>
@@ -2794,42 +2577,453 @@ Please provide a clear, educational response that helps the student understand t
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.3 }}
             >
-              <Card className="p-8">
-                {/* Question */}
-                <div className="mb-8">
-                  <div className="flex items-start gap-4 mb-6">
-                    <div className="p-3 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg text-white font-bold text-lg min-w-[3rem] text-center">
-                      {currentQuestionIndex + 1}
+              {/* Different layouts based on question type */}
+              {currentQuestion?.type === 'mcq' ? (
+                /* MCQ Layout: Documents/Sources on left, Question/Options on right */
+                <div className="grid lg:grid-cols-2 gap-8">
+                  {/* Left: Documents/Sources */}
+                  <Card className="p-6">
+                    <div className="sticky top-6">
+                      <h3 className="text-xl font-bold text-slate-100 mb-4 flex items-center gap-2">
+                        <FileQuestion className="w-5 h-5 text-blue-400" />
+                        Source Material
+                      </h3>
+                      
+                      {/* Display sources for MCQ */}
+                      {currentQuestion?.sources && currentQuestion.sources.length > 0 ? (
+                        <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+                          {currentQuestion.sources.map((source, index) => (
+                            <div key={index} className="p-4 bg-slate-700/30 rounded-lg border-l-4 border-blue-500">
+                              <div className="mb-2">
+                                <span className="font-bold text-blue-400">Source {String.fromCharCode(65 + index)}</span>
+                                {source.title && (
+                                  <div className="text-sm text-slate-300 mt-1 font-medium">
+                                    {source.title}
+                                  </div>
+                                )}
+                                {source.source && (
+                                  <div className="text-sm text-slate-400 mt-1">
+                                    {source.source}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="text-slate-300 text-sm leading-relaxed">
+                                {source.content || source.description}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : currentQuestion?.documents && currentQuestion.documents.length > 0 ? (
+                        <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+                          {currentQuestion.documents.map((doc, index) => (
+                            <div key={index} className="p-4 bg-slate-700/30 rounded-lg border-l-4 border-blue-500">
+                              {doc.source && (
+                                <div className="text-sm text-slate-400 mb-2">
+                                  {doc.source}
+                                  {doc.date && `, ${doc.date}`}
+                                </div>
+                              )}
+                              <div className="text-slate-300 text-sm leading-relaxed">
+                                {doc.content}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : currentQuestion?.passage ? (
+                        <div className="p-4 bg-slate-700/30 rounded-lg">
+                          {currentQuestion.passageInfo && (
+                            <div className="mb-3 text-sm text-slate-400">
+                              {currentQuestion.passageInfo}
+                            </div>
+                          )}
+                          <div className="text-slate-300 text-sm leading-relaxed font-serif max-h-[60vh] overflow-y-auto">
+                            <pre className="whitespace-pre-wrap font-serif">{currentQuestion.passage}</pre>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-8 text-center text-slate-400">
+                          <FileQuestion className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                          <p>No source material provided</p>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-3">
-                        <Badge variant="secondary">
-                          {currentQuestion?.topic || 'AP Content'}
-                        </Badge>
-                        <Badge variant={currentQuestion?.type === 'mcq' ? 'primary' : 'purple'}>
-                          {currentQuestion?.type === 'mcq' ? 'Multiple Choice' : 
-                           currentQuestion?.type === 'frq' ? 'Free Response' :
-                           currentQuestion?.type === 'saq' ? 'Short Answer' :
-                           currentQuestion?.type === 'dbq' ? 'Document-Based Question' :
-                           currentQuestion?.type === 'leq' ? 'Long Essay Question' :
-                           currentQuestion?.type === 'synthesis' ? 'Synthesis Essay' :
-                           currentQuestion?.type === 'rhetorical-analysis' ? 'Rhetorical Analysis' :
-                           currentQuestion?.type === 'argumentative' ? 'Argumentative Essay' :
-                           currentQuestion?.type === 'poetry-analysis' ? 'Poetry Analysis' :
-                           currentQuestion?.type === 'prose-analysis' ? 'Prose Analysis' :
-                           currentQuestion?.type === 'open-question' ? 'Open Question' :
-                           currentQuestion?.type === 'long-frq' ? 'Long FRQ' :
-                           currentQuestion?.type === 'short-frq' ? 'Short FRQ' :
-                           currentQuestion?.type === 'calculator-frq' ? 'Calculator FRQ' :
-                           currentQuestion?.type === 'no-calculator-frq' ? 'No Calculator FRQ' :
-                           currentQuestion?.type === 'short-answer' ? 'Short Answer' :
-                           currentQuestion?.type === 'essays' ? 'Essay' :
-                           'Written Response'}
-                        </Badge>
+                  </Card>
+
+                  {/* Right: Question and Options */}
+                  <Card className="p-6">
+                    <div className="mb-6">
+                      <div className="flex items-start gap-4 mb-4">
+                        <div className="p-3 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg text-white font-bold text-lg min-w-[3rem] text-center">
+                          {currentQuestionIndex + 1}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-3">
+                            <Badge variant="secondary">
+                              {currentQuestion?.topic || 'AP Content'}
+                            </Badge>
+                            <Badge variant="primary">
+                              Multiple Choice
+                            </Badge>
+                            {currentQuestion?.estimatedTime && (
+                              <Badge variant="secondary">
+                                ~{currentQuestion.estimatedTime}s
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-lg text-slate-200 leading-relaxed">
+                      
+                      {/* Question */}
+                      <div className="text-lg text-slate-200 leading-relaxed mb-6 p-4 bg-slate-700/30 rounded-lg">
                         <LaTeXRenderer content={currentQuestion?.question || ''} />
                       </div>
+
+                      {/* Multiple Choice Options */}
+                      <div className="space-y-3">
+                        {currentQuestion?.options?.map((option, index) => (
+                          <motion.div
+                            key={index}
+                            whileHover={{ scale: 1.01 }}
+                            whileTap={{ scale: 0.99 }}
+                            onClick={() => handleAnswerSelect(currentQuestion.id, index)}
+                            className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                              userAnswers[currentQuestion.id] === index
+                                ? 'border-blue-500 bg-blue-500/10 ring-2 ring-blue-400/20'
+                                : 'border-slate-600 hover:border-slate-500 bg-slate-700/50 hover:bg-slate-700/70'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                                userAnswers[currentQuestion.id] === index
+                                  ? 'border-blue-500 bg-blue-500'
+                                  : 'border-slate-500'
+                              }`}>
+                                {userAnswers[currentQuestion.id] === index && (
+                                  <CheckCircle className="w-4 h-4 text-white" />
+                                )}
+                              </div>
+                              <div className="flex-1">
+                                <LaTeXRenderer content={option} inline />
+                              </div>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+              ) : (
+                /* FRQ Layout: Question/Documents on left, Answer box on right */
+                <div className="grid lg:grid-cols-2 gap-8">
+                  {/* Left: Question and Documents */}
+                  <Card className="p-6">
+                    <div className="mb-6">
+                      <div className="flex items-start gap-4 mb-4">
+                        <div className="p-3 bg-gradient-to-br from-purple-600 to-pink-600 rounded-lg text-white font-bold text-lg min-w-[3rem] text-center">
+                          {currentQuestionIndex + 1}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-3">
+                            <Badge variant="secondary">
+                              {currentQuestion?.topic || 'AP Content'}
+                            </Badge>
+                            <Badge variant="purple">
+                              {currentQuestion?.type === 'frq' ? 'Free Response' :
+                               currentQuestion?.type === 'saq' ? 'Short Answer Question (SAQ)' :
+                               currentQuestion?.type === 'dbq' ? 'Document-Based Question (DBQ)' :
+                               currentQuestion?.type === 'leq' ? 'Long Essay Question (LEQ)' :
+                               currentQuestion?.type === 'synthesis' ? 'Synthesis Essay' :
+                               currentQuestion?.type === 'rhetorical-analysis' ? 'Rhetorical Analysis' :
+                               currentQuestion?.type === 'argumentative' ? 'Argumentative Essay' :
+                               currentQuestion?.type === 'poetry-analysis' ? 'Poetry Analysis' :
+                               currentQuestion?.type === 'prose-analysis' ? 'Prose Analysis' :
+                               currentQuestion?.type === 'open-question' ? 'Open Question' :
+                               currentQuestion?.type === 'long-frq' ? 'Long FRQ' :
+                               currentQuestion?.type === 'short-frq' ? 'Short FRQ' :
+                               currentQuestion?.type === 'calculator-frq' ? 'Calculator FRQ' :
+                               currentQuestion?.type === 'no-calculator-frq' ? 'No Calculator FRQ' :
+                               currentQuestion?.type === 'short-answer' ? 'Short Answer' :
+                               currentQuestion?.type === 'essays' ? 'Essay' :
+                               'Written Response'}
+                            </Badge>
+                            {currentQuestion?.estimatedTime && (
+                              <Badge variant="secondary">
+                                ~{currentQuestion.estimatedTime} min
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Question */}
+                      <div className="text-lg text-slate-200 leading-relaxed mb-6 p-4 bg-slate-700/30 rounded-lg">
+                        <LaTeXRenderer content={currentQuestion?.question || ''} />
+                      </div>
+
+                      {/* Question parts if they exist */}
+                      {currentQuestion?.parts && currentQuestion.parts.length > 0 && (
+                        <div className="mb-6 p-4 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+                          <h4 className="font-medium text-purple-300 mb-3">Question Parts:</h4>
+                          <div className="space-y-2">
+                            {currentQuestion.parts.map((part, index) => (
+                              <div key={index} className="text-slate-300 text-sm flex">
+                                <span className="font-bold mr-2 text-purple-400">{String.fromCharCode(97 + index)}.)</span>
+                                <span className="flex-1">{part}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Scrollable content area for documents/sources */}
+                    <div className="max-h-[50vh] overflow-y-auto space-y-4">
+                      {/* Display sources for Synthesis questions */}
+                      {currentQuestion?.sources && currentQuestion.sources.length > 0 && (
+                        <div>
+                          <h4 className="font-medium text-slate-300 mb-4 text-xl sticky top-0 bg-slate-800 pb-2">Sources:</h4>
+                          <div className="space-y-4">
+                            {currentQuestion.sources.map((source, index) => (
+                              <div key={index} className="border-l-4 border-green-500 pl-4 p-4 bg-slate-700/30 rounded-lg">
+                                <div className="mb-2">
+                                  <span className="font-bold text-green-400">Source {String.fromCharCode(65 + index)}</span>
+                                  {source.title && (
+                                    <div className="text-sm text-slate-300 mt-1 font-medium">
+                                      {source.title}
+                                    </div>
+                                  )}
+                                  {source.source && (
+                                    <div className="text-sm text-slate-400 mt-1">
+                                      Source: {source.source}
+                                    </div>
+                                  )}
+                                  {source.type && (
+                                    <div className="text-sm text-slate-400">
+                                      Type: {source.type}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="text-slate-300 text-sm leading-relaxed">
+                                  {source.content || source.description}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Display passage for analysis questions */}
+                      {currentQuestion?.passage && (
+                        <div>
+                          <h4 className="font-medium text-slate-300 mb-4 text-xl sticky top-0 bg-slate-800 pb-2">
+                            {currentQuestion.type === 'poetry-analysis' ? 'Poem:' :
+                             currentQuestion.type === 'prose-analysis' ? 'Passage:' :
+                             currentQuestion.type === 'rhetorical-analysis' ? 'Text:' :
+                             'Reading:'}
+                          </h4>
+                          {currentQuestion.passageInfo && (
+                            <div className="mb-4 text-sm text-slate-400 p-3 bg-slate-700/50 rounded">
+                              {currentQuestion.passageInfo}
+                            </div>
+                          )}
+                          <div className="text-slate-300 leading-relaxed bg-slate-700/30 p-4 rounded font-serif text-sm">
+                            <pre className="whitespace-pre-wrap font-serif">
+                              {currentQuestion.passage}
+                            </pre>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Display work list for open questions */}
+                      {currentQuestion?.worksList && currentQuestion.worksList.length > 0 && (
+                        <div>
+                          <h4 className="font-medium text-slate-300 mb-4 text-xl sticky top-0 bg-slate-800 pb-2">Suggested Works:</h4>
+                          <div className="grid grid-cols-1 gap-2">
+                            {currentQuestion.worksList.map((work, index) => (
+                              <div key={index} className="text-slate-300 text-sm p-2 bg-slate-700/30 rounded">
+                                {work}
+                              </div>
+                            ))}
+                          </div>
+                          <div className="mt-3 text-sm text-slate-400 italic">
+                            Or another work of comparable literary merit
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Display documents */}
+                      {currentQuestion?.documents && currentQuestion.documents.length > 0 && (
+                        <div>
+                          {currentQuestion.type === 'dbq' ? (
+                            <div>
+                              <h4 className="font-medium text-slate-300 mb-4 text-lg sticky top-0 bg-slate-800 pb-2">Historical Documents:</h4>
+                              <div className="flex flex-wrap gap-2 mb-4">
+                                {currentQuestion.documents.map((doc, index) => (
+                                  <button
+                                    key={index}
+                                    onClick={() => setSelectedDBQDocument(selectedDBQDocument === index ? null : index)}
+                                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                                      selectedDBQDocument === index
+                                        ? 'bg-blue-600 text-white ring-2 ring-blue-400'
+                                        : 'bg-slate-700 text-slate-300 hover:bg-slate-600 border border-slate-600'
+                                    }`}
+                                  >
+                                    Doc {String.fromCharCode(65 + index)}
+                                  </button>
+                                ))}
+                              </div>
+                              
+                              {selectedDBQDocument !== null && (
+                                <div className="border-l-4 border-blue-500 pl-4 bg-slate-700/30 p-4 rounded">
+                                  <div className="mb-3">
+                                    <span className="font-bold text-blue-400">
+                                      Document {String.fromCharCode(65 + selectedDBQDocument)}
+                                    </span>
+                                    {currentQuestion.documents[selectedDBQDocument].source && (
+                                      <div className="text-sm text-slate-400 mt-1">
+                                        Source: {currentQuestion.documents[selectedDBQDocument].source}
+                                      </div>
+                                    )}
+                                    {currentQuestion.documents[selectedDBQDocument].date && (
+                                      <div className="text-sm text-slate-400">
+                                        Date: {currentQuestion.documents[selectedDBQDocument].date}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="text-slate-300 italic leading-relaxed text-sm">
+                                    "{currentQuestion.documents[selectedDBQDocument].content}"
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div>
+                              <h4 className="font-medium text-slate-300 mb-4 text-lg sticky top-0 bg-slate-800 pb-2">
+                                {currentQuestion.type === 'saq' ? 'Stimulus:' : 'Supporting Documents:'}
+                              </h4>
+                              <div className="space-y-4">
+                                {currentQuestion.documents.map((doc, index) => (
+                                  <div key={index} className="border-l-4 border-green-500 pl-4 bg-slate-700/30 p-4 rounded">
+                                    {doc.source && (
+                                      <div className="text-sm text-slate-400 mb-2">
+                                        Source: {doc.source}
+                                        {doc.date && `, ${doc.date}`}
+                                      </div>
+                                    )}
+                                    <div className="text-slate-300 leading-relaxed text-sm">
+                                      {doc.content}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Display SAQ stimulus separately if not in documents array */}
+                      {currentQuestion?.stimulus && !currentQuestion?.documents && (
+                        <div>
+                          <h4 className="font-medium text-slate-300 mb-4 text-lg sticky top-0 bg-slate-800 pb-2">Stimulus:</h4>
+                          <div className="border-l-4 border-green-500 pl-4 bg-slate-700/30 p-4 rounded">
+                            <div className="text-slate-300 leading-relaxed italic text-sm">
+                              {currentQuestion.stimulus}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Display LEQ prompt options */}
+                      {currentQuestion?.promptOptions && currentQuestion.promptOptions.length > 0 && (
+                        <div>
+                          <h4 className="font-medium text-slate-300 mb-4 text-xl sticky top-0 bg-slate-800 pb-2">Choose ONE of the following prompts:</h4>
+                          <div className="space-y-4">
+                            {currentQuestion.promptOptions.map((prompt, index) => (
+                              <div key={index} className="p-4 bg-slate-700/30 rounded border-l-4 border-purple-500">
+                                <div className="mb-2">
+                                  <span className="font-bold text-purple-400">Prompt {index + 1}:</span>
+                                </div>
+                                <div className="text-slate-300 leading-relaxed text-sm">
+                                  {prompt}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+
+                  {/* Right: Answer Box */}
+                  <Card className="p-6">
+                    <div className="sticky top-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-xl font-bold text-slate-100 flex items-center gap-2">
+                          <MessageSquare className="w-5 h-5 text-purple-400" />
+                          Your Response
+                        </h3>
+                        <div className="text-sm text-slate-400">
+                          {(userAnswers[currentQuestion.id] || '').length} characters
+                        </div>
+                      </div>
+                      
+                      <div className="relative">
+                        <textarea
+                          value={userAnswers[currentQuestion.id] || ''}
+                          onChange={(e) => handleAnswerSelect(currentQuestion.id, e.target.value)}
+                          className={`w-full ${
+                            currentQuestion.type === 'dbq' || currentQuestion.type === 'leq' || 
+                            currentQuestion.type === 'synthesis' || currentQuestion.type === 'argumentative' ||
+                            currentQuestion.type === 'poetry-analysis' || currentQuestion.type === 'prose-analysis' ||
+                            currentQuestion.type === 'open-question' || currentQuestion.type === 'essays' 
+                            ? 'h-[60vh]' : 'h-[50vh]'
+                          } bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-slate-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all resize-none placeholder-slate-400`}
+                          placeholder={`Type your response here... Be sure to address all parts of the question.${
+                            currentQuestion.type === 'dbq' ? '\n\nFor DBQ: Include thesis, contextualization, evidence from documents, outside evidence, point-of-view analysis, and complexity.' :
+                            currentQuestion.type === 'leq' ? '\n\nFor LEQ: Choose one prompt and include thesis, contextualization, specific evidence, and analysis of change and continuity.' :
+                            currentQuestion.type === 'synthesis' ? '\n\nFor Synthesis: Use at least 3 sources to develop your position. Cite sources and explain how they support your argument.' :
+                            currentQuestion.type === 'rhetorical-analysis' ? '\n\nFor Rhetorical Analysis: Analyze how the author uses rhetorical strategies to achieve their purpose. Focus on appeals, devices, and techniques.' :
+                            currentQuestion.type === 'argumentative' ? '\n\nFor Argumentative Essay: Develop a clear thesis and support with relevant evidence and reasoning.' :
+                            currentQuestion.type === 'poetry-analysis' ? '\n\nFor Poetry Analysis: Analyze literary devices, structure, and meaning. Use specific textual evidence.' :
+                            currentQuestion.type === 'prose-analysis' ? '\n\nFor Prose Analysis: Examine literary techniques, character development, and thematic elements.' :
+                            currentQuestion.type === 'open-question' ? '\n\nFor Open Question: Choose an appropriate work and analyze the specified literary element or theme.' :
+                            currentQuestion.parts ? '\n\nParts to address:\n' + 
+                            currentQuestion.parts.map((part, i) => `${String.fromCharCode(97 + i)}. ${part}`).join('\n') 
+                            : ''
+                          }`}
+                        />
+                        
+                        {/* Word count and suggestions */}
+                        <div className="mt-3 flex items-center justify-between text-sm">
+                          <div className="text-slate-400">
+                            Words: {(userAnswers[currentQuestion.id] || '').split(/\s+/).filter(w => w.length > 0).length}
+                            {(currentQuestion.type === 'dbq' || currentQuestion.type === 'leq' || 
+                              currentQuestion.type === 'synthesis' || currentQuestion.type === 'argumentative' ||
+                              currentQuestion.type === 'poetry-analysis' || currentQuestion.type === 'prose-analysis' ||
+                              currentQuestion.type === 'open-question' || currentQuestion.type === 'essays') && ' • Recommended: 500-800 words'}
+                            {currentQuestion.type === 'saq' && ' • Recommended: 150-200 words total'}
+                            {(currentQuestion.type === 'short-frq' || currentQuestion.type === 'short-answer') && ' • Recommended: 100-150 words'}
+                            {(currentQuestion.type === 'long-frq' || currentQuestion.type === 'calculator-frq' || 
+                              currentQuestion.type === 'no-calculator-frq') && ' • Show all work and reasoning'}
+                          </div>
+                          {currentQuestion.rubric?.keyTerms && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-slate-400">Key terms:</span>
+                              <div className="flex flex-wrap gap-1">
+                                {currentQuestion.rubric.keyTerms.slice(0, 3).map((term, idx) => (
+                                  <Badge key={idx} variant="secondary" className="text-xs">
+                                    {term}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+              )}
                       
                       {/* Display sources for Synthesis questions */}
                       {currentQuestion?.sources && currentQuestion.sources.length > 0 && (
@@ -2955,7 +3149,9 @@ Please provide a clear, educational response that helps the student understand t
                           ) : (
                             // Non-DBQ: Show documents/stimulus in separate box under question
                             <div className="p-6 bg-slate-700/30 rounded-lg">
-                              <h4 className="font-medium text-slate-300 mb-4 text-lg">Supporting Documents:</h4>
+                              <h4 className="font-medium text-slate-300 mb-4 text-lg">
+                                {currentQuestion.type === 'saq' ? 'Stimulus:' : 'Supporting Documents:'}
+                              </h4>
                               <div className="space-y-4">
                                 {currentQuestion.documents.map((doc, index) => (
                                   <div key={index} className="border-l-4 border-green-500 pl-4 bg-slate-800/50 p-4 rounded">
@@ -3023,89 +3219,105 @@ Please provide a clear, educational response that helps the student understand t
                       )}
                     </div>
                   </div>
-                </div>
 
-                {/* Answer Interface */}
-                <div className="mt-8">
-                  {/* MCQ Options */}
-                  {currentQuestion?.type === 'mcq' && currentQuestion?.options && (
-                    <div className="space-y-3">
-                      <h3 className="text-lg font-medium text-slate-200 mb-4">Choose the best answer:</h3>
-                      {currentQuestion.options.map((option, index) => {
-                        const isSelected = userAnswers[currentQuestion.id] === index;
-                        
-                        return (
-                          <motion.button
-                            key={index}
-                            whileHover={{ scale: 1.01 }}
-                            whileTap={{ scale: 0.99 }}
-                            onClick={() => handleAnswerSelect(currentQuestion.id, index)}
-                            className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
-                              isSelected
-                                ? 'border-blue-500 bg-blue-500/10 text-blue-100'
-                                : 'border-slate-600 bg-slate-700/50 text-slate-300 hover:border-slate-500 hover:bg-slate-700'
-                            }`}
-                          >
-                            <div className="flex items-start gap-3">
-                              <span className={`font-bold text-lg min-w-[1.5rem] ${
-                                isSelected ? 'text-blue-400' : 'text-slate-400'
-                              }`}>
-                                {String.fromCharCode(65 + index)}.
-                              </span>
-                              <span className="flex-1 leading-relaxed">
-                                {option.replace(/^[A-D]\)\s*/, '')}
-                              </span>
-                              {isSelected && (
-                                <CheckCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                  {/* Multiple Choice Options */}
+                  {currentQuestion?.type === 'mcq' && currentQuestion.options && (
+                    <div className="space-y-3 ml-16">
+                      {currentQuestion.options.map((option, index) => (
+                        <motion.div
+                          key={index}
+                          whileHover={{ scale: 1.01 }}
+                          whileTap={{ scale: 0.99 }}
+                          onClick={() => handleAnswerSelect(currentQuestion.id, index)}
+                          className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                            userAnswers[currentQuestion.id] === index
+                              ? 'border-blue-500 bg-blue-500/10'
+                              : 'border-slate-600 hover:border-slate-500 bg-slate-700/50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                              userAnswers[currentQuestion.id] === index
+                                ? 'border-blue-500 bg-blue-500'
+                                : 'border-slate-500'
+                            }`}>
+                              {userAnswers[currentQuestion.id] === index && (
+                                <CheckCircle className="w-4 h-4 text-white" />
                               )}
                             </div>
-                          </motion.button>
-                        );
-                      })}
+                            <LaTeXRenderer content={option} inline />
+                          </div>
+                        </motion.div>
+                      ))}
                     </div>
                   )}
 
-                  {/* FRQ/Written Response Input */}
-                  {currentQuestion?.type !== 'mcq' && (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-medium text-slate-200">Your Response:</h3>
-                        {currentQuestion?.timeframe && (
-                          <Badge variant="secondary">
-                            Suggested Time: {currentQuestion.timeframe}
-                          </Badge>
-                        )}
-                      </div>
-                      
-                      <div className="relative">
-                        <textarea
-                          value={userAnswers[currentQuestion.id] || ''}
-                          onChange={(e) => handleAnswerSelect(currentQuestion.id, e.target.value)}
-                          placeholder={
-                            currentQuestion?.type === 'frq' ? 'Write your detailed response here. Be sure to address all parts of the question...' :
-                            currentQuestion?.type === 'saq' ? 'Write a clear, concise response. Use specific examples...' :
-                            currentQuestion?.type === 'dbq' ? 'Develop an argument using the documents and your knowledge of history...' :
-                            currentQuestion?.type === 'leq' ? 'Develop an argument with a clear thesis statement...' :
-                            'Write your response here...'
-                          }
-                          className="w-full h-64 p-4 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-100 placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 resize-none"
-                          style={{ minHeight: '16rem' }}
-                        />
-                        
-                        {/* Character count */}
-                        <div className="absolute bottom-3 right-3 text-xs text-slate-400">
-                          {(userAnswers[currentQuestion.id] || '').length} characters
+                  {/* Free Response Answer */}
+                  {(currentQuestion?.type !== 'mcq') && (
+                    <div className="ml-16">
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-medium text-slate-300">Your Response:</h4>
+                          <div className="text-sm text-slate-400">
+                            {(userAnswers[currentQuestion.id] || '').length} characters
+                          </div>
                         </div>
-                      </div>
-                      
-                      {/* Quick formatting tips */}
-                      <div className="text-sm text-slate-400 bg-slate-800/50 p-3 rounded-lg">
-                        <strong className="text-slate-300">Tips:</strong> 
-                        {currentQuestion?.type === 'dbq' && ' Use specific evidence from the documents. Reference at least 6 documents.'}
-                        {currentQuestion?.type === 'frq' && ' Structure your response with clear topic sentences and supporting evidence.'}
-                        {currentQuestion?.type === 'saq' && ' Be concise but thorough. Include specific historical examples.'}
-                        {currentQuestion?.type === 'leq' && ' Include a clear thesis, contextualization, and evidence.'}
-                        {!['dbq', 'frq', 'saq', 'leq'].includes(currentQuestion?.type) && ' Be thorough and use specific examples to support your points.'}
+                        <div className="relative">
+                          <textarea
+                            value={userAnswers[currentQuestion.id] || ''}
+                            onChange={(e) => handleAnswerSelect(currentQuestion.id, e.target.value)}
+                            placeholder={`Type your response here... Be sure to address all parts of the question.${
+                              currentQuestion.type === 'dbq' ? '\n\nFor DBQ: Include thesis, contextualization, evidence from documents, outside evidence, point-of-view analysis, and complexity.' :
+                              currentQuestion.type === 'leq' ? '\n\nFor LEQ: Choose one prompt and include thesis, contextualization, specific evidence, and analysis of change and continuity.' :
+                              currentQuestion.type === 'synthesis' ? '\n\nFor Synthesis: Use at least 3 sources to develop your position. Cite sources and explain how they support your argument.' :
+                              currentQuestion.type === 'rhetorical-analysis' ? '\n\nFor Rhetorical Analysis: Analyze how the author uses rhetorical strategies to achieve their purpose. Focus on appeals, devices, and techniques.' :
+                              currentQuestion.type === 'argumentative' ? '\n\nFor Argumentative Essay: Develop a clear thesis and support with relevant evidence and reasoning.' :
+                              currentQuestion.type === 'poetry-analysis' ? '\n\nFor Poetry Analysis: Analyze literary devices, structure, and meaning. Use specific textual evidence.' :
+                              currentQuestion.type === 'prose-analysis' ? '\n\nFor Prose Analysis: Examine literary techniques, character development, and thematic elements.' :
+                              currentQuestion.type === 'open-question' ? '\n\nFor Open Question: Choose an appropriate work and analyze the specified literary element or theme.' :
+                              currentQuestion.parts ? '\n\nParts to address:\n' + 
+                              currentQuestion.parts.map((part, i) => `${String.fromCharCode(97 + i)}. ${part}`).join('\n') 
+                              : ''
+                            }`}
+                          />
+                          <textarea
+                            id="answer-textarea"
+                            className={`w-full ${
+                              currentQuestion.type === 'dbq' || currentQuestion.type === 'leq' || 
+                              currentQuestion.type === 'synthesis' || currentQuestion.type === 'argumentative' ||
+                              currentQuestion.type === 'poetry-analysis' || currentQuestion.type === 'prose-analysis' ||
+                              currentQuestion.type === 'open-question' || currentQuestion.type === 'essays' 
+                              ? 'h-96' : 'h-80'
+                            } bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-slate-100 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all resize-none`}
+                          />
+                          
+                          {/* Word count and suggestions */}
+                          <div className="mt-2 flex items-center justify-between text-sm">
+                            <div className="text-slate-400">
+                              Words: {(userAnswers[currentQuestion.id] || '').split(/\s+/).filter(w => w.length > 0).length}
+                              {(currentQuestion.type === 'dbq' || currentQuestion.type === 'leq' || 
+                                currentQuestion.type === 'synthesis' || currentQuestion.type === 'argumentative' ||
+                                currentQuestion.type === 'poetry-analysis' || currentQuestion.type === 'prose-analysis' ||
+                                currentQuestion.type === 'open-question' || currentQuestion.type === 'essays') && ' • Recommended: 500-800 words'}
+                              {currentQuestion.type === 'saq' && ' • Recommended: 150-200 words total'}
+                              {(currentQuestion.type === 'short-frq' || currentQuestion.type === 'short-answer') && ' • Recommended: 100-150 words'}
+                              {(currentQuestion.type === 'long-frq' || currentQuestion.type === 'calculator-frq' || 
+                                currentQuestion.type === 'no-calculator-frq') && ' • Show all work and reasoning'}
+                            </div>
+                            {currentQuestion.rubric?.keyTerms && (
+                              <div className="flex items-center gap-2">
+                                <span className="text-slate-400">Key terms:</span>
+                                <div className="flex flex-wrap gap-1">
+                                  {currentQuestion.rubric.keyTerms.slice(0, 3).map((term, idx) => (
+                                    <Badge key={idx} variant="secondary" className="text-xs">
+                                      {term}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -3334,12 +3546,12 @@ Please provide a clear, educational response that helps the student understand t
                           {isCorrect ? (
                             <CheckCircle className="w-5 h-5 text-white" />
                           ) : (
-                            <X className="w-5 h-5 text-white" />
+                            <XCircle className="w-5 h-5 text-white" />
                           )}
                         </div>
                         <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-3">
-                            <h3 className="font-medium text-slate-200 mb-3">Question {index + 1}</h3>
+                          <div className="flex items-center gap-3 mb-2">
+                            <h3 className="font-medium text-slate-200">Question {index + 1}</h3>
                             <Badge variant={isCorrect ? "success" : "destructive"}>
                               {result?.score || 0} / {result?.maxPoints || 1} points
                             </Badge>
@@ -3350,48 +3562,54 @@ Please provide a clear, educational response that helps the student understand t
 
                           {/* MCQ Review */}
                           {question.type === 'mcq' && (
-                            <div className="space-y-2 mb-4">
-                              {question.options.map((option, i) => {
-                                const isUserAnswer = result.userAnswer === i;
-                                const isCorrectAnswer = result.correctAnswer === i;
-                                
-                                let borderColor = 'border-slate-600';
-                                let bgColor = 'bg-slate-700/50';
-                                let textColor = 'text-slate-200';
-
-                                if (isCorrectAnswer) {
-                                  borderColor = 'border-green-500';
-                                  bgColor = 'bg-green-500/20';
-                                  textColor = 'text-green-100';
-                                }
-                                if (isUserAnswer && !isCorrectAnswer) {
-                                  borderColor = 'border-red-500';
-                                  bgColor = 'bg-red-500/20';
-                                  textColor = 'text-red-100';
-                                }
-
-                                return (
-                                  <div 
-                                    key={i} 
-                                    className={`p-3 rounded-lg border-2 ${borderColor} ${bgColor} ${textColor}`}
-                                  >
-                                    <span className="font-bold mr-2">{String.fromCharCode(65 + i)}.</span>
-                                    <div className="prose prose-sm max-w-none inline"><MarkdownRenderer content={option} /></div>
+                            <div className="space-y-2">
+                              {question.options.map((option, optIndex) => (
+                                <div
+                                  key={optIndex}
+                                  className={`p-3 rounded-lg border ${
+                                    optIndex === question.correctAnswer
+                                      ? 'border-green-500 bg-green-500/10'
+                                      : result?.userAnswer === optIndex && !isCorrect
+                                      ? 'border-red-500 bg-red-500/10'
+                                      : 'border-slate-600'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-3">
+                                    {optIndex === question.correctAnswer && (
+                                      <CheckCircle className="w-4 h-4 text-green-400" />
+                                    )}
+                                    {result?.userAnswer === optIndex && !isCorrect && (
+                                      <XCircle className="w-4 h-4 text-red-400" />
+                                    )}
+                                    <span className="text-slate-200">{option}</span>
                                   </div>
-                                );
-                              })}
+                                </div>
+                              ))}
+                              
+                              {result.feedback && (
+                                <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                                  <h4 className="font-medium text-blue-400 mb-2">
+                                    {question.explanation ? "Additional Feedback:" : "Explanation:"}
+                                  </h4>
+                                  <div className="text-slate-300 text-sm">
+                                    <LaTeXRenderer content={result.feedback} />
+                                  </div>
+                                </div>
+                              )}
+
+                              {question.explanation && !result.feedback && (
+                                <div className="mt-4 p-4 bg-slate-700/50 rounded-lg">
+                                  <h4 className="font-medium text-slate-200 mb-2">Explanation:</h4>
+                                  <div className="text-slate-300 text-sm">
+                                    <MarkdownRenderer content={question.explanation} />
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           )}
 
                           {/* FRQ Review */}
-                          {(question.type === 'frq' || question.type === 'saq' || 
-                           question.type === 'dbq' || question.type === 'leq' ||
-                           question.type === 'synthesis' || question.type === 'rhetorical-analysis' ||
-                           question.type === 'argumentative' || question.type === 'poetry-analysis' ||
-                           question.type === 'prose-analysis' || question.type === 'open-question' ||
-                           question.type === 'long-frq' || question.type === 'short-frq' ||
-                           question.type === 'calculator-frq' || question.type === 'no-calculator-frq' ||
-                           question.type === 'short-answer' || question.type === 'essays') && (
+                          {(question.type === 'frq' || question.type === 'saq') && (
                             <div className="space-y-4">
                               <div>
                                 <h4 className="font-medium text-slate-200 mb-2">Your Response:</h4>
@@ -3576,7 +3794,7 @@ Please provide a clear, educational response that helps the student understand t
               className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
               glow
             >
-              <RotateCw className="w-5 h-5 mr-2" />
+              <RotateCcw className="w-5 h-5 mr-2" />
               Take Another Test
             </Button>
             

@@ -1,5 +1,13 @@
 // AP Exam Dates and Review Schedules
 // Updated annually based on College Board's official exam schedule
+// All times are listed in local time - system will default to Central Time if user timezone cannot be detected
+
+import { getTimezoneDisplayString } from '../utils/timezone';
+
+// Note: AP exams are administered at the same local time in each timezone
+// Morning exams: 8:00 AM local time
+// Afternoon exams: 12:00 PM (noon) local time
+// All dates and times will be converted to user's timezone (defaulting to Central Time)
 
 // Mapping from curriculum subject keys to AP exam date keys
 export const SUBJECT_KEY_TO_EXAM_NAME = {
@@ -45,10 +53,13 @@ export const SUBJECT_KEY_TO_EXAM_NAME = {
 };
 
 // 2025 AP Exam Dates (Based on College Board schedule)
+// AP Exam Dates for 2025
+// All times are in local time (8:00 AM and 12:00 PM in each timezone)
+// System defaults to Central Time if user timezone cannot be detected
 export const AP_EXAM_DATES_2025 = {
   // Week 1: May 5-9, 2025
-  "AP Art History": { date: "2025-05-09", time: "8:00 AM" },
-  "AP Biology": { date: "2025-05-06", time: "8:00 AM" },
+  "AP Art History": { date: "2025-05-06", time: "8:00 AM" },
+  "AP Biology": { date: "2025-05-05", time: "8:00 AM" },
   "AP Computer Science A": { date: "2025-05-08", time: "8:00 AM" },
   "AP English Literature and Composition": { date: "2025-05-07", time: "8:00 AM" },
   "AP Environmental Science": { date: "2025-05-05", time: "8:00 AM" },
@@ -379,6 +390,43 @@ export const getUpcomingExamsSync = (userSubjects = []) => {
     })
     .filter(exam => exam.examDate >= today && exam.examDate <= oneYearFromNow)
     .sort((a, b) => a.examDate - b.examDate);
+};
+
+/**
+ * Get exam information with timezone-aware formatting
+ * @param {string} examName - Name of the AP exam
+ * @returns {Object} Exam info with timezone-aware time display
+ */
+export const getExamWithTimezone = (examName) => {
+  const examInfo = AP_EXAM_DATES_2025[examName];
+  if (!examInfo) return null;
+  
+  const timezoneDisplay = getTimezoneDisplayString();
+  
+  return {
+    ...examInfo,
+    timeWithTimezone: `${examInfo.time} ${timezoneDisplay}`,
+    timezone: timezoneDisplay
+  };
+};
+
+/**
+ * Get all exams with timezone-aware formatting
+ * @returns {Object} All exam dates with timezone information
+ */
+export const getAllExamsWithTimezone = () => {
+  const timezoneDisplay = getTimezoneDisplayString();
+  const examsWithTimezone = {};
+  
+  Object.entries(AP_EXAM_DATES_2025).forEach(([examName, examInfo]) => {
+    examsWithTimezone[examName] = {
+      ...examInfo,
+      timeWithTimezone: `${examInfo.time} ${timezoneDisplay}`,
+      timezone: timezoneDisplay
+    };
+  });
+  
+  return examsWithTimezone;
 };
 
 export default AP_EXAM_DATES_2025;

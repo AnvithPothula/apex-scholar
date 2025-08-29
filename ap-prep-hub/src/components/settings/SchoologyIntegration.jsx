@@ -381,7 +381,10 @@ export function SchoologyIntegration() {
             <div>
               <h4 className="font-medium text-slate-200">Last Sync</h4>
               <p className="text-sm text-slate-400">
-                {lastSync.toLocaleString()}
+                {lastSync.toLocaleString()} (Local Time)
+              </p>
+              <p className="text-xs text-slate-500 mt-1">
+                Note: Times shown in your local timezone
               </p>
             </div>
           </div>

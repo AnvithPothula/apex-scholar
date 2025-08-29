@@ -1,4 +1,9 @@
 import { format, isWeekend, addDays, differenceInDays, startOfDay } from 'date-fns';
+import { 
+  getUserTimezone, 
+  formatDateTimeInUserTimezone, 
+  getCurrentTimeInUserTimezone
+} from './timezone';
 
 class IntelligentScheduler {
   constructor(userPreferences, blackoutSchedule) {
@@ -178,9 +183,6 @@ class IntelligentScheduler {
    * Based on Cognitive Load Theory, Spaced Repetition, and Peak Performance research
    */
   analyzeTaskWithCognitiveScience(task) {
-    const taskType = task.type || 'homework';
-    const difficulty = task.difficulty || 'Medium';
-    const timeRequired = task.timeRequired || (task.estimated_time ? task.estimated_time / 60 : 1);
     
     // Calculate cognitive load based on task complexity (Sweller, 1988)
     const baseCognitiveLoad = this.calculateCognitiveLoad(task);
@@ -400,7 +402,7 @@ class IntelligentScheduler {
       estimatedSessions: Math.ceil(timeRequired / 1.5), // Assuming 1.5h average sessions
       needsSpacedRepetition: task.type === 'test' || task.type === 'exam',
       needsDeepWork: task.type === 'project' || task.type === 'essay',
-      allowsDistractedWork: task.type === 'reading' && task.difficulty === 'Easy'
+      allowsDistractedWork: task.type === 'reading'
     };
   }
 
@@ -409,7 +411,6 @@ class IntelligentScheduler {
    */
   selectOptimalLearningStrategy(task) {
     const taskType = task.type || 'homework';
-    const difficulty = task.difficulty || 'Medium';
     
     const strategies = {
       homework: {
@@ -954,11 +955,16 @@ class IntelligentScheduler {
     
     console.log(`📅 Day: ${dayOfWeek}, Blackouts:`, dayBlackouts);
     
-    const now = new Date();
+    // Get current time in user's timezone
+    const now = getCurrentTimeInUserTimezone();
+    const userTimezone = getUserTimezone();
+    
     // ENHANCED: Better timezone-safe date comparison
     const targetDateStr = format(date, 'yyyy-MM-dd');
     const todayDateStr = format(now, 'yyyy-MM-dd');
     const isToday = targetDateStr === todayDateStr;
+    
+    console.log(`🕐 Current time in ${userTimezone}: ${formatDateTimeInUserTimezone(now)}`);
     
     // Time window boundaries
     let startHour = 7;  // Default start
@@ -978,7 +984,7 @@ class IntelligentScheduler {
         }
       }
       
-      console.log(`🕐 Today's scheduling: starting from ${startHour}:${currentMinute >= 45 ? '00' : String(Math.ceil(currentMinute / 15) * 15).padStart(2, '0')} (current time: ${now.toLocaleTimeString()})`);
+      console.log(`🕐 Today's scheduling: starting from ${startHour}:${currentMinute >= 45 ? '00' : String(Math.ceil(currentMinute / 15) * 15).padStart(2, '0')} (current time in ${userTimezone}: ${formatDateTimeInUserTimezone(now, { hour: '2-digit', minute: '2-digit' })})`);
     }
 
     // Check if task deadline allows for this timing
@@ -998,7 +1004,7 @@ class IntelligentScheduler {
         if (isToday && deadline.getDate() === now.getDate()) {
           // Task is due today - make sure we don't schedule past the deadline
           endHour = Math.min(endHour, deadlineHour);
-          console.log(`⏰ Task due today at ${deadline.toLocaleTimeString()}, adjusting end time to ${endHour}:00`);
+          console.log(`⏰ Task due today at ${formatDateTimeInUserTimezone(deadline, { hour: '2-digit', minute: '2-digit' })}, adjusting end time to ${endHour}:00`);
         }
       }
     }    
@@ -1158,7 +1164,7 @@ class IntelligentScheduler {
   }
 
   checkScheduleConflict(slotStart, slotEnd, existingSchedule) {
-    console.log(`🔍 Checking schedule conflict: ${slotStart.toLocaleTimeString()}-${slotEnd.toLocaleTimeString()}`);
+    console.log(`🔍 Checking schedule conflict: ${formatDateTimeInUserTimezone(slotStart, { hour: '2-digit', minute: '2-digit' })}-${formatDateTimeInUserTimezone(slotEnd, { hour: '2-digit', minute: '2-digit' })} (${getUserTimezone()})`);
     console.log(`📋 Existing schedule items to check:`, existingSchedule?.length || 0);
     
     if (!existingSchedule || existingSchedule.length === 0) {
@@ -1184,7 +1190,7 @@ class IntelligentScheduler {
         scheduledEnd = new Date(scheduled.endTime);
       }
       
-      console.log(`🔍 Checking against: ${scheduled.taskName || scheduled.task} (${scheduledStart.toLocaleTimeString()}-${scheduledEnd.toLocaleTimeString()})`);
+      console.log(`🔍 Checking against: ${scheduled.taskName || scheduled.task} (${formatDateTimeInUserTimezone(scheduledStart, { hour: '2-digit', minute: '2-digit' })}-${formatDateTimeInUserTimezone(scheduledEnd, { hour: '2-digit', minute: '2-digit' })})`);
       
       // FIXED: More robust overlap detection with better edge case handling
       // Two time slots overlap if one starts before the other ends AND one ends after the other starts
@@ -1198,8 +1204,8 @@ class IntelligentScheduler {
       
       if (overlaps) {
         console.log(`❌ Schedule conflict found with: ${scheduled.taskName || scheduled.task}`);
-        console.log(`   New slot: ${slotStart.toLocaleTimeString()}-${slotEnd.toLocaleTimeString()} (${slotStartTime}-${slotEndTime})`);
-        console.log(`   Existing: ${scheduledStart.toLocaleTimeString()}-${scheduledEnd.toLocaleTimeString()} (${scheduledStartTime}-${scheduledEndTime})`);
+        console.log(`   New slot: ${formatDateTimeInUserTimezone(slotStart, { hour: '2-digit', minute: '2-digit' })}-${formatDateTimeInUserTimezone(slotEnd, { hour: '2-digit', minute: '2-digit' })} (${slotStartTime}-${slotEndTime})`);
+        console.log(`   Existing: ${formatDateTimeInUserTimezone(scheduledStart, { hour: '2-digit', minute: '2-digit' })}-${formatDateTimeInUserTimezone(scheduledEnd, { hour: '2-digit', minute: '2-digit' })} (${scheduledStartTime}-${scheduledEndTime})`);
         return true;
       }
     }
@@ -1419,7 +1425,7 @@ class IntelligentScheduler {
     
     const hoursUntilDeadline = (deadline - now) / (1000 * 60 * 60);
     
-    console.log(`⏰ Task "${task.name}": Current time: ${now.toLocaleString()}, Deadline: ${deadline.toLocaleString()}, Hours until deadline: ${hoursUntilDeadline.toFixed(2)}`);
+    console.log(`⏰ Task "${task.name}": Current time in ${getUserTimezone()}: ${formatDateTimeInUserTimezone(now)}, Deadline: ${formatDateTimeInUserTimezone(deadline)}, Hours until deadline: ${hoursUntilDeadline.toFixed(2)}`);
     
     // Overdue tasks get maximum urgency
     if (hoursUntilDeadline < 0) return 1.0;
@@ -2037,8 +2043,6 @@ class IntelligentScheduler {
     }
     
     const daySchedule = [];
-    const currentHour = new Date().getHours();
-    const isToday = format(date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
     
     // Calculate total available cognitive capacity for the day
     let remainingCognitiveCapacity = this.calculateDailyCognitiveCapacity(date);
@@ -2122,9 +2126,6 @@ class IntelligentScheduler {
    * Sort tasks by cognitive optimization factors
    */
   sortTasksByCognitiveFactors(tasks, date) {
-    const currentHour = new Date().getHours();
-    const isToday = format(date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
-    
     return [...tasks].sort((a, b) => {
       // Factor 1: Cognitive load (high load tasks in peak hours)
       const loadA = a.cognitiveLoad || this.calculateCognitiveLoad(a);
@@ -2441,7 +2442,6 @@ class IntelligentScheduler {
    */
   generateCognitiveStudyNotes(task) {
     const taskType = task.type || 'homework';
-    const difficulty = task.difficulty || 'Medium';
     const sessionType = task.sessionType || 'standard';
     const cognitiveLoad = task.cognitiveLoad || this.calculateCognitiveLoad(task);
     

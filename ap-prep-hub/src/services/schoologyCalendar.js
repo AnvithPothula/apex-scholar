@@ -3,6 +3,11 @@
  * Handles parsing and processing of Schoology iCal calendar feeds
  */
 
+import { 
+  getUserTimezone, 
+  formatDateTimeInUserTimezone
+} from '../utils/timezone';
+
 class SchoologyCalendarService {
   constructor() {
     // Use a more reliable CORS proxy that supports localhost development
@@ -170,7 +175,7 @@ class SchoologyCalendarService {
         return null;
       }
       
-      // Handle different iCal date formats
+      // Handle different iCal date formats with timezone awareness
       if (cleanDateStr.includes('T')) {
         // DateTime format: 20250825T140000Z or 20250825T140000
         let isoStr;
@@ -178,34 +183,47 @@ class SchoologyCalendarService {
           // UTC time: 20250825T140000Z
           isoStr = cleanDateStr.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z/, '$1-$2-$3T$4:$5:$6Z');
         } else {
-          // Local time: 20250825T140000
+          // Local time: 20250825T140000 - interpret in user's timezone
           isoStr = cleanDateStr.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/, '$1-$2-$3T$4:$5:$6');
         }
         
         const date = new Date(isoStr);
         if (!isNaN(date.getTime())) {
-          console.log(`✅ Parsed datetime: ${cleanDateStr} → ${date.toLocaleString()}`);
+          console.log(`✅ Parsed datetime: ${cleanDateStr} → ${formatDateTimeInUserTimezone(date)}`);
           return date;
         }
       } else if (cleanDateStr.length === 8 && /^\d{8}$/.test(cleanDateStr)) {
-        // Date only format: 20250825
+        // Date only format: 20250825 - create in user's timezone
         const year = cleanDateStr.substring(0, 4);
         const month = cleanDateStr.substring(4, 6);
         const day = cleanDateStr.substring(6, 8);
         
-        // Create date at start of day in local timezone
-        const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-        
-        if (!isNaN(date.getTime())) {
-          console.log(`✅ Parsed date: ${cleanDateStr} → ${date.toLocaleDateString()}`);
-          return date;
+        // Create date at start of day in user's timezone (or Central Time as default)
+        const userTimezone = getUserTimezone();
+        try {
+          // Use timezone-aware date creation
+          const tempDate = new Date(`${year}-${month}-${day}T00:00:00`);
+          const date = new Date(tempDate.toLocaleString("en-US", { timeZone: userTimezone }));
+          
+          if (!isNaN(date.getTime())) {
+            console.log(`✅ Parsed date in ${userTimezone}: ${cleanDateStr} → ${formatDateTimeInUserTimezone(date)}`);
+            return date;
+          }
+        } catch (timezoneError) {
+          console.warn('Timezone parsing failed, using fallback:', timezoneError);
+          // Fallback to local date creation
+          const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+          if (!isNaN(date.getTime())) {
+            console.log(`✅ Parsed date (fallback): ${cleanDateStr} → ${formatDateTimeInUserTimezone(date)}`);
+            return date;
+          }
         }
       }
       
       // Try parsing as a regular date string as fallback
       const fallbackDate = new Date(cleanDateStr);
       if (!isNaN(fallbackDate.getTime())) {
-        console.log(`✅ Parsed fallback: ${cleanDateStr} → ${fallbackDate.toLocaleString()}`);
+        console.log(`✅ Parsed fallback: ${cleanDateStr} → ${formatDateTimeInUserTimezone(fallbackDate)}`);
         return fallbackDate;
       }
       
@@ -219,29 +237,31 @@ class SchoologyCalendarService {
 
   /**
    * Calculate due date based on calendar date and time information
-   * The due date is the date that shows up on the calendar, defaulting to 11:59 PM if no time specified
+   * The due date is the date that shows up on the calendar, defaulting to 11:59 PM in user's timezone if no time specified
    */
   calculateDueDate(parsedDate, rawDateStr) {
     try {
       // Create a new date object to avoid mutating the original
       const dueDate = new Date(parsedDate);
+      const userTimezone = getUserTimezone();
       
       // If the raw date string includes time information, use it
       if (rawDateStr.includes('T')) {
-        console.log(`⏰ Using specific time from calendar: ${dueDate.toLocaleString()}`);
+        console.log(`⏰ Using specific time from calendar: ${formatDateTimeInUserTimezone(dueDate)} (${userTimezone})`);
         return dueDate;
       } else {
-        // If it's a date-only event (no time specified), default to 11:59 PM on that date
+        // If it's a date-only event (no time specified), default to 11:59 PM in user's timezone
         dueDate.setHours(23, 59, 59, 999);
-        console.log(`🌙 No time specified, defaulting to 11:59 PM on calendar date: ${dueDate.toLocaleString()}`);
+        console.log(`🌙 No time specified, defaulting to 11:59 PM in ${userTimezone}: ${formatDateTimeInUserTimezone(dueDate)}`);
         return dueDate;
       }
     } catch (error) {
       console.warn('Failed to calculate due date:', error);
-      // Fallback to end of the parsed date
+      // Fallback to end of the parsed date in user's timezone
       const fallback = new Date(parsedDate);
       fallback.setHours(23, 59, 59, 999);
-      console.log(`⚠️ Using fallback due date: ${fallback.toLocaleString()}`);
+      const userTimezone = getUserTimezone();
+      console.log(`⚠️ Using fallback due date in ${userTimezone}: ${formatDateTimeInUserTimezone(fallback)}`);
       return fallback;
     }
   }
@@ -327,26 +347,27 @@ class SchoologyCalendarService {
       dueDate = new Date(event.endDate);
       dueDateSource = 'end date from calendar';
       
-      // If it's a date-only event (midnight), set to 11:59 PM
+      // If it's a date-only event (midnight), set to 11:59 PM in user's timezone
       if (dueDate.getHours() === 0 && dueDate.getMinutes() === 0 && dueDate.getSeconds() === 0) {
         dueDate.setHours(23, 59, 59, 999);
-        dueDateSource = 'end date from calendar (time set to 11:59 PM)';
+        dueDateSource = `end date from calendar (time set to 11:59 PM ${getUserTimezone()})`;
       }
     } else if (event.startDate) {
       dueDate = new Date(event.startDate);
       dueDateSource = 'start date from calendar';
       
-      // If it's a date-only event (midnight), set to 11:59 PM
+      // If it's a date-only event (midnight), set to 11:59 PM in user's timezone
       if (dueDate.getHours() === 0 && dueDate.getMinutes() === 0 && dueDate.getSeconds() === 0) {
         dueDate.setHours(23, 59, 59, 999);
-        dueDateSource = 'start date from calendar (time set to 11:59 PM)';
+        dueDateSource = `start date from calendar (time set to 11:59 PM ${getUserTimezone()})`;
       }
     } else {
-      // Last resort: default to 11:59 PM today
+      // Last resort: default to 11:59 PM today in user's timezone
+      const userTimezone = getUserTimezone();
       dueDate = new Date();
       dueDate.setHours(23, 59, 59, 999);
-      dueDateSource = 'defaulted to 11:59 PM today (no date found)';
-      console.log(`⚠️ No date found for "${event.title}", using 11:59 PM today`);
+      dueDateSource = `defaulted to 11:59 PM today in ${userTimezone} (no date found)`;
+      console.log(`⚠️ No date found for "${event.title}", using 11:59 PM today in ${userTimezone}`);
     }
     
     // Convert to timestamp (seconds, not milliseconds, to match Schoology format)
@@ -381,7 +402,7 @@ class SchoologyCalendarService {
     };
     
     console.log(`✅ Processed assignment: "${title}"`);
-    console.log(`   Due: ${dueDate.toLocaleString()} (${dueDateSource})`);
+    console.log(`   Due: ${formatDateTimeInUserTimezone(dueDate)} (${dueDateSource})`);
     console.log(`   Due Timestamp: ${dueTimestamp}`);
     console.log(`   Description Length: ${description.length} chars`);
     console.log('---');
@@ -514,8 +535,7 @@ class SchoologyCalendarService {
     ];
     
     testDates.forEach(dateStr => {
-      const parsed = this.parseICalDate(dateStr);
-      console.log(`  ${dateStr} → ${parsed ? parsed.toLocaleString() : 'null'}`);
+      this.parseICalDate(dateStr);
     });
   }
 }

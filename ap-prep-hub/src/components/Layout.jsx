@@ -5,6 +5,7 @@ import { Button, Avatar, AvatarFallback, DropdownMenu, DropdownMenuTrigger, Drop
 import { useAuth } from '../contexts/AuthContext';
 import { createPageUrl, cn } from '../utils/helpers';
 import emailService from '../services/emailService';
+import ApexScholarLogo from './ui/ApexScholarLogo';
 
 export function Layout({ children }) {
     const location = useLocation();
@@ -22,10 +23,8 @@ export function Layout({ children }) {
                     <div className="flex items-center justify-between h-14 sm:h-16">
                         <Link to="/AITutors" className="flex items-center space-x-2 sm:space-x-3 group">
                             <div className="p-1 sm:p-1.5 rounded-lg group-hover:opacity-80 transition-all duration-200">
-                                <img 
-                                    src="/Apex_Scholar_Logo_NoText.png" 
-                                    alt="Apex Scholar" 
-                                    className="w-8 h-8 sm:w-10 sm:h-10 object-contain"
+                                <ApexScholarLogo 
+                                    className="w-8 h-8 sm:w-10 sm:h-10" 
                                 />
                             </div>
                             <h1 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent truncate max-w-[120px] sm:max-w-none">Apex Scholar</h1>

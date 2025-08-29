@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, Clock, BookOpen, Target, X } from 'lucide-react';
+import { Calendar, Clock, BookOpen, Target, X, Globe } from 'lucide-react';
 import { Card, CardContent, Badge } from '../ui/UIComponents';
 import { getUpcomingExamsSync } from '../../constants/apExamDates';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { format } from 'date-fns';
+import { getTimezoneDisplayString } from '../../utils/timezone';
 
 const APExamDashboard = () => {
   const { user } = useAuth();
@@ -177,6 +178,8 @@ const APExamDashboard = () => {
                             <div className="flex items-center gap-2">
                               <Clock className="w-4 h-4 text-slate-400" />
                               <span className="text-slate-300 text-sm">{exam.time}</span>
+                              <Globe className="w-3 h-3 text-slate-500" />
+                              <span className="text-slate-500 text-xs">{getTimezoneDisplayString()}</span>
                             </div>
                           </div>
 

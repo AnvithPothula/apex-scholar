@@ -1191,7 +1191,6 @@ Please check your internet connection and try again. In the meantime:
         setCurrentMessage(messageContent);
         setUploadedFiles(filesToSend);
         console.error('Failed to save message');
-        // TODO: Show user-friendly error message
         alert('Failed to send message. Please try again.');
       }
     } catch (error) {
