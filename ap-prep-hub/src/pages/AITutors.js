@@ -61,6 +61,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
+import apiKeyManager from '../services/APIKeyManager';
 
 const AITutors = () => {
   const { subject: urlSubject } = useParams();
@@ -998,26 +999,31 @@ MARKDOWN EXAMPLES:
 Remember: Stay strictly within ${subjectName} content. Analyze files in the context of AP curriculum. Keep responses focused and well-formatted.`;
 
     try {
-      // API request with optimized configuration for better responses
-      const apiKey = "AIzaSyD9Rjt3n083o1gCqMk05DhvtVYUYIF_Alc";
-      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+      // API request with optimized configuration for better responses using APIKeyManager
+      let lastError = null;
+      const maxRetries = Math.min(3, apiKeyManager.getTotalKeys());
       
-      // Prepare content for Gemini API including files
-      const messageParts = [];
-      
-      // Add text if present (with sanitization)
-      if (userMessage.trim()) {
-        const sanitizedMessage = sanitizeUserInput(userMessage);
-        messageParts.push({ text: sanitizedMessage });
-      }
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          const apiUrl = apiKeyManager.getCurrentUrl();
+          console.log(`🔑 AI Tutors attempt ${attempt + 1}/${maxRetries} using API key ${apiKeyManager.getCurrentKeyIndex() + 1}`);
+          
+          // Prepare content for Gemini API including files
+          const messageParts = [];
+          
+          // Add text if present (with sanitization)
+          if (userMessage.trim()) {
+            const sanitizedMessage = sanitizeUserInput(userMessage);
+            messageParts.push({ text: sanitizedMessage });
+          }
 
-      // Add uploaded files to the current message
-      if (uploadedFiles.length > 0) {
-        for (const file of uploadedFiles) {
-          if (file.category === 'image' && file.data) {
-            messageParts.push({
-              inlineData: {
-                mimeType: file.mimeType,
+          // Add uploaded files to the current message
+          if (uploadedFiles.length > 0) {
+            for (const file of uploadedFiles) {
+              if (file.category === 'image' && file.data) {
+                messageParts.push({
+                  inlineData: {
+                    mimeType: file.mimeType,
                 data: file.data
               }
             });
@@ -1069,30 +1075,73 @@ Remember: Stay strictly within ${subjectName} content. Analyze files in the cont
         ]
       };
 
-      console.log("Calling enhanced Gemini API with curriculum focus and file analysis...");
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload)
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Gemini API Error:', response.status, errorText);
-        throw new Error(`Gemini API failed: ${response.status}`);
+          console.log("Calling enhanced Gemini API with curriculum focus and file analysis...");
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload)
+          });
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            
+            // Handle rate limiting
+            if (response.status === 429) {
+              console.log(`⚠️ Rate limit hit on API key ${apiKeyManager.getCurrentKeyIndex() + 1} in AI Tutors, rotating...`);
+              
+              // Extract retry delay if available
+              let retryAfter = 300;
+              try {
+                const errorData = JSON.parse(errorText);
+                if (errorData.error && errorData.error.details) {
+                  const retryInfo = errorData.error.details.find(d => d['@type'] === 'type.googleapis.com/google.rpc.RetryInfo');
+                  if (retryInfo && retryInfo.retryDelay) {
+                    retryAfter = parseInt(retryInfo.retryDelay.replace('s', '')) || 300;
+                  }
+                }
+              } catch (parseError) {
+                console.log('Could not parse retry delay, using default');
+              }
+              
+              apiKeyManager.markCurrentKeyFailed(retryAfter);
+              lastError = new Error(`Rate limit exceeded: ${errorText}`);
+              continue;
+            }
+            
+            console.error('Gemini API Error:', response.status, errorText);
+            throw new Error(`Gemini API failed: ${response.status}`);
+          }
+          
+          const result = await response.json();
+          console.log('Enhanced Gemini API Response:', result);
+          
+          if (!result.candidates?.[0]?.content?.parts?.[0]?.text) {
+            console.error('Invalid Gemini response structure:', result);
+            throw new Error('Invalid API response from Gemini');
+          }
+          
+          console.log(`✅ AI Tutors request successful with API key ${apiKeyManager.getCurrentKeyIndex() + 1}`);
+          return result.candidates[0].content.parts[0].text;
+          
+        } catch (error) {
+          console.error(`❌ AI Tutors error with API key ${apiKeyManager.getCurrentKeyIndex() + 1}:`, error.message);
+          lastError = error;
+          
+          if (error.message.includes('Rate limit exceeded')) {
+            continue;
+          }
+          
+          if (attempt < maxRetries - 1) {
+            apiKeyManager.rotateToNextKey();
+          }
+        }
       }
       
-      const result = await response.json();
-      console.log('Enhanced Gemini API Response:', result);
-      
-      if (!result.candidates?.[0]?.content?.parts?.[0]?.text) {
-        console.error('Invalid Gemini response structure:', result);
-        throw new Error('Invalid API response from Gemini');
-      }
-      
-      return result.candidates[0].content.parts[0].text;
+      // If all attempts failed, use fallback
+      console.error('❌ All API key attempts failed in AI Tutors, using fallback');
+      throw lastError || new Error('Failed to get response with any available API key');
       
     } catch (error) {
       console.error('Error calling enhanced Gemini API:', error);

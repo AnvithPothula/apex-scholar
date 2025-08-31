@@ -18,7 +18,6 @@ import { Button, Card, CardHeader, CardTitle, CardContent } from '../ui/UICompon
 import { useAuth } from '../../contexts/AuthContext';
 import schoologyAPI from '../../services/schoologyAPI';
 import assignmentSync from '../../services/assignmentSync';
-import SyncHistoryManager from './SyncHistoryManager';
 
 export function SchoologyIntegration() {
   const { user } = useAuth();
@@ -131,16 +130,33 @@ export function SchoologyIntegration() {
 
   const handleAutoSyncToggle = async () => {
     try {
-      if (autoSync) {
-        await assignmentSync.stopAutoSync(user.uid);
-        setAutoSync(false);
-      } else {
+      const newAutoSyncState = !autoSync;
+      
+      if (newAutoSyncState) {
+        // Starting auto-sync
         await assignmentSync.startAutoSync(user.uid, syncInterval);
         setAutoSync(true);
+        console.log('✅ Auto-sync enabled');
+      } else {
+        // Stopping auto-sync
+        await assignmentSync.stopAutoSync(user.uid);
+        setAutoSync(false);
+        console.log('🔴 Auto-sync disabled');
       }
+      
+      // Save the auto-sync preference to prevent reset on page leave
+      await assignmentSync.saveSyncSettings(user.uid, {
+        isConnected,
+        hasAutoSync: newAutoSyncState,
+        syncInterval,
+        lastSync
+      });
+      
     } catch (error) {
       console.error('Error toggling auto-sync:', error);
       setError('Failed to update auto-sync settings');
+      // Revert the state if there was an error
+      setAutoSync(!autoSync);
     }
   };
 
@@ -392,13 +408,6 @@ export function SchoologyIntegration() {
         )}
       </CardContent>
       </Card>
-
-      {/* Sync History Manager - only show if connected */}
-      {isConnected && (
-        <div className="mt-6">
-          <SyncHistoryManager />
-        </div>
-      )}
     </>
   );
 }

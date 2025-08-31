@@ -58,10 +58,10 @@ const SyncHistoryManager = () => {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border p-6">
+      <div className="bg-slate-800/60 border-slate-700 rounded-lg shadow-sm border p-6">
         <div className="animate-pulse">
-          <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
-          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+          <div className="h-4 bg-slate-600 rounded w-1/4 mb-4"></div>
+          <div className="h-4 bg-slate-600 rounded w-1/2"></div>
         </div>
       </div>
     );
@@ -70,7 +70,7 @@ const SyncHistoryManager = () => {
   const totalSynced = syncStats?.totalSyncedAssignments || 0;
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border">
+    <div className="bg-slate-800/60 border-slate-700 rounded-lg shadow-sm border">
       <div className="p-6 border-b">
         <div className="flex items-center justify-between">
           <div>
@@ -91,13 +91,13 @@ const SyncHistoryManager = () => {
       <div className="p-6">
         {/* Summary Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-blue-50 rounded-lg p-4">
+          <div className="bg-blue-800/30 border border-blue-600/50 rounded-lg p-4">
             <div className="text-2xl font-bold text-blue-600">{totalSynced}</div>
             <div className="text-sm text-blue-800">Total Synced Assignments</div>
           </div>
           
           {syncStats?.assignmentsBySource && (
-            <div className="bg-green-50 rounded-lg p-4">
+            <div className="bg-green-800/30 border border-green-600/50 rounded-lg p-4">
               <div className="text-2xl font-bold text-green-600">
                 {Object.keys(syncStats.assignmentsBySource).length}
               </div>
@@ -106,7 +106,7 @@ const SyncHistoryManager = () => {
           )}
           
           {syncStats?.assignmentsByCourse && (
-            <div className="bg-purple-50 rounded-lg p-4">
+            <div className="bg-purple-800/30 border border-purple-600/50 rounded-lg p-4">
               <div className="text-2xl font-bold text-purple-600">
                 {Object.keys(syncStats.assignmentsByCourse).length}
               </div>
@@ -116,7 +116,7 @@ const SyncHistoryManager = () => {
         </div>
 
         {/* Explanation */}
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+        <div className="bg-yellow-800/30 border border-yellow-600/50 rounded-lg p-4 mb-6">
           <div className="flex">
             <div className="flex-shrink-0">
               <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
@@ -144,7 +144,7 @@ const SyncHistoryManager = () => {
                 <h4 className="text-sm font-medium text-gray-900 mb-3">Assignments by Source</h4>
                 <div className="space-y-2">
                   {Object.entries(syncStats.assignmentsBySource).map(([source, count]) => (
-                    <div key={source} className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded">
+                    <div key={source} className="flex justify-between items-center py-2 px-3 bg-slate-700/50 rounded">
                       <span className="text-sm text-gray-700 capitalize">{source}</span>
                       <span className="text-sm font-medium text-gray-900">{count} assignments</span>
                     </div>
@@ -159,7 +159,7 @@ const SyncHistoryManager = () => {
                 <h4 className="text-sm font-medium text-gray-900 mb-3">Assignments by Course</h4>
                 <div className="space-y-2">
                   {Object.entries(syncStats.assignmentsByCourse).map(([course, count]) => (
-                    <div key={course} className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded">
+                    <div key={course} className="flex justify-between items-center py-2 px-3 bg-slate-700/50 rounded">
                       <span className="text-sm text-gray-700">{course}</span>
                       <span className="text-sm font-medium text-gray-900">{count} assignments</span>
                     </div>
@@ -172,7 +172,7 @@ const SyncHistoryManager = () => {
             {syncStats.assignments && syncStats.assignments.length > 0 && (
               <div>
                 <h4 className="text-sm font-medium text-gray-900 mb-3">Recent Synced Assignments</h4>
-                <div className="bg-gray-50 rounded-lg p-4 max-h-64 overflow-y-auto">
+                <div className="bg-slate-700/50 rounded-lg p-4 max-h-64 overflow-y-auto">
                   <div className="space-y-2">
                     {syncStats.assignments
                       .sort((a, b) => new Date(b.firstSyncedAt) - new Date(a.firstSyncedAt))
@@ -208,7 +208,7 @@ const SyncHistoryManager = () => {
             </div>
             <button
               onClick={clearSyncHistory}
-              className="px-4 py-2 border border-red-300 text-red-700 rounded-md hover:bg-red-50 text-sm font-medium"
+              className="px-4 py-2 border border-red-400 text-red-300 rounded-md hover:bg-red-800/30 text-sm font-medium"
             >
               Clear History
             </button>

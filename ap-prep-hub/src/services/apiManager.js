@@ -1,6 +1,8 @@
+import apiKeyManager from './APIKeyManager';
+
 /**
- * Production-grade API Manager for handling hundreds of concurrent users
- * Implements request queuing, rate limiting, load balancing, and error recovery
+ * Centralized API Manager for handling all Gemini API requests
+ * Provides request queuing, rate limiting, fallback responses, and intelligent retry logic
  */
 
 import { getRateLimitConfig, getBatchingConfig, isFeatureEnabled } from '../config/environment';
@@ -215,51 +217,94 @@ class APIManager {
    * Execute the actual API call
    */
   async executeAPICall(requestData) {
-    const apiKey = process.env.REACT_APP_GEMINI_API_KEY;
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    let lastError = null;
+    const maxRetries = Math.min(3, apiKeyManager.getTotalKeys());
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const apiUrl = apiKeyManager.getCurrentUrl();
+        console.log(`🔑 API Manager attempt ${attempt + 1}/${maxRetries} using API key ${apiKeyManager.getCurrentKeyIndex() + 1}`);
 
-    // Build optimized prompt
-    const prompt = this.buildOptimizedPrompt(requestData);
+        // Build optimized prompt
+        const prompt = this.buildOptimizedPrompt(requestData);
 
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'User-Agent': 'ApexScholar/1.0'
-      },
-      body: JSON.stringify({
-        contents: [{
-          role: "user",
-          parts: [{ text: prompt }]
-        }],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 4000, // Reduced for reliability
-          candidateCount: 1,
-          stopSequences: ["}\n]\n\n"]
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'User-Agent': 'ApexScholar/1.0'
+          },
+          body: JSON.stringify({
+            contents: [{
+              role: "user",
+              parts: [{ text: prompt }]
+            }],
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 4000, // Reduced for reliability
+              candidateCount: 1,
+              stopSequences: ["}\n]\n\n"]
+            }
+          })
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          
+          if (response.status === 429) {
+            console.log(`⚠️ Rate limit hit on API key ${apiKeyManager.getCurrentKeyIndex() + 1}, rotating...`);
+            
+            // Extract retry delay if available
+            let retryAfter = 300;
+            try {
+              const errorData = JSON.parse(errorText);
+              if (errorData.error && errorData.error.details) {
+                const retryInfo = errorData.error.details.find(d => d['@type'] === 'type.googleapis.com/google.rpc.RetryInfo');
+                if (retryInfo && retryInfo.retryDelay) {
+                  retryAfter = parseInt(retryInfo.retryDelay.replace('s', '')) || 300;
+                }
+              }
+            } catch (parseError) {
+              console.log('Could not parse retry delay, using default');
+            }
+            
+            apiKeyManager.markCurrentKeyFailed(retryAfter);
+            lastError = new Error('Rate limit exceeded');
+            continue;
+          } else if (response.status === 403) {
+            throw new Error('API access denied');
+          } else if (response.status >= 500) {
+            throw new Error(`Server error (${response.status})`);
+          } else {
+            throw new Error(`API request failed (${response.status})`);
+          }
         }
-      })
-    });
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        throw new Error('Rate limit exceeded');
-      } else if (response.status === 403) {
-        throw new Error('API access denied');
-      } else if (response.status >= 500) {
-        throw new Error(`Server error (${response.status})`);
-      } else {
-        throw new Error(`API request failed (${response.status})`);
+        const result = await response.json();
+        
+        if (!result?.candidates?.[0]?.content?.parts?.[0]?.text) {
+          throw new Error('Invalid API response structure');
+        }
+
+        console.log(`✅ API Manager request successful with API key ${apiKeyManager.getCurrentKeyIndex() + 1}`);
+        return this.parseAPIResponse(result.candidates[0].content.parts[0].text, requestData);
+        
+      } catch (error) {
+        console.error(`❌ API Manager error with API key ${apiKeyManager.getCurrentKeyIndex() + 1}:`, error.message);
+        lastError = error;
+        
+        if (error.message.includes('Rate limit exceeded')) {
+          continue;
+        }
+        
+        if (attempt < maxRetries - 1) {
+          apiKeyManager.rotateToNextKey();
+        }
       }
     }
-
-    const result = await response.json();
     
-    if (!result?.candidates?.[0]?.content?.parts?.[0]?.text) {
-      throw new Error('Invalid API response structure');
-    }
-
-    return this.parseAPIResponse(result.candidates[0].content.parts[0].text, requestData);
+    console.error('❌ All API key attempts failed in API Manager');
+    throw lastError || new Error('Failed to execute API call with any available API key');
   }
 
   /**

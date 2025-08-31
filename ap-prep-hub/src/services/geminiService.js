@@ -1,97 +1,177 @@
+import apiKeyManager from './APIKeyManager';
+
 class GeminiService {
   constructor() {
-    this.apiKey = process.env.REACT_APP_GEMINI_API_KEY;
     this.baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
   }
 
   async generateContent(prompt, options = {}) {
-    try {
-      const response = await fetch(`${this.baseUrl}?key=${this.apiKey}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: prompt
-            }]
-          }],
-          generationConfig: {
-            temperature: options.temperature || 0.7,
-            topK: options.topK || 40,
-            topP: options.topP || 0.95,
-            maxOutputTokens: options.maxOutputTokens || 2048,
+    let lastError = null;
+    const maxRetries = Math.min(3, apiKeyManager.getTotalKeys()); // Try up to 3 keys or all available keys
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const apiUrl = apiKeyManager.getCurrentUrl();
+        console.log(`🔑 Attempt ${attempt + 1}/${maxRetries} using API key ${apiKeyManager.getCurrentKeyIndex() + 1}`);
+        
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: [{
+                text: prompt
+              }]
+            }],
+            generationConfig: {
+              temperature: options.temperature || 0.7,
+              topK: options.topK || 40,
+              topP: options.topP || 0.95,
+              maxOutputTokens: options.maxOutputTokens || 2048,
+            }
+          })
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          
+          // Handle rate limiting specifically
+          if (response.status === 429) {
+            console.log(`⚠️ Rate limit hit on API key ${apiKeyManager.getCurrentKeyIndex() + 1}, rotating to next key...`);
+            
+            // Extract retry delay from error if available
+            let retryAfter = 300; // Default 5 minutes
+            try {
+              const errorData = JSON.parse(errorText);
+              if (errorData.error && errorData.error.details) {
+                const retryInfo = errorData.error.details.find(d => d['@type'] === 'type.googleapis.com/google.rpc.RetryInfo');
+                if (retryInfo && retryInfo.retryDelay) {
+                  const delay = retryInfo.retryDelay;
+                  retryAfter = parseInt(delay.replace('s', '')) || 300;
+                }
+              }
+            } catch (parseError) {
+              console.log('Could not parse retry delay, using default');
+            }
+            
+            apiKeyManager.markCurrentKeyFailed(retryAfter);
+            lastError = new Error(`Rate limit exceeded: ${errorText}`);
+            continue; // Try next key
           }
-        })
-      });
+          
+          throw new Error(`Gemini API failed: ${response.status} - ${errorText}`);
+        }
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Gemini API failed: ${response.status} - ${errorText}`);
+        const result = await response.json();
+        
+        if (!result.candidates || !result.candidates[0] || !result.candidates[0].content) {
+          throw new Error('Invalid API response structure');
+        }
+
+        console.log(`✅ Request successful with API key ${apiKeyManager.getCurrentKeyIndex() + 1}`);
+        return result.candidates[0].content.parts[0].text;
+        
+      } catch (error) {
+        console.error(`❌ Error with API key ${apiKeyManager.getCurrentKeyIndex() + 1}:`, error.message);
+        lastError = error;
+        
+        // If it's a rate limit error, we already handled it above
+        if (error.message.includes('Rate limit exceeded')) {
+          continue;
+        }
+        
+        // For other errors, try rotating to next key
+        if (attempt < maxRetries - 1) {
+          apiKeyManager.rotateToNextKey();
+        }
       }
-
-      const result = await response.json();
-      
-      if (!result.candidates || !result.candidates[0] || !result.candidates[0].content) {
-        throw new Error('Invalid API response structure');
-      }
-
-      return result.candidates[0].content.parts[0].text;
-    } catch (error) {
-      console.error('Gemini API Error:', error);
-      throw error;
     }
+    
+    // If all attempts failed, throw the last error
+    console.error('❌ All API key attempts failed');
+    throw lastError || new Error('Failed to generate content with any available API key');
   }
 
   async generateWithImages(prompt, images = [], options = {}) {
-    try {
-      const parts = [{ text: prompt }];
-      
-      // Add images to the request
-      images.forEach(image => {
-        parts.push({
-          inline_data: {
-            mime_type: image.mimeType || 'image/jpeg',
-            data: image.data
-          }
+    let lastError = null;
+    const maxRetries = Math.min(3, apiKeyManager.getTotalKeys());
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const apiUrl = apiKeyManager.getCurrentUrl();
+        console.log(`🔑 Image generation attempt ${attempt + 1}/${maxRetries} using API key ${apiKeyManager.getCurrentKeyIndex() + 1}`);
+        
+        const parts = [{ text: prompt }];
+        
+        // Add images to the request
+        images.forEach(image => {
+          parts.push({
+            inline_data: {
+              mime_type: image.mimeType || 'image/jpeg',
+              data: image.data
+            }
+          });
         });
-      });
 
-      const response = await fetch(`${this.baseUrl}?key=${this.apiKey}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: parts
-          }],
-          generationConfig: {
-            temperature: options.temperature || 0.7,
-            topK: options.topK || 40,
-            topP: options.topP || 0.95,
-            maxOutputTokens: options.maxOutputTokens || 2048,
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: parts
+            }],
+            generationConfig: {
+              temperature: options.temperature || 0.7,
+              topK: options.topK || 40,
+              topP: options.topP || 0.95,
+              maxOutputTokens: options.maxOutputTokens || 2048,
+            }
+          })
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          
+          // Handle rate limiting
+          if (response.status === 429) {
+            console.log(`⚠️ Rate limit hit on API key ${apiKeyManager.getCurrentKeyIndex() + 1} for image generation, rotating...`);
+            apiKeyManager.markCurrentKeyFailed();
+            lastError = new Error(`Rate limit exceeded: ${errorText}`);
+            continue;
           }
-        })
-      });
+          
+          throw new Error(`Gemini API failed: ${response.status} - ${errorText}`);
+        }
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Gemini API failed: ${response.status} - ${errorText}`);
+        const result = await response.json();
+        
+        if (!result.candidates || !result.candidates[0] || !result.candidates[0].content) {
+          throw new Error('Invalid API response structure');
+        }
+
+        console.log(`✅ Image generation successful with API key ${apiKeyManager.getCurrentKeyIndex() + 1}`);
+        return result.candidates[0].content.parts[0].text;
+        
+      } catch (error) {
+        console.error(`❌ Image generation error with API key ${apiKeyManager.getCurrentKeyIndex() + 1}:`, error.message);
+        lastError = error;
+        
+        if (error.message.includes('Rate limit exceeded')) {
+          continue;
+        }
+        
+        if (attempt < maxRetries - 1) {
+          apiKeyManager.rotateToNextKey();
+        }
       }
-
-      const result = await response.json();
-      
-      if (!result.candidates || !result.candidates[0] || !result.candidates[0].content) {
-        throw new Error('Invalid API response structure');
-      }
-
-      return result.candidates[0].content.parts[0].text;
-    } catch (error) {
-      console.error('Gemini API Error:', error);
-      throw error;
     }
+    
+    console.error('❌ All API key attempts failed for image generation');
+    throw lastError || new Error('Failed to generate content with images using any available API key');
   }
 
   // Specialized methods for different features
