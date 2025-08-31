@@ -549,7 +549,7 @@ class AssignmentSyncService {
   /**
    * Start automatic sync for a user
    */
-  startAutoSync(userId, intervalMinutes = 60) {
+  async startAutoSync(userId, intervalMinutes = 60) {
     // Clear existing interval if any
     this.stopAutoSync(userId);
 
@@ -565,17 +565,47 @@ class AssignmentSyncService {
     }, intervalMinutes * 60 * 1000);
 
     this.syncIntervals.set(userId, intervalId);
+
+    // Save auto-sync settings to Firebase for persistence
+    try {
+      const userTokensRef = doc(db, 'users', userId, 'integrations', 'schoology');
+      await updateDoc(userTokensRef, {
+        autoSync: true,
+        syncInterval: intervalMinutes,
+        autoSyncStarted: new Date()
+      });
+      console.log(`✅ Auto-sync settings saved to Firebase for user ${userId}`);
+    } catch (error) {
+      console.error('Error saving auto-sync settings:', error);
+      // Don't fail the entire operation if Firebase save fails
+    }
   }
 
   /**
    * Stop automatic sync for a user
    */
-  stopAutoSync(userId) {
+  async stopAutoSync(userId) {
     const intervalId = this.syncIntervals.get(userId);
     if (intervalId) {
       clearInterval(intervalId);
       this.syncIntervals.delete(userId);
       console.log(`⏹️ Stopped auto-sync for user ${userId}`);
+    }
+
+    // Save auto-sync settings to Firebase for persistence
+    try {
+      const userTokensRef = doc(db, 'users', userId, 'integrations', 'schoology');
+      const tokenDoc = await getDoc(userTokensRef);
+      if (tokenDoc.exists()) {
+        await updateDoc(userTokensRef, {
+          autoSync: false,
+          autoSyncStopped: new Date()
+        });
+        console.log(`✅ Auto-sync disabled state saved to Firebase for user ${userId}`);
+      }
+    } catch (error) {
+      console.error('Error saving auto-sync disabled state:', error);
+      // Don't fail the entire operation if Firebase save fails
     }
   }
 
@@ -599,12 +629,25 @@ class AssignmentSyncService {
   async getSyncStatus(userId) {
     try {
       const isConnected = await schoologyAPI.isConnected(userId);
-      const hasAutoSync = this.syncIntervals.has(userId);
-
-      // Get last sync time from Firebase
+      
+      // Check both in-memory state and Firebase state for auto-sync
+      const hasAutoSyncInMemory = this.syncIntervals.has(userId);
+      
+      // Get last sync time and auto-sync settings from Firebase
       const userTokensRef = doc(db, 'users', userId, 'integrations', 'schoology');
       const tokenDoc = await getDoc(userTokensRef);
       const lastSync = tokenDoc.exists() ? tokenDoc.data().lastSync?.toDate() : null;
+      const autoSyncFromFirebase = tokenDoc.exists() ? tokenDoc.data().autoSync === true : false;
+      const syncInterval = tokenDoc.exists() ? tokenDoc.data().syncInterval || 1 : 1;
+
+      // If Firebase says auto-sync should be on but it's not running in memory, restart it
+      if (autoSyncFromFirebase && !hasAutoSyncInMemory && isConnected) {
+        console.log(`🔄 Restarting auto-sync from Firebase settings for user ${userId}`);
+        this.startAutoSync(userId, syncInterval);
+      }
+
+      // Use Firebase state as the source of truth for auto-sync status
+      const hasAutoSync = autoSyncFromFirebase;
 
       // Get sync history stats
       const syncHistory = await this.getSyncHistory(userId);
@@ -613,6 +656,7 @@ class AssignmentSyncService {
       return {
         isConnected,
         hasAutoSync,
+        syncInterval,
         lastSync,
         totalSyncedAssignments,
         syncHistoryLastUpdated: syncHistory.lastUpdated
@@ -622,6 +666,7 @@ class AssignmentSyncService {
       return {
         isConnected: false,
         hasAutoSync: false,
+        syncInterval: 1,
         lastSync: null,
         totalSyncedAssignments: 0,
         syncHistoryLastUpdated: null

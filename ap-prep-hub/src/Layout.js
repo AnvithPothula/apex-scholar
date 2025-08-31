@@ -200,16 +200,6 @@ export default function Layout({ children, currentPageName }) {
                   <li>• Prateek Roy</li>
                 </ul>
               </div>
-              <div>
-                <h3 className="text-lg font-semibold text-green-400 mb-2">Special Thanks:</h3>
-                <ul className="space-y-1 text-slate-300 text-sm">
-                  <li>• Open-source community for amazing libraries</li>
-                  <li>• React & Tailwind CSS teams</li>
-                  <li>• Firebase for backend services</li>
-                  <li>• Lucide React for beautiful icons</li>
-                  <li>• All beta testers and early users</li>
-                </ul>
-              </div>
             </div>
           </div>
         </div>
@@ -284,7 +274,7 @@ export default function Layout({ children, currentPageName }) {
               
               <div className="pt-4 border-t border-slate-600">
                 <p className="text-xs text-slate-400">
-                  Last updated: {new Date().toLocaleDateString()}
+                  Last updated: 9/2/2025
                 </p>
               </div>
             </div>

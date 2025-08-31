@@ -9,6 +9,8 @@ import AITutors from './pages/AITutors';
 import SmartScheduler from './pages/SmartScheduler';
 import PracticeTests from './pages/PracticeTests';
 import Settings from './pages/Settings';
+import Flashcards from './pages/Flashcards';
+import Solver from './pages/Solver';
 import { createPageUrl } from './utils/helpers';
 import { initializeBackgroundSync } from './services/backgroundSync';
 
@@ -41,6 +43,8 @@ function MainApp() {
         <Route path={createPageUrl("AITutors", ":subject")} element={<AITutors />} />
         <Route path={createPageUrl("SmartScheduler")} element={<SmartScheduler />} />
         <Route path={createPageUrl("PracticeTests")} element={<PracticeTests />} />
+        <Route path={createPageUrl("Flashcards")} element={<Flashcards />} />
+        <Route path={createPageUrl("Solver")} element={<Solver />} />
         <Route path={createPageUrl("Settings")} element={<Settings />} />
         <Route path="*" element={<Navigate to={createPageUrl("AITutors")} replace />} />
       </Routes>

@@ -42,6 +42,7 @@ export function SchoologyIntegration() {
       const status = await assignmentSync.getSyncStatus(user.uid);
       setIsConnected(status.isConnected);
       setAutoSync(status.hasAutoSync);
+      setSyncInterval(status.syncInterval || 1); // Use interval from Firebase
       setLastSync(status.lastSync);
 
       console.log('📊 Schoology integration status:', status);
@@ -131,10 +132,10 @@ export function SchoologyIntegration() {
   const handleAutoSyncToggle = async () => {
     try {
       if (autoSync) {
-        assignmentSync.stopAutoSync(user.uid);
+        await assignmentSync.stopAutoSync(user.uid);
         setAutoSync(false);
       } else {
-        assignmentSync.startAutoSync(user.uid, syncInterval);
+        await assignmentSync.startAutoSync(user.uid, syncInterval);
         setAutoSync(true);
       }
     } catch (error) {
@@ -143,13 +144,13 @@ export function SchoologyIntegration() {
     }
   };
 
-  const handleIntervalChange = (newInterval) => {
+  const handleIntervalChange = async (newInterval) => {
     setSyncInterval(newInterval);
     
-    // If auto-sync is enabled, restart with new interval
+    // If auto-sync is enabled, restart with new interval and save to Firebase
     if (autoSync) {
-      assignmentSync.stopAutoSync(user.uid);
-      assignmentSync.startAutoSync(user.uid, newInterval);
+      await assignmentSync.stopAutoSync(user.uid);
+      await assignmentSync.startAutoSync(user.uid, newInterval);
     }
   };
 

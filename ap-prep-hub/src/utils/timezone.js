@@ -3,11 +3,28 @@
  * Provides consistent timezone handling with Central Time as default
  */
 
+// Store for user's timezone preference (will be set from Settings)
+let userTimezonePreference = null;
+
+/**
+ * Set the user's timezone preference (called from Settings page)
+ * @param {string} timezone - The timezone identifier (e.g., 'America/Chicago')
+ */
+export const setUserTimezonePreference = (timezone) => {
+  userTimezonePreference = timezone;
+  console.log(`🌍 User timezone preference set to: ${timezone}`);
+};
+
 /**
  * Get the user's timezone with Central Time as fallback
  * @returns {string} The timezone identifier (e.g., 'America/Chicago')
  */
 export const getUserTimezone = () => {
+  // First check if user has set a preference
+  if (userTimezonePreference) {
+    return userTimezonePreference;
+  }
+  
   try {
     // Try to get the user's timezone from their browser
     const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;

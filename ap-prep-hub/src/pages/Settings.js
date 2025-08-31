@@ -3,9 +3,11 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { getAvailableSubjects, getCurriculumData } from '../constants/comprehensiveCurriculum';
+import { setUserTimezonePreference } from '../utils/timezone';
 import BlackoutScheduleManager from '../components/settings/BlackoutScheduleManager';
 import { SchoologyIntegration } from '../components/settings/SchoologyIntegration';
 import { Button, Card, CardHeader, CardTitle, CardContent, Input } from '../components/ui/UIComponents';
+import CustomDropdown from '../components/ui/CustomDropdown';
 import HelpTooltip from '../components/ui/HelpTooltip';
 
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
@@ -34,6 +36,9 @@ const Settings = () => {
     maxConcurrentSubjects: 3, // Prevent cognitive overload
     difficultTasksInMorning: true, // Peak cognitive hours
     avoidPostLunchDip: true, // Skip 1-3 PM for difficult tasks
+    
+    // Timezone preference (defaults to Central Time)
+    timezone: 'America/Chicago', // CST/CDT timezone
     
     // Advanced features
     procrastinationBuffer: 0.2 // 20% time buffer
@@ -78,13 +83,17 @@ const Settings = () => {
         const defaultPrefs = getDefaultStudyPreferences();
         setUserSubjects(data.subjects || []);
         // Merge user data with defaults to ensure all fields have values
-        setStudyPreferences({ ...defaultPrefs, ...data.studyPreferences });
+        const mergedPrefs = { ...defaultPrefs, ...data.studyPreferences };
+        setStudyPreferences(mergedPrefs);
         setBlackoutDates(data.blackoutDates || getDefaultBlackoutSchedule());
+        
+        // Set user's timezone preference
+        setUserTimezonePreference(mergedPrefs.timezone || 'America/Chicago');
         
         // Set baseline for change detection
         const savedData = JSON.stringify({
           userSubjects: data.subjects || [],
-          studyPreferences: { ...defaultPrefs, ...data.studyPreferences },
+          studyPreferences: mergedPrefs,
           blackoutDates: data.blackoutDates || getDefaultBlackoutSchedule()
         });
         setLastSavedData(savedData);
@@ -95,6 +104,9 @@ const Settings = () => {
         setUserSubjects([]);
         setStudyPreferences(defaultPrefs);
         setBlackoutDates(emptySchedule);
+        
+        // Set default timezone preference
+        setUserTimezonePreference(defaultPrefs.timezone);
         
         // Save the defaults to Firebase so they persist
         try {
@@ -443,16 +455,40 @@ const Settings = () => {
                         Study Intensity
                         <HelpTooltip content="Light: Shorter sessions with more breaks. Moderate: Balanced approach. Intense: Longer sessions with extended focus periods." />
                       </label>
-                      <select
-                        id="studyIntensity"
+                      <CustomDropdown
+                        options={[
+                          { value: "light", label: "Light (shorter sessions, more breaks)" },
+                          { value: "moderate", label: "Moderate (balanced approach)" },
+                          { value: "intense", label: "Intense (longer sessions, extended peak hours)" }
+                        ]}
                         value={studyPreferences.studyIntensity}
-                        onChange={(e) => setStudyPreferences({ ...studyPreferences, studyIntensity: e.target.value })}
-                        className="mt-1 block w-full pl-3 pr-10 py-2 text-base bg-slate-800/90 border-slate-600 text-slate-100 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                      >
-                        <option value="light">Light (shorter sessions, more breaks)</option>
-                        <option value="moderate">Moderate (balanced approach)</option>
-                        <option value="intense">Intense (longer sessions, extended peak hours)</option>
-                      </select>
+                        onChange={(value) => setStudyPreferences({ ...studyPreferences, studyIntensity: value })}
+                        placeholder="Select study intensity"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="timezone" className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
+                        Timezone
+                        <HelpTooltip content="Select your timezone for accurate scheduling and assignment due dates. This affects how times are displayed throughout the application." />
+                      </label>
+                      <CustomDropdown
+                        options={[
+                          { value: "America/New_York", label: "Eastern Time (EST/EDT)" },
+                          { value: "America/Chicago", label: "Central Time (CST/CDT)" },
+                          { value: "America/Denver", label: "Mountain Time (MST/MDT)" },
+                          { value: "America/Phoenix", label: "Arizona Time (MST)" },
+                          { value: "America/Los_Angeles", label: "Pacific Time (PST/PDT)" },
+                          { value: "America/Anchorage", label: "Alaska Time (AKST/AKDT)" },
+                          { value: "Pacific/Honolulu", label: "Hawaii Time (HST)" }
+                        ]}
+                        value={studyPreferences.timezone}
+                        onChange={(value) => {
+                          setStudyPreferences({ ...studyPreferences, timezone: value });
+                          setUserTimezonePreference(value);
+                        }}
+                        placeholder="Select your timezone"
+                      />
                     </div>
                     
                     <div>

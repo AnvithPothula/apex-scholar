@@ -98,6 +98,30 @@ export default function SmartScheduler() {
     });
   }, [aiSchedule]);
 
+  // Deep sanitize function to clean undefined values
+  const deepSanitize = useCallback((obj) => {
+    if (obj === null || obj === undefined) {
+      return null;
+    }
+    
+    if (Array.isArray(obj)) {
+      return obj.map(item => deepSanitize(item)).filter(item => item !== undefined);
+    }
+    
+    if (typeof obj === 'object') {
+      const sanitized = {};
+      for (const [key, value] of Object.entries(obj)) {
+        const sanitizedValue = deepSanitize(value);
+        if (sanitizedValue !== undefined) {
+          sanitized[key] = sanitizedValue;
+        }
+      }
+      return sanitized;
+    }
+    
+    return obj;
+  }, []);
+
   // Save user preferences to Firebase
   const saveUserPreferencesToFirebase = useCallback(async (preferences) => {
     if (!user) {
@@ -120,8 +144,11 @@ export default function SmartScheduler() {
         preferencesLastUpdated: serverTimestamp()
       };
       
-      console.log("Data being saved:", dataToSave);
-      await setDoc(userDocRef, dataToSave, { merge: true });
+      // Sanitize the data to prevent undefined values
+      const sanitizedData = deepSanitize(dataToSave);
+      
+      console.log("Data being saved (sanitized):", sanitizedData);
+      await setDoc(userDocRef, sanitizedData, { merge: true });
       
       console.log("✅ User preferences saved to Firebase successfully");
     } catch (error) {
@@ -129,7 +156,7 @@ export default function SmartScheduler() {
       console.error("Error code:", error.code);
       console.error("Error message:", error.message);
     }
-  }, [user]);
+  }, [user, deepSanitize]);
 
   // Load user preferences and schedule from Firebase
   useEffect(() => {
@@ -273,8 +300,11 @@ export default function SmartScheduler() {
         lastScheduleGenerated: serverTimestamp()
       };
       
-      console.log("Schedule data being saved:", dataToSave);
-      await setDoc(userDocRef, dataToSave, { merge: true });
+      // Sanitize the data to prevent undefined values
+      const sanitizedData = deepSanitize(dataToSave);
+      
+      console.log("Schedule data being saved (sanitized):", sanitizedData);
+      await setDoc(userDocRef, sanitizedData, { merge: true });
       
       console.log("✅ AI schedule and learning history saved to Firebase successfully");
     } catch (error) {
@@ -282,7 +312,7 @@ export default function SmartScheduler() {
       console.error("Error code:", error.code);
       console.error("Error message:", error.message);
     }
-  }, [user, scheduler]); // Fix: Add proper dependencies
+  }, [user, scheduler, deepSanitize]); // Fix: Add proper dependencies
 
   // Remove completed items from schedule and tasks
   const removeCompletedItems = async () => {

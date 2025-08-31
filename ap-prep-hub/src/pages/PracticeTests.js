@@ -1,13 +1,174 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Pause, RotateCw, Flag, X, Brain, CheckCircle, Clock, ArrowLeft, Settings, Zap, Target, MessageSquare, TrendingUp, Award, ArrowRight, Trophy, FileQuestion, HelpCircle, Download } from 'lucide-react';
+import { Play, Pause, RotateCw, Flag, X, Brain, CheckCircle, Clock, ArrowLeft, Settings, Zap, Target, TrendingUp, Award, Trophy, FileQuestion, HelpCircle, Download, MessageSquare, ArrowRight } from 'lucide-react';
 import { Button, Card, Badge, Input } from '../components/ui/UIComponents';
+import CustomDropdown from '../components/ui/CustomDropdown';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../config/firebase';
-import { collection, addDoc, serverTimestamp, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, orderBy, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { AP_SUBJECTS } from '../constants/subjects';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import LaTeXRenderer from '../components/LaTeXRenderer';
+
+// Subjects that require drawing canvas support
+const DRAWING_CANVAS_SUBJECTS = [
+  'AP Biology',
+  'AP Calculus AB',
+  'AP Calculus BC',
+  'AP Chemistry',
+  'AP Environmental Science',
+  'AP Macroeconomics',
+  'AP Microeconomics',
+  'AP Physics 1',
+  'AP Physics 2',
+  'AP Physics C: Electricity and Magnetism',
+  'AP Physics C: Mechanics',
+  'AP Precalculus',
+  'AP Statistics'
+];
+
+// API Key Management System
+class APIKeyManager {
+  constructor() {
+    // Load API keys from environment variables (supporting up to 11 keys)
+    this.apiKeys = [
+      process.env.REACT_APP_GEMINI_API_KEY,
+      process.env.REACT_APP_GEMINI_API_KEY_2,
+      process.env.REACT_APP_GEMINI_API_KEY_3,
+      process.env.REACT_APP_GEMINI_API_KEY_4,
+      process.env.REACT_APP_GEMINI_API_KEY_5,
+      process.env.REACT_APP_GEMINI_API_KEY_6,
+      process.env.REACT_APP_GEMINI_API_KEY_7,
+      process.env.REACT_APP_GEMINI_API_KEY_8,
+      process.env.REACT_APP_GEMINI_API_KEY_9,
+      process.env.REACT_APP_GEMINI_API_KEY_10,
+      process.env.REACT_APP_GEMINI_API_KEY_11
+    ].filter(key => key && key.trim()); // Remove empty/undefined keys
+    
+    this.currentKeyIndex = 0;
+    this.keyStatus = new Map(); // Track rate limit status for each key
+    this.lastUsed = new Map(); // Track when each key was last used
+    
+    console.log(`🔑 APIKeyManager: Loaded ${this.apiKeys.length} API key(s) for rotation`);
+    
+    if (this.apiKeys.length === 0) {
+      console.error('❌ No API keys found! Please check your .env file.');
+    }
+  }
+
+  getCurrentKey() {
+    if (this.apiKeys.length === 0) {
+      throw new Error('No valid API keys configured. Please add REACT_APP_GEMINI_API_KEY to your environment.');
+    }
+    return this.apiKeys[this.currentKeyIndex];
+  }
+
+  getCurrentUrl() {
+    return `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${this.getCurrentKey()}`;
+  }
+
+  markKeyAsRateLimited(keyIndex = this.currentKeyIndex, retryDelay = 3600) {
+    const key = this.apiKeys[keyIndex];
+    if (key) {
+      // Use the retry delay from API response if available, otherwise default to 1 hour
+      const resetTime = retryDelay * 1000; // Convert seconds to milliseconds
+      this.keyStatus.set(key, { 
+        rateLimited: true, 
+        rateLimitTime: Date.now(),
+        resetAfter: resetTime, // Store the actual reset time
+        consecutiveFailures: (this.keyStatus.get(key)?.consecutiveFailures || 0) + 1
+      });
+      console.log(`🚫 API key ${keyIndex + 1} marked as rate limited for ${retryDelay}s`);
+    }
+  }
+
+  isKeyAvailable(keyIndex) {
+    const key = this.apiKeys[keyIndex];
+    if (!key) return false;
+    
+    const status = this.keyStatus.get(key);
+    if (!status) return true;
+    
+    // Reset rate limit based on the resetAfter time from API response
+    const resetAfter = status.resetAfter || 3600000; // Default to 1 hour if not specified
+    if (status.rateLimited && (Date.now() - status.rateLimitTime) > resetAfter) {
+      this.keyStatus.set(key, { ...status, rateLimited: false, consecutiveFailures: 0 });
+      console.log(`✅ API key ${keyIndex + 1} rate limit reset`);
+      return true;
+    }
+    
+    return !status.rateLimited;
+  }
+
+  rotateToNextKey() {
+    if (this.apiKeys.length <= 1) {
+      console.log('⚠️ Only one API key available, cannot rotate');
+      return false;
+    }
+
+    // Check all keys and their availability status
+    console.log('🔍 Checking API key availability:');
+    for (let i = 0; i < this.apiKeys.length; i++) {
+      const available = this.isKeyAvailable(i);
+      const status = this.keyStatus.get(this.apiKeys[i]);
+      if (status && status.rateLimited) {
+        const timeLeft = Math.max(0, (status.rateLimitTime + status.resetAfter) - Date.now());
+        console.log(`Key ${i + 1}: ${available ? 'Available' : 'Rate Limited'} (Reset in ${timeLeft}ms)`);
+      } else {
+        console.log(`Key ${i + 1}: ${available ? 'Available' : 'Rate Limited'} (No status)`);
+      }
+    }
+
+    const startIndex = this.currentKeyIndex;
+    let attempts = 0;
+    
+    do {
+      this.currentKeyIndex = (this.currentKeyIndex + 1) % this.apiKeys.length;
+      attempts++;
+      
+      if (this.isKeyAvailable(this.currentKeyIndex)) {
+        console.log(`🔄 Rotated to API key ${this.currentKeyIndex + 1}`);
+        return true;
+      }
+    } while (this.currentKeyIndex !== startIndex && attempts < this.apiKeys.length);
+    
+    console.log(`❌ No available API keys found after checking ${attempts} keys (Total keys: ${this.apiKeys.length})`);
+    return false;
+  }
+
+  isAllKeysRateLimited() {
+    return this.apiKeys.every((_, index) => !this.isKeyAvailable(index));
+  }
+
+  getTimeUntilReset() {
+    const allRateLimited = this.apiKeys.every((_, index) => !this.isKeyAvailable(index));
+    
+    if (!allRateLimited) return 0;
+    
+    // Find the earliest reset time
+    let earliestReset = Infinity;
+    for (const [, status] of this.keyStatus.entries()) {
+      if (status.rateLimited) {
+        const resetTime = status.rateLimitTime + (status.resetAfter || 3600000); // Use actual resetAfter or default to 1 hour
+        earliestReset = Math.min(earliestReset, resetTime);
+      }
+    }
+    
+    return Math.max(0, earliestReset - Date.now());
+  }
+
+  getStatusSummary() {
+    return {
+      totalKeys: this.apiKeys.length,
+      currentKey: this.currentKeyIndex + 1,
+      availableKeys: this.apiKeys.filter((key, index) => this.isKeyAvailable(index)).length,
+      timeUntilReset: this.getTimeUntilReset()
+    };
+  }
+}
+
+// Global API key manager instance
+const apiKeyManager = new APIKeyManager();
 
 // Helper function to format time in seconds to MM:SS format
 const formatTimeFromSeconds = (seconds) => {
@@ -139,8 +300,16 @@ const TEST_CONFIGURATIONS = {
   'AP Chinese Language and Culture': {
     sections: [
       { id: 'mcq', name: 'Multiple Choice', time: 100, questions: 70, description: 'Listening (40min) + Reading (60min)' },
-      { id: 'frq', name: 'Free Response', time: 90, questions: 4, description: 'Writing (2 tasks) + Speaking (2 tasks)' },
-      { id: 'full', name: 'Full Practice Test', time: 190, questions: 74, description: 'Complete AP Chinese exam simulation' }
+      { id: 'frq', name: 'Free Response', time: 90, questions: 2, description: 'Writing (2 tasks), no speaking tasks' },
+      { id: 'full', name: 'Full Practice Test', time: 190, questions: 72, description: 'Complete AP Chinese exam simulation' }
+    ],
+    units: [
+      { id: 'unit1', name: 'Unit 1: Personal and Public Identity', topics: ['Personal relationships', 'Family', 'Individual identity', 'Community values'] },
+      { id: 'unit2', name: 'Unit 2: Contemporary Life', topics: ['Education', 'Travel and leisure', 'Lifestyle', 'Urban vs rural'] },
+      { id: 'unit3', name: 'Unit 3: Science and Technology', topics: ['Innovation', 'Communication technology', 'Environmental issues', 'Medical advances'] },
+      { id: 'unit4', name: 'Unit 4: Beauty and Aesthetics', topics: ['Arts and literature', 'Traditional and modern art', 'Cultural expressions', 'Aesthetic values'] },
+      { id: 'unit5', name: 'Unit 5: Global Challenges', topics: ['Economic development', 'Globalization', 'Environmental protection', 'Social issues'] },
+      { id: 'unit6', name: 'Unit 6: Families in Different Societies', topics: ['Family structure', 'Generational differences', 'Cultural traditions', 'Social changes'] }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
@@ -166,8 +335,7 @@ const TEST_CONFIGURATIONS = {
   },
   'AP Computer Science Principles': {
     sections: [
-      { id: 'mcq', name: 'Multiple Choice', time: 120, questions: 70, description: 'Computational thinking and programming concepts' },
-      { id: 'full', name: 'Full Practice Test', time: 120, questions: 70, description: 'Complete AP CS Principles exam (+ Create Performance Task)' }
+      { id: 'mcq', name: 'Multiple Choice', time: 120, questions: 70, description: 'Computational thinking and programming concepts' }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
@@ -240,6 +408,38 @@ const TEST_CONFIGURATIONS = {
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
+  'AP U.S. History': {
+    sections: [
+      { id: 'mcq', name: 'Multiple Choice', time: 55, questions: 55, description: 'Historical analysis and interpretation' },
+      { 
+        id: 'frq', 
+        name: 'Free Response Questions', 
+        time: 140, 
+        questions: 5, 
+        description: 'Choose specific FRQ types or take all written responses',
+        subSections: [
+          { id: 'saq-only', name: 'SAQ Only', time: 40, questions: 3, description: 'Short Answer Questions only' },
+          { id: 'dbq-only', name: 'DBQ Only', time: 60, questions: 1, description: 'Document-Based Question only' },
+          { id: 'leq-only', name: 'LEQ Only', time: 40, questions: 1, description: 'Long Essay Question only' },
+          { id: 'all-frq', name: 'All FRQs', time: 140, questions: 5, description: 'SAQ + DBQ + LEQ' }
+        ]
+      },
+      { id: 'full', name: 'Full Practice Test', time: 195, questions: 60, description: 'Complete AP US History exam simulation' }
+    ],
+    units: [
+      { id: 'unit1', name: 'Unit 1: Interactions between Native Americans and Europeans', periods: '1491-1607' },
+      { id: 'unit2', name: 'Unit 2: Colonial Society and Culture', periods: '1607-1754' },
+      { id: 'unit3', name: 'Unit 3: Road to Revolution and Revolution', periods: '1754-1800' },
+      { id: 'unit4', name: 'Unit 4: Early Republic', periods: '1800-1848' },
+      { id: 'unit5', name: 'Unit 5: Civil War and Reconstruction', periods: '1844-1877' },
+      { id: 'unit6', name: 'Unit 6: Industrial Revolution and Gilded Age', periods: '1865-1898' },
+      { id: 'unit7', name: 'Unit 7: Progressive Era and World War I', periods: '1890-1945' },
+      { id: 'unit8', name: 'Unit 8: World War II and Post-War', periods: '1945-1980' },
+      { id: 'unit9', name: 'Unit 9: Modern America', periods: '1980-Present' }
+    ],
+    difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
+  },
+  // Keep backward compatibility
   'AP US History': {
     sections: [
       { id: 'mcq', name: 'Multiple Choice', time: 55, questions: 55, description: 'Historical analysis and interpretation' },
@@ -266,7 +466,7 @@ const TEST_CONFIGURATIONS = {
       { id: 'unit5', name: 'Unit 5: Civil War and Reconstruction', periods: '1844-1877' },
       { id: 'unit6', name: 'Unit 6: Industrial Revolution and Gilded Age', periods: '1865-1898' },
       { id: 'unit7', name: 'Unit 7: Progressive Era and World War I', periods: '1890-1945' },
-      { id: 'unit8', name: 'Unit 8: World War II and Cold War', periods: '1945-1980' },
+      { id: 'unit8', name: 'Unit 8: World War II and Post-War', periods: '1945-1980' },
       { id: 'unit9', name: 'Unit 9: Modern America', periods: '1980-Present' }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
@@ -364,7 +564,7 @@ const TEST_CONFIGURATIONS = {
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
-  'AP English Language': {
+  'AP English Language and Composition': {
     sections: [
       { id: 'mcq', name: 'Multiple Choice', time: 60, questions: 45, description: 'Reading comprehension and rhetorical analysis' },
       { 
@@ -392,6 +592,117 @@ const TEST_CONFIGURATIONS = {
       { id: 'unit7', name: 'Unit 7: Research', topics: ['Sources', 'Research', 'Citation'] },
       { id: 'unit8', name: 'Unit 8: Comparison', topics: ['Comparison', 'Contrast', 'Synthesis'] },
       { id: 'unit9', name: 'Unit 9: Revision', topics: ['Revision', 'Style', 'Language and tone'] }
+    ],
+    difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
+  },
+  'AP English Literature and Composition': {
+    sections: [
+      { id: 'mcq', name: 'Multiple Choice', time: 60, questions: 55, description: 'Reading comprehension and literary analysis' },
+      { 
+        id: 'frq', 
+        name: 'Free Response Questions', 
+        time: 120, 
+        questions: 3, 
+        description: 'Choose specific essay types or take all essays',
+        subSections: [
+          { id: 'poetry-only', name: 'Poetry Analysis Only', time: 40, questions: 1, description: 'Poetry analysis essay' },
+          { id: 'prose-only', name: 'Prose Analysis Only', time: 40, questions: 1, description: 'Prose passage analysis essay' },
+          { id: 'open-only', name: 'Open Question Only', time: 40, questions: 1, description: 'Literary argument essay' },
+          { id: 'all-essays', name: 'All Essays', time: 120, questions: 3, description: 'All three essay types' }
+        ]
+      },
+      { id: 'full', name: 'Full Practice Test', time: 180, questions: 58, description: 'Complete AP Literature exam simulation' }
+    ],
+    units: [
+      { id: 'unit1', name: 'Unit 1: Short Fiction I', topics: ['Character', 'Setting', 'Structure', 'Narration'] },
+      { id: 'unit2', name: 'Unit 2: Poetry I', topics: ['Speaker', 'Imagery', 'Figurative language', 'Sound and rhythm'] },
+      { id: 'unit3', name: 'Unit 3: Longer Fiction or Drama I', topics: ['Character development', 'Plot structure', 'Conflict', 'Point of view'] },
+      { id: 'unit4', name: 'Unit 4: Short Fiction II', topics: ['Complexity', 'Ambiguity', 'Irony', 'Symbolism'] },
+      { id: 'unit5', name: 'Unit 5: Poetry II', topics: ['Tone', 'Mood', 'Allusion', 'Form and meter'] },
+      { id: 'unit6', name: 'Unit 6: Longer Fiction or Drama II', topics: ['Theme', 'Motif', 'Literary devices', 'Historical context'] },
+      { id: 'unit7', name: 'Unit 7: Short Fiction III', topics: ['Comparative analysis', 'Multiple interpretations', 'Critical perspectives'] },
+      { id: 'unit8', name: 'Unit 8: Poetry III', topics: ['Complex poetry', 'Intertextuality', 'Cultural contexts'] },
+      { id: 'unit9', name: 'Unit 9: Longer Fiction or Drama III', topics: ['Synthesis', 'Literary criticism', 'Reader response'] }
+    ],
+    difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
+  },
+  'AP Government and Politics: Comparative': {
+    sections: [
+      { id: 'mcq', name: 'Multiple Choice', time: 60, questions: 55, description: 'Comparative political systems and concepts' },
+      { id: 'frq', name: 'Free Response', time: 90, questions: 4, description: 'Concept Application, Quantitative Analysis, Comparative Analysis, Argument Essay' },
+      { id: 'full', name: 'Full Practice Test', time: 150, questions: 59, description: 'Complete AP Comparative Government exam simulation' }
+    ],
+    units: [
+      { id: 'unit1', name: 'Unit 1: Political Systems, Regimes, and Governments', topics: ['Democratic and authoritarian regimes', 'Parliamentary and presidential systems', 'Federal and unitary systems'] },
+      { id: 'unit2', name: 'Unit 2: Political Institutions', topics: ['Legislatures', 'Executives', 'Judiciaries', 'Bureaucracies'] },
+      { id: 'unit3', name: 'Unit 3: Political Culture and Participation', topics: ['Political socialization', 'Political participation', 'Political culture', 'Civil society'] },
+      { id: 'unit4', name: 'Unit 4: Party and Electoral Systems', topics: ['Electoral systems', 'Political parties', 'Interest groups', 'Social movements'] },
+      { id: 'unit5', name: 'Unit 5: Political and Economic Changes and Development', topics: ['Economic liberalization', 'Democratization', 'Globalization', 'Political development'] }
+    ],
+    difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
+  },
+  'AP Physics 1: Algebra-Based': {
+    sections: [
+      { id: 'mcq', name: 'Multiple Choice', time: 90, questions: 50, description: 'Conceptual understanding and problem solving' },
+      { id: 'frq', name: 'Free Response', time: 90, questions: 5, description: 'Experimental Design, Quantitative/Qualitative, Short Answer' },
+      { id: 'full', name: 'Full Practice Test', time: 180, questions: 55, description: 'Complete AP Physics 1 exam simulation' }
+    ],
+    units: [
+      { id: 'unit1', name: 'Unit 1: Kinematics', topics: ['Motion in one dimension', 'Motion in two dimensions', 'Acceleration', 'Projectile motion'] },
+      { id: 'unit2', name: 'Unit 2: Dynamics', topics: ['Newton\'s laws', 'Free body diagrams', 'Forces', 'Friction'] },
+      { id: 'unit3', name: 'Unit 3: Circular Motion and Gravitation', topics: ['Centripetal acceleration', 'Universal gravitation', 'Orbital motion'] },
+      { id: 'unit4', name: 'Unit 4: Energy', topics: ['Work', 'Kinetic energy', 'Potential energy', 'Conservation of energy'] },
+      { id: 'unit5', name: 'Unit 5: Momentum', topics: ['Impulse and momentum', 'Conservation of momentum', 'Collisions'] },
+      { id: 'unit6', name: 'Unit 6: Simple Harmonic Motion', topics: ['Springs', 'Pendulums', 'Wave properties'] },
+      { id: 'unit7', name: 'Unit 7: Torque and Rotational Motion', topics: ['Torque', 'Angular velocity', 'Rotational inertia'] }
+    ],
+    difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
+  },
+  'AP Physics 2: Algebra-Based': {
+    sections: [
+      { id: 'mcq', name: 'Multiple Choice', time: 90, questions: 50, description: 'Advanced physics concepts' },
+      { id: 'frq', name: 'Free Response', time: 90, questions: 5, description: 'Complex problem solving and lab analysis' },
+      { id: 'full', name: 'Full Practice Test', time: 180, questions: 55, description: 'Complete AP Physics 2 exam simulation' }
+    ],
+    units: [
+      { id: 'unit1', name: 'Unit 1: Fluids', topics: ['Fluid statics', 'Buoyancy', 'Fluid dynamics', 'Bernoulli\'s equation'] },
+      { id: 'unit2', name: 'Unit 2: Thermodynamics', topics: ['Temperature', 'Heat', 'Laws of thermodynamics', 'Kinetic theory'] },
+      { id: 'unit3', name: 'Unit 3: Electric Force, Field, and Potential', topics: ['Coulomb\'s law', 'Electric fields', 'Electric potential'] },
+      { id: 'unit4', name: 'Unit 4: Electric Circuits', topics: ['Current', 'Resistance', 'Capacitors', 'Circuit analysis'] },
+      { id: 'unit5', name: 'Unit 5: Magnetism and Electromagnetic Induction', topics: ['Magnetic fields', 'Electromagnetic induction', 'Faraday\'s law'] },
+      { id: 'unit6', name: 'Unit 6: Geometric and Physical Optics', topics: ['Reflection', 'Refraction', 'Lenses', 'Interference'] },
+      { id: 'unit7', name: 'Unit 7: Quantum, Atomic, and Nuclear Physics', topics: ['Photons', 'Atomic structure', 'Nuclear physics'] }
+    ],
+    difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
+  },
+  'AP World History: Modern': {
+    sections: [
+      { id: 'mcq', name: 'Multiple Choice', time: 55, questions: 55, description: 'Global historical analysis' },
+      { 
+        id: 'frq', 
+        name: 'Free Response Questions', 
+        time: 140, 
+        questions: 5, 
+        description: 'Choose specific FRQ types or take all written responses',
+        subSections: [
+          { id: 'saq-only', name: 'SAQ Only', time: 40, questions: 3, description: 'Short Answer Questions only' },
+          { id: 'dbq-only', name: 'DBQ Only', time: 60, questions: 1, description: 'Document-Based Question only' },
+          { id: 'leq-only', name: 'LEQ Only', time: 40, questions: 1, description: 'Long Essay Question only' },
+          { id: 'all-frq', name: 'All FRQs', time: 140, questions: 5, description: 'SAQ + DBQ + LEQ' }
+        ]
+      },
+      { id: 'full', name: 'Full Practice Test', time: 195, questions: 60, description: 'Complete AP World History exam simulation' }
+    ],
+    units: [
+      { id: 'unit1', name: 'Unit 1: The Global Tapestry', periods: 'c. 1200-1450', topics: ['Song Dynasty', 'Dar al-Islam', 'South and Southeast Asia', 'State building in the Americas'] },
+      { id: 'unit2', name: 'Unit 2: Networks of Exchange', periods: 'c. 1200-1450', topics: ['Silk Roads', 'Indian Ocean trading', 'Trans-Saharan trade', 'Cultural consequences of connectivity'] },
+      { id: 'unit3', name: 'Unit 3: Land-Based Empires', periods: 'c. 1450-1750', topics: ['Empires expand', 'Administration of empires', 'Belief systems', 'Comparison of methods of imperial expansion'] },
+      { id: 'unit4', name: 'Unit 4: Transoceanic Interconnections', periods: 'c. 1450-1750', topics: ['Technological innovations', 'Exploration', 'Columbian Exchange', 'Maritime empires'] },
+      { id: 'unit5', name: 'Unit 5: Revolutions', periods: 'c. 1750-1900', topics: ['Enlightenment', 'Nationalism and revolutions', 'Industrial Revolution', 'Comparison of revolutions'] },
+      { id: 'unit6', name: 'Unit 6: Consequences of Industrialization', periods: 'c. 1750-1900', topics: ['Rationales for imperialism', 'State expansion', 'Indigenous responses to state expansion', 'Global migration'] },
+      { id: 'unit7', name: 'Unit 7: Global Conflict', periods: 'c. 1900-present', topics: ['Shifting power after 1900', 'World War I', 'Interwar period', 'World War II'] },
+      { id: 'unit8', name: 'Unit 8: Cold War and Decolonization', periods: 'c. 1900-present', topics: ['Setting the stage for the Cold War', 'The Cold War', 'Decolonization after 1900', 'Newly independent states'] },
+      { id: 'unit9', name: 'Unit 9: Globalization', periods: 'c. 1900-present', topics: ['Advances in technology and exchange', 'Technological advances', 'Disease and epidemics', 'Economics of globalization'] }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
@@ -496,24 +807,48 @@ const TEST_CONFIGURATIONS = {
   'AP French Language and Culture': {
     sections: [
       { id: 'mcq', name: 'Multiple Choice', time: 100, questions: 70, description: 'Listening (40min) + Reading (60min)' },
-      { id: 'frq', name: 'Free Response', time: 90, questions: 4, description: 'Writing (2 tasks) + Speaking (2 tasks)' },
-      { id: 'full', name: 'Full Practice Test', time: 190, questions: 74, description: 'Complete AP French exam simulation' }
+      { id: 'frq', name: 'Free Response', time: 90, questions: 2, description: 'Writing (2 tasks), no speaking tasks' },
+      { id: 'full', name: 'Full Practice Test', time: 190, questions: 72, description: 'Complete AP French exam simulation' }
+    ],
+    units: [
+      { id: 'unit1', name: 'Unit 1: Families and Communities', topics: ['Family structure', 'Community traditions', 'Cultural values', 'Social relationships'] },
+      { id: 'unit2', name: 'Unit 2: Personal and Public Identity', topics: ['Individual identity', 'Social identity', 'Cultural identity', 'Personal values'] },
+      { id: 'unit3', name: 'Unit 3: Beauty and Aesthetics', topics: ['Arts and literature', 'Fashion and style', 'Architecture', 'Cultural expressions'] },
+      { id: 'unit4', name: 'Unit 4: Science and Technology', topics: ['Innovation', 'Communication technology', 'Medical advances', 'Environmental technology'] },
+      { id: 'unit5', name: 'Unit 5: Contemporary Life', topics: ['Education', 'Careers', 'Leisure activities', 'Urban vs rural life'] },
+      { id: 'unit6', name: 'Unit 6: Global Challenges', topics: ['Environmental issues', 'Economic challenges', 'Social justice', 'Global cooperation'] }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
   'AP German Language and Culture': {
     sections: [
       { id: 'mcq', name: 'Multiple Choice', time: 100, questions: 70, description: 'Listening (40min) + Reading (60min)' },
-      { id: 'frq', name: 'Free Response', time: 90, questions: 4, description: 'Writing (2 tasks) + Speaking (2 tasks)' },
-      { id: 'full', name: 'Full Practice Test', time: 190, questions: 74, description: 'Complete AP German exam simulation' }
+      { id: 'frq', name: 'Free Response', time: 90, questions: 2, description: 'Writing (2 tasks), no speaking tasks' },
+      { id: 'full', name: 'Full Practice Test', time: 190, questions: 72, description: 'Complete AP German exam simulation' }
+    ],
+    units: [
+      { id: 'unit1', name: 'Unit 1: Families and Communities', topics: ['Family dynamics', 'Community involvement', 'Social customs', 'Regional differences'] },
+      { id: 'unit2', name: 'Unit 2: Personal and Public Identity', topics: ['Individual expression', 'Cultural heritage', 'National identity', 'Personal beliefs'] },
+      { id: 'unit3', name: 'Unit 3: Beauty and Aesthetics', topics: ['German arts', 'Music and literature', 'Design and architecture', 'Cultural traditions'] },
+      { id: 'unit4', name: 'Unit 4: Science and Technology', topics: ['German innovations', 'Engineering', 'Environmental technology', 'Digital culture'] },
+      { id: 'unit5', name: 'Unit 5: Contemporary Life', topics: ['Education system', 'Work-life balance', 'Social welfare', 'Urban planning'] },
+      { id: 'unit6', name: 'Unit 6: Global Challenges', topics: ['European integration', 'Immigration', 'Climate change', 'Economic cooperation'] }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
   'AP Spanish Language and Culture': {
     sections: [
       { id: 'mcq', name: 'Multiple Choice', time: 100, questions: 70, description: 'Listening (40min) + Reading (60min)' },
-      { id: 'frq', name: 'Free Response', time: 90, questions: 4, description: 'Writing (2 tasks) + Speaking (2 tasks)' },
-      { id: 'full', name: 'Full Practice Test', time: 190, questions: 74, description: 'Complete AP Spanish Language exam simulation' }
+      { id: 'frq', name: 'Free Response', time: 90, questions: 2, description: 'Writing (2 tasks), no speaking tasks' },
+      { id: 'full', name: 'Full Practice Test', time: 190, questions: 72, description: 'Complete AP Spanish Language exam simulation' }
+    ],
+    units: [
+      { id: 'unit1', name: 'Unit 1: Families and Communities', topics: ['Family relationships', 'Community traditions', 'Social customs', 'Cultural celebrations'] },
+      { id: 'unit2', name: 'Unit 2: Personal and Public Identity', topics: ['Individual identity', 'Cultural heritage', 'Social roles', 'Personal values'] },
+      { id: 'unit3', name: 'Unit 3: Beauty and Aesthetics', topics: ['Hispanic arts', 'Literature and poetry', 'Music and dance', 'Visual arts'] },
+      { id: 'unit4', name: 'Unit 4: Science and Technology', topics: ['Medical advances', 'Communication technology', 'Environmental science', 'Innovation'] },
+      { id: 'unit5', name: 'Unit 5: Contemporary Life', topics: ['Education systems', 'Career opportunities', 'Entertainment', 'Daily routines'] },
+      { id: 'unit6', name: 'Unit 6: Global Challenges', topics: ['Immigration', 'Economic development', 'Environmental issues', 'Social justice'] }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
@@ -605,10 +940,57 @@ const PracticeTests = () => {
   const [testHistory, setTestHistory] = useState([]);
   const [isGeneratingTest, setIsGeneratingTest] = useState(false);
   const [askingTutor, setAskingTutor] = useState(null);
+  const [tutorProcessing, setTutorProcessing] = useState(null);
   const [tutorQuestion, setTutorQuestion] = useState('');
   const [tutorResponse, setTutorResponse] = useState('');
   const [generationProgress, setGenerationProgress] = useState({ generated: 0, total: 0 });
+  
+  // Subject name mapping for backward compatibility
+  const getCanonicalSubjectName = (subjectName) => {
+    const subjectMappings = {
+      'AP English Language': 'AP English Language and Composition',
+      'AP English Literature': 'AP English Literature and Composition',
+      'AP Comparative Government': 'AP Government and Politics: Comparative',
+      'AP Physics 1': 'AP Physics 1: Algebra-Based',
+      'AP Physics 2': 'AP Physics 2: Algebra-Based',
+      'AP World History': 'AP World History: Modern'
+    };
+    
+    return subjectMappings[subjectName] || subjectName;
+  };
+  
+  // Drawing canvas states
+  // eslint-disable-next-line no-unused-vars
+  const [drawingCanvases, setDrawingCanvases] = useState({});
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [canvasSettings, setCanvasSettings] = useState({
+    enabled: false, // Will be auto-enabled for STEM subjects
+    brushSize: 2,
+    brushColor: '#000000', // Black color for simplicity
+    tool: 'pen' // 'pen', 'eraser', 'line', 'rectangle', 'circle'
+  });
+  
+  // Auto-sync settings persistence
+  const [autoSyncEnabled, setAutoSyncEnabled] = useState(() => {
+    try {
+      const saved = localStorage.getItem('aptest_autosync');
+      return saved ? JSON.parse(saved) : false; // Default to false instead of true
+    } catch (error) {
+      console.error('Error loading autosync setting:', error);
+      return false;
+    }
+  });
+  
+  // Mobile responsive settings
+  const [isMobile, setIsMobile] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const timerRef = useRef(null);
+
+  // Prepare dropdown options
+  const subjectOptions = Object.keys(AP_SUBJECTS).map(key => ({
+    value: key,
+    label: AP_SUBJECTS[key].name
+  }));
 
   // Helper function for AP score conversion
   const convertToAPScore = useCallback((percentage) => {
@@ -635,7 +1017,8 @@ const PracticeTests = () => {
 
   // Timer effect
   const getTimeSpent = useCallback(() => {
-    const config = TEST_CONFIGURATIONS[selectedSubject] || DEFAULT_CONFIG;
+    const canonicalSubject = getCanonicalSubjectName(selectedSubject);
+    const config = TEST_CONFIGURATIONS[canonicalSubject] || DEFAULT_CONFIG;
     const sectionConfig = config.sections.find(s => s.id === selectedSection);
     
     let totalTime;
@@ -701,8 +1084,7 @@ const PracticeTests = () => {
       };
     }
 
-    const apiKey = process.env.REACT_APP_GEMINI_API_KEY;
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    const apiUrl = apiKeyManager.getCurrentUrl();
     
     // Enhanced scoring instructions for different question types
     let questionTypeInstructions = '';
@@ -914,6 +1296,49 @@ Format as JSON:
     let totalPoints = 0;
     const questionResults = [];
     
+    // Subject-specific scoring weights (based on official AP exam formats)
+    const getSubjectWeights = (subject) => {
+      if (subject.includes('History')) {
+        return { mcq: 0.40, saq: 0.20, dbq: 0.25, leq: 0.15 };
+      } else if (subject.includes('English Literature')) {
+        return { mcq: 0.45, frq: 0.55, 'poetry-analysis': 0.183, 'prose-analysis': 0.183, 'open-question': 0.183 };
+      } else if (subject.includes('English Language')) {
+        return { mcq: 0.45, frq: 0.55, synthesis: 0.183, 'rhetorical-analysis': 0.183, argumentative: 0.183 };
+      } else if (subject.includes('Calculus')) {
+        return { mcq: 0.50, frq: 0.50, 'calculator-frq': 0.25, 'no-calculator-frq': 0.25 };
+      } else if (subject.includes('Statistics')) {
+        return { mcq: 0.50, frq: 0.50 };
+      } else if (subject.includes('Biology') || subject.includes('Chemistry')) {
+        return { mcq: 0.50, frq: 0.50, 'long-frq': 0.30, 'short-frq': 0.20 };
+      } else if (subject.includes('Physics')) {
+        return { mcq: 0.50, frq: 0.50 };
+      } else if (subject.includes('Economics')) {
+        return { mcq: 0.66, frq: 0.34, 'long-frq': 0.20, 'short-frq': 0.14 };
+      } else if (subject.includes('Psychology')) {
+        return { mcq: 0.67, frq: 0.33 };
+      } else if (subject.includes('Environmental Science')) {
+        return { mcq: 0.60, frq: 0.40 };
+      } else if (subject.includes('Computer Science')) {
+        return { mcq: 0.75, frq: 0.25 };
+      } else if (subject.includes('Art History')) {
+        return { mcq: 0.50, frq: 0.50, 'long-essay': 0.30, 'short-essay': 0.20 };
+      } else if (subject.includes('Human Geography')) {
+        return { mcq: 0.50, frq: 0.50 };
+      } else if (subject.includes('Government') || subject.includes('Comparative')) {
+        return { mcq: 0.50, frq: 0.50 };
+      } else if (subject.includes('Spanish') || subject.includes('French') || subject.includes('German') || 
+                 subject.includes('Italian') || subject.includes('Japanese') || subject.includes('Chinese')) {
+        return { mcq: 0.50, frq: 0.50 };
+      } else if (subject.includes('Latin')) {
+        return { mcq: 0.50, frq: 0.50, translation: 0.20, 'short-answer': 0.15, essay: 0.15 };
+      } else {
+        // Default weights
+        return { mcq: 0.50, frq: 0.50 };
+      }
+    };
+    
+    const weights = getSubjectWeights(selectedSubject);
+    
     setIsGeneratingTest(true); // Show loading while scoring
 
     for (const question of questions) {
@@ -938,7 +1363,7 @@ Format as JSON:
         });
       } catch (error) {
         console.error('Error scoring question:', error);
-        // Fallback scoring
+        // Fallback scoring with proper points
         let questionScore = 0;
         let maxPoints = 1;
         
@@ -947,8 +1372,28 @@ Format as JSON:
           if (userAnswer === question.correctAnswer) {
             questionScore = 1;
           }
+        } else if (question.type === 'saq') {
+          maxPoints = 3;
+          questionScore = userAnswer ? Math.floor(maxPoints * 0.6) : 0;
+        } else if (question.type === 'dbq') {
+          maxPoints = 7;
+          questionScore = userAnswer ? Math.floor(maxPoints * 0.6) : 0;
+        } else if (question.type === 'leq') {
+          maxPoints = 6;
+          questionScore = userAnswer ? Math.floor(maxPoints * 0.6) : 0;
+        } else if ((question.type === 'frq' || question.type === 'calculator-frq' || 
+                    question.type === 'no-calculator-frq') && 
+                   (selectedSubject === 'AP Calculus AB' || selectedSubject === 'AP Calculus BC')) {
+          maxPoints = 9;
+          questionScore = userAnswer ? Math.floor(maxPoints * 0.6) : 0;
+        } else if (question.type === 'long-frq') {
+          maxPoints = 10;
+          questionScore = userAnswer ? Math.floor(maxPoints * 0.6) : 0;
+        } else if (question.type === 'short-frq') {
+          maxPoints = 4;
+          questionScore = userAnswer ? Math.floor(maxPoints * 0.6) : 0;
         } else {
-          maxPoints = question.rubric?.totalPoints || 6;
+          maxPoints = question.points || question.rubric?.totalPoints || 6;
           questionScore = userAnswer ? Math.floor(maxPoints * 0.6) : 0;
         }
         
@@ -970,15 +1415,47 @@ Format as JSON:
       }
     }
 
-    const percentage = totalPoints > 0 ? (score / totalPoints) * 100 : 0;
-    const apScore = convertToAPScore(percentage);
+    // Calculate weighted percentage for AP subjects
+    const sectionScores = {};
+    questionResults.forEach(result => {
+      const question = questions.find(q => q.id === result.questionId);
+      if (question) {
+        const type = question.type;
+        if (!sectionScores[type]) {
+          sectionScores[type] = { score: 0, maxPoints: 0 };
+        }
+        sectionScores[type].score += result.score;
+        sectionScores[type].maxPoints += result.maxPoints;
+      }
+    });
 
-    // Calculate breakdown
+    // Calculate weighted overall percentage
+    let weightedScore = 0;
+    let totalWeight = 0;
+    
+    Object.entries(sectionScores).forEach(([type, data]) => {
+      const weight = weights[type] || (weights.frq || 0.50); // Default to FRQ weight if not found
+      if (data.maxPoints > 0) {
+        const sectionPercentage = (data.score / data.maxPoints);
+        weightedScore += sectionPercentage * weight;
+        totalWeight += weight;
+      }
+    });
+
+    const weightedPercentage = totalWeight > 0 ? (weightedScore / totalWeight) * 100 : 0;
+    const rawPercentage = totalPoints > 0 ? (score / totalPoints) * 100 : 0;
+    
+    // Use weighted percentage for AP score calculation
+    const apScore = convertToAPScore(weightedPercentage);
+
+    // Calculate breakdown by question type with weighted scores
     const breakdown = {
-      mcq: { correct: 0, total: 0, percentage: 0 },
-      frq: { correct: 0, total: 0, percentage: 0 },
-      saq: { correct: 0, total: 0, percentage: 0 },
-      writing: { correct: 0, total: 0, percentage: 0 }
+      mcq: { correct: 0, total: 0, percentage: 0, weight: weights.mcq || 0 },
+      frq: { correct: 0, total: 0, percentage: 0, weight: weights.frq || 0 },
+      saq: { correct: 0, total: 0, percentage: 0, weight: weights.saq || 0 },
+      dbq: { correct: 0, total: 0, percentage: 0, weight: weights.dbq || 0 },
+      leq: { correct: 0, total: 0, percentage: 0, weight: weights.leq || 0 },
+      writing: { correct: 0, total: 0, percentage: 0, weight: 0 }
     };
 
     questionResults.forEach(result => {
@@ -988,11 +1465,15 @@ Format as JSON:
         if (breakdown[type]) {
           breakdown[type].total += result.maxPoints;
           breakdown[type].correct += result.score;
+        } else if (type !== 'mcq') {
+          // Group other types under writing
+          breakdown.writing.total += result.maxPoints;
+          breakdown.writing.correct += result.score;
         }
       }
     });
 
-    // Calculate percentages
+    // Calculate percentages for each section
     Object.keys(breakdown).forEach(type => {
       if (breakdown[type].total > 0) {
         breakdown[type].percentage = Math.round((breakdown[type].correct / breakdown[type].total) * 100);
@@ -1004,13 +1485,16 @@ Format as JSON:
     return {
       score,
       totalPoints,
-      percentage: Math.round(percentage),
+      percentage: Math.round(rawPercentage),
+      weightedPercentage: Math.round(weightedPercentage),
       apScore,
       questionResults,
       timeSpent: getTimeSpent(),
-      breakdown
+      breakdown,
+      weights: weights,
+      sectionScores: sectionScores
     };
-  }, [questions, userAnswers, getTimeSpent, convertToAPScore, scoreQuestion]);
+  }, [questions, userAnswers, getTimeSpent, convertToAPScore, scoreQuestion, selectedSubject]);
 
   const handleSubmitTest = useCallback(async () => {
     setTestStarted(false);
@@ -1023,19 +1507,48 @@ Format as JSON:
       // Save test to Firebase
       if (user) {
         try {
+          // Deep sanitize function to remove undefined values
+          const deepSanitize = (obj) => {
+            if (obj === null || obj === undefined) return null;
+            if (typeof obj !== 'object') return obj;
+            if (Array.isArray(obj)) return obj.map(deepSanitize);
+            
+            const sanitized = {};
+            Object.keys(obj).forEach(key => {
+              const value = obj[key];
+              if (value !== undefined) {
+                sanitized[key] = deepSanitize(value);
+              }
+            });
+            return sanitized;
+          };
+
           // Sanitize data to avoid undefined values
-          const sanitizedData = {
+          const sanitizedData = deepSanitize({
             userId: user.uid,
             subject: selectedSubject || '',
             section: selectedSection || '',
             difficulty: selectedDifficulty || '',
-            questions: questions || [],
+            questions: (questions || []).map(q => ({
+              ...q,
+              // Ensure all question fields are defined
+              id: q.id || 0,
+              type: q.type || '',
+              question: q.question || '',
+              options: q.options || [],
+              correctAnswer: q.correctAnswer !== undefined ? q.correctAnswer : null,
+              explanation: q.explanation || '',
+              stimulus: q.stimulus || '',
+              sampleAnswer: q.sampleAnswer || '',
+              prompt: q.prompt || '',
+              documents: q.documents || []
+            })),
             userAnswers: userAnswers || {},
             results: results || {},
             createdAt: serverTimestamp(),
             timeSpent: getTimeSpent() || 0,
             subsection: selectedSubSection || null
-          };
+          });
 
           await addDoc(collection(db, 'practiceTests'), sanitizedData);
         } catch (error) {
@@ -1079,17 +1592,35 @@ Format as JSON:
     if (testStarted && user && Object.keys(userAnswers).length > 0) {
       const saveProgress = async () => {
         try {
-          await addDoc(collection(db, 'testProgress'), {
+          // Deep sanitize function to remove undefined values
+          const deepSanitize = (obj) => {
+            if (obj === null || obj === undefined) return null;
+            if (typeof obj !== 'object') return obj;
+            if (Array.isArray(obj)) return obj.map(deepSanitize);
+            
+            const sanitized = {};
+            Object.keys(obj).forEach(key => {
+              const value = obj[key];
+              if (value !== undefined) {
+                sanitized[key] = deepSanitize(value);
+              }
+            });
+            return sanitized;
+          };
+
+          const progressData = deepSanitize({
             userId: user.uid,
-            subject: selectedSubject,
-            section: selectedSection,
-            difficulty: selectedDifficulty,
-            questions: questions,
-            userAnswers: userAnswers,
-            currentQuestionIndex: currentQuestionIndex,
-            timeRemaining: timeRemaining,
+            subject: selectedSubject || '',
+            section: selectedSection || '',
+            difficulty: selectedDifficulty || '',
+            questions: questions || [],
+            userAnswers: userAnswers || {},
+            currentQuestionIndex: currentQuestionIndex || 0,
+            timeRemaining: timeRemaining || 0,
             lastSaved: serverTimestamp()
           });
+
+          await addDoc(collection(db, 'testProgress'), progressData);
         } catch (error) {
           console.error('Error saving progress:', error);
         }
@@ -1123,6 +1654,96 @@ Format as JSON:
     }
   }, [user]);
 
+  // Mobile detection and responsive setup
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Auto-sync settings persistence
+  useEffect(() => {
+    localStorage.setItem('aptest_autosync', JSON.stringify(autoSyncEnabled));
+  }, [autoSyncEnabled]);
+
+  // Update Firebase auto-sync setting when changed
+  useEffect(() => {
+    if (user && autoSyncEnabled !== undefined) {
+      const updateAutoSyncInFirebase = async () => {
+        try {
+          const userTokensRef = doc(db, 'users', user.uid, 'integrations', 'schoology');
+          await setDoc(userTokensRef, { 
+            autoSync: autoSyncEnabled,
+            lastUpdated: serverTimestamp()
+          }, { merge: true });
+          console.log(`✅ Auto-sync disabled state saved to Firebase for user ${user.uid}`);
+        } catch (error) {
+          console.error('Failed to update Firebase autoSync setting:', error);
+        }
+      };
+      
+      // Only update if the value has actually changed to avoid unnecessary saves
+      const timeoutId = setTimeout(updateAutoSyncInFirebase, 500);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [autoSyncEnabled, user]);
+
+  // Auto-enable canvas drawing for STEM subjects
+  useEffect(() => {
+    if (selectedSubject && DRAWING_CANVAS_SUBJECTS.includes(selectedSubject)) {
+      setCanvasSettings(prev => ({ ...prev, enabled: true }));
+      console.log(`🎨 Auto-enabled canvas drawing for STEM subject: ${selectedSubject}`);
+    }
+  }, [selectedSubject]);
+  
+  // Auto-save user settings
+  useEffect(() => {
+    if (autoSyncEnabled && user && selectedSubject) {
+      const settingsToSave = {
+        selectedSubject,
+        selectedDifficulty,
+        selectedUnits,
+        useDefaultTime,
+        customTime,
+        timestamp: Date.now()
+      };
+      
+      // Debounce the save operation
+      const timeoutId = setTimeout(() => {
+        localStorage.setItem(`aptest_settings_${user.uid}`, JSON.stringify(settingsToSave));
+      }, 1000);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [selectedSubject, selectedDifficulty, selectedUnits, useDefaultTime, customTime, autoSyncEnabled, user]);
+
+  // Load saved settings on component mount
+  useEffect(() => {
+    if (autoSyncEnabled && user) {
+      try {
+        const saved = localStorage.getItem(`aptest_settings_${user.uid}`);
+        if (saved) {
+          const settings = JSON.parse(saved);
+          // Only auto-load if the settings are recent (within 24 hours)
+          if (Date.now() - (settings.timestamp || 0) < 24 * 60 * 60 * 1000) {
+            setSelectedSubject(settings.selectedSubject || '');
+            setSelectedDifficulty(settings.selectedDifficulty || 'Standard AP Test');
+            setSelectedUnits(settings.selectedUnits || []);
+            setUseDefaultTime(settings.useDefaultTime ?? true);
+            setCustomTime(settings.customTime || '');
+          }
+        }
+      } catch (error) {
+        console.error('Error loading saved settings:', error);
+      }
+    }
+  }, [user, autoSyncEnabled]);
+
   const handleStartTest = async () => {
     if (!selectedSubject || !selectedSection || !selectedDifficulty) {
       alert('Please fill in all required fields');
@@ -1130,7 +1751,8 @@ Format as JSON:
     }
 
     // Check if FRQ subsection is required (only when there are subsections available)
-    const config = TEST_CONFIGURATIONS[selectedSubject] || DEFAULT_CONFIG;
+    const canonicalSubject = getCanonicalSubjectName(selectedSubject);
+    const config = TEST_CONFIGURATIONS[canonicalSubject] || DEFAULT_CONFIG;
     const sectionConfig = config.sections.find(s => s.id === selectedSection);
     const hasSubSections = selectedSection === 'frq' && sectionConfig?.subSections && sectionConfig.subSections.length > 0;
     
@@ -1142,7 +1764,8 @@ Format as JSON:
     setIsGeneratingTest(true);
     
     try {
-      const config = TEST_CONFIGURATIONS[selectedSubject] || DEFAULT_CONFIG;
+      const canonicalSubject = getCanonicalSubjectName(selectedSubject);
+      const config = TEST_CONFIGURATIONS[canonicalSubject] || DEFAULT_CONFIG;
       const sectionConfig = config.sections.find(s => s.id === selectedSection);
       
       // Handle subsections for FRQ
@@ -1228,71 +1851,211 @@ Format as JSON:
       setCurrentView('test');
     } catch (error) {
       console.error('Error generating test:', error);
-      alert('Failed to generate test. Please try again.');
+      
+      // Check if it's a rate limiting error
+      if (error.message && (error.message.includes('All') && error.message.includes('API keys are rate limited'))) {
+        alert('We\'ve reached our daily usage limit for AI question generation. Please try again tomorrow or in a few hours when the limits reset.');
+      } else if (error.message && error.message.includes('usage limit')) {
+        alert(error.message);
+      } else {
+        alert('We encountered an issue generating your test. Please try again in a few moments.');
+      }
     } finally {
       setIsGeneratingTest(false);
     }
   };
 
-  const generateTestQuestions = async (subject, section, difficulty, numQuestions, selectedUnits = []) => {
-    console.log('generateTestQuestions called with:', { subject, section, difficulty, numQuestions, selectedUnits });
-    
-    const apiKey = process.env.REACT_APP_GEMINI_API_KEY;
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-    
-    // For large question sets, generate in smaller batches for better progress tracking
-    const batchSize = section === 'mcq' && numQuestions > 15 ? 15 : 
-                     section === 'full' && numQuestions > 20 ? 20 : 
-                     numQuestions;
-    const batches = Math.ceil(numQuestions / batchSize);
+  // Specialized function for generating AP U.S. History full practice tests
+  const generateAPUSHFullTest = async (difficulty, selectedUnits) => {
     const allQuestions = [];
+    let currentId = 1;
     
-    console.log('Will generate', batches, 'batches of', batchSize, 'questions each');
+    // AP U.S. History full test structure: 55 MCQs + 3 SAQs + 1 DBQ + 1 LEQ = 60 total
+    const sections = [
+      { type: 'mcq', count: 55, batchSize: 6 }, // Generate MCQs in groups of 6 (2-3 questions per stimulus)
+      { type: 'saq', count: 3, batchSize: 3 },  // Generate all SAQs together
+      { type: 'dbq', count: 1, batchSize: 1 },  // Generate DBQ alone
+      { type: 'leq', count: 1, batchSize: 1 }   // Generate LEQ alone
+    ];
     
-    for (let batch = 0; batch < batches; batch++) {
-      const startId = batch * batchSize + 1;
-      const questionsInBatch = Math.min(batchSize, numQuestions - batch * batchSize);
+    for (const sectionInfo of sections) {
+      console.log(`Generating ${sectionInfo.count} ${sectionInfo.type.toUpperCase()} questions...`);
       
-      console.log(`Generating batch ${batch + 1}/${batches}: ${questionsInBatch} questions starting from ID ${startId}`);
+      // Generate enough questions to get the required number
+      let batchNumber = 1;
+      let questionsGenerated = 0;
       
-      // Update progress before starting batch
-      setGenerationProgress({ generated: allQuestions.length, total: numQuestions });
+      while (questionsGenerated < sectionInfo.count) {
+        const questionsNeeded = sectionInfo.count - questionsGenerated;
+        const questionsInBatch = Math.min(sectionInfo.batchSize, questionsNeeded);
+        const startId = currentId;
+        
+        console.log(`Generating ${sectionInfo.type.toUpperCase()} batch ${batchNumber}: ${questionsInBatch} questions starting from ID ${startId}`);
+        
+        let retryCount = 0;
+        const maxRetries = 3;
+        let batchQuestions = null;
+        
+        while (retryCount <= maxRetries && !batchQuestions) {
+          try {
+            if (retryCount > 0) {
+              const delayMs = Math.pow(2, retryCount) * 1000;
+              console.log(`Waiting ${delayMs/1000}s before retry...`);
+              await new Promise(resolve => setTimeout(resolve, delayMs));
+            }
+            
+            batchQuestions = await generateQuestionBatch(
+              'AP U.S. History', sectionInfo.type, difficulty, questionsInBatch, startId, 
+              apiKeyManager.getCurrentKey(), apiKeyManager.getCurrentUrl(), selectedUnits
+            );
+            
+            if (batchQuestions && batchQuestions.length > 0) {
+              allQuestions.push(...batchQuestions);
+              
+              // Update counters after successful generation
+              currentId += batchQuestions.length;
+              questionsGenerated += batchQuestions.length;
+              
+              // Update progress
+              setGenerationProgress({ generated: allQuestions.length, total: 60 });
+              
+              console.log(`✅ ${sectionInfo.type.toUpperCase()} batch ${batchNumber} generated: ${batchQuestions.length} questions (${questionsGenerated}/${sectionInfo.count} total)`);
+              
+              // Brief pause between batches
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            } else {
+              throw new Error(`No valid ${sectionInfo.type} questions generated`);
+            }
+            
+          } catch (error) {
+            retryCount++;
+            console.error(`❌ ${sectionInfo.type.toUpperCase()} batch ${batchNumber}, attempt ${retryCount} failed:`, error.message);
+            
+            // Check if all API keys are rate limited
+            if (error.message.includes('All') && error.message.includes('API keys are rate limited')) {
+              console.error('🚫 All API keys are rate limited. Stopping APUSH generation.');
+              // Return what we have so far
+              throw new Error('We\'ve reached our daily usage limit for AI question generation. Please try again tomorrow or in a few hours when the limits reset.');
+            }
+            
+            if (retryCount > maxRetries) {
+              // Move to next batch even if this one fails to avoid infinite loop
+              console.warn(`⚠️ Skipping failed batch ${batchNumber} after ${maxRetries + 1} attempts`);
+              break;
+            }
+          }
+        }
+        
+        batchNumber++;
+        
+        // Safety check to avoid infinite loop
+        if (batchNumber > 20) {
+          console.warn(`⚠️ Breaking after ${batchNumber} batch attempts to avoid infinite loop`);
+          break;
+        }
+      }
+    }
+    
+    console.log(`✅ Full AP U.S. History test generated: ${allQuestions.length} total questions`);
+    return allQuestions;
+  };
+
+  const generateTestQuestions = async (subject, section, difficulty, numQuestions, selectedUnits = [], preserveProgress = false) => {
+    console.log('generateTestQuestions called with:', { subject, section, difficulty, numQuestions, selectedUnits });
+
+    // Store original total for progress tracking (only on first call)
+    if (!preserveProgress) {
+      setGenerationProgress(prev => ({ ...prev, total: numQuestions }));
+    }
+    
+    // Special handling for AP U.S. History full practice tests
+    if (subject === 'AP U.S. History' && section === 'full') {
+      return generateAPUSHFullTest(difficulty, selectedUnits);
+    }
+    
+    // For other subjects or sections, use the batch approach
+    const batchSize = Math.min(6, numQuestions); // Increase batch size for efficiency
+    const allQuestions = [];
+    let currentId = 1; // Track the actual next ID to use
+    let questionsGenerated = 0;
+    let batchNumber = 1;
+    
+    console.log(`Will generate questions in batches of up to ${batchSize} until we have ${numQuestions} total`);
+    
+    while (questionsGenerated < numQuestions) {
+      const questionsNeeded = numQuestions - questionsGenerated;
+      const questionsInBatch = Math.min(batchSize, questionsNeeded);
+      
+      console.log(`Generating batch ${batchNumber}: ${questionsInBatch} questions starting from ID ${currentId}`);
+      
+      // Update progress before starting batch (preserve original total)
+      setGenerationProgress(prev => ({ generated: allQuestions.length, total: prev.total }));
       
       let batchQuestions = null;
       let retryCount = 0;
-      const maxRetries = 2;
+      const maxRetries = 3;
       
       while (retryCount <= maxRetries && !batchQuestions) {
         try {
-          console.log(`Attempting AI generation for batch ${batch + 1}/${batches} (attempt ${retryCount + 1})`);
+          console.log(`Attempting AI generation for batch ${batchNumber} (attempt ${retryCount + 1})`);
           
-          // For retries, try with smaller batch size
-          const actualBatchSize = retryCount > 0 ? Math.max(5, Math.floor(questionsInBatch / 2)) : questionsInBatch;
+          // Add exponential backoff for retries, especially for rate limiting
+          if (retryCount > 0) {
+            const delayMs = Math.pow(2, retryCount) * 1000; // 2s, 4s, 8s...
+            console.log(`Waiting ${delayMs/1000}s before retry due to rate limiting...`);
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+          }
+          
+          // For retries, try with even smaller batch size to avoid truncation
+          const actualBatchSize = retryCount > 0 ? Math.max(1, Math.floor(questionsInBatch / 2)) : questionsInBatch;
           
           batchQuestions = await generateQuestionBatch(
-            subject, section, difficulty, actualBatchSize, startId, apiKey, apiUrl, selectedUnits
+            subject, section, difficulty, actualBatchSize, currentId, apiKeyManager.getCurrentKey(), apiKeyManager.getCurrentUrl(), selectedUnits
           );
           
-          console.log(`✅ Batch ${batch + 1} generated successfully with AI:`, batchQuestions.length, 'questions');
+          console.log(`✅ Batch ${batchNumber} generated successfully with AI:`, batchQuestions.length, 'questions');
           allQuestions.push(...batchQuestions);
+          
+          // Update counters after successful generation
+          currentId += batchQuestions.length;
+          questionsGenerated += batchQuestions.length;
           
           // Update progress after successful batch
           setGenerationProgress({ generated: allQuestions.length, total: numQuestions });
           
-          // Small delay to ensure UI updates
-          await new Promise(resolve => setTimeout(resolve, 100));
+          // Small delay to ensure UI updates and avoid hitting rate limits too quickly
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
           
         } catch (error) {
           retryCount++;
-          console.error(`❌ AI generation failed for batch ${batch + 1}, attempt ${retryCount}:`, error.message);
+          console.error(`❌ AI generation failed for batch ${batchNumber}, attempt ${retryCount}:`, error.message);
+          
+          // Check if all API keys are rate limited
+          if (error.message.includes('All') && error.message.includes('API keys are rate limited')) {
+            console.error('🚫 All API keys are rate limited. Stopping generation.');
+            alert('We\'ve reached our daily usage limit for AI question generation. Please try again tomorrow or in a few hours when the limits reset.');
+            // Return what we have so far instead of continuing
+            const sortedQuestions = sortQuestionsForProperOrder(allQuestions, section);
+            return sortedQuestions;
+          }
           
           if (retryCount > maxRetries) {
-            throw new Error(`AI generation failed after ${maxRetries + 1} attempts: ${error.message}. Please check your API configuration and try again.`);
+            console.warn(`⚠️ Skipping failed batch ${batchNumber} after ${maxRetries + 1} attempts`);
+            break; // Skip this batch and continue
           }
           
           // Wait before retry
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise(resolve => setTimeout(resolve, 2000));
         }
+      }
+      
+      batchNumber++;
+      
+      // Safety check to avoid infinite loop
+      if (batchNumber > 30) {
+        console.warn(`⚠️ Breaking after ${batchNumber} batch attempts to avoid infinite loop`);
+        break;
       }
     }
     
@@ -1352,7 +2115,7 @@ Format as JSON:
   };
 
   // Helper function to clean and parse JSON with error recovery
-  const parseAIResponse = (text) => {
+  const parseAIResponse = (text, startId = 1) => {
     console.log('Parsing AI response, original length:', text.length);
     
     // Remove code block markers and clean up
@@ -1382,6 +2145,134 @@ Format as JSON:
       
       // Common AI response issues and fixes
       const repairs = [
+        // Specialized DBQ repair - handle heavily truncated responses
+        text => {
+          if (text.includes('"type": "dbq"') && !text.endsWith(']')) {
+            console.log('🔧 Applying DBQ-specific truncation repair...');
+            
+            // Find the end of the complete DBQ object structure
+            let braceCount = 0;
+            let inString = false;
+            let escaped = false;
+            let foundDbqStart = false;
+            
+            for (let i = 0; i < text.length; i++) {
+              const char = text[i];
+              
+              if (escaped) {
+                escaped = false;
+                continue;
+              }
+              
+              if (char === '\\') {
+                escaped = true;
+                continue;
+              }
+              
+              if (char === '"' && !escaped) {
+                inString = !inString;
+                continue;
+              }
+              
+              if (!inString) {
+                if (char === '{') {
+                  braceCount++;
+                  if (!foundDbqStart && text.substring(i-20, i+20).includes('"type": "dbq"')) {
+                    foundDbqStart = true;
+                  }
+                } else if (char === '}' && foundDbqStart) {
+                  braceCount--;
+                  if (braceCount === 0) {
+                    // This could be the end of our DBQ object
+                    
+                    // If we have a minimal DBQ structure, try to close it
+                    const soFar = text.substring(0, i + 1);
+                    if (soFar.includes('"question"') && soFar.includes('"documents"')) {
+                      // Add minimal required fields if missing
+                      let fixed = soFar;
+                      if (!fixed.includes('"sampleAnswer"')) {
+                        fixed = fixed.slice(0, -1) + ', "sampleAnswer": "Sample thesis and key arguments based on the documents provided."}';
+                      }
+                      return '[' + fixed + ']';
+                    }
+                  }
+                }
+              }
+            }
+            
+            // If we found a partial DBQ but it's incomplete, try to salvage it
+            if (foundDbqStart && text.includes('"question"')) {
+              // Try to create a minimal valid DBQ
+              const hasDocuments = text.includes('"documents"');
+              if (hasDocuments) {
+                // Find the last complete part and try to close it properly
+                let lastValidEnd = text.lastIndexOf('}');
+                if (lastValidEnd > 0) {
+                  let attempt = text.substring(0, lastValidEnd + 1);
+                  if (!attempt.includes('"sampleAnswer"')) {
+                    attempt = attempt.slice(0, -1) + ', "sampleAnswer": "Sample response based on document analysis."}';
+                  }
+                  return '[' + attempt + ']';
+                }
+              }
+            }
+          }
+          return text;
+        },
+        // First, detect and handle truncated responses
+        text => {
+          // If text ends abruptly without proper closing, try to fix it
+          if (text.includes('[') && !text.endsWith(']')) {
+            console.log('🔧 Detected truncated JSON array, attempting to fix...');
+            // Remove any incomplete trailing objects/text
+            let lastCompleteObjectEnd = -1;
+            let braceCount = 0;
+            let inString = false;
+            let escaped = false;
+            
+            for (let i = 0; i < text.length; i++) {
+              const char = text[i];
+              
+              if (escaped) {
+                escaped = false;
+                continue;
+              }
+              
+              if (char === '\\') {
+                escaped = true;
+                continue;
+              }
+              
+              if (char === '"' && !escaped) {
+                inString = !inString;
+                continue;
+              }
+              
+              if (!inString) {
+                if (char === '{') {
+                  braceCount++;
+                } else if (char === '}') {
+                  braceCount--;
+                  if (braceCount === 0) {
+                    lastCompleteObjectEnd = i;
+                  }
+                }
+              }
+            }
+            
+            if (lastCompleteObjectEnd > 0) {
+              const truncated = text.substring(0, lastCompleteObjectEnd + 1);
+              // Check if we need a comma before closing bracket
+              const afterLastObject = text.substring(lastCompleteObjectEnd + 1).trim();
+              if (afterLastObject.startsWith(',')) {
+                return truncated + ']';
+              } else {
+                return truncated + ']';
+              }
+            }
+          }
+          return text;
+        },
         // Fix trailing commas
         text => text.replace(/,(\s*[}\]])/g, '$1'),
         // Fix missing quotes around keys
@@ -1443,33 +2334,172 @@ Format as JSON:
             }
           }
           return text;
+        },
+        // Handle truncated strings and incomplete objects more aggressively  
+        text => {
+          try {
+            // Find all complete objects by scanning for balanced braces
+            const objects = [];
+            let depth = 0;
+            let start = -1;
+            let inString = false;
+            let escapeNext = false;
+            
+            for (let i = 0; i < text.length; i++) {
+              const char = text[i];
+              
+              if (escapeNext) {
+                escapeNext = false;
+                continue;
+              }
+              
+              if (char === '\\') {
+                escapeNext = true;
+                continue;
+              }
+              
+              if (char === '"' && !escapeNext) {
+                inString = !inString;
+                continue;
+              }
+              
+              if (!inString) {
+                if (char === '{') {
+                  if (depth === 0) start = i;
+                  depth++;
+                } else if (char === '}') {
+                  depth--;
+                  if (depth === 0 && start >= 0) {
+                    const objText = text.substring(start, i + 1);
+                    try {
+                      const obj = JSON.parse(objText);
+                      objects.push(obj);
+                    } catch (e) {
+                      // Skip invalid objects
+                    }
+                    start = -1;
+                  }
+                }
+              }
+            }
+            
+            return objects.length > 0 ? JSON.stringify(objects) : text;
+          } catch (e) {
+            return text;
+          }
+        },
+        // Advanced repair: Attempt to reconstruct truncated objects
+        text => {
+          if (!text.includes('[')) return text;
+          
+          try {
+            // If it starts with [ but doesn't end properly, try to fix it
+            const arrayMatch = text.match(/^\s*\[\s*/);
+            if (arrayMatch) {
+              // Find all complete objects within the array
+              const objectsText = text.substring(arrayMatch[0].length);
+              const objects = [];
+              let objStart = 0;
+              let braceCount = 0;
+              let inString = false;
+              let escaped = false;
+              
+              for (let i = 0; i < objectsText.length; i++) {
+                const char = objectsText[i];
+                
+                if (escaped) {
+                  escaped = false;
+                  continue;
+                }
+                
+                if (char === '\\') {
+                  escaped = true;
+                  continue;
+                }
+                
+                if (char === '"' && !escaped) {
+                  inString = !inString;
+                  continue;
+                }
+                
+                if (!inString) {
+                  if (char === '{') {
+                    braceCount++;
+                  } else if (char === '}') {
+                    braceCount--;
+                    if (braceCount === 0) {
+                      // Found a complete object
+                      const objText = objectsText.substring(objStart, i + 1);
+                      try {
+                        const obj = JSON.parse(objText);
+                        objects.push(obj);
+                        // Move to next object start
+                        objStart = i + 1;
+                        // Skip commas and whitespace
+                        while (objStart < objectsText.length && 
+                               /[\s,]/.test(objectsText[objStart])) {
+                          objStart++;
+                        }
+                        i = objStart - 1; // -1 because loop will increment
+                      } catch (e) {
+                        // Skip malformed object
+                      }
+                    }
+                  }
+                }
+              }
+              
+              if (objects.length > 0) {
+                return JSON.stringify(objects);
+              }
+            }
+            
+            return text;
+          } catch (e) {
+            return text;
+          }
         }
       ];
       
-      // Try each repair sequentially
+      // Try each repair sequentially (accumulating fixes)
+      let currentText = cleanedText;
       for (let i = 0; i < repairs.length; i++) {
         try {
-          const repairedText = repairs[i](cleanedText);
-          const parsed = JSON.parse(repairedText);
+          currentText = repairs[i](currentText);
+          const parsed = JSON.parse(currentText);
           console.log(`✅ JSON repair successful with repair method ${i + 1}`);
+          // Ensure questions have proper sequential IDs
+          if (Array.isArray(parsed)) {
+            for (let j = 0; j < parsed.length; j++) {
+              if (!parsed[j].id || typeof parsed[j].id !== 'number') {
+                parsed[j].id = startId + j;
+              }
+            }
+          }
           return parsed;
         } catch (repairError) {
           console.log(`❌ Repair method ${i + 1} failed:`, repairError.message);
-          cleanedText = repairs[i](cleanedText);
+          // Continue with the repaired text for next iteration
         }
       }
       
       // If all repairs fail, log more details and throw error
       console.error('Failed to parse AI response after all repair attempts:');
-      console.error('Original text (first 1000 chars):', text.substring(0, 1000));
-      console.error('Final cleaned text (first 1000 chars):', cleanedText.substring(0, 1000));
+      console.error('Original text (first 500 chars):', text.substring(0, 500));
+      console.error('Final repaired text (first 500 chars):', currentText.substring(0, 500));
+      console.error('Text length - Original:', text.length, 'Final:', currentText.length);
       console.error('Parse error:', error.message);
       
-      throw new Error(`JSON parsing failed even after repair attempts: ${error.message}. AI response may be malformed.`);
+      // Check if response was likely truncated
+      const wasTruncated = !text.trim().endsWith(']') && !text.trim().endsWith('}');
+      const truncationNote = wasTruncated ? ' Response appears to be truncated.' : '';
+      
+      throw new Error(`JSON parsing failed even after repair attempts: ${error.message}.${truncationNote} AI response may be malformed or incomplete.`);
     }
   };
 
   const generateQuestionBatch = async (subject, section, difficulty, numQuestions, startId, apiKey, apiUrl, selectedUnits = []) => {
+    console.log('generateQuestionBatch called with selectedUnits:', selectedUnits);
     let sectionInstructions = '';
     let subjectContext = '';
     
@@ -1480,57 +2510,214 @@ Format as JSON:
       
 Focus specifically on these units: ${selectedUnits.join(', ')}. 
 Ensure all questions draw from content and concepts within these selected units only.`;
+    } else {
+      // If no units are selected, indicate that questions should cover all units/topics
+      unitContext = `
+      
+Generate questions that cover all units and topics for this subject. Ensure comprehensive coverage across the entire curriculum.`;
     }
     
     // Add subject-specific context for better questions
     switch(subject) {
       case 'AP US History':
-        subjectContext = `Focus on periods: Colonial Era, Revolution, Early Republic, Antebellum, Civil War, Reconstruction, Gilded Age, Progressive Era, WWI, 1920s, Depression, WWII, Cold War, Modern America. Include diverse perspectives, causation, comparison, and change over time.${unitContext}`;
+        if (selectedUnits && selectedUnits.length > 0) {
+          subjectContext = `Focus exclusively on these selected units: ${selectedUnits.join(', ')}. Draw all questions from content within these specific units only. Include diverse perspectives, causation, comparison, and change over time within the selected unit scope.${unitContext}`;
+        } else {
+          subjectContext = `Focus on periods: Colonial Era, Revolution, Early Republic, Antebellum, Civil War, Reconstruction, Gilded Age, Progressive Era, WWI, 1920s, Depression, WWII, Cold War, Modern America. Include diverse perspectives, causation, comparison, and change over time.${unitContext}`;
+        }
         break;
       case 'AP World History':
-        subjectContext = `Focus on periods: 1200-1450, 1450-1750, 1750-1900, 1900-present. Emphasize global processes, cross-cultural interactions, technology, trade, social structures, and political systems across civilizations.${unitContext}`;
+        if (selectedUnits && selectedUnits.length > 0) {
+          subjectContext = `Focus exclusively on these selected units: ${selectedUnits.join(', ')}. Draw all questions from content within these specific units only. Emphasize global processes, cross-cultural interactions, technology, trade, social structures, and political systems within the selected unit scope.${unitContext}`;
+        } else {
+          subjectContext = `Focus on periods: 1200-1450, 1450-1750, 1750-1900, 1900-present. Emphasize global processes, cross-cultural interactions, technology, trade, social structures, and political systems across civilizations.${unitContext}`;
+        }
         break;
       case 'AP European History':
-        subjectContext = `Focus on periods: Renaissance, Reformation, Absolutism, Enlightenment, French Revolution, Industrial Revolution, 19th-century politics, WWI, interwar, WWII, Cold War, modern Europe.${unitContext}`;
+        if (selectedUnits && selectedUnits.length > 0) {
+          subjectContext = `Focus exclusively on these selected units: ${selectedUnits.join(', ')}. Draw all questions from content within these specific units only. Focus on Renaissance, Reformation, Absolutism, Enlightenment, French Revolution, Industrial Revolution, 19th-century politics, WWI, interwar, WWII, Cold War, modern Europe within the selected unit scope.${unitContext}`;
+        } else {
+          subjectContext = `Focus on periods: Renaissance, Reformation, Absolutism, Enlightenment, French Revolution, Industrial Revolution, 19th-century politics, WWI, interwar, WWII, Cold War, modern Europe.${unitContext}`;
+        }
+        break;
+      case 'AP Government':
+      case 'AP U.S. Government and Politics':
+      case 'AP Comparative Government and Politics':
+        if (selectedUnits && selectedUnits.length > 0) {
+          subjectContext = `Focus exclusively on these selected units: ${selectedUnits.join(', ')}. Draw all questions from content within these specific units only.${unitContext}`;
+        } else {
+          subjectContext = `Focus on political institutions, processes, and behavior. Include constitutional principles, civil liberties, political parties, elections, and comparative government systems.${unitContext}`;
+        }
+        break;
+      case 'AP Human Geography':
+        if (selectedUnits && selectedUnits.length > 0) {
+          subjectContext = `Focus exclusively on these selected units: ${selectedUnits.join(', ')}. Draw all questions from content within these specific units only.${unitContext}`;
+        } else {
+          subjectContext = `Focus on spatial patterns and processes. Include population geography, cultural patterns, political geography, agriculture, industrialization, and cities.${unitContext}`;
+        }
         break;
       case 'AP Biology':
-        subjectContext = `Focus on: Biochemistry, Cell Biology, Genetics, Evolution, Ecology. Include experimental design, data analysis, and real biological scenarios. Use current research examples.${unitContext}`;
+        if (selectedUnits && selectedUnits.length > 0) {
+          subjectContext = `Focus exclusively on these selected units: ${selectedUnits.join(', ')}. Draw all questions from content within these specific units only. Include experimental design, data analysis, and real biological scenarios within the selected unit scope.${unitContext}`;
+        } else {
+          subjectContext = `Focus on: Biochemistry, Cell Biology, Genetics, Evolution, Ecology. Include experimental design, data analysis, and real biological scenarios. Use current research examples.${unitContext}`;
+        }
         break;
       case 'AP Chemistry':
-        subjectContext = `Focus on: Atomic structure, bonding, stoichiometry, kinetics, equilibrium, thermodynamics, electrochemistry. Include laboratory scenarios and quantitative analysis.${unitContext}`;
+        if (selectedUnits && selectedUnits.length > 0) {
+          subjectContext = `Focus exclusively on these selected units: ${selectedUnits.join(', ')}. Draw all questions from content within these specific units only. Include laboratory scenarios and quantitative analysis within the selected unit scope.
+
+IMPORTANT: Use proper LaTeX formatting for chemical and mathematical expressions:
+- Chemical formulas: $H_2O$, $NaCl$, $C_6H_{12}O_6$
+- Chemical equations: $2H_2 + O_2 \\rightarrow 2H_2O$
+- Equilibrium: $K_{eq} = \\frac{[products]}{[reactants]}$
+- pH calculations: $pH = -\\log[H^+]$
+- Gas laws: $PV = nRT$
+- Thermodynamics: $\\Delta G = \\Delta H - T\\Delta S$
+
+${unitContext}`;
+        } else {
+          subjectContext = `Focus on: Atomic structure, bonding, stoichiometry, kinetics, equilibrium, thermodynamics, electrochemistry. Include laboratory scenarios and quantitative analysis.
+
+IMPORTANT: Use proper LaTeX formatting for chemical and mathematical expressions:
+- Chemical formulas: $H_2O$, $NaCl$, $C_6H_{12}O_6$
+- Chemical equations: $2H_2 + O_2 \\rightarrow 2H_2O$
+- Equilibrium: $K_{eq} = \\frac{[products]}{[reactants]}$
+- pH calculations: $pH = -\\log[H^+]$
+- Gas laws: $PV = nRT$
+- Thermodynamics: $\\Delta G = \\Delta H - T\\Delta S$
+
+${unitContext}`;
+        }
+        break;
+      case 'AP Physics 1':
+      case 'AP Physics 2':
+      case 'AP Physics C: Mechanics':
+      case 'AP Physics C: Electricity and Magnetism':
+        subjectContext = `Focus on: Mechanics, waves, thermodynamics, electricity, magnetism. Include laboratory scenarios and quantitative problem-solving.
+
+IMPORTANT: Use proper LaTeX formatting for physics expressions:
+- Forces: $F = ma$, $\\vec{F} = m\\vec{a}$
+- Energy: $E = mc^2$, $KE = \\frac{1}{2}mv^2$
+- Waves: $v = f\\lambda$, $y = A\\sin(kx - \\omega t)$
+- Electric fields: $\\vec{E} = \\frac{\\vec{F}}{q}$, $V = \\frac{U}{q}$
+- Magnetic fields: $\\vec{F} = q\\vec{v} \\times \\vec{B}$
+- Units: Use proper notation like $m/s^2$, $kg \\cdot m/s$
+
+${unitContext}`;
         break;
       case 'AP Calculus AB':
       case 'AP Calculus BC':
-        subjectContext = `Focus on: Limits, derivatives, integrals, fundamental theorem, applications. Include real-world contexts like motion, optimization, and area problems.${unitContext}`;
+        if (selectedUnits && selectedUnits.length > 0) {
+          subjectContext = `Focus exclusively on these selected units: ${selectedUnits.join(', ')}. Draw all questions from content within these specific units only. Include real-world contexts like motion, optimization, and area problems within the selected unit scope. 
+
+IMPORTANT: Use proper LaTeX formatting for all mathematical expressions:
+- Functions: $f(x) = x^2 + 3x - 1$
+- Derivatives: $\\frac{d}{dx}[x^3] = 3x^2$ or $f'(x)$
+- Integrals: $\\int x^2 dx = \\frac{x^3}{3} + C$ or $\\int_a^b f(x) dx$
+- Limits: $\\lim_{x \\to a} f(x) = L$
+- Fractions: $\\frac{numerator}{denominator}$
+- Square roots: $\\sqrt{x}$ or $\\sqrt[n]{x}$
+- Subscripts/Superscripts: $x_1$, $x^2$, $e^{x}$
+- Greek letters: $\\pi$, $\\theta$, $\\alpha$, $\\beta$
+- Trigonometric: $\\sin(x)$, $\\cos(x)$, $\\tan(x)$
+
+${unitContext}`;
+        } else {
+          subjectContext = `Focus on: Limits, derivatives, integrals, fundamental theorem, applications. Include real-world contexts like motion, optimization, and area problems. 
+
+IMPORTANT: Use proper LaTeX formatting for all mathematical expressions:
+- Functions: $f(x) = x^2 + 3x - 1$
+- Derivatives: $\\frac{d}{dx}[x^3] = 3x^2$ or $f'(x)$
+- Integrals: $\\int x^2 dx = \\frac{x^3}{3} + C$ or $\\int_a^b f(x) dx$
+- Limits: $\\lim_{x \\to a} f(x) = L$
+- Fractions: $\\frac{numerator}{denominator}$
+- Square roots: $\\sqrt{x}$ or $\\sqrt[n]{x}$
+- Subscripts/Superscripts: $x_1$, $x^2$, $e^{x}$
+- Greek letters: $\\pi$, $\\theta$, $\\alpha$, $\\beta$
+- Trigonometric: $\\sin(x)$, $\\cos(x)$, $\\tan(x)$
+
+${unitContext}`;
+        }
         break;
       case 'AP Statistics':
-        subjectContext = `Focus on: Collecting data, exploring data, probability, sampling distributions, inference. Use real statistical studies and data analysis scenarios.${unitContext}`;
+        if (selectedUnits && selectedUnits.length > 0) {
+          subjectContext = `Focus exclusively on these selected units: ${selectedUnits.join(', ')}. Draw all questions from content within these specific units only. Use real statistical studies and data analysis scenarios within the selected unit scope.
+
+IMPORTANT: Use proper LaTeX formatting for statistical expressions:
+- Probability: $P(A) = 0.5$, $P(A|B)$
+- Statistics: $\\bar{x}$, $s$, $\\sigma$, $\\mu$
+- Distributions: $N(\\mu, \\sigma^2)$, $t_{df}$, $\\chi^2$
+- Formulas: $z = \\frac{\\bar{x} - \\mu}{\\sigma/\\sqrt{n}}$
+- Confidence intervals: $\\bar{x} \\pm t_{\\alpha/2} \\cdot \\frac{s}{\\sqrt{n}}$
+
+${unitContext}`;
+        } else {
+          subjectContext = `Focus on: Collecting data, exploring data, probability, sampling distributions, inference. Use real statistical studies and data analysis scenarios.
+
+IMPORTANT: Use proper LaTeX formatting for statistical expressions:
+- Probability: $P(A) = 0.5$, $P(A|B)$
+- Statistics: $\\bar{x}$, $s$, $\\sigma$, $\\mu$
+- Distributions: $N(\\mu, \\sigma^2)$, $t_{df}$, $\\chi^2$
+- Formulas: $z = \\frac{\\bar{x} - \\mu}{\\sigma/\\sqrt{n}}$
+- Confidence intervals: $\\bar{x} \\pm t_{\\alpha/2} \\cdot \\frac{s}{\\sqrt{n}}$
+
+${unitContext}`;
+        }
         break;
       case 'AP Computer Science A':
-        subjectContext = `Focus on: Java programming, object-oriented design, algorithms, data structures. Use realistic programming scenarios and debugging challenges.${unitContext}`;
+        if (selectedUnits && selectedUnits.length > 0) {
+          subjectContext = `Focus exclusively on these selected units: ${selectedUnits.join(', ')}. Draw all questions from content within these specific units only. Use realistic programming scenarios and debugging challenges within the selected unit scope.${unitContext}`;
+        } else {
+          subjectContext = `Focus on: Java programming, object-oriented design, algorithms, data structures. Use realistic programming scenarios and debugging challenges.${unitContext}`;
+        }
         break;
       case 'AP English Literature':
-        subjectContext = `Focus on: Poetry analysis, prose fiction, drama. Include works from diverse time periods and cultures. Emphasize literary devices, themes, and critical analysis.`;
+        subjectContext = `Focus on: Poetry analysis, prose fiction, drama. Include works from diverse time periods and cultures. Emphasize literary devices, themes, and critical analysis.${unitContext}`;
         break;
       case 'AP English Language':
-        subjectContext = `Focus on: Rhetorical analysis, argument construction, synthesis. Use contemporary and historical texts on social, political, and cultural issues.`;
+        subjectContext = `Focus on: Rhetorical analysis, argument construction, synthesis. Use contemporary and historical texts on social, political, and cultural issues.${unitContext}`;
         break;
       default:
-        subjectContext = `Create authentic, challenging questions that reflect real AP exam standards and current curriculum requirements for ${subject}.`;
+        if (selectedUnits && selectedUnits.length > 0) {
+          subjectContext = `Focus exclusively on these selected units: ${selectedUnits.join(', ')}. Draw all questions from content within these specific units only. Create authentic, challenging questions that reflect real AP exam standards and current curriculum requirements for ${subject}.${unitContext}`;
+        } else {
+          subjectContext = `Create authentic, challenging questions that reflect real AP exam standards and current curriculum requirements for ${subject}.${unitContext}`;
+        }
     }
     
     // Specific instructions for different question types
     if (section === 'mcq') {
-      sectionInstructions = `Create ${numQuestions} multiple choice questions that test deep understanding of ${subject} concepts. Each question must:
-- Have exactly 4 options (A, B, C, D) with one clearly correct answer
-- Test analytical thinking, not just memorization  
-- Include plausible distractors based on common misconceptions
-- Reference specific content, examples, or scenarios
-- Match the cognitive complexity of actual AP exams
+      sectionInstructions = `Create ${numQuestions} multiple choice questions that test deep understanding of ${subject} concepts.
+
+CRITICAL REQUIREMENTS:
+1. STIMULUS MATERIAL: Each group of 2-4 questions must have stimulus material (primary source text, graph, chart, image description, scenario, etc.)
+2. EXPLANATIONS: Every question must include a detailed explanation of why the correct answer is right and why others are wrong
+3. STRUCTURE: Group questions that share the same stimulus together
+
+Each question must include:
+- Relevant stimulus material (primary sources, documents, graphs, scenarios) - USE THE SAME STIMULUS FOR 2-4 CONSECUTIVE QUESTIONS
+- A challenging question that requires analysis of the stimulus
+- Exactly 4 options (A, B, C, D) with one clearly correct answer
+- A detailed explanation covering the correct answer and common misconceptions
+- Plausible distractors based on common student errors
 
 ${subjectContext}
 
-Make questions challenging but fair, testing students' ability to apply knowledge, analyze information, and make connections.`;
+Format each question as:
+{
+  "id": number,
+  "type": "mcq", 
+  "stimulus": "stimulus material here (MUST be shared across 2-4 consecutive questions)",
+  "question": "question text here",
+  "options": ["A) option 1", "B) option 2", "C) option 3", "D) option 4"],
+  "correctAnswer": index,
+  "explanation": "detailed explanation of correct answer and why others are wrong"
+}
+
+CRITICAL: Every MCQ must include the explanation field with a thorough explanation of why the correct answer is right and why each incorrect option is wrong.
+
+IMPORTANT: Generate stimulus in groups - questions 1-3 share stimulus A, questions 4-6 share stimulus B, etc. Each stimulus should be substantial enough for multiple analytical questions.`;
 
     } else if (section === 'frq') {
       sectionInstructions = `Create ${numQuestions} free response questions with detailed, specific prompts. Each question must:
@@ -1571,7 +2758,20 @@ CONTENT REQUIREMENTS:
 
 ${subjectContext}
 
-Questions must test historical thinking skills with authentic sources that students can analyze for specific evidence.`;
+Questions must test historical thinking skills with authentic sources that students can analyze for specific evidence.
+
+JSON FORMAT FOR SAQ QUESTIONS:
+[
+  {
+    "id": startId,
+    "type": "saq",
+    "stimulus": "Source: [Author Name], [Document Title], [Date]\n\n[3-5 sentences of actual historical content with real quotes and specific details]",
+    "question": "a) Identify and explain ONE specific [development/cause/effect] shown in the source.\nb) Explain ONE additional [cause/consequence/similarity/difference] not mentioned in the source.\nc) Explain ONE way the [situation/event] in the source [affected/was affected by] another historical development.",
+    "sampleAnswer": "a) [Specific response with evidence from source]\nb) [Additional analysis with historical context]\nc) [Connection to broader historical developments]"
+  }
+]
+
+CRITICAL: Every SAQ question MUST include the "sampleAnswer" field with proper expected responses for parts a, b, and c.`;
 
     } else if (section === 'dbq') {
       sectionInstructions = `Create 1 comprehensive Document-Based Question with exactly 7 REAL historical documents. CRITICAL REQUIREMENTS:
@@ -1604,15 +2804,39 @@ SPECIFIC TIME PERIODS TO USE:
 
 ${subjectContext}
 
-NO PLACEHOLDER TEXT ALLOWED - every document must contain real historical content with actual quotes that students can analyze for evidence, point of view, purpose, and historical context.`;
+NO PLACEHOLDER TEXT ALLOWED - every document must contain real historical content with actual quotes that students can analyze for evidence, point of view, purpose, and historical context.
+
+CRITICAL: Documents must contain ACTUAL WORDS from real historical sources, not summaries or descriptions. Students need to read and analyze the actual language used by historical figures, not modern paraphrases. Each document should be 4-8 sentences of authentic historical text that students can quote and analyze.
+
+JSON FORMAT FOR DBQ QUESTIONS:
+[
+  {
+    "id": startId,
+    "type": "dbq", 
+    "question": "Based on the documents and your knowledge of United States history, write an essay addressing: [specific historical question with actual time period and events]",
+    "prompt": "[Detailed prompt text with specific historical context and requirements]",
+    "documents": [
+      {
+        "id": "A",
+        "source": "[Author Name], [Document Title], [Date]",
+        "content": "[4-8 sentences of actual historical content with real quotes]"
+      },
+      // ... 6 more documents (B through G)
+    ],
+    "sampleAnswer": "STRONG THESIS EXAMPLE: [Specific thesis that directly addresses the prompt with clear argument and roadmap of main points]\\n\\nKEY ARGUMENTS WITH EVIDENCE: Document A evidence and analysis + outside knowledge connection | Document B evidence with point of view/purpose analysis + contextual knowledge | Document C evidence with historical context analysis + additional supporting facts | Continue for all 7 documents\\n\\nCOUNTER-ARGUMENT: [Acknowledge complexity and limitations of argument]\\n\\nCONCLUSION: [Synthesis connecting to broader historical themes and significance]"
+  }
+]
+
+CRITICAL: Every DBQ question MUST include the "documents" array with exactly 7 documents (A-G) and a comprehensive "sampleAnswer" field that demonstrates proper thesis construction, document analysis, and historical argumentation.`;
 
     } else if (section === 'leq') {
-      sectionInstructions = `Create 1 Long Essay Question with 3 specific prompt options using REAL time periods and events. NO BRACKETS OR PLACEHOLDER TEXT.
+      sectionInstructions = `Create 1 Long Essay Question using REAL time periods and events. NO BRACKETS OR PLACEHOLDER TEXT.
 
 FORMAT REQUIREMENTS:
 - Use specific years, not [start year] or [end year] or any brackets
 - Reference actual historical developments, not generic placeholders
-- Each prompt must test different historical thinking skills
+- Create ONE comprehensive prompt (not multiple options)
+- Test historical thinking skills (causation, continuity/change, comparison)
 
 TIME PERIODS BY SUBJECT:
 - AP US History: 1607-1754, 1754-1800, 1800-1848, 1844-1877, 1865-1898, 1890-1945, 1945-1980, 1980-2001
@@ -1620,23 +2844,30 @@ TIME PERIODS BY SUBJECT:
 - AP European History: c. 1450-1648, c. 1648-1815, c. 1815-1914, c. 1914-present
 
 EXAMPLE FORMAT - USE REAL CONTENT LIKE THIS:
-Directions: Choose ONE of the following prompts. Use specific historical evidence to support your argument.
-
-Prompt 1: Evaluate the extent to which the Industrial Revolution was a turning point in American social development in the period from 1865 to 1920. In your response, analyze what changed and what stayed the same.
-
-Prompt 2: Evaluate the extent to which Westward Expansion affected different social groups in similar ways in the period from 1844 to 1890. In your response, examine the experiences of at least two different groups.
-
-Prompt 3: Evaluate the extent to which the New Deal represented continuity rather than change in American economic policy from 1900 to 1945. In your response, analyze both New Deal innovations and continuities with earlier policies.
+Evaluate the extent to which the Industrial Revolution was a turning point in American social development in the period from 1865 to 1920. In your response, analyze what changed and what stayed the same.
 
 REQUIRED ELEMENTS:
-- Each prompt uses SPECIFIC historical events and time periods
+- Use SPECIFIC historical events and time periods
 - No placeholder text or brackets anywhere
 - Clear historical thinking skills tested (causation, continuity/change, comparison)
 - Allow for sophisticated argumentation with evidence
 
 ${subjectContext}
 
-Each prompt must reference actual historical developments that students can analyze with specific evidence and examples.`;
+Create ONE comprehensive prompt that references actual historical developments that students can analyze with specific evidence and examples.
+
+JSON FORMAT FOR LEQ QUESTIONS:
+[
+  {
+    "id": startId,
+    "type": "leq",
+    "question": "[Complete LEQ prompt with specific time period and historical developments]",
+    "prompt": "[Additional context or instructions if needed]",
+    "sampleAnswer": "STRONG THESIS EXAMPLE: [Clear, defensible thesis that directly addresses the prompt and establishes a line of reasoning about extent/degree of change]\\n\\nMAIN ARGUMENTS: \\n1. CHANGES: [Specific evidence of significant changes with examples, dates, and analysis of causes/effects]\\n2. CONTINUITIES: [Specific evidence of what remained the same with examples and analysis]\\n3. CONTEXT: [Broader historical developments that influenced the topic]\\n\\nEVIDENCE EXAMPLES: [List 4-6 specific historical examples with dates and significance]\\n\\nANALYSIS: [How evidence supports thesis and demonstrates understanding of historical complexity]\\n\\nCONCLUSION: [Synthesis connecting to broader historical patterns and significance]"
+  }
+]
+
+CRITICAL: Every LEQ question MUST include a comprehensive "sampleAnswer" field with thesis, evidence, and analysis examples.`;
     } else if (section === 'synthesis') {
       sectionInstructions = `Create 1 Synthesis Essay question for AP English Language. Must include:
 - Clear prompt asking students to synthesize multiple sources
@@ -1647,7 +2878,28 @@ Each prompt must reference actual historical developments that students can anal
 
 ${subjectContext}
 
-Example format: Using the sources provided, write an essay that synthesizes at least three of the sources and develops your position on [specific issue]. Make sure your argument is central to your essay and that you cite sources to support your reasoning.`;
+Example format: Using the sources provided, write an essay that synthesizes at least three of the sources and develops your position on [specific issue]. Make sure your argument is central to your essay and that you cite sources to support your reasoning.
+
+JSON FORMAT FOR SYNTHESIS QUESTIONS:
+[
+  {
+    "id": startId,
+    "type": "synthesis",
+    "question": "[Clear synthesis prompt with specific issue]",
+    "sources": [
+      {
+        "id": "A",
+        "title": "[Source Title]",
+        "author": "[Author Name]",
+        "content": "[Source content with real data/quotes]"
+      },
+      // ... 5-6 more sources
+    ],
+    "sampleAnswer": "[Expected synthesis approach and key arguments]"
+  }
+]
+
+CRITICAL: Every synthesis question MUST include the "sources" array and "sampleAnswer" field.`;
     } else if (section === 'rhetorical-analysis') {
       sectionInstructions = `Create 1 Rhetorical Analysis essay question for AP English Language. Must include:
 - Authentic speech, essay, or text from a real author/speaker
@@ -1657,7 +2909,21 @@ Example format: Using the sources provided, write an essay that synthesizes at l
 
 ${subjectContext}
 
-Format: [Author's name] delivered this [speech/wrote this essay/etc.] in [year] to [audience] in order to [purpose]. Read the passage carefully. Write an essay that analyzes the rhetorical strategies [author] uses to convey [his/her] message.`;
+Format: [Author's name] delivered this [speech/wrote this essay/etc.] in [year] to [audience] in order to [purpose]. Read the passage carefully. Write an essay that analyzes the rhetorical strategies [author] uses to convey [his/her] message.
+
+JSON FORMAT FOR RHETORICAL ANALYSIS QUESTIONS:
+[
+  {
+    "id": startId,
+    "type": "rhetorical-analysis",
+    "question": "Read the passage carefully. Write an essay that analyzes the rhetorical strategies [author] uses to convey [his/her] message.",
+    "passage": "[Complete authentic text/speech with real content]",
+    "context": "[Date, audience, occasion, purpose information]",
+    "sampleAnswer": "[Expected rhetorical strategies analysis and thesis]"
+  }
+]
+
+CRITICAL: Every rhetorical analysis question MUST include the "passage", "context", and "sampleAnswer" fields.`;
     } else if (section === 'argumentative') {
       sectionInstructions = `Create 1 Argumentative Essay question for AP English Language. Must include:
 - Clear, debatable claim or position
@@ -1667,7 +2933,20 @@ Format: [Author's name] delivered this [speech/wrote this essay/etc.] in [year] 
 
 ${subjectContext}
 
-Format: [Present issue/scenario]. Write an essay that argues your position on [specific debatable question]. Use appropriate evidence to support your argument.`;
+Format: [Present issue/scenario]. Write an essay that argues your position on [specific debatable question]. Use appropriate evidence to support your argument.
+
+JSON FORMAT FOR ARGUMENTATIVE QUESTIONS:
+[
+  {
+    "id": startId,
+    "type": "argumentative",
+    "question": "[Present issue/scenario]. Write an essay that argues your position on [specific debatable question]. Use appropriate evidence to support your argument.",
+    "prompt": "[Additional context or background information]",
+    "sampleAnswer": "[Expected argument structure and key evidence types]"
+  }
+]
+
+CRITICAL: Every argumentative question MUST include the "sampleAnswer" field.`;
     } else if (section === 'poetry-analysis') {
       sectionInstructions = `Create 1 Poetry Analysis question for AP English Literature. Must include:
 - Complete poem or substantial excerpt from recognized poet
@@ -1724,14 +3003,17 @@ Create 1 comprehensive Document-Based Question with exactly 7 REAL historical do
 - Cover different document types: government, personal, newspaper, economic, opposition, visual, secondary
 
 QUESTION 5: LONG ESSAY QUESTION (LEQ)  
-Create 1 Long Essay Question with 3 specific prompt options:
+Create 1 Long Essay Question:
 - Use specific years and actual historical developments (no brackets or placeholders)
-- Each prompt tests different historical thinking skills
+- Test historical thinking skills (causation, continuity/change, comparison)
 - Focus on periods: 1607-1754, 1754-1800, 1800-1848, 1844-1877, 1865-1898, 1890-1945, 1945-1980, 1980-2001
+- Create ONE comprehensive prompt (not multiple options)
 
 ${subjectContext}
 
-Return as JSON array: [{"id": startId, "type": "saq", ...}, {"id": startId+1, "type": "saq", ...}, {"id": startId+2, "type": "saq", ...}, {"id": startId+3, "type": "dbq", ...}, {"id": startId+4, "type": "leq", ...}]`;
+CRITICAL: Each SAQ must have actual historical stimulus content, each DBQ must have 7 complete documents with real historical text, and the LEQ must have one specific prompt without options.
+
+Return as JSON array: [{"id": startId, "type": "saq", "stimulus": "real historical content", ...}, {"id": startId+1, "type": "saq", ...}, {"id": startId+2, "type": "saq", ...}, {"id": startId+3, "type": "dbq", "documents": [7 real documents], ...}, {"id": startId+4, "type": "leq", "question": "one specific prompt", ...}]`;
       } else if (subject.includes('English')) {
         // For AP English: Mix of essay types
         sectionInstructions = `Create exactly 3 essay questions for AP ${subject} in this order:
@@ -1839,74 +3121,167 @@ Essays should demonstrate mastery of course content through sophisticated writin
       // For full tests, create a mix appropriate to the subject
       const config = TEST_CONFIGURATIONS[subject] || DEFAULT_CONFIG;
       const sectionConfig = config.sections.find(s => s.id === 'mcq');
-      const frqSection = config.sections.find(s => s.id === 'frq');
-      const mcqCount = sectionConfig ? Math.min(sectionConfig.questions, numQuestions - 5) : Math.floor(numQuestions * 0.85);
-      const frqCount = frqSection ? Math.min(frqSection.questions, numQuestions - mcqCount) : numQuestions - mcqCount;
+      
+      // Ensure we have valid question counts - don't allow negative numbers
+      let mcqCount = 0;
+      let frqCount = 0;
+      
+      if (section === 'mcq') {
+        mcqCount = numQuestions;
+      } else if (section === 'frq') {
+        frqCount = numQuestions;
+      } else {
+        // For full tests, distribute questions properly
+        mcqCount = sectionConfig ? Math.min(sectionConfig.questions, Math.max(0, numQuestions - 5)) : Math.max(0, Math.floor(numQuestions * 0.85));
+        frqCount = Math.max(0, numQuestions - mcqCount);
+      }
       
       sectionInstructions = `Create a complete AP ${subject} practice test with:
-- ${mcqCount} challenging multiple choice questions testing analytical thinking
+- ${mcqCount} challenging multiple choice questions testing analytical thinking (each with stimulus material shared across 2-4 questions)
 - ${frqCount} comprehensive free response questions with detailed rubrics
 
 ${subjectContext}
 
-Give the MCQ's first and then the FRQ's in the proper order to simulate a realistic AP exam experience with authentic content and appropriate difficulty progression.`;
+CRITICAL MCQ REQUIREMENTS:
+- Group MCQs by stimulus: questions 1-3 share stimulus A, questions 4-6 share stimulus B, etc.
+- Each MCQ must have stimulus field with primary sources, documents, or scenarios
+- Questions must test analysis of the stimulus material
+
+CRITICAL FRQ REQUIREMENTS:
+- SAQs must have real historical stimulus content (not null)
+- DBQs must have 7 actual historical documents with real text
+- LEQs must have one specific question (no promptOptions array)
+
+Give the MCQs first and then the FRQs in the proper order to simulate a realistic AP exam experience with authentic content and appropriate difficulty progression.`;
     }
     
     // Use the API to generate questions based on the section instructions
     const prompt = `You are an expert ${subject} question generator. ${sectionInstructions}
 
-CRITICAL: Return ONLY a valid JSON array with exactly ${numQuestions} questions. No extra text before or after.
+CRITICAL INSTRUCTIONS:
+1. Return ONLY a valid JSON array starting with [ and ending with ]
+2. Generate EXACTLY ${numQuestions} complete questions
+3. Each question must be complete with all required fields
+4. No explanatory text before or after the JSON
+5. Ensure all JSON objects are properly closed with }
+6. End the response with ] to close the array
 
-Each question object must follow these EXACT formats based on question type:
+FORMAT: [{"id": ${startId}, "type": "...", "question": "...", ...}, {"id": ${startId + 1}, ...}]
 
-MCQ FORMAT:
-{"id": ${startId}, "type": "mcq", "question": "Question text", "options": ["A) Option 1", "B) Option 2", "C) Option 3", "D) Option 4"], "correctAnswer": 0, "explanation": "Brief explanation", "difficulty": "${difficulty}", "estimatedTime": 2}
+VALIDATION: Your response must:
+- Start with [
+- End with ]
+- Have exactly ${numQuestions} complete question objects
+- Pass JSON.parse() validation
 
-SAQ FORMAT:
-{"id": ${startId}, "type": "saq", "question": "Question text", "stimulus": "Primary source or data", "parts": ["a) First task", "b) Second task", "c) Third task"], "timeframe": "12 minutes", "sampleAnswer": "Sample response showing expected depth", "rubric": {"totalPoints": 3, "pointBreakdown": {"part_a": 1, "part_b": 1, "part_c": 1}}, "difficulty": "${difficulty}"}
+Generate the questions now:`;
 
-DBQ FORMAT:
-{"id": ${startId}, "type": "dbq", "question": "Historical question requiring document analysis", "documents": [{"content": "Document text", "source": "Source info", "date": "Year"}], "timeframe": "60 minutes", "sampleAnswer": "Full essay response", "rubric": {"totalPoints": 7, "pointBreakdown": {"thesis": 1, "contextualization": 1, "evidence_docs": 2, "evidence_beyond": 1, "analysis": 2}}, "difficulty": "${difficulty}"}
+    console.log('🔍 Sending prompt to AI:', prompt.substring(0, 200) + '...');
 
-LEQ FORMAT:
-{"id": ${startId}, "type": "leq", "question": "Historical thesis question", "promptOptions": ["Option 1", "Option 2", "Option 3"], "timeframe": "40 minutes", "sampleAnswer": "Full essay response", "rubric": {"totalPoints": 6, "pointBreakdown": {"thesis": 1, "contextualization": 1, "evidence": 2, "analysis": 2}}, "difficulty": "${difficulty}"}
+    // Adjust token limits based on question type complexity
+    let maxTokens = 4000; // Default for MCQ and SAQ
+    if (section === 'dbq') {
+      maxTokens = 12000; // Increased for DBQ with 7 documents and full content
+    } else if (section === 'leq') {
+      maxTokens = 3000; // Moderate for LEQ
+    }
 
-FRQ FORMAT (Math/Science):
-{"id": ${startId}, "type": "frq", "question": "Problem statement", "timeframe": "25 minutes", "sampleAnswer": "Complete solution with work shown", "rubric": {"totalPoints": 6, "pointBreakdown": {"setup": 2, "execution": 3, "interpretation": 1}}, "difficulty": "${difficulty}"}
+    const requestBody = {
+      contents: [{
+        role: "user",
+        parts: [{ text: prompt }]
+      }],
+      generationConfig: {
+        temperature: 0.3,
+        maxOutputTokens: maxTokens,
+        topK: 40,
+        topP: 0.95,
+        // Removed stop sequences to prevent premature response ending
+      },
+      safetySettings: [
+        {
+          category: "HARM_CATEGORY_HARASSMENT",
+          threshold: "BLOCK_NONE"
+        },
+        {
+          category: "HARM_CATEGORY_HATE_SPEECH", 
+          threshold: "BLOCK_NONE"
+        },
+        {
+          category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+          threshold: "BLOCK_NONE"
+        },
+        {
+          category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+          threshold: "BLOCK_NONE"
+        }
+      ]
+    };
 
-ESSAY FORMATS (English):
-{"id": ${startId}, "type": "synthesis", "question": "Argument prompt", "sources": [{"title": "Source 1", "content": "Source text", "type": "article"}], "timeframe": "40 minutes", "sampleAnswer": "Full essay", "rubric": {"totalPoints": 6, "pointBreakdown": {"thesis": 1, "evidence": 2, "commentary": 2, "sophistication": 1}}, "difficulty": "${difficulty}"}
-
-REQUIREMENTS:
-- Start question IDs from ${startId}
-- Include authentic content matching real AP standards
-- Ensure proper JSON syntax with no trailing commas
-- Generate exactly ${numQuestions} questions
-- End with proper ] closing bracket
-
-Return the JSON array now:`;
+    const requestOptions = {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody)
+    };
 
     try {
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            role: "user",
-            parts: [{ text: prompt }]
-          }],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 8000,
-            stopSequences: ["}]"], // Stop after completing the JSON array
+      const response = await fetch(apiUrl, requestOptions);
+
+      // Check for rate limiting or other HTTP errors
+      if (!response.ok) {
+        if (response.status === 429) {
+          // Check response text to confirm it's actually rate limiting
+          const errorText = await response.text();
+          console.log('429 error details:', errorText);
+          
+          if (errorText.includes('quota') || errorText.includes('rate limit') || errorText.includes('Quota exceeded')) {
+            console.log('Confirmed rate limit hit in generateTestQuestions, marking key as rate limited');
+            
+            // Try to extract retry delay from error response
+            let retryDelay = 3600; // Default to 1 hour
+            try {
+              const errorData = JSON.parse(errorText);
+              const retryInfo = errorData?.error?.details?.find(d => d['@type']?.includes('RetryInfo'));
+              if (retryInfo?.retryDelay) {
+                retryDelay = parseInt(retryInfo.retryDelay.replace('s', ''));
+              }
+            } catch (e) {
+              console.log('Could not parse retry delay, using default');
+            }
+            
+            apiKeyManager.markKeyAsRateLimited(undefined, retryDelay);
+            
+            // Try with next available key
+            if (apiKeyManager.rotateToNextKey()) {
+              console.log('Retrying generateTestQuestions with next available API key');
+              // Continue with the rotated key - retry the request immediately
+              return fetch(apiKeyManager.getCurrentUrl(), requestOptions);
+            } else {
+              // All keys are rate limited
+              const errorMessage = this.apiKeys.length > 1 
+                ? `We've reached the daily usage limit for our AI service. Please try again tomorrow, or come back in a few hours when the limits reset.`
+                : 'Our AI service is temporarily unavailable due to usage limits. Please try again in about an hour.';
+              
+              throw new Error(errorMessage);
+            }
+          } else {
+            // 429 but not rate limiting - could be malformed request
+            throw new Error(`API request rejected (429): ${errorText}. This might be due to request format issues.`);
           }
-        })
-      });
+        } else if (response.status === 403) {
+          throw new Error('API access forbidden. Please check your API key.');
+        } else if (response.status >= 500) {
+          throw new Error('API server error. Please try again later.');
+        } else {
+          throw new Error(`API request failed with status ${response.status}`);
+        }
+      }
 
       const result = await response.json();
       
       if (!result.candidates || !result.candidates[0] || !result.candidates[0].content || !result.candidates[0].content.parts) {
-        throw new Error('Invalid API response structure');
+        console.error('Invalid API response:', result);
+        throw new Error('Invalid API response structure - no valid content generated');
       }
       
       const generatedText = result.candidates[0].content.parts[0].text;
@@ -1918,13 +3293,107 @@ Return the JSON array now:`;
       console.log(`Batch parsing: Received ${generatedText.length} characters from AI`);
       
       // Use robust JSON parsing with error recovery
-      const questions = parseAIResponse(generatedText);
+      const questions = parseAIResponse(generatedText, startId);
       
       // Ensure we have an array
       const questionArray = Array.isArray(questions) ? questions : [questions];
       
+      console.log('Batch validation: Generated questions:', questionArray.length);
+      console.log('Sample question structure:', questionArray[0]);
+      
       // Validate and clean up the questions
-      const validQuestions = questionArray.filter(q => q && q.question && (q.options || q.sampleAnswer)).map((q, index) => ({
+      const validQuestions = questionArray.filter(q => {
+        if (!q || !q.question) {
+          console.log('Invalid question detected: Missing question object or question field');
+          return false;
+        }
+        
+        // Different validation based on question type
+        if (q.type === 'mcq') {
+          const isValid = q.options && Array.isArray(q.options) && q.options.length >= 4;
+          if (!isValid) {
+            console.log('Invalid MCQ detected:', {
+              hasOptions: !!q.options,
+              isArray: Array.isArray(q.options),
+              optionsLength: q.options ? q.options.length : 0
+            });
+          }
+          return isValid;
+        } else if (q.type === 'saq') {
+          const isValid = q.sampleAnswer && q.stimulus;
+          if (!isValid) {
+            console.log('Invalid SAQ detected:', {
+              hasSampleAnswer: !!q.sampleAnswer,
+              hasStimulus: !!q.stimulus,
+              questionKeys: Object.keys(q)
+            });
+          }
+          return isValid;
+        } else if (q.type === 'dbq') {
+          const isValid = q.documents && Array.isArray(q.documents) && q.documents.length === 7 && q.sampleAnswer;
+          if (!isValid) {
+            console.log('Invalid DBQ detected:', {
+              hasDocuments: !!q.documents,
+              isArray: Array.isArray(q.documents),
+              documentsLength: q.documents ? q.documents.length : 0,
+              hasSampleAnswer: !!q.sampleAnswer
+            });
+          }
+          return isValid;
+        } else if (q.type === 'leq') {
+          const isValid = q.sampleAnswer;
+          if (!isValid) {
+            console.log('Invalid LEQ detected:', {
+              hasSampleAnswer: !!q.sampleAnswer,
+              questionKeys: Object.keys(q)
+            });
+          }
+          return isValid;
+        } else if (q.type === 'synthesis') {
+          const isValid = q.sources && Array.isArray(q.sources) && q.sources.length >= 3 && q.sampleAnswer;
+          if (!isValid) {
+            console.log('Invalid Synthesis detected:', {
+              hasSources: !!q.sources,
+              isArray: Array.isArray(q.sources),
+              sourcesLength: q.sources ? q.sources.length : 0,
+              hasSampleAnswer: !!q.sampleAnswer
+            });
+          }
+          return isValid;
+        } else if (q.type === 'rhetorical-analysis') {
+          const isValid = q.passage && q.context && q.sampleAnswer;
+          if (!isValid) {
+            console.log('Invalid Rhetorical Analysis detected:', {
+              hasPassage: !!q.passage,
+              hasContext: !!q.context,
+              hasSampleAnswer: !!q.sampleAnswer,
+              questionKeys: Object.keys(q)
+            });
+          }
+          return isValid;
+        } else if (q.type === 'argumentative') {
+          const isValid = q.sampleAnswer;
+          if (!isValid) {
+            console.log('Invalid Argumentative detected:', {
+              hasSampleAnswer: !!q.sampleAnswer,
+              questionKeys: Object.keys(q)
+            });
+          }
+          return isValid;
+        } else {
+          // Generic validation for other question types
+          const isValid = q.options || q.sampleAnswer;
+          if (!isValid) {
+            console.log('Invalid generic question detected:', {
+              hasOptions: !!q.options,
+              hasSampleAnswer: !!q.sampleAnswer,
+              questionType: q.type,
+              questionKeys: Object.keys(q)
+            });
+          }
+          return isValid;
+        }
+      }).map((q, index) => ({
         ...q,
         id: startId + index, // Ensure sequential IDs
         // Normalize correctAnswer field - AI might use different field names
@@ -1932,18 +3401,21 @@ Return the JSON array now:`;
                       typeof q.correct_answer === 'number' ? q.correct_answer : 0
       }));
       
+      console.log(`Batch validation: ${validQuestions.length} valid questions from ${questionArray.length} generated`);
+      
       if (validQuestions.length === 0) {
         throw new Error('No valid questions generated from AI response');
       }
       
-      // If we got significantly fewer questions than requested, this might be due to incomplete JSON
-      if (validQuestions.length < numQuestions * 0.7) {
+      // If we got significantly fewer questions than requested, warn but accept what we have
+      if (validQuestions.length < numQuestions * 0.5) {
         console.warn(`⚠️ Got ${validQuestions.length} questions but expected ${numQuestions}. This might be due to incomplete AI response.`);
-        
-        // For incomplete batches, try to pad with the questions we have or throw error for retry
-        if (validQuestions.length < numQuestions * 0.5) {
-          throw new Error(`Incomplete batch: Got only ${validQuestions.length} valid questions out of ${numQuestions} expected. Please retry.`);
-        }
+        throw new Error(`Incomplete batch: Got only ${validQuestions.length} valid questions out of ${numQuestions} expected. Please retry.`);
+      }
+      
+      // If we got close to what we expected, accept it
+      if (validQuestions.length < numQuestions) {
+        console.warn(`⚠️ Got ${validQuestions.length} questions instead of ${numQuestions}, but this is acceptable.`);
       }
       
       console.log(`Batch validation: ${validQuestions.length} valid questions from ${questionArray.length} generated`);
@@ -1961,7 +3433,7 @@ Return the JSON array now:`;
   };
 
   const askTutorAboutQuestion = async (questionId, userQuestion) => {
-    setAskingTutor(questionId);
+    setTutorProcessing(questionId);
     
     try {
       const question = questions.find(q => q.id === questionId);
@@ -1970,12 +3442,13 @@ Return the JSON array now:`;
     } catch (error) {
       console.error('Error getting tutor response:', error);
       setTutorResponse('Sorry, I encountered an error. Please try asking your question again.');
+    } finally {
+      setTutorProcessing(null);
     }
   };
 
   const getTutorResponse = async (subject, question, userQuestion) => {
-    const apiKey = process.env.REACT_APP_GEMINI_API_KEY;
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    const apiUrl = apiKeyManager.getCurrentUrl();
     
     const prompt = `You are an expert ${subject} tutor. A student is asking about this practice test question:
 
@@ -2003,6 +3476,57 @@ Please provide a clear, educational response that helps the student understand t
         })
       });
 
+      if (response.status === 429) {
+        // Check response text to confirm it's actually rate limiting
+        const errorText = await response.text();
+        console.log('429 error details in getTutorResponse:', errorText);
+        
+        if (errorText.includes('quota') || errorText.includes('rate limit') || errorText.includes('Quota exceeded')) {
+          console.log('Confirmed rate limit hit in getTutorResponse, marking key as rate limited');
+          
+          // Try to extract retry delay from error response
+          let retryDelay = 3600; // Default to 1 hour
+          try {
+            const errorData = JSON.parse(errorText);
+            const retryInfo = errorData?.error?.details?.find(d => d['@type']?.includes('RetryInfo'));
+            if (retryInfo?.retryDelay) {
+              retryDelay = parseInt(retryInfo.retryDelay.replace('s', ''));
+            }
+          } catch (e) {
+            console.log('Could not parse retry delay, using default');
+          }
+          
+          apiKeyManager.markKeyAsRateLimited(undefined, retryDelay);
+          
+          // Try with next available key
+          if (apiKeyManager.rotateToNextKey()) {
+            console.log('Retrying getTutorResponse with next available API key');
+            return getTutorResponse(subject, question, userQuestion);
+          } else {
+            // All keys are rate limited - check if we can wait for reset
+            const timeUntilReset = apiKeyManager.getTimeUntilReset();
+            if (timeUntilReset > 0 && timeUntilReset < 60000) { // Less than 1 minute
+              console.log(`Waiting ${Math.ceil(timeUntilReset/1000)}s for API key reset...`);
+              await new Promise(resolve => setTimeout(resolve, timeUntilReset + 1000));
+              // Reset all keys and try again
+              Object.keys(apiKeyManager.keyStatus).forEach(key => {
+                apiKeyManager.keyStatus.delete(key);
+              });
+              return getTutorResponse(subject, question, userQuestion);
+            } else {
+              throw new Error('All API keys are rate limited. Please try again in an hour or add more API keys to your environment variables (REACT_APP_GEMINI_API_KEY_2, REACT_APP_GEMINI_API_KEY_3, etc.).');
+            }
+          }
+        } else {
+          // 429 but not rate limiting - could be malformed request
+          throw new Error(`API request rejected (429): ${errorText}. This might be due to request format issues.`);
+        }
+      }
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const result = await response.json();
       return result.candidates[0].content.parts[0].text;
     } catch (error) {
@@ -2024,6 +3548,7 @@ Please provide a clear, educational response that helps the student understand t
     setTestPaused(false);
     setTestResults(null);
     setAskingTutor(null);
+    setTutorProcessing(null);
     setTutorQuestion('');
     setTutorResponse('');
     setGenerationProgress({ generated: 0, total: 0 });
@@ -2183,6 +3708,10 @@ Please provide a clear, educational response that helps the student understand t
   }
 
   if (currentView === 'setup') {
+    // Get canonical subject name for configuration lookup
+    const canonicalSubject = getCanonicalSubjectName(selectedSubject);
+    const currentConfig = TEST_CONFIGURATIONS[canonicalSubject] || DEFAULT_CONFIG;
+    
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100">
         <div className="max-w-6xl mx-auto px-6 py-8">
@@ -2226,23 +3755,17 @@ Please provide a clear, educational response that helps the student understand t
                     <label className="block text-sm font-medium text-slate-300 mb-3">
                       AP Subject *
                     </label>
-                    <select
+                    <CustomDropdown
+                      options={subjectOptions}
                       value={selectedSubject}
-                      onChange={(e) => {
-                        setSelectedSubject(e.target.value);
+                      onChange={(value) => {
+                        setSelectedSubject(value);
                         setSelectedSection('');
                         setSelectedSubSection('');
                         setSelectedUnits([]);
                       }}
-                      className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-slate-100 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
-                    >
-                      <option value="">Select a subject...</option>
-                      {Object.entries(AP_SUBJECTS).map(([key, subject]) => (
-                        <option key={key} value={key}>
-                          {subject.name}
-                        </option>
-                      ))}
-                    </select>
+                      placeholder="Select a subject..."
+                    />
                   </div>
 
                   {/* Section Selection */}
@@ -2255,7 +3778,7 @@ Please provide a clear, educational response that helps the student understand t
                         Test Section *
                       </label>
                       <div className="grid gap-3">
-                        {(TEST_CONFIGURATIONS[selectedSubject] || DEFAULT_CONFIG).sections.map((section) => (
+                        {(currentConfig).sections.map((section) => (
                           <div
                             key={section.id}
                             onClick={() => {
@@ -2287,7 +3810,7 @@ Please provide a clear, educational response that helps the student understand t
                   {/* FRQ Subsection Selection */}
                   {selectedSubject && selectedSection === 'frq' && (
                     (() => {
-                      const config = TEST_CONFIGURATIONS[selectedSubject] || DEFAULT_CONFIG;
+                      const config = currentConfig;
                       const frqSection = config.sections.find(s => s.id === 'frq');
                       const hasSubSections = frqSection?.subSections && frqSection.subSections.length > 0;
                       
@@ -2334,7 +3857,7 @@ Please provide a clear, educational response that helps the student understand t
 
                   {/* Unit Selection */}
                   {selectedSubject && 
-                   (TEST_CONFIGURATIONS[selectedSubject]?.units || []).length > 0 && (
+                   (currentConfig?.units || []).length > 0 && (
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -2347,16 +3870,16 @@ Please provide a clear, educational response that helps the student understand t
                         <button
                           type="button"
                           onClick={() => {
-                            const allUnits = TEST_CONFIGURATIONS[selectedSubject].units.map(unit => unit.name);
+                            const allUnits = currentConfig.units.map(unit => unit.name);
                             setSelectedUnits(selectedUnits.length === allUnits.length ? [] : allUnits);
                           }}
                           className="px-3 py-2 text-sm bg-slate-600 hover:bg-slate-500 rounded-lg text-slate-200 transition-colors"
                         >
-                          {selectedUnits.length === (TEST_CONFIGURATIONS[selectedSubject]?.units || []).length ? 'Deselect All' : 'Select All'}
+                          {selectedUnits.length === (currentConfig?.units || []).length ? 'Deselect All' : 'Select All'}
                         </button>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-60 overflow-y-auto">
-                        {(TEST_CONFIGURATIONS[selectedSubject]?.units || []).map((unit) => (
+                        {(currentConfig?.units || []).map((unit) => (
                           <div
                             key={unit.name}
                             onClick={() => {
@@ -2410,7 +3933,7 @@ Please provide a clear, educational response that helps the student understand t
                         Difficulty Level *
                       </label>
                       <div className="grid grid-cols-2 gap-3">
-                        {(TEST_CONFIGURATIONS[selectedSubject] || DEFAULT_CONFIG).difficulties.map((difficulty) => (
+                        {(currentConfig).difficulties.map((difficulty) => (
                           <div
                             key={difficulty}
                             onClick={() => setSelectedDifficulty(difficulty)}
@@ -2450,7 +3973,7 @@ Please provide a clear, educational response that helps the student understand t
                             <span className="text-slate-200">Official AP Time</span>
                             <span className="text-green-400 font-medium">
                               {(() => {
-                                const config = TEST_CONFIGURATIONS[selectedSubject] || DEFAULT_CONFIG;
+                                const config = currentConfig;
                                 const section = config.sections.find(s => s.id === selectedSection);
                                 if (selectedSection === 'frq' && selectedSubSection && section?.subSections) {
                                   const subSection = section.subSections.find(sub => sub.id === selectedSubSection);
@@ -2496,7 +4019,7 @@ Please provide a clear, educational response that helps the student understand t
                   <Button
                     onClick={handleStartTest}
                     disabled={(() => {
-                      const config = TEST_CONFIGURATIONS[selectedSubject] || DEFAULT_CONFIG;
+                      const config = currentConfig;
                       const sectionConfig = config.sections.find(s => s.id === selectedSection);
                       const hasSubSections = selectedSection === 'frq' && sectionConfig?.subSections && sectionConfig.subSections.length > 0;
                       
@@ -2516,8 +4039,8 @@ Please provide a clear, educational response that helps the student understand t
                         <Play className="w-6 h-6" />
                         Generate & Start Test
                         {(() => {
-                          const config = TEST_CONFIGURATIONS[selectedSubject] || DEFAULT_CONFIG;
-                          const sectionConfig = config.sections.find(s => s.id === 'mcq');
+                          const config = currentConfig;
+                          const sectionConfig = config.sections.find(s => s.id === selectedSection);
                           let questionsCount = sectionConfig?.questions || 0;
                           
                           if (selectedSection === 'frq' && selectedSubSection && sectionConfig?.subSections) {
@@ -2707,6 +4230,121 @@ Please provide a clear, educational response that helps the student understand t
     
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100">
+        
+        {/* Settings Panel */}
+        {showSettings && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          >
+            <div className={`bg-slate-800 rounded-lg border border-slate-700 ${isMobile ? 'w-full max-w-sm' : 'w-full max-w-md'}`}>
+              <div className="flex items-center justify-between p-6 border-b border-slate-700">
+                <h3 className="text-lg font-semibold text-slate-100">Settings</h3>
+                <button
+                  onClick={() => setShowSettings(false)}
+                  className="text-slate-400 hover:text-slate-200 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6 space-y-6">
+                {/* Auto-sync Settings */}
+                <div>
+                  <h4 className="text-sm font-medium text-slate-200 mb-3">Auto-sync Settings</h4>
+                  <div className="space-y-3">
+                    <label className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={autoSyncEnabled}
+                        onChange={(e) => {
+                          const newValue = e.target.checked;
+                          setAutoSyncEnabled(newValue);
+                          console.log(`✅ Auto-sync ${newValue ? 'enabled' : 'disabled'} by user`);
+                        }}
+                        className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-2"
+                      />
+                      <span className="text-sm text-slate-300">Enable auto-sync</span>
+                    </label>
+                    <p className="text-xs text-slate-400 ml-7">
+                      Automatically save your progress and settings
+                    </p>
+                  </div>
+                </div>
+
+                {/* Drawing Settings */}
+                <div>
+                  <h4 className="text-sm font-medium text-slate-200 mb-3">Drawing Canvas</h4>
+                  <div className="space-y-3">
+                    <label className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={canvasSettings.enabled}
+                        onChange={(e) => setCanvasSettings(prev => ({ ...prev, enabled: e.target.checked }))}
+                        className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-2"
+                      />
+                      <span className="text-sm text-slate-300">Enable drawing canvas for STEM subjects</span>
+                    </label>
+                    {canvasSettings.enabled && (
+                      <div className="ml-7 space-y-2">
+                        <label className="block">
+                          <span className="text-xs text-slate-400">Default pen color:</span>
+                          <input
+                            type="color"
+                            value={canvasSettings.penColor}
+                            onChange={(e) => setCanvasSettings(prev => ({ ...prev, penColor: e.target.value }))}
+                            className="ml-2 w-6 h-6 rounded border-slate-600"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="text-xs text-slate-400">Default pen size:</span>
+                          <input
+                            type="range"
+                            min="1"
+                            max="10"
+                            value={canvasSettings.penSize}
+                            onChange={(e) => setCanvasSettings(prev => ({ ...prev, penSize: parseInt(e.target.value) }))}
+                            className="ml-2 w-20"
+                          />
+                          <span className="ml-2 text-xs text-slate-400">{canvasSettings.penSize}px</span>
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Mobile Settings */}
+                <div>
+                  <h4 className="text-sm font-medium text-slate-200 mb-3">Mobile Experience</h4>
+                  <div className="space-y-3">
+                    <label className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={isMobile}
+                        onChange={(e) => setIsMobile(e.target.checked)}
+                        className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-2"
+                      />
+                      <span className="text-sm text-slate-300">Force mobile layout</span>
+                    </label>
+                    <p className="text-xs text-slate-400 ml-7">
+                      Override automatic mobile detection
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="p-6 border-t border-slate-700">
+                <button
+                  onClick={() => setShowSettings(false)}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors"
+                >
+                  Save Settings
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         {/* Test Header */}
         <div className="bg-slate-800/90 backdrop-blur-xl border-b border-slate-700 sticky top-0 z-50">
           <div className="max-w-6xl mx-auto px-6 py-4">
@@ -2769,7 +4407,7 @@ Please provide a clear, educational response that helps the student understand t
         </div>
 
         {/* Test Content */}
-        <div className="max-w-4xl mx-auto px-6 py-8">
+        <div className={`max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-8 ${isMobile ? 'min-h-screen' : ''}`}>
           {testPaused ? (
             <motion.div
               initial={{ opacity: 0 }}
@@ -3029,34 +4667,34 @@ Please provide a clear, educational response that helps the student understand t
                 <div className="mt-8">
                   {/* MCQ Options */}
                   {currentQuestion?.type === 'mcq' && currentQuestion?.options && (
-                    <div className="space-y-3">
-                      <h3 className="text-lg font-medium text-slate-200 mb-4">Choose the best answer:</h3>
+                    <div className={`space-y-3 ${isMobile ? 'space-y-2' : ''}`}>
+                      <h3 className={`text-lg font-medium text-slate-200 mb-4 ${isMobile ? 'text-base mb-3' : ''}`}>Choose the best answer:</h3>
                       {currentQuestion.options.map((option, index) => {
                         const isSelected = userAnswers[currentQuestion.id] === index;
                         
                         return (
                           <motion.button
                             key={index}
-                            whileHover={{ scale: 1.01 }}
+                            whileHover={{ scale: isMobile ? 1 : 1.01 }}
                             whileTap={{ scale: 0.99 }}
                             onClick={() => handleAnswerSelect(currentQuestion.id, index)}
-                            className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
+                            className={`w-full text-left ${isMobile ? 'p-3' : 'p-4'} rounded-lg border-2 transition-all ${
                               isSelected
                                 ? 'border-blue-500 bg-blue-500/10 text-blue-100'
                                 : 'border-slate-600 bg-slate-700/50 text-slate-300 hover:border-slate-500 hover:bg-slate-700'
                             }`}
                           >
-                            <div className="flex items-start gap-3">
-                              <span className={`font-bold text-lg min-w-[1.5rem] ${
+                            <div className={`flex items-start ${isMobile ? 'gap-2' : 'gap-3'}`}>
+                              <span className={`font-bold ${isMobile ? 'text-base' : 'text-lg'} min-w-[1.5rem] ${
                                 isSelected ? 'text-blue-400' : 'text-slate-400'
                               }`}>
                                 {String.fromCharCode(65 + index)}.
                               </span>
-                              <span className="flex-1 leading-relaxed">
-                                {option.replace(/^[A-D]\)\s*/, '')}
+                              <span className={`flex-1 leading-relaxed ${isMobile ? 'text-sm' : ''}`}>
+                                <LaTeXRenderer content={option.replace(/^[A-D]\)\s*/, '') || ''} />
                               </span>
                               {isSelected && (
-                                <CheckCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                                <CheckCircle className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} text-blue-400 flex-shrink-0 mt-0.5`} />
                               )}
                             </div>
                           </motion.button>
@@ -3088,8 +4726,10 @@ Please provide a clear, educational response that helps the student understand t
                             currentQuestion?.type === 'leq' ? 'Develop an argument with a clear thesis statement...' :
                             'Write your response here...'
                           }
-                          className="w-full h-64 p-4 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-100 placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 resize-none"
-                          style={{ minHeight: '16rem' }}
+                          className={`w-full bg-slate-700/50 border border-slate-600 rounded-lg text-slate-100 placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 resize-none ${
+                            isMobile ? 'h-48 p-3 text-sm' : 'h-64 p-4'
+                          }`}
+                          style={{ minHeight: isMobile ? '12rem' : '16rem' }}
                         />
                         
                         {/* Character count */}
@@ -3109,23 +4749,204 @@ Please provide a clear, educational response that helps the student understand t
                       </div>
                     </div>
                   )}
+
+                  {/* Drawing Canvas for STEM subjects */}
+                  {DRAWING_CANVAS_SUBJECTS.includes(selectedSubject) && canvasSettings.enabled && (
+                    <div className="mt-6 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-medium text-slate-200">Drawing Canvas</h3>
+                        <div className="flex items-center gap-2">
+                          <CustomDropdown
+                            options={[
+                              { value: 'pen', label: 'Pen' },
+                              { value: 'eraser', label: 'Eraser' },
+                              { value: 'line', label: 'Line' },
+                              { value: 'rectangle', label: 'Rectangle' },
+                              { value: 'circle', label: 'Circle' }
+                            ]}
+                            value={canvasSettings.tool}
+                            onChange={(value) => setCanvasSettings(prev => ({ ...prev, tool: value }))}
+                            placeholder="Select tool..."
+                            className="w-32"
+                          />
+                          <input
+                            type="range"
+                            min="1"
+                            max="10"
+                            value={canvasSettings.brushSize}
+                            onChange={(e) => setCanvasSettings(prev => ({ ...prev, brushSize: parseInt(e.target.value) }))}
+                            className="w-16"
+                          />
+                          <input
+                            type="color"
+                            value={canvasSettings.brushColor}
+                            onChange={(e) => setCanvasSettings(prev => ({ ...prev, brushColor: e.target.value }))}
+                            className="w-8 h-8 rounded border border-slate-600"
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              const canvas = document.getElementById(`canvas-${currentQuestion?.id}`);
+                              if (canvas) {
+                                const ctx = canvas.getContext('2d');
+                                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                                setDrawingCanvases(prev => ({
+                                  ...prev,
+                                  [currentQuestion.id]: null
+                                }));
+                              }
+                            }}
+                          >
+                            Clear
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <div className="border border-slate-600 rounded-lg overflow-hidden">
+                        <canvas
+                          id={`canvas-${currentQuestion?.id}`}
+                          width={isMobile ? 300 : 600}
+                          height={isMobile ? 200 : 300}
+                          className="bg-white cursor-crosshair block"
+                          onMouseDown={(e) => {
+                            setIsDrawing(true);
+                            const canvas = e.target;
+                            const rect = canvas.getBoundingClientRect();
+                            const x = e.clientX - rect.left;
+                            const y = e.clientY - rect.top;
+                            const ctx = canvas.getContext('2d');
+                            ctx.beginPath();
+                            ctx.moveTo(x, y);
+                          }}
+                          onMouseMove={(e) => {
+                            if (!isDrawing) return;
+                            const canvas = e.target;
+                            const rect = canvas.getBoundingClientRect();
+                            const x = e.clientX - rect.left;
+                            const y = e.clientY - rect.top;
+                            const ctx = canvas.getContext('2d');
+                            
+                            ctx.lineWidth = canvasSettings.brushSize;
+                            ctx.strokeStyle = canvasSettings.tool === 'eraser' ? '#ffffff' : canvasSettings.brushColor;
+                            ctx.lineCap = 'round';
+                            
+                            if (canvasSettings.tool === 'pen' || canvasSettings.tool === 'eraser') {
+                              ctx.lineTo(x, y);
+                              ctx.stroke();
+                            }
+                          }}
+                          onMouseUp={() => {
+                            setIsDrawing(false);
+                            const canvas = document.getElementById(`canvas-${currentQuestion?.id}`);
+                            if (canvas) {
+                              const dataURL = canvas.toDataURL();
+                              setDrawingCanvases(prev => ({
+                                ...prev,
+                                [currentQuestion.id]: dataURL
+                              }));
+                            }
+                          }}
+                          onTouchStart={(e) => {
+                            e.preventDefault();
+                            setIsDrawing(true);
+                            const canvas = e.target;
+                            const rect = canvas.getBoundingClientRect();
+                            const touch = e.touches[0];
+                            const x = touch.clientX - rect.left;
+                            const y = touch.clientY - rect.top;
+                            const ctx = canvas.getContext('2d');
+                            ctx.beginPath();
+                            ctx.moveTo(x, y);
+                          }}
+                          onTouchMove={(e) => {
+                            e.preventDefault();
+                            if (!isDrawing) return;
+                            const canvas = e.target;
+                            const rect = canvas.getBoundingClientRect();
+                            const touch = e.touches[0];
+                            const x = touch.clientX - rect.left;
+                            const y = touch.clientY - rect.top;
+                            const ctx = canvas.getContext('2d');
+                            
+                            ctx.lineWidth = canvasSettings.brushSize;
+                            ctx.strokeStyle = canvasSettings.tool === 'eraser' ? '#ffffff' : canvasSettings.brushColor;
+                            ctx.lineCap = 'round';
+                            
+                            if (canvasSettings.tool === 'pen' || canvasSettings.tool === 'eraser') {
+                              ctx.lineTo(x, y);
+                              ctx.stroke();
+                            }
+                          }}
+                          onTouchEnd={(e) => {
+                            e.preventDefault();
+                            setIsDrawing(false);
+                            const canvas = document.getElementById(`canvas-${currentQuestion?.id}`);
+                            if (canvas) {
+                              const dataURL = canvas.toDataURL();
+                              setDrawingCanvases(prev => ({
+                                ...prev,
+                                [currentQuestion.id]: dataURL
+                              }));
+                            }
+                          }}
+                        />
+                      </div>
+                      
+                      <div className="text-sm text-slate-400 bg-slate-800/50 p-3 rounded-lg">
+                        <strong className="text-slate-300">Canvas Tools:</strong> Use the drawing canvas to sketch diagrams, 
+                        show work for calculations, or create visual representations. Your drawings will be saved with your response.
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Navigation */}
-                <div className="flex items-center justify-between pt-6 border-t border-slate-700">
-                  <Button
-                    variant="ghost"
-                    onClick={handlePreviousQuestion}
-                    disabled={currentQuestionIndex === 0}
-                    className="flex items-center gap-2"
-                  >
-                    <ArrowLeft className="w-4 h-4" />
-                    Previous
-                  </Button>
+                <div className="pt-6 border-t border-slate-700">
+                  {/* Top Row: Previous, Settings, Next */}
+                  <div className="flex items-center justify-between mb-4">
+                    <Button
+                      variant="ghost"
+                      onClick={handlePreviousQuestion}
+                      disabled={currentQuestionIndex === 0}
+                      className="flex items-center gap-2"
+                    >
+                      <ArrowLeft className="w-4 h-4" />
+                      Previous
+                    </Button>
 
-                  <div className="flex-1 mx-4 max-w-full">
+                    {/* Settings Button */}
+                    <Button
+                      variant="ghost"
+                      onClick={() => setShowSettings(true)}
+                      className="flex items-center gap-2 text-slate-400 hover:text-slate-200"
+                      title="Settings"
+                    >
+                      <Settings className="w-4 h-4" />
+                      Settings
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      onClick={currentQuestionIndex === questions.length - 1 ? () => {
+                        if (window.confirm('Are you sure you want to submit the test? This action cannot be undone.')) {
+                          handleSubmitTest();
+                        }
+                      } : handleNextQuestion}
+                      className="flex items-center gap-2"
+                    >
+                      {currentQuestionIndex === questions.length - 1 ? 'Submit Test' : 'Next'}
+                      {currentQuestionIndex === questions.length - 1 ? 
+                        <CheckCircle className="w-4 h-4" /> : 
+                        <ArrowRight className="w-4 h-4" />
+                      }
+                    </Button>
+                  </div>
+
+                  {/* Bottom Row: Question Numbers */}
+                  <div className="w-full">
                     <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800">
-                      <div className="flex items-center gap-2 min-w-fit px-2 pb-2">
+                      <div className="flex items-center gap-2 min-w-fit px-2 pb-2 justify-center">
                         {questions.map((_, index) => {
                           const isAnswered = userAnswers[questions[index].id] !== undefined;
                           const isCurrent = index === currentQuestionIndex;
@@ -3153,22 +4974,6 @@ Please provide a clear, educational response that helps the student understand t
                       </div>
                     </div>
                   </div>
-
-                  <Button
-                    variant="ghost"
-                    onClick={currentQuestionIndex === questions.length - 1 ? () => {
-                      if (window.confirm('Are you sure you want to submit the test? This action cannot be undone.')) {
-                        handleSubmitTest();
-                      }
-                    } : handleNextQuestion}
-                    className="flex items-center gap-2"
-                  >
-                    {currentQuestionIndex === questions.length - 1 ? 'Submit Test' : 'Next'}
-                    {currentQuestionIndex === questions.length - 1 ? 
-                      <CheckCircle className="w-4 h-4" /> : 
-                      <ArrowRight className="w-4 h-4" />
-                    }
-                  </Button>
                 </div>
               </Card>
             </motion.div>
@@ -3515,10 +5320,17 @@ Please provide a clear, educational response that helps the student understand t
                                 <div className="flex gap-2">
                                   <Button
                                     onClick={() => askTutorAboutQuestion(question.id, tutorQuestion)}
-                                    disabled={!tutorQuestion.trim()}
+                                    disabled={!tutorQuestion.trim() || tutorProcessing === question.id}
                                     size="sm"
                                   >
-                                    Ask Tutor
+                                    {tutorProcessing === question.id ? (
+                                      <>
+                                        <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin mr-2"></div>
+                                        Processing...
+                                      </>
+                                    ) : (
+                                      'Ask Tutor'
+                                    )}
                                   </Button>
                                   <Button
                                     variant="ghost"
@@ -3526,6 +5338,7 @@ Please provide a clear, educational response that helps the student understand t
                                       setAskingTutor(null);
                                       setTutorQuestion('');
                                       setTutorResponse('');
+                                      setTutorProcessing(null);
                                     }}
                                     size="sm"
                                   >
@@ -3610,62 +5423,6 @@ Please provide a clear, educational response that helps the student understand t
               <Download className="w-5 h-5 mr-2" />
               Save Results
             </Button>
-          </motion.div>
-
-          {/* Study Recommendations */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
-            className="mt-8"
-          >
-            <Card className="p-6">
-              <h2 className="text-xl font-bold text-slate-100 mb-4 flex items-center gap-3">
-                <Target className="w-5 h-5 text-green-400" />
-                Personalized Study Recommendations
-              </h2>
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="font-medium text-slate-200 mb-3">Focus Areas</h3>
-                  <div className="space-y-2">
-                    {testResults.questionResults
-                      .filter(result => !result.correct)
-                      .slice(0, 3)
-                      .map((result, index) => {
-                        const question = questions.find(q => q.id === result.questionId);
-                        return (
-                          <div key={index} className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-                            <p className="text-slate-300 text-sm">
-                              <span className="font-medium">Review:</span> {question?.topic || 'Key Concept'}
-                            </p>
-                          </div>
-                        );
-                      })}
-                  </div>
-                </div>
-                
-                <div>
-                  <h3 className="font-medium text-slate-200 mb-3">Next Steps</h3>
-                  <div className="space-y-2">
-                    <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-                      <p className="text-slate-300 text-sm">
-                        {testResults.percentage >= 80 ? 
-                          "Excellent work! Focus on maintaining consistency and timing." :
-                          testResults.percentage >= 60 ?
-                          "Good foundation. Practice more challenging questions." :
-                          "Build fundamentals first, then move to practice tests."
-                        }
-                      </p>
-                    </div>
-                    <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
-                      <p className="text-slate-300 text-sm">
-                        Schedule regular practice sessions with our AI tutors for personalized help.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </Card>
           </motion.div>
         </div>
       </div>

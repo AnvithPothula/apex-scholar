@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Brain, Calendar, Settings, LogOut, Award, Shield, X, MessageSquare, Send, FileQuestion } from 'lucide-react';
+import { Brain, Calendar, Settings, LogOut, Award, Shield, X, MessageSquare, Send, FileQuestion, Zap, Calculator } from 'lucide-react';
 import { Button, Avatar, AvatarFallback, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from './ui/UIComponents';
 import { useAuth } from '../contexts/AuthContext';
 import { createPageUrl, cn } from '../utils/helpers';
@@ -31,39 +31,56 @@ export function Layout({ children }) {
                         </Link>
                         
                         {/* Mobile-optimized navigation */}
-                        <nav className="flex space-x-0.5 sm:space-x-1 bg-slate-800/80 p-0.5 sm:p-1 rounded-lg sm:rounded-xl backdrop-blur-sm border border-slate-700">
+                        <nav className="flex flex-wrap space-x-0.5 sm:space-x-1 bg-slate-800/80 p-0.5 sm:p-1 rounded-lg sm:rounded-xl backdrop-blur-sm border border-slate-700">
                             <Link 
                                 to={createPageUrl("AITutors")} 
                                 className={cn(
-                                    "px-2 sm:px-4 py-1.5 sm:py-2 rounded-md sm:rounded-lg flex items-center space-x-1 sm:space-x-2 font-medium transition-all duration-200 text-xs sm:text-sm",
+                                    "px-2 sm:px-3 py-1.5 sm:py-2 rounded-md sm:rounded-lg flex items-center space-x-1 font-medium transition-all duration-200 text-xs sm:text-sm",
                                     isActiveTab("AITutors") ? "bg-slate-700 shadow-sm text-blue-400" : "text-slate-300 hover:text-slate-100"
                                 )}
                             >
                                 <Brain size={14} className="sm:w-4 sm:h-4" />
-                                <span className="hidden xs:inline sm:inline">AI Tutors</span>
-                                <span className="xs:hidden sm:hidden">AI</span>
+                                <span className="hidden lg:inline">AI Tutors</span>
                             </Link>
                             <Link 
                                 to={createPageUrl("PracticeTests")} 
                                 className={cn(
-                                    "px-2 sm:px-4 py-1.5 sm:py-2 rounded-md sm:rounded-lg flex items-center space-x-1 sm:space-x-2 font-medium transition-all duration-200 text-xs sm:text-sm",
+                                    "px-2 sm:px-3 py-1.5 sm:py-2 rounded-md sm:rounded-lg flex items-center space-x-1 font-medium transition-all duration-200 text-xs sm:text-sm",
                                     isActiveTab("PracticeTests") ? "bg-slate-700 shadow-sm text-blue-400" : "text-slate-300 hover:text-slate-100"
                                 )}
                             >
                                 <FileQuestion size={14} className="sm:w-4 sm:h-4" />
-                                <span className="hidden xs:inline sm:inline">Practice Tests</span>
-                                <span className="xs:hidden sm:hidden">Tests</span>
+                                <span className="hidden lg:inline">Tests</span>
+                            </Link>
+                            <Link 
+                                to={createPageUrl("Flashcards")} 
+                                className={cn(
+                                    "px-2 sm:px-3 py-1.5 sm:py-2 rounded-md sm:rounded-lg flex items-center space-x-1 font-medium transition-all duration-200 text-xs sm:text-sm",
+                                    isActiveTab("Flashcards") ? "bg-slate-700 shadow-sm text-blue-400" : "text-slate-300 hover:text-slate-100"
+                                )}
+                            >
+                                <Zap size={14} className="sm:w-4 sm:h-4" />
+                                <span className="hidden lg:inline">Cards</span>
+                            </Link>
+                            <Link 
+                                to={createPageUrl("Solver")} 
+                                className={cn(
+                                    "px-2 sm:px-3 py-1.5 sm:py-2 rounded-md sm:rounded-lg flex items-center space-x-1 font-medium transition-all duration-200 text-xs sm:text-sm",
+                                    isActiveTab("Solver") ? "bg-slate-700 shadow-sm text-blue-400" : "text-slate-300 hover:text-slate-100"
+                                )}
+                            >
+                                <Calculator size={14} className="sm:w-4 sm:h-4" />
+                                <span className="hidden lg:inline">Solver</span>
                             </Link>
                             <Link 
                                 to={createPageUrl("SmartScheduler")} 
                                 className={cn(
-                                    "px-2 sm:px-4 py-1.5 sm:py-2 rounded-md sm:rounded-lg flex items-center space-x-1 sm:space-x-2 font-medium transition-all duration-200 text-xs sm:text-sm",
+                                    "px-2 sm:px-3 py-1.5 sm:py-2 rounded-md sm:rounded-lg flex items-center space-x-1 font-medium transition-all duration-200 text-xs sm:text-sm",
                                     isActiveTab("SmartScheduler") ? "bg-slate-700 shadow-sm text-blue-400" : "text-slate-300 hover:text-slate-100"
                                 )}
                             >
                                 <Calendar size={14} className="sm:w-4 sm:h-4" />
-                                <span className="hidden xs:inline sm:inline">Scheduler</span>
-                                <span className="xs:hidden sm:hidden">Schedule</span>
+                                <span className="hidden lg:inline">Scheduler</span>
                             </Link>
                         </nav>
                         
@@ -133,16 +150,6 @@ export function Layout({ children }) {
                                 <ul className="space-y-1 text-slate-300">
                                     <li>• Anvith Pothula</li>
                                     <li>• Prateek Roy</li>
-                                </ul>
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-semibold text-green-400 mb-2">Special Thanks:</h3>
-                                <ul className="space-y-1 text-slate-300 text-sm">
-                                    <li>• Open-source community for amazing libraries</li>
-                                    <li>• React & Tailwind CSS teams</li>
-                                    <li>• Firebase for backend services</li>
-                                    <li>• Lucide React for beautiful icons</li>
-                                    <li>• All beta testers and early users</li>
                                 </ul>
                             </div>
                         </div>
@@ -219,7 +226,7 @@ export function Layout({ children }) {
                             
                             <div className="pt-4 border-t border-slate-600">
                                 <p className="text-xs text-slate-400">
-                                    Last updated: {new Date().toLocaleDateString()}
+                                    Last updated: 9/2/2025
                                 </p>
                             </div>
                         </div>

@@ -198,23 +198,22 @@ class SchoologyCalendarService {
         const month = cleanDateStr.substring(4, 6);
         const day = cleanDateStr.substring(6, 8);
         
-        // Create date at start of day in user's timezone (or Central Time as default)
-        const userTimezone = getUserTimezone();
+        // Create date at start of day in local timezone
         try {
-          // Use timezone-aware date creation
-          const tempDate = new Date(`${year}-${month}-${day}T00:00:00`);
-          const date = new Date(tempDate.toLocaleString("en-US", { timeZone: userTimezone }));
+          // Create date properly without double timezone conversion
+          // Use the Date constructor that takes year, month, day directly
+          const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
           
           if (!isNaN(date.getTime())) {
-            console.log(`✅ Parsed date in ${userTimezone}: ${cleanDateStr} → ${formatDateTimeInUserTimezone(date)}`);
+            console.log(`✅ Parsed date in local timezone (avoiding double conversion): ${cleanDateStr} → ${formatDateTimeInUserTimezone(date)}`);
             return date;
           }
         } catch (timezoneError) {
-          console.warn('Timezone parsing failed, using fallback:', timezoneError);
-          // Fallback to local date creation
-          const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+          console.warn('Date parsing failed, using fallback:', timezoneError);
+          // Fallback to ISO string parsing
+          const date = new Date(`${year}-${month}-${day}T00:00:00`);
           if (!isNaN(date.getTime())) {
-            console.log(`✅ Parsed date (fallback): ${cleanDateStr} → ${formatDateTimeInUserTimezone(date)}`);
+            console.log(`✅ Parsed date (ISO fallback): ${cleanDateStr} → ${formatDateTimeInUserTimezone(date)}`);
             return date;
           }
         }
