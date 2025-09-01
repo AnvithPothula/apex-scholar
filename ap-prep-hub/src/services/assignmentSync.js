@@ -675,6 +675,33 @@ class AssignmentSyncService {
   }
 
   /**
+   * Save sync settings for a user
+   */
+  async saveSyncSettings(userId, settings) {
+    try {
+      if (!userId) {
+        console.error('❌ Invalid userId for saveSyncSettings');
+        return { success: false, error: 'Invalid user ID' };
+      }
+
+      const userTokensRef = doc(db, 'users', userId, 'integrations', 'schoology');
+      
+      const settingsToSave = {
+        ...settings,
+        lastUpdated: serverTimestamp()
+      };
+
+      await setDoc(userTokensRef, settingsToSave, { merge: true });
+      
+      console.log(`✅ Sync settings saved for user ${userId}:`, settings);
+      return { success: true };
+    } catch (error) {
+      console.error('Error saving sync settings:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
    * ADMIN/DEBUG: Get detailed sync statistics
    */
   async getSyncStatistics(userId) {

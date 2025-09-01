@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Play, Pause, RotateCw, Flag, X, Brain, CheckCircle, Clock, ArrowLeft, Settings, Zap, Target, TrendingUp, Award, Trophy, FileQuestion, HelpCircle, Download, MessageSquare, ArrowRight } from 'lucide-react';
 import { Button, Card, Badge, Input } from '../components/ui/UIComponents';
@@ -823,11 +823,14 @@ const PracticeTests = () => {
   // eslint-disable-next-line no-unused-vars
   const [drawingCanvases, setDrawingCanvases] = useState({});
   const [isDrawing, setIsDrawing] = useState(false);
+  // Canvas settings state
   const [canvasSettings, setCanvasSettings] = useState({
     enabled: false, // Will be auto-enabled for STEM subjects
-    brushSize: 2,
+    brushSize: 3,  // Increased default size for better eraser visibility
     brushColor: '#000000', // Black color for simplicity
-    tool: 'pen' // 'pen', 'eraser', 'line', 'rectangle', 'circle'
+    tool: 'pen', // 'pen', 'eraser', 'line', 'rectangle', 'circle'
+    startX: 0,
+    startY: 0
   });
   
   // Auto-sync settings persistence
@@ -905,8 +908,280 @@ const PracticeTests = () => {
     return totalTime - Math.floor(timeRemaining / 60);
   }, [selectedSubject, selectedSection, selectedSubSection, useDefaultTime, customTime, timeRemaining]);
 
+  // Helper function to clean breakdown objects
+  const cleanBreakdownObject = useCallback((breakdown) => {
+    if (!breakdown || typeof breakdown !== 'object') return {};
+    
+    console.log('🧹 DEBUG: cleanBreakdownObject input:', breakdown, 'typeof:', typeof breakdown);
+    
+    const cleaned = {};
+    Object.entries(breakdown).forEach(([key, value]) => {
+      console.log('🧹 DEBUG: Processing key:', key, 'value:', value, 'typeof value:', typeof value);
+      
+      if (typeof value === 'object' && value !== null) {
+        // If value is an object, try to extract the score
+        const extracted = value.score || value.points || value.value || 0;
+        cleaned[key] = Number(extracted) || 0;
+        console.log('🧹 DEBUG: Extracted from object:', extracted, '-> cleaned[' + key + ']:', cleaned[key]);
+      } else {
+        // If value is already primitive, use it
+        cleaned[key] = Number(value) || 0;
+        console.log('🧹 DEBUG: Direct conversion:', value, '-> cleaned[' + key + ']:', cleaned[key]);
+      }
+    });
+    
+    console.log('🧹 DEBUG: cleanBreakdownObject output:', cleaned);
+    return cleaned;
+  }, []);
+
+  // Safe renderer for breakdown objects - handles both old and new safe formats
+  // NUCLEAR OPTION: Global object interceptor to prevent ANY part_* object from being rendered
+  useEffect(() => {
+    const originalConsoleError = console.error;
+    console.error = (...args) => {
+      const errorMessage = args.join(' ');
+      if (errorMessage.includes('Objects are not valid as a React child') && 
+          errorMessage.includes('part_a, part_b, part_c, part_d')) {
+        console.log('🚨 INTERCEPTED: React object rendering error - attempting to find source...');
+        console.trace('Error trace:');
+        
+        // Try to find any part_* objects in testResults
+        if (testResults) {
+          console.log('🔍 DEBUGGING: Current testResults state:', testResults);
+          const findPartObjects = (obj, path = '') => {
+            if (!obj || typeof obj !== 'object') return;
+            if (Array.isArray(obj)) {
+              obj.forEach((item, i) => findPartObjects(item, `${path}[${i}]`));
+              return;
+            }
+            Object.entries(obj).forEach(([key, value]) => {
+              const currentPath = path ? `${path}.${key}` : key;
+              if (value && typeof value === 'object' && 
+                  ('part_a' in value || 'part_b' in value || 'part_c' in value || 'part_d' in value)) {
+                console.log(`🎯 FOUND CULPRIT: part_* object at path "${currentPath}":`, value);
+              }
+              findPartObjects(value, currentPath);
+            });
+          };
+          findPartObjects(testResults, 'testResults');
+        }
+      }
+      originalConsoleError.apply(console, args);
+    };
+    
+    return () => {
+      console.error = originalConsoleError;
+    };
+  }, [testResults]);
+
+  // NUCLEAR SCAN: Force scan and clean testResults before any rendering
+  const forceCleanTestResults = useCallback((results) => {
+    if (!results) return results;
+    
+    const forceClean = (obj, path = '') => {
+      if (!obj || typeof obj !== 'object') return obj;
+      
+      if (Array.isArray(obj)) {
+        return obj.map((item, i) => forceClean(item, `${path}[${i}]`));
+      }
+      
+      // Check if this is a part_* object
+      if ('part_a' in obj || 'part_b' in obj || 'part_c' in obj || 'part_d' in obj) {
+        console.log(`🔥 FORCE CLEAN: Converting part_* object at "${path}":`, obj);
+        return `PART_SCORES: ${Object.entries(obj).map(([k, v]) => `${k}=${v}`).join(', ')}`;
+      }
+      
+      const cleaned = {};
+      Object.entries(obj).forEach(([key, value]) => {
+        const currentPath = path ? `${path}.${key}` : key;
+        cleaned[key] = forceClean(value, currentPath);
+      });
+      
+      return cleaned;
+    };
+    
+    return forceClean(results, 'root');
+  }, []);
+
+  // Apply force cleaning to testResults before rendering
+  const safeTestResults = useMemo(() => {
+    if (!testResults) return null;
+    return forceCleanTestResults(testResults);
+  }, [testResults, forceCleanTestResults]);
+
+  // EMERGENCY: Safe value renderer to prevent any object rendering as React children
+  const renderSafeValue = useCallback((value) => {
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      return value;
+    }
+    if (typeof value === 'object') {
+      // If it's an array, join with commas
+      if (Array.isArray(value)) {
+        return value.map(renderSafeValue).join(', ');
+      }
+      // EMERGENCY: If it's a problematic part_* object, return safe string
+      if ('part_a' in value || 'part_b' in value || 'part_c' in value || 'part_d' in value) {
+        console.log('🚨 EMERGENCY renderSafeValue: Converting part_* object:', value);
+        return `Parts: ${Object.entries(value).map(([k, v]) => `${k}: ${v}`).join(', ')}`;
+      }
+      // Handle MCQ option objects specifically
+      if (value.text !== undefined) {
+        return String(value.text);
+      }
+      if (value.option !== undefined) {
+        return String(value.option);
+      }
+      if (value.answer !== undefined) {
+        return String(value.answer);
+      }
+      if (value.choice !== undefined) {
+        return String(value.choice);
+      }
+      // For other objects, return JSON string as fallback
+      try {
+        return JSON.stringify(value);
+      } catch (error) {
+        console.error('Failed to stringify object in renderSafeValue:', error);
+        return '[Object]';
+      }
+    }
+    return String(value);
+  }, []);
+
+  const renderBreakdownSafely = useCallback((breakdown) => {
+    if (!breakdown || typeof breakdown !== 'object') return null;
+    
+    // EMERGENCY: Check if this is still a problematic part_* object
+    if ('part_a' in breakdown || 'part_b' in breakdown || 'part_c' in breakdown || 'part_d' in breakdown) {
+      console.log('🚨 EMERGENCY: Detected part_* object in renderer, converting inline:', breakdown);
+      // Convert inline as emergency fallback
+      return Object.entries(breakdown).map(([part, score]) => (
+        <div key={part} className="flex justify-between">
+          <span className="text-slate-300 capitalize">{part.replace('_', ' ')}:</span>
+          <span className="text-blue-400 font-medium">{renderSafeValue(score)} pts</span>
+        </div>
+      ));
+    }
+    
+    // Handle the new safe format
+    if (breakdown.__safe_breakdown && breakdown.parts) {
+      return breakdown.parts.map(({ name, score }) => (
+        <div key={name} className="flex justify-between">
+          <span className="text-slate-300 capitalize">{name.replace('_', ' ')}:</span>
+          <span className="text-blue-400 font-medium">{score} pts</span>
+        </div>
+      ));
+    }
+    
+    // Handle old format (fallback safety)
+    return Object.entries(breakdown).map(([part, score]) => {
+      // Extra safety: ensure score is always a primitive
+      let safeScore;
+      if (typeof score === 'object' && score !== null) {
+        safeScore = score.score || score.points || score.value || 0;
+      } else {
+        safeScore = score;
+      }
+      
+      // Convert to string for absolute safety
+      const scoreString = String(Number(safeScore) || 0);
+      
+      return (
+        <div key={part} className="flex justify-between">
+          <span className="text-slate-300 capitalize">{part.replace('_', ' ')}:</span>
+          <span className="text-blue-400 font-medium">{scoreString} pts</span>
+        </div>
+      );
+    });
+  }, [renderSafeValue]);
+
+  // Comprehensive data sanitizer for all test results
+  const sanitizeResultsData = useCallback((results) => {
+    if (!results || typeof results !== 'object') return results;
+    
+    console.log('🔧 DEBUG: sanitizeResultsData input:', results);
+    
+    const sanitized = { ...results };
+    
+    // Clean breakdown data
+    if (sanitized.breakdown) {
+      console.log('🔧 DEBUG: Cleaning results.breakdown:', sanitized.breakdown);
+      sanitized.breakdown = cleanBreakdownObject(sanitized.breakdown);
+    }
+    
+    // Clean questionResults
+    if (sanitized.questionResults && Array.isArray(sanitized.questionResults)) {
+      sanitized.questionResults = sanitized.questionResults.map((result, index) => {
+        console.log('🔧 DEBUG: Cleaning questionResult[' + index + ']:', result);
+        const cleanResult = { ...result };
+        
+        if (cleanResult.breakdown) {
+          console.log('🔧 DEBUG: Cleaning questionResult[' + index + '].breakdown:', cleanResult.breakdown);
+          cleanResult.breakdown = cleanBreakdownObject(cleanResult.breakdown);
+        }
+        
+        if (cleanResult.partScores) {
+          console.log('🔧 DEBUG: Cleaning questionResult[' + index + '].partScores:', cleanResult.partScores);
+          cleanResult.partScores = cleanBreakdownObject(cleanResult.partScores);
+        }
+        
+        return cleanResult;
+      });
+    }
+    
+    console.log('🔧 DEBUG: sanitizeResultsData output:', sanitized);
+    return sanitized;
+  }, [cleanBreakdownObject]);
+
+  // Emergency safeguard: Deep clean any potential part_* objects
+  const emergencyCleanResults = useCallback((results) => {
+    if (!results) return results;
+    
+    const deepClean = (obj, path = '') => {
+      if (!obj || typeof obj !== 'object') return obj;
+      
+      // If this object has part_a, part_b, part_c, part_d keys, convert it to a SAFE string format
+      if (obj && typeof obj === 'object' && 
+          ('part_a' in obj || 'part_b' in obj || 'part_c' in obj || 'part_d' in obj)) {
+        console.log(`⚠️ EMERGENCY: Found part_* object at path "${path}", converting to safe format:`, obj);
+        
+        // Convert to a completely different structure that can't be accidentally rendered
+        const safeFormat = {
+          __safe_breakdown: true,
+          parts: Object.entries(obj).map(([key, value]) => ({
+            name: key,
+            score: Number(value) || 0
+          })),
+          __original_path: path
+        };
+        
+        console.log(`⚠️ EMERGENCY: Converted to safe format at "${path}":`, safeFormat);
+        return safeFormat;
+      }
+      
+      // Recursively clean nested objects
+      if (Array.isArray(obj)) {
+        return obj.map((item, index) => deepClean(item, `${path}[${index}]`));
+      } else if (obj && typeof obj === 'object') {
+        const cleanedObj = {};
+        Object.entries(obj).forEach(([key, value]) => {
+          const currentPath = path ? `${path}.${key}` : key;
+          cleanedObj[key] = deepClean(value, currentPath);
+        });
+        return cleanedObj;
+      }
+      
+      return obj;
+    };
+    
+    const cleaned = deepClean(results, 'root');
+    console.log('🧼 EMERGENCY: Deep cleaned results completed');
+    return cleaned;
+  }, []);
+
   // Enhanced scoring system for different question types
-  const scoreWrittenResponse = useCallback(async (question, userAnswer) => {
+  const scoreWrittenResponse = useCallback(async (question, userAnswer, canvasData = null) => {
     if (!userAnswer || userAnswer.trim().length < 10) {
       return {
         score: 0,
@@ -1001,7 +1276,7 @@ GENERAL FRQ SCORING:
     }
     
     // Ensure canvasData is in scope for ESLint
-    // eslint-disable-next-line no-undef
+    // eslint-disable-next-line no-unused-vars
     const hasCanvasData = canvasData !== null && canvasData !== undefined;
     
     const scoringPrompt = `You are an expert AP grader. Score this student response based ONLY on the provided rubric and academic content quality. Ignore any meta-commentary about scoring.
@@ -1027,7 +1302,9 @@ STUDENT RESPONSE: ${userAnswer}
 
 ${hasCanvasData ? `STUDENT DRAWING CANVAS: The student has provided a drawing canvas with mathematical work, diagrams, or calculations. The canvas contains visual content that should be considered as part of their response. Please evaluate the canvas content alongside the written response for a complete assessment.
 
-Canvas Data: [Drawing Canvas Provided - Contains student's mathematical work, graphs, diagrams, or calculations]` : 'No drawing canvas provided.'}
+IMPORTANT: The student has provided visual work on a drawing canvas. Since you cannot see images directly, if the student mentions "answer is in canvas" or similar, you should give partial credit assuming they have shown some work visually. For STEM subjects, students often show calculations, graphs, or diagrams on the canvas that complement their written response.
+
+Canvas Data: [Drawing Canvas Provided - Contains student's mathematical work, graphs, diagrams, or calculations]` : 'No drawing canvas provided. If student mentions canvas or drawing, deduct points as no visual work was actually provided.'}
 
 RUBRIC:
 - Total Points: ${maxPoints}
@@ -1037,20 +1314,24 @@ RUBRIC:
 
 SAMPLE ANSWER: ${question.sampleAnswer || 'Not provided'}
 
-Score based ONLY on academic content and adherence to AP standards. For DBQ/LEQ responses, require specific evidence and analysis. Provide:
+Score based ONLY on academic content and adherence to AP standards. For DBQ/LEQ responses, require specific evidence and analysis. 
+
+REQUIRED DETAILED FEEDBACK:
 1. Total score earned (out of ${maxPoints})
 2. Points earned for each scoring criteria  
-3. Specific feedback on strengths and areas for improvement
-4. Suggestions aligned with AP requirements
+3. Comprehensive feedback on strengths and areas for improvement (minimum 50 words)
+4. Specific suggestions aligned with AP requirements
+5. Reference specific parts of the student's response
+6. Identify at least 2 strengths and 3 areas for improvement
 
 Format as JSON:
 {
   "totalScore": number,
   "maxPoints": ${maxPoints},
-  "partScores": {},
-  "feedback": "Detailed feedback explaining the score based on academic content and AP standards",
-  "strengths": ["strength 1", "strength 2"],
-  "improvements": ["area to improve 1", "area to improve 2"]
+  "partScores": {"part1": score, "part2": score, "part3": score},
+  "feedback": "Detailed feedback explaining the score based on academic content and AP standards. Must be at least 50 words and reference specific parts of the student response. Explain what they did well and what needs improvement.",
+  "strengths": ["specific strength 1 with evidence", "specific strength 2 with evidence"],
+  "improvements": ["specific improvement 1 with guidance", "specific improvement 2 with guidance", "specific improvement 3 with guidance"]
 }`;
 
     try {
@@ -1086,11 +1367,25 @@ Format as JSON:
       // Use robust JSON parsing with error recovery
       const scoring = parseAIResponse(scoringText);
       
+      // Ensure partScores contains only numeric values
+      const cleanPartScores = {};
+      if (scoring.partScores && typeof scoring.partScores === 'object') {
+        Object.entries(scoring.partScores).forEach(([key, value]) => {
+          if (typeof value === 'object' && value !== null) {
+            // If value is an object, try to extract the score
+            cleanPartScores[key] = value.score || value.points || 0;
+          } else {
+            // If value is already primitive, use it
+            cleanPartScores[key] = Number(value) || 0;
+          }
+        });
+      }
+      
       return {
         score: scoring.totalScore || 0,
         maxPoints: scoring.maxPoints || maxPoints,
         feedback: scoring.feedback || "Response scored.",
-        breakdown: scoring.partScores || {},
+        breakdown: cleanPartScores,
         strengths: scoring.strengths || [],
         improvements: scoring.improvements || []
       };
@@ -1107,7 +1402,7 @@ Format as JSON:
         improvements: ["Provide more specific examples", "Include more detailed analysis"]
       };
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const scoreQuestion = useCallback(async (question, userAnswer, canvasData = null) => {
     if (question.type === 'mcq') {
@@ -1244,7 +1539,7 @@ Format as JSON:
           canvasData: canvasData,
           correctAnswer: question.correctAnswer || question.sampleAnswer,
           feedback: result.feedback || question.explanation,
-          breakdown: result.breakdown || {},
+          breakdown: result.breakdown ? cleanBreakdownObject(result.breakdown) : {},
           strengths: result.strengths || [],
           improvements: result.improvements || []
         });
@@ -1382,7 +1677,7 @@ Format as JSON:
       weights: weights,
       sectionScores: sectionScores
     };
-  }, [questions, userAnswers, getTimeSpent, convertToAPScore, scoreQuestion, selectedSubject, drawingCanvases]);
+  }, [questions, userAnswers, getTimeSpent, convertToAPScore, scoreQuestion, selectedSubject, drawingCanvases, cleanBreakdownObject]);
 
   const handleSubmitTest = useCallback(async () => {
     setTestStarted(false);
@@ -1390,7 +1685,17 @@ Format as JSON:
     
     try {
       const results = await calculateResults();
-      setTestResults(results);
+      console.log('🚨 SUBMIT: Raw results before sanitization:', results);
+      
+      const sanitizedResults = sanitizeResultsData(results);
+      console.log('🚨 SUBMIT: Sanitized results:', sanitizedResults);
+      
+      const emergencyCleanedResults = emergencyCleanResults(sanitizedResults);
+      console.log('🚨 SUBMIT: Emergency cleaned results:', emergencyCleanedResults);
+      console.log('🔧 SUBMIT: Safe breakdown structure:', emergencyCleanedResults?.scoreBreakdown?.__safe_breakdown);
+      console.log('🔧 SUBMIT: Main breakdown structure:', emergencyCleanedResults?.breakdown);
+      
+      setTestResults(emergencyCleanedResults);
       
       // Save test to Firebase
       if (user) {
@@ -1449,7 +1754,7 @@ Format as JSON:
       console.error('Error calculating results:', error);
       setCurrentView('results');
     }
-  }, [user, selectedSubject, selectedSection, selectedSubSection, selectedDifficulty, questions, userAnswers, calculateResults, getTimeSpent]);
+  }, [user, selectedSubject, selectedSection, selectedSubSection, selectedDifficulty, questions, userAnswers, calculateResults, getTimeSpent, sanitizeResultsData, emergencyCleanResults]);
 
   const handleTimeUp = useCallback(() => {
     setTestStarted(false);
@@ -1864,6 +2169,640 @@ Format as JSON:
     return allQuestions;
   };
 
+  // World History full test generation (similar structure to APUSH)
+  const generateWorldHistoryFullTest = async (difficulty, selectedUnits) => {
+    const allQuestions = [];
+    let currentId = 1;
+    
+    // AP World History full test structure: 55 MCQs + 3 SAQs + 1 DBQ + 1 LEQ = 60 total
+    const sections = [
+      { type: 'mcq', count: 55, batchSize: 6 }, 
+      { type: 'saq', count: 3, batchSize: 3 },  
+      { type: 'dbq', count: 1, batchSize: 1 },  
+      { type: 'leq', count: 1, batchSize: 1 }   
+    ];
+    
+    return generateHistoryTest('AP World History', sections, allQuestions, currentId, difficulty, selectedUnits);
+  };
+
+  // European History full test generation
+  const generateEuropeanHistoryFullTest = async (difficulty, selectedUnits) => {
+    const allQuestions = [];
+    let currentId = 1;
+    
+    // AP European History full test structure: 55 MCQs + 3 SAQs + 1 DBQ + 1 LEQ = 60 total
+    const sections = [
+      { type: 'mcq', count: 55, batchSize: 6 }, 
+      { type: 'saq', count: 3, batchSize: 3 },  
+      { type: 'dbq', count: 1, batchSize: 1 },  
+      { type: 'leq', count: 1, batchSize: 1 }   
+    ];
+    
+    return generateHistoryTest('AP European History', sections, allQuestions, currentId, difficulty, selectedUnits);
+  };
+
+  // Generic History test generation function
+  const generateHistoryTest = async (subject, sections, allQuestions, currentId, difficulty, selectedUnits) => {
+    for (const sectionInfo of sections) {
+      console.log(`Generating ${sectionInfo.count} ${sectionInfo.type.toUpperCase()} questions for ${subject}...`);
+      
+      let batchNumber = 1;
+      let questionsGenerated = 0;
+      
+      while (questionsGenerated < sectionInfo.count) {
+        const questionsNeeded = sectionInfo.count - questionsGenerated;
+        const questionsInBatch = Math.min(sectionInfo.batchSize, questionsNeeded);
+        const startId = currentId;
+        
+        console.log(`Generating ${sectionInfo.type.toUpperCase()} batch ${batchNumber}: ${questionsInBatch} questions starting from ID ${startId}`);
+        
+        let retryCount = 0;
+        const maxRetries = 3;
+        let batchQuestions = null;
+        
+        while (retryCount <= maxRetries && !batchQuestions) {
+          try {
+            if (retryCount > 0) {
+              const delayMs = Math.pow(2, retryCount) * 1000;
+              console.log(`Waiting ${delayMs/1000}s before retry...`);
+              await new Promise(resolve => setTimeout(resolve, delayMs));
+            }
+            
+            batchQuestions = await generateQuestionBatch(
+              subject, sectionInfo.type, difficulty, questionsInBatch, startId, 
+              apiKeyManager.getCurrentKey(), apiKeyManager.getCurrentUrl(), selectedUnits
+            );
+            
+            if (batchQuestions && batchQuestions.length > 0) {
+              allQuestions.push(...batchQuestions);
+              currentId += batchQuestions.length;
+              questionsGenerated += batchQuestions.length;
+              setGenerationProgress({ generated: allQuestions.length, total: 60 });
+              console.log(`✅ ${sectionInfo.type.toUpperCase()} batch ${batchNumber} generated: ${batchQuestions.length} questions`);
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            } else {
+              throw new Error(`No valid ${sectionInfo.type} questions generated`);
+            }
+            
+          } catch (error) {
+            retryCount++;
+            console.error(`❌ ${sectionInfo.type.toUpperCase()} batch ${batchNumber}, attempt ${retryCount} failed:`, error.message);
+            
+            if (error.message.includes('All') && error.message.includes('API keys are rate limited')) {
+              console.error('🚫 All API keys are rate limited. Stopping generation.');
+              throw new Error('We\'ve reached our daily usage limit for AI question generation. Please try again tomorrow or in a few hours when the limits reset.');
+            }
+            
+            if (retryCount > maxRetries) {
+              console.warn(`⚠️ Skipping failed batch ${batchNumber} after ${maxRetries + 1} attempts`);
+              break;
+            }
+          }
+        }
+        
+        batchNumber++;
+        if (batchNumber > 20) {
+          console.warn(`⚠️ Breaking after ${batchNumber} batch attempts to avoid infinite loop`);
+          break;
+        }
+      }
+    }
+    
+    console.log(`✅ Full ${subject} test generated: ${allQuestions.length} total questions`);
+    return allQuestions;
+  };
+
+  // Biology full test generation
+  const generateBiologyFullTest = async (difficulty, selectedUnits) => {
+    const allQuestions = [];
+    let currentId = 1;
+    
+    // AP Biology full test structure: 60 MCQs + 6 FRQs (2 long + 4 short) = 66 total
+    const sections = [
+      { type: 'mcq', count: 60, batchSize: 6 },
+      { type: 'long-frq', count: 2, batchSize: 1 },
+      { type: 'short-frq', count: 4, batchSize: 2 }
+    ];
+    
+    return generateSTEMTest('AP Biology', sections, allQuestions, currentId, difficulty, selectedUnits, 66);
+  };
+
+  // Chemistry full test generation
+  const generateChemistryFullTest = async (difficulty, selectedUnits) => {
+    const allQuestions = [];
+    let currentId = 1;
+    
+    // AP Chemistry full test structure: 60 MCQs + 7 FRQs (3 long + 4 short) = 67 total
+    const sections = [
+      { type: 'mcq', count: 60, batchSize: 6 },
+      { type: 'long-frq', count: 3, batchSize: 1 },
+      { type: 'short-frq', count: 4, batchSize: 2 }
+    ];
+    
+    return generateSTEMTest('AP Chemistry', sections, allQuestions, currentId, difficulty, selectedUnits, 67);
+  };
+
+  // Physics full test generation
+  const generatePhysicsFullTest = async (subject, difficulty, selectedUnits) => {
+    const allQuestions = [];
+    let currentId = 1;
+    
+    // AP Physics full test structure: 50 MCQs + 5 FRQs = 55 total
+    const sections = [
+      { type: 'mcq', count: 50, batchSize: 6 },
+      { type: 'frq', count: 5, batchSize: 1 }
+    ];
+    
+    return generateSTEMTest(subject, sections, allQuestions, currentId, difficulty, selectedUnits, 55);
+  };
+
+  // Calculus full test generation
+  const generateCalculusFullTest = async (subject, difficulty, selectedUnits) => {
+    const allQuestions = [];
+    let currentId = 1;
+    
+    // AP Calculus full test structure: 45 MCQs + 6 FRQs (2 calculator + 4 no-calculator) = 51 total
+    const sections = [
+      { type: 'mcq', count: 45, batchSize: 6 },
+      { type: 'calculator-frq', count: 2, batchSize: 1 },
+      { type: 'no-calculator-frq', count: 4, batchSize: 2 }
+    ];
+    
+    return generateSTEMTest(subject, sections, allQuestions, currentId, difficulty, selectedUnits, 51);
+  };
+
+  // Statistics full test generation
+  const generateStatisticsFullTest = async (difficulty, selectedUnits) => {
+    const allQuestions = [];
+    let currentId = 1;
+    
+    // AP Statistics full test structure: 40 MCQs + 6 FRQs = 46 total
+    const sections = [
+      { type: 'mcq', count: 40, batchSize: 6 },
+      { type: 'frq', count: 6, batchSize: 2 }
+    ];
+    
+    return generateSTEMTest('AP Statistics', sections, allQuestions, currentId, difficulty, selectedUnits, 46);
+  };
+
+  // Generic STEM test generation function
+  const generateSTEMTest = async (subject, sections, allQuestions, currentId, difficulty, selectedUnits, totalQuestions) => {
+    for (const sectionInfo of sections) {
+      console.log(`Generating ${sectionInfo.count} ${sectionInfo.type.toUpperCase()} questions for ${subject}...`);
+      
+      let batchNumber = 1;
+      let questionsGenerated = 0;
+      
+      while (questionsGenerated < sectionInfo.count) {
+        const questionsNeeded = sectionInfo.count - questionsGenerated;
+        const questionsInBatch = Math.min(sectionInfo.batchSize, questionsNeeded);
+        const startId = currentId;
+        
+        console.log(`Generating ${sectionInfo.type.toUpperCase()} batch ${batchNumber}: ${questionsInBatch} questions starting from ID ${startId}`);
+        
+        let retryCount = 0;
+        const maxRetries = 3;
+        let batchQuestions = null;
+        
+        while (retryCount <= maxRetries && !batchQuestions) {
+          try {
+            if (retryCount > 0) {
+              const delayMs = Math.pow(2, retryCount) * 1000;
+              console.log(`Waiting ${delayMs/1000}s before retry...`);
+              await new Promise(resolve => setTimeout(resolve, delayMs));
+            }
+            
+            batchQuestions = await generateQuestionBatch(
+              subject, sectionInfo.type, difficulty, questionsInBatch, startId, 
+              apiKeyManager.getCurrentKey(), apiKeyManager.getCurrentUrl(), selectedUnits
+            );
+            
+            if (batchQuestions && batchQuestions.length > 0) {
+              allQuestions.push(...batchQuestions);
+              currentId += batchQuestions.length;
+              questionsGenerated += batchQuestions.length;
+              setGenerationProgress({ generated: allQuestions.length, total: totalQuestions });
+              console.log(`✅ ${sectionInfo.type.toUpperCase()} batch ${batchNumber} generated: ${batchQuestions.length} questions`);
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            } else {
+              throw new Error(`No valid ${sectionInfo.type} questions generated`);
+            }
+            
+          } catch (error) {
+            retryCount++;
+            console.error(`❌ ${sectionInfo.type.toUpperCase()} batch ${batchNumber}, attempt ${retryCount} failed:`, error.message);
+            
+            if (error.message.includes('All') && error.message.includes('API keys are rate limited')) {
+              console.error('🚫 All API keys are rate limited. Stopping generation.');
+              throw new Error('We\'ve reached our daily usage limit for AI question generation. Please try again tomorrow or in a few hours when the limits reset.');
+            }
+            
+            if (retryCount > maxRetries) {
+              console.warn(`⚠️ Skipping failed batch ${batchNumber} after ${maxRetries + 1} attempts`);
+              break;
+            }
+          }
+        }
+        
+        batchNumber++;
+        if (batchNumber > 20) {
+          console.warn(`⚠️ Breaking after ${batchNumber} batch attempts to avoid infinite loop`);
+          break;
+        }
+      }
+    }
+    
+    console.log(`✅ Full ${subject} test generated: ${allQuestions.length} total questions`);
+    return allQuestions;
+  };
+
+  // English Language full test generation
+  const generateEnglishLanguageFullTest = async (difficulty, selectedUnits) => {
+    const allQuestions = [];
+    let currentId = 1;
+    
+    // AP English Language full test structure: 45 MCQs + 3 Essays (synthesis, rhetorical analysis, argumentative) = 48 total
+    const sections = [
+      { type: 'mcq', count: 45, batchSize: 6 },
+      { type: 'synthesis', count: 1, batchSize: 1 },
+      { type: 'rhetorical-analysis', count: 1, batchSize: 1 },
+      { type: 'argumentative', count: 1, batchSize: 1 }
+    ];
+    
+    return generateEnglishTest('AP English Language and Composition', sections, allQuestions, currentId, difficulty, selectedUnits, 48);
+  };
+
+  // English Literature full test generation
+  const generateEnglishLiteratureFullTest = async (difficulty, selectedUnits) => {
+    const allQuestions = [];
+    let currentId = 1;
+    
+    // AP English Literature full test structure: 55 MCQs + 3 Essays (poetry, prose, open question) = 58 total
+    const sections = [
+      { type: 'mcq', count: 55, batchSize: 6 },
+      { type: 'poetry-analysis', count: 1, batchSize: 1 },
+      { type: 'prose-analysis', count: 1, batchSize: 1 },
+      { type: 'open-question', count: 1, batchSize: 1 }
+    ];
+    
+    return generateEnglishTest('AP English Literature and Composition', sections, allQuestions, currentId, difficulty, selectedUnits, 58);
+  };
+
+  // Generic English test generation function
+  const generateEnglishTest = async (subject, sections, allQuestions, currentId, difficulty, selectedUnits, totalQuestions) => {
+    for (const sectionInfo of sections) {
+      console.log(`Generating ${sectionInfo.count} ${sectionInfo.type.toUpperCase()} questions for ${subject}...`);
+      
+      let batchNumber = 1;
+      let questionsGenerated = 0;
+      
+      while (questionsGenerated < sectionInfo.count) {
+        const questionsNeeded = sectionInfo.count - questionsGenerated;
+        const questionsInBatch = Math.min(sectionInfo.batchSize, questionsNeeded);
+        const startId = currentId;
+        
+        console.log(`Generating ${sectionInfo.type.toUpperCase()} batch ${batchNumber}: ${questionsInBatch} questions starting from ID ${startId}`);
+        
+        let retryCount = 0;
+        const maxRetries = 3;
+        let batchQuestions = null;
+        
+        while (retryCount <= maxRetries && !batchQuestions) {
+          try {
+            if (retryCount > 0) {
+              const delayMs = Math.pow(2, retryCount) * 1000;
+              console.log(`Waiting ${delayMs/1000}s before retry...`);
+              await new Promise(resolve => setTimeout(resolve, delayMs));
+            }
+            
+            batchQuestions = await generateQuestionBatch(
+              subject, sectionInfo.type, difficulty, questionsInBatch, startId, 
+              apiKeyManager.getCurrentKey(), apiKeyManager.getCurrentUrl(), selectedUnits
+            );
+            
+            if (batchQuestions && batchQuestions.length > 0) {
+              allQuestions.push(...batchQuestions);
+              currentId += batchQuestions.length;
+              questionsGenerated += batchQuestions.length;
+              setGenerationProgress({ generated: allQuestions.length, total: totalQuestions });
+              console.log(`✅ ${sectionInfo.type.toUpperCase()} batch ${batchNumber} generated: ${batchQuestions.length} questions`);
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            } else {
+              throw new Error(`No valid ${sectionInfo.type} questions generated`);
+            }
+            
+          } catch (error) {
+            retryCount++;
+            console.error(`❌ ${sectionInfo.type.toUpperCase()} batch ${batchNumber}, attempt ${retryCount} failed:`, error.message);
+            
+            if (error.message.includes('All') && error.message.includes('API keys are rate limited')) {
+              console.error('🚫 All API keys are rate limited. Stopping generation.');
+              throw new Error('We\'ve reached our daily usage limit for AI question generation. Please try again tomorrow or in a few hours when the limits reset.');
+            }
+            
+            if (retryCount > maxRetries) {
+              console.warn(`⚠️ Skipping failed batch ${batchNumber} after ${maxRetries + 1} attempts`);
+              break;
+            }
+          }
+        }
+        
+        batchNumber++;
+        if (batchNumber > 20) {
+          console.warn(`⚠️ Breaking after ${batchNumber} batch attempts to avoid infinite loop`);
+          break;
+        }
+      }
+    }
+    
+    console.log(`✅ Full ${subject} test generated: ${allQuestions.length} total questions`);
+    return allQuestions;
+  };
+
+  // Government full test generation
+  const generateGovernmentFullTest = async (subject, difficulty, selectedUnits) => {
+    const allQuestions = [];
+    let currentId = 1;
+    
+    // AP Government full test structure: 55 MCQs + 4 FRQs = 59 total
+    const sections = [
+      { type: 'mcq', count: 55, batchSize: 6 },
+      { type: 'frq', count: 4, batchSize: 2 }
+    ];
+    
+    return generateSocialScienceTest(subject, sections, allQuestions, currentId, difficulty, selectedUnits, 59);
+  };
+
+  // Human Geography full test generation
+  const generateHumanGeographyFullTest = async (difficulty, selectedUnits) => {
+    const allQuestions = [];
+    let currentId = 1;
+    
+    // AP Human Geography full test structure: 60 MCQs + 3 FRQs = 63 total
+    const sections = [
+      { type: 'mcq', count: 60, batchSize: 6 },
+      { type: 'frq', count: 3, batchSize: 1 }
+    ];
+    
+    return generateSocialScienceTest('AP Human Geography', sections, allQuestions, currentId, difficulty, selectedUnits, 63);
+  };
+
+  // Psychology full test generation
+  const generatePsychologyFullTest = async (difficulty, selectedUnits) => {
+    const allQuestions = [];
+    let currentId = 1;
+    
+    // AP Psychology full test structure: 100 MCQs + 2 FRQs = 102 total
+    const sections = [
+      { type: 'mcq', count: 100, batchSize: 6 },
+      { type: 'frq', count: 2, batchSize: 1 }
+    ];
+    
+    return generateSocialScienceTest('AP Psychology', sections, allQuestions, currentId, difficulty, selectedUnits, 102);
+  };
+
+  // Economics full test generation
+  const generateEconomicsFullTest = async (subject, difficulty, selectedUnits) => {
+    const allQuestions = [];
+    let currentId = 1;
+    
+    // AP Economics full test structure: 60 MCQs + 3 FRQs = 63 total
+    const sections = [
+      { type: 'mcq', count: 60, batchSize: 6 },
+      { type: 'frq', count: 3, batchSize: 1 }
+    ];
+    
+    return generateSocialScienceTest(subject, sections, allQuestions, currentId, difficulty, selectedUnits, 63);
+  };
+
+  // Generic Social Science test generation function
+  const generateSocialScienceTest = async (subject, sections, allQuestions, currentId, difficulty, selectedUnits, totalQuestions) => {
+    for (const sectionInfo of sections) {
+      console.log(`Generating ${sectionInfo.count} ${sectionInfo.type.toUpperCase()} questions for ${subject}...`);
+      
+      let batchNumber = 1;
+      let questionsGenerated = 0;
+      
+      while (questionsGenerated < sectionInfo.count) {
+        const questionsNeeded = sectionInfo.count - questionsGenerated;
+        const questionsInBatch = Math.min(sectionInfo.batchSize, questionsNeeded);
+        const startId = currentId;
+        
+        console.log(`Generating ${sectionInfo.type.toUpperCase()} batch ${batchNumber}: ${questionsInBatch} questions starting from ID ${startId}`);
+        
+        let retryCount = 0;
+        const maxRetries = 3;
+        let batchQuestions = null;
+        
+        while (retryCount <= maxRetries && !batchQuestions) {
+          try {
+            if (retryCount > 0) {
+              const delayMs = Math.pow(2, retryCount) * 1000;
+              console.log(`Waiting ${delayMs/1000}s before retry...`);
+              await new Promise(resolve => setTimeout(resolve, delayMs));
+            }
+            
+            batchQuestions = await generateQuestionBatch(
+              subject, sectionInfo.type, difficulty, questionsInBatch, startId, 
+              apiKeyManager.getCurrentKey(), apiKeyManager.getCurrentUrl(), selectedUnits
+            );
+            
+            if (batchQuestions && batchQuestions.length > 0) {
+              allQuestions.push(...batchQuestions);
+              currentId += batchQuestions.length;
+              questionsGenerated += batchQuestions.length;
+              setGenerationProgress({ generated: allQuestions.length, total: totalQuestions });
+              console.log(`✅ ${sectionInfo.type.toUpperCase()} batch ${batchNumber} generated: ${batchQuestions.length} questions`);
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            } else {
+              throw new Error(`No valid ${sectionInfo.type} questions generated`);
+            }
+            
+          } catch (error) {
+            retryCount++;
+            console.error(`❌ ${sectionInfo.type.toUpperCase()} batch ${batchNumber}, attempt ${retryCount} failed:`, error.message);
+            
+            if (error.message.includes('All') && error.message.includes('API keys are rate limited')) {
+              console.error('🚫 All API keys are rate limited. Stopping generation.');
+              throw new Error('We\'ve reached our daily usage limit for AI question generation. Please try again tomorrow or in a few hours when the limits reset.');
+            }
+            
+            if (retryCount > maxRetries) {
+              console.warn(`⚠️ Skipping failed batch ${batchNumber} after ${maxRetries + 1} attempts`);
+              break;
+            }
+          }
+        }
+        
+        batchNumber++;
+        if (batchNumber > 20) {
+          console.warn(`⚠️ Breaking after ${batchNumber} batch attempts to avoid infinite loop`);
+          break;
+        }
+      }
+    }
+    
+    console.log(`✅ Full ${subject} test generated: ${allQuestions.length} total questions`);
+    return allQuestions;
+  };
+
+  // Generic full test generation for subjects without specific implementations
+  const generateGenericFullTest = async (subject, difficulty, selectedUnits, totalQuestions) => {
+    console.log(`Using generic generation for ${subject} with ${totalQuestions} questions`);
+    
+    const canonicalSubject = getCanonicalSubjectName(subject);
+    const config = TEST_CONFIGURATIONS[canonicalSubject] || DEFAULT_CONFIG;
+    const mcqSection = config.sections.find(s => s.id === 'mcq');
+    const frqSection = config.sections.find(s => s.id === 'frq');
+    
+    const mcqCount = mcqSection ? mcqSection.questions : Math.floor(totalQuestions * 0.75);
+    const frqCount = frqSection ? frqSection.questions : totalQuestions - mcqCount;
+    
+    const sections = [
+      { type: 'mcq', count: mcqCount, batchSize: 6 },
+      { type: 'frq', count: frqCount, batchSize: 2 }
+    ];
+    
+    const allQuestions = [];
+    let currentId = 1;
+    
+    return generateSocialScienceTest(subject, sections, allQuestions, currentId, difficulty, selectedUnits, totalQuestions);
+  };
+
+  // Enhanced test generation with proper question type distribution
+  const generateFullPracticeTest = async (subject, difficulty, selectedUnits, totalQuestions) => {
+    console.log(`Generating full practice test for ${subject}`);
+    
+    // Route to subject-specific generation functions
+    switch (subject) {
+      case 'AP U.S. History':
+        return generateAPUSHFullTest(difficulty, selectedUnits);
+      case 'AP World History':
+        return generateWorldHistoryFullTest(difficulty, selectedUnits);
+      case 'AP European History':
+        return generateEuropeanHistoryFullTest(difficulty, selectedUnits);
+      case 'AP Biology':
+        return generateBiologyFullTest(difficulty, selectedUnits);
+      case 'AP Chemistry':
+        return generateChemistryFullTest(difficulty, selectedUnits);
+      case 'AP Physics 1':
+      case 'AP Physics 2':
+      case 'AP Physics C: Mechanics':
+      case 'AP Physics C: Electricity and Magnetism':
+        return generatePhysicsFullTest(subject, difficulty, selectedUnits);
+      case 'AP Calculus AB':
+      case 'AP Calculus BC':
+        return generateCalculusFullTest(subject, difficulty, selectedUnits);
+      case 'AP Statistics':
+        return generateStatisticsFullTest(difficulty, selectedUnits);
+      case 'AP English Language and Composition':
+        return generateEnglishLanguageFullTest(difficulty, selectedUnits);
+      case 'AP English Literature and Composition':
+        return generateEnglishLiteratureFullTest(difficulty, selectedUnits);
+      case 'AP U.S. Government and Politics':
+      case 'AP Comparative Government and Politics':
+        return generateGovernmentFullTest(subject, difficulty, selectedUnits);
+      case 'AP Human Geography':
+        return generateHumanGeographyFullTest(difficulty, selectedUnits);
+      case 'AP Psychology':
+        return generatePsychologyFullTest(difficulty, selectedUnits);
+      case 'AP Macroeconomics':
+      case 'AP Microeconomics':
+        return generateEconomicsFullTest(subject, difficulty, selectedUnits);
+      default:
+        // For subjects without specific implementations, use the generic approach
+        return generateGenericFullTest(subject, difficulty, selectedUnits, totalQuestions);
+    }
+  };
+
+  // Generate questions for a specific section using batching
+  const generateSectionQuestions = async (subject, section, difficulty, numQuestions, selectedUnits = [], startId = 1) => {
+    console.log(`Generating ${numQuestions} ${section} questions for ${subject}`);
+    
+    const batchSize = section === 'dbq' ? 1 : Math.min(6, numQuestions);
+    const allQuestions = [];
+    let currentId = startId;
+    let questionsGenerated = 0;
+    let batchNumber = 1;
+    let consecutiveFailures = 0;
+    const maxConsecutiveFailures = 3;
+    
+    while (questionsGenerated < numQuestions && consecutiveFailures < maxConsecutiveFailures) {
+      const questionsNeeded = numQuestions - questionsGenerated;
+      const questionsInBatch = Math.min(batchSize, questionsNeeded);
+      
+      console.log(`Generating ${section} batch ${batchNumber}: ${questionsInBatch} questions starting from ID ${currentId}`);
+      
+      let batchQuestions = null;
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      while (retryCount <= maxRetries && !batchQuestions) {
+        try {
+          if (retryCount > 0) {
+            const delayMs = Math.pow(2, retryCount) * 1000;
+            console.log(`Waiting ${delayMs/1000}s before retry...`);
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+          }
+          
+          batchQuestions = await generateQuestionBatch(
+            subject, section, difficulty, questionsInBatch, currentId, 
+            apiKeyManager.getCurrentKey(), apiKeyManager.getCurrentUrl(), selectedUnits
+          );
+          
+          if (batchQuestions && batchQuestions.length > 0) {
+            // Limit to only what we need
+            if (batchQuestions.length > questionsNeeded) {
+              batchQuestions = batchQuestions.slice(0, questionsNeeded);
+            }
+            
+            allQuestions.push(...batchQuestions);
+            currentId += batchQuestions.length;
+            questionsGenerated += batchQuestions.length;
+            consecutiveFailures = 0;
+            
+            console.log(`✅ ${section} batch ${batchNumber} generated: ${batchQuestions.length} questions`);
+            
+            // Update progress
+            setGenerationProgress(prev => ({ 
+              generated: prev.generated + batchQuestions.length, 
+              total: prev.total 
+            }));
+            
+            await new Promise(resolve => setTimeout(resolve, 500));
+          } else {
+            throw new Error(`No valid ${section} questions generated`);
+          }
+          
+        } catch (error) {
+          retryCount++;
+          console.error(`❌ ${section} batch ${batchNumber} attempt ${retryCount} failed:`, error.message);
+          
+          if (error.message.includes('All') && error.message.includes('API keys are rate limited')) {
+            throw error; // Propagate rate limiting errors
+          }
+          
+          if (retryCount > maxRetries) {
+            consecutiveFailures++;
+            console.warn(`⚠️ Skipping failed ${section} batch ${batchNumber} after ${maxRetries + 1} attempts`);
+            break;
+          }
+        }
+      }
+      
+      batchNumber++;
+      
+      // Safety check
+      if (batchNumber > 10) {
+        console.warn(`⚠️ Breaking after ${batchNumber} batch attempts for ${section}`);
+        break;
+      }
+    }
+    
+    console.log(`Generated ${allQuestions.length} ${section} questions out of ${numQuestions} requested`);
+    return allQuestions;
+  };
+
   const generateTestQuestions = async (subject, section, difficulty, numQuestions, selectedUnits = [], preserveProgress = false) => {
     console.log('generateTestQuestions called with:', { subject, section, difficulty, numQuestions, selectedUnits });
 
@@ -1872,114 +2811,18 @@ Format as JSON:
       setGenerationProgress(prev => ({ ...prev, total: numQuestions }));
     }
     
-    // Special handling for AP U.S. History full practice tests
+    // Special handling for AP U.S. History full practice tests (legacy)
     if (subject === 'AP U.S. History' && section === 'full') {
       return generateAPUSHFullTest(difficulty, selectedUnits);
     }
     
-    // For other subjects or sections, use the batch approach
-    const batchSize = Math.min(6, numQuestions); // Increase batch size for efficiency
-    const allQuestions = [];
-    let currentId = 1; // Track the actual next ID to use
-    let questionsGenerated = 0;
-    let batchNumber = 1;
-    let consecutiveFailures = 0; // Track consecutive failures
-    const maxConsecutiveFailures = 3; // Stop after 3 consecutive failures
-    
-    console.log(`Will generate questions in batches of up to ${batchSize} until we have ${numQuestions} total`);
-    
-    while (questionsGenerated < numQuestions) {
-      const questionsNeeded = numQuestions - questionsGenerated;
-      const questionsInBatch = Math.min(batchSize, questionsNeeded);
-      
-      console.log(`Generating batch ${batchNumber}: ${questionsInBatch} questions starting from ID ${currentId}`);
-      
-      // Update progress before starting batch (preserve original total)
-      setGenerationProgress(prev => ({ generated: allQuestions.length, total: prev.total }));
-      
-      let batchQuestions = null;
-      let retryCount = 0;
-      const maxRetries = 4; // Reduce max retries to 4
-      
-      while (retryCount <= maxRetries && !batchQuestions) {
-        try {
-          console.log(`Attempting AI generation for batch ${batchNumber} (attempt ${retryCount + 1})`);
-          
-          // Add exponential backoff for retries, especially for rate limiting
-          if (retryCount > 0) {
-            const delayMs = Math.pow(2, retryCount) * 1000; // 2s, 4s, 8s, 16s...
-            console.log(`Waiting ${delayMs/1000}s before retry due to rate limiting...`);
-            await new Promise(resolve => setTimeout(resolve, delayMs));
-          }
-          
-          // For retries, try with even smaller batch size to avoid truncation
-          const actualBatchSize = retryCount > 0 ? Math.max(1, Math.floor(questionsInBatch / 2)) : questionsInBatch;
-          
-          batchQuestions = await generateQuestionBatch(
-            subject, section, difficulty, actualBatchSize, currentId, apiKeyManager.getCurrentKey(), apiKeyManager.getCurrentUrl(), selectedUnits
-          );
-          
-          console.log(`✅ Batch ${batchNumber} generated successfully with AI:`, batchQuestions.length, 'questions');
-          allQuestions.push(...batchQuestions);
-          
-          // Update counters after successful generation
-          currentId += batchQuestions.length;
-          questionsGenerated += batchQuestions.length;
-          consecutiveFailures = 0; // Reset consecutive failures on success
-          
-          // Update progress after successful batch
-          setGenerationProgress({ generated: allQuestions.length, total: numQuestions });
-          
-          // Small delay to ensure UI updates and avoid hitting rate limits too quickly
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
-          
-        } catch (error) {
-          retryCount++;
-          console.error(`❌ AI generation failed for batch ${batchNumber}, attempt ${retryCount}:`, error.message);
-          
-          // Check if all API keys are rate limited
-          if (error.message.includes('All') && error.message.includes('API keys are rate limited')) {
-            console.error('🚫 All API keys are rate limited. Stopping generation.');
-            alert('We\'ve reached our daily usage limit for AI question generation. Please try again tomorrow or in a few hours when the limits reset.');
-            // Return what we have so far instead of continuing
-            const sortedQuestions = sortQuestionsForProperOrder(allQuestions, section);
-            return sortedQuestions;
-          }
-          
-          if (retryCount > maxRetries) {
-            console.warn(`⚠️ Skipping failed batch ${batchNumber} after ${maxRetries + 1} attempts`);
-            consecutiveFailures++;
-            break; // Skip this batch and continue
-          }
-          
-          // Wait before retry
-          await new Promise(resolve => setTimeout(resolve, 2000));
-        }
-      }
-      
-      // Check if we've had too many consecutive failures
-      if (consecutiveFailures >= maxConsecutiveFailures) {
-        console.error(`🚫 Stopping generation after ${maxConsecutiveFailures} consecutive failed batches`);
-        alert(`Failed to generate questions after ${maxConsecutiveFailures} consecutive attempts. Generated ${allQuestions.length} questions out of ${numQuestions} requested. This may be due to API limitations or question format issues.`);
-        break;
-      }
-      
-      batchNumber++;
-      
-      // Safety check to avoid infinite loop
-      if (batchNumber > 15) { // Reduce from 30 to 15
-        console.warn(`⚠️ Breaking after ${batchNumber} batch attempts to avoid infinite loop`);
-        break;
-      }
+    // Special handling for full practice tests with proper question type distribution
+    if (section === 'full') {
+      return generateFullPracticeTest(subject, difficulty, selectedUnits, numQuestions);
     }
     
-    console.log('Total questions generated:', allQuestions.length);
-    
-    // Sort questions for proper AP exam order (MCQ first, then FRQs)
-    const sortedQuestions = sortQuestionsForProperOrder(allQuestions, section);
-    
-    return sortedQuestions;
+    // For individual sections, use subject-specific generation
+    return generateSectionQuestions(subject, section, difficulty, numQuestions, selectedUnits);
   };
 
   // Helper function to sort questions in proper AP exam order
@@ -2035,8 +2878,12 @@ Format as JSON:
     
     // Remove code block markers and clean up
     let cleanedText = text
-      .replace(/```json\n?|\n?```/g, '')
-      .replace(/```\n?|\n?```/g, '')
+      .replace(/^```json\s*/i, '') // Remove opening ```json
+      .replace(/^```\s*/i, '') // Remove opening ```
+      .replace(/\s*```\s*$/i, '') // Remove closing ```
+      .replace(/```json\n?|\n?```/g, '') // Remove any remaining code block markers
+      .replace(/```\n?|\n?```/g, '') // Remove any remaining backticks
+      .replace(/^`+|`+$/g, '') // Remove leading/trailing backticks
       .trim();
     
     // Remove any Unicode issues and normalize whitespace
@@ -2048,18 +2895,108 @@ Format as JSON:
       .replace(/\r\n/g, '\n') // Normalize line endings
       .replace(/\r/g, '\n');
     
+    // Fix common LaTeX rendering issues
+    cleanedText = cleanedText
+      .replace(/rac\{/g, '\\frac{') // Fix missing backslash in fractions
+      .replace(/\bsin\(/g, '\\sin(') // Fix trig functions
+      .replace(/\bcos\(/g, '\\cos(')
+      .replace(/\btan\(/g, '\\tan(')
+      .replace(/\bln\(/g, '\\ln(')
+      .replace(/\blog\(/g, '\\log(')
+      .replace(/\blim_/g, '\\lim_') // Fix limits
+      .replace(/\bint\s/g, '\\int ') // Fix integrals
+      .replace(/\bsum_/g, '\\sum_') // Fix summations
+      .replace(/\bsqrt\{/g, '\\sqrt{') // Fix square roots
+      .replace(/\bpi\b/g, '\\pi') // Fix pi
+      .replace(/\btheta\b/g, '\\theta') // Fix theta
+      .replace(/\balpha\b/g, '\\alpha') // Fix alpha
+      .replace(/\bbeta\b/g, '\\beta') // Fix beta
+      .replace(/\binfty\b/g, '\\infty') // Fix infinity
+      .replace(/\bcdot\b/g, '\\cdot') // Fix multiplication
+      .replace(/\btimes\b/g, '\\times') // Fix times
+      .replace(/\bdiv\b/g, '\\div') // Fix division
+      .replace(/\bpm\b/g, '\\pm') // Fix plus-minus
+      .replace(/\bleq\b/g, '\\leq') // Fix less than or equal
+      .replace(/\bgeq\b/g, '\\geq') // Fix greater than or equal
+      .replace(/\bneq\b/g, '\\neq') // Fix not equal
+      .replace(/\brightarrow\b/g, '\\rightarrow') // Fix arrows
+      .replace(/\bleftarrow\b/g, '\\leftarrow');
+    
+    // Apply comprehensive LaTeX cleaning to prevent JSON parse errors
+    cleanedText = fixLaTeXInText(cleanedText);
+    
     console.log('Cleaned text length:', cleanedText.length);
     
     // Try direct parsing first
     try {
       const parsed = JSON.parse(cleanedText);
       console.log('✅ Direct JSON parse successful');
-      return parsed;
+      return fixLaTeXInQuestions(parsed);
     } catch (error) {
       console.warn('Initial JSON parse failed, attempting repair:', error.message);
       
       // Common AI response issues and fixes
       const repairs = [
+        // CRITICAL: Fix invalid escape sequences that break JSON parsing
+        text => {
+          console.log('🔧 Applying escape sequence repair...');
+          return text
+            // FIRST: Remove problematic LaTeX delimiters that break JSON
+            .replace(/\\\\\\\\?\(/g, '$') // Replace \\\\( or \\( with $
+            .replace(/\\\\\\\\?\)/g, '$') // Replace \\\\) or \\) with $
+            // Fix LaTeX display mode delimiters
+            .replace(/\\\\\[/g, '$$') // Replace \\[ with $$
+            .replace(/\\\\\]/g, '$$') // Replace \\] with $$
+            // Fix problematic LaTeX patterns that break JSON parsing
+            .replace(/\\\\lim_\{([^}]+)\s+\\\\to\s+([^}]+)\}/g, '\\\\lim_{$1 \\\\to $2}') // Fix limit notation
+            .replace(/\\\\frac\{([^}]*)\}\{([^}]*)\}/g, '\\\\frac{$1}{$2}') // Fix fractions
+            .replace(/\\\\sin\(/g, '\\\\sin(') // Fix sin functions
+            .replace(/\\\\cos\(/g, '\\\\cos(') // Fix cos functions
+            .replace(/\\\\tan\(/g, '\\\\tan(') // Fix tan functions
+            .replace(/\\\\sqrt\{([^}]*)\}/g, '\\\\sqrt{$1}') // Fix square root
+            .replace(/\\\\int_\{([^}]*)\}\^\{([^}]*)\}/g, '\\\\int_{$1}^{$2}') // Fix definite integrals
+            .replace(/\\\\sum_\{([^}]*)\}\^\{([^}]*)\}/g, '\\\\sum_{$1}^{$2}') // Fix summations
+            // Fix common Greek letters and symbols
+            .replace(/\\\\infty/g, '\\\\infty')
+            .replace(/\\\\pi/g, '\\\\pi')
+            .replace(/\\\\theta/g, '\\\\theta')
+            .replace(/\\\\alpha/g, '\\\\alpha')
+            .replace(/\\\\beta/g, '\\\\beta')
+            .replace(/\\\\Delta/g, '\\\\Delta')
+            .replace(/\\\\sigma/g, '\\\\sigma')
+            .replace(/\\\\mu/g, '\\\\mu')
+            .replace(/\\\\to/g, '\\\\to')
+            .replace(/\\\\rightarrow/g, '\\\\rightarrow')
+            .replace(/\\\\leftarrow/g, '\\\\leftarrow')
+            // Fix invalid single character escapes that are not valid JSON
+            .replace(/\\([^"\\\/bfnrtu$])/g, '$1') // Remove backslash from other invalid escapes (but keep $ for LaTeX)
+            // Fix specific problematic sequences seen in logs (only if not followed by valid LaTeX)
+            .replace(/\\l(?![aitm])/g, 'l')
+            .replace(/\\i(?![mn])/g, 'i')
+            .replace(/\\s(?![iqu])/g, 's')
+            .replace(/\\p(?![ir])/g, 'p')
+            .replace(/\\m(?![au])/g, 'm')
+            .replace(/\\w(?![h])/g, 'w')
+            .replace(/\\d(?![e])/g, 'd')
+            .replace(/\\h(?![a])/g, 'h')
+            .replace(/\\c(?![do])/g, 'c')
+            .replace(/\\a(?![lr])/g, 'a')
+            .replace(/\\e(?![x])/g, 'e')
+            .replace(/\\o(?![v])/g, 'o')
+            .replace(/\\y(?![e])/g, 'y')
+            .replace(/\\k(?![a])/g, 'k')
+            .replace(/\\g(?![a])/g, 'g')
+            .replace(/\\v(?![a])/g, 'v')
+            .replace(/\\x(?![i])/g, 'x')
+            .replace(/\\z(?![e])/g, 'z')
+            // Fix common contractions
+            .replace(/\\"s\b/g, "'s")
+            .replace(/\\"t\b/g, "'t")
+            .replace(/\\"re\b/g, "'re")
+            .replace(/\\"ll\b/g, "'ll")
+            .replace(/\\"ve\b/g, "'ve")
+            .replace(/\\"d\b/g, "'d");
+        },
         // Specialized DBQ repair - handle heavily truncated responses
         text => {
           if (text.includes('"type": "dbq"') && !text.endsWith(']')) {
@@ -2413,6 +3350,252 @@ Format as JSON:
     }
   };
 
+  // Helper function to fix LaTeX in parsed questions
+  const fixLaTeXInQuestions = (questions) => {
+    if (!Array.isArray(questions)) return questions;
+    
+    return questions.map(question => {
+      // Fix LaTeX in question text
+      if (question.question) {
+        question.question = fixLaTeXInText(question.question);
+      }
+      
+      // Fix LaTeX in options for MCQ and handle [object Object] issues
+      if (question.options && Array.isArray(question.options)) {
+        question.options = question.options.map(option => {
+          // Handle different option formats
+          if (typeof option === 'string') {
+            // Option is just a string
+            return {
+              letter: null, // Will be assigned later
+              text: fixLaTeXInText(option)
+            };
+          } else if (typeof option === 'object' && option !== null) {
+            // Option is an object - ensure it has proper text property
+            let optionText = '';
+            
+            if (option.text) {
+              optionText = option.text;
+            } else if (option.option) {
+              optionText = option.option;
+            } else if (option.answer) {
+              optionText = option.answer;
+            } else if (option.choice) {
+              optionText = option.choice;
+            } else {
+              // If we can't find text, convert the whole object to string as fallback
+              optionText = JSON.stringify(option);
+            }
+            
+            return {
+              letter: option.letter || null,
+              text: fixLaTeXInText(String(optionText))
+            };
+          } else {
+            // Fallback for any other type
+            return {
+              letter: null,
+              text: fixLaTeXInText(String(option))
+            };
+          }
+        });
+        
+        // Ensure options have proper letter assignments (A, B, C, D, E)
+        const letters = ['A', 'B', 'C', 'D', 'E'];
+        question.options.forEach((option, index) => {
+          if (index < letters.length) {
+            option.letter = letters[index];
+          }
+        });
+      }
+      
+      // Fix LaTeX in explanations
+      if (question.explanation) {
+        question.explanation = fixLaTeXInText(question.explanation);
+      }
+      
+      // Fix LaTeX in sample answers
+      if (question.sampleAnswer) {
+        question.sampleAnswer = fixLaTeXInText(question.sampleAnswer);
+      }
+      
+      // Ensure correct answer is properly formatted
+      if (question.correctAnswer && typeof question.correctAnswer === 'object') {
+        // If correctAnswer is an object, extract the text
+        if (question.correctAnswer.text) {
+          question.correctAnswer = question.correctAnswer.text;
+        } else if (question.correctAnswer.letter) {
+          question.correctAnswer = question.correctAnswer.letter;
+        } else {
+          question.correctAnswer = String(question.correctAnswer);
+        }
+      }
+      
+      return question;
+    });
+  };
+
+  // Helper function to fix LaTeX in text
+  const fixLaTeXInText = (text) => {
+    if (typeof text !== 'string') return text;
+    
+    return text
+      // Fix malformed fractions - handle all patterns
+      .replace(/\\f\\f\\f\\frac/g, '\\frac')
+      .replace(/\\f\\f\\frac/g, '\\frac')
+      .replace(/\f\f\f\\frac/g, '\\frac')
+      .replace(/\f\f\\frac/g, '\\frac')
+      .replace(/f\f\f\\frac/g, '\\frac')
+      .replace(/f\f\\frac/g, '\\frac')
+      .replace(/\\\\\\\\frac/g, '\\frac')
+      .replace(/\\\\\\frac/g, '\\frac')
+      .replace(/\\\\frac/g, '\\frac')
+      // Fix any remaining f sequences before LaTeX commands
+      .replace(/f+\\(frac|sqrt|sin|cos|tan|lim|int|sum)/g, '\\$1')
+      
+      // Fix broken newlines that appear as 'n' characters
+      .replace(/([a-zA-Z])n([a-zA-Z])/g, '$1\\n$2') // Fix broken newlines between words
+      .replace(/\bn\(/g, '\\n(') // Fix 'n(' patterns
+      .replace(/\)n\(/g, ')\\n(') // Fix ')n(' patterns  
+      .replace(/\.n([A-Z])/g, '.\\n$1') // Fix sentence breaks with 'n'
+      .replace(/nn/g, '\\n\\n') // Fix double n's that should be double newlines
+      
+      // Fix double/triple backslashes
+      .replace(/\\\\\\\\/g, '\\\\')
+      .replace(/\\\\\\/g, '\\\\')
+      // Fix malformed common functions
+      .replace(/\\l\\l\\lim/g, '\\lim')
+      .replace(/\\l\\lim/g, '\\lim')
+      .replace(/\\s\\s\\sin/g, '\\sin')
+      .replace(/\\s\\sin/g, '\\sin')
+      .replace(/\\c\\c\\cos/g, '\\cos')
+      .replace(/\\c\\cos/g, '\\cos')
+      .replace(/\\t\\t\\tan/g, '\\tan')
+      .replace(/\\t\\tan/g, '\\tan')
+      // Fix sqrt issues
+      .replace(/\\s\\sqrt/g, '\\sqrt')
+      .replace(/\\sq\\sqrt/g, '\\sqrt')
+      // Fix missing backslashes for common functions
+      .replace(/\brac\{/g, '\\frac{')
+      .replace(/\bsin\(/g, '\\sin(')
+      .replace(/\bcos\(/g, '\\cos(')
+      .replace(/\btan\(/g, '\\tan(')
+      .replace(/\bln\(/g, '\\ln(')
+      .replace(/\blog\(/g, '\\log(')
+      .replace(/\blim_/g, '\\lim_')
+      .replace(/\bint\s/g, '\\int ')
+      .replace(/\bsum_/g, '\\sum_')
+      .replace(/\bsqrt\{/g, '\\sqrt{')
+      // Fix Greek letters
+      .replace(/\bpi\b/g, '\\pi')
+      .replace(/\btheta\b/g, '\\theta')
+      .replace(/\balpha\b/g, '\\alpha')
+      .replace(/\bbeta\b/g, '\\beta')
+      .replace(/\bgamma\b/g, '\\gamma')
+      .replace(/\bdelta\b/g, '\\delta')
+      .replace(/\blambda\b/g, '\\lambda')
+      .replace(/\bmu\b/g, '\\mu')
+      .replace(/\bsigma\b/g, '\\sigma')
+      .replace(/\bomega\b/g, '\\omega')
+      // Fix mathematical symbols
+      .replace(/\binfty\b/g, '\\infty')
+      .replace(/\bcdot\b/g, '\\cdot')
+      .replace(/\btimes\b/g, '\\times')
+      .replace(/\bdiv\b/g, '\\div')
+      .replace(/\bpm\b/g, '\\pm')
+      .replace(/\bleq\b/g, '\\leq')
+      .replace(/\bgeq\b/g, '\\geq')
+      .replace(/\bneq\b/g, '\\neq')
+      .replace(/\brightarrow\b/g, '\\rightarrow')
+      .replace(/\bleftarrow\b/g, '\\leftarrow')
+      .replace(/\bto\b/g, '\\to')
+      // Fix derivatives and integrals
+      .replace(/\bpartial\b/g, '\\partial')
+      .replace(/\bnabla\b/g, '\\nabla')
+      // Fix invalid escape sequences that break JSON
+      .replace(/\\i([^n])/g, 'i$1')  // Remove invalid \i escape unless it's \in
+      .replace(/\\([^\\nrt"'/bfnuUxacdgilmnpstv{}])/g, '$1') // Remove other invalid backslash escapes
+      // Clean up any remaining malformed patterns
+      .replace(/\\+([a-zA-Z]+)/g, (match, command) => {
+        // Only keep valid LaTeX commands with single backslash
+        const validCommands = ['frac', 'sqrt', 'sin', 'cos', 'tan', 'ln', 'log', 'lim', 'int', 'sum', 
+                              'pi', 'theta', 'alpha', 'beta', 'gamma', 'delta', 'lambda', 'mu', 'sigma', 'omega',
+                              'infty', 'cdot', 'times', 'div', 'pm', 'leq', 'geq', 'neq', 'rightarrow', 'leftarrow',
+                              'to', 'partial', 'nabla', 'text', 'mathbf', 'mathrm', 'mathit'];
+        return validCommands.includes(command) ? '\\' + command : command;
+      });
+  };
+
+  // Helper function to check for duplicate questions
+  const isQuestionDuplicate = (newQuestion, existingQuestions) => {
+    if (!existingQuestions || existingQuestions.length === 0) return false;
+    
+    const normalizeText = (text) => {
+      return text.toLowerCase()
+        .replace(/\$[^$]*\$/g, 'LATEX') // Replace LaTeX with placeholder
+        .replace(/\\[a-z]+\{[^}]*\}/g, 'LATEX') // Replace LaTeX commands
+        .replace(/[^\w\s]/g, '') // Remove punctuation
+        .replace(/\s+/g, ' ')    // Normalize whitespace
+        .trim();
+    };
+    
+    const newQuestionText = normalizeText(newQuestion.question || '');
+    
+    return existingQuestions.some(existing => {
+      const existingText = normalizeText(existing.question || '');
+      
+      // Check for exact match
+      if (existingText === newQuestionText) {
+        console.log('🚫 Exact duplicate detected:', newQuestionText.substring(0, 50) + '...');
+        return true;
+      }
+      
+      // For math questions, check core mathematical content similarity
+      if (newQuestionText.includes('latex')) {
+        // Extract the main mathematical components
+        const newCore = newQuestionText.replace(/latex/g, '').replace(/\s+/g, ' ').trim();
+        const existingCore = existingText.replace(/latex/g, '').replace(/\s+/g, ' ').trim();
+        
+        if (newCore === existingCore && newCore.length > 10) {
+          console.log('🚫 Math content duplicate detected:', newCore.substring(0, 50) + '...');
+          return true;
+        }
+      }
+      
+      // Check for significant word overlap (more strict for short questions)
+      const newWords = new Set(newQuestionText.split(' ').filter(word => word.length > 2));
+      const existingWords = new Set(existingText.split(' ').filter(word => word.length > 2));
+      
+      const intersection = new Set([...newWords].filter(word => existingWords.has(word)));
+      const union = new Set([...newWords, ...existingWords]);
+      
+      if (union.size === 0) return false;
+      
+      const similarity = intersection.size / union.size;
+      const overlapThreshold = newQuestionText.length < 50 ? 0.9 : 0.8; // Higher threshold for short questions
+      
+      if (similarity > overlapThreshold) {
+        console.log('🚫 High similarity duplicate detected:', similarity.toFixed(2), newQuestionText.substring(0, 50) + '...');
+        return true;
+      }
+      
+      return false;
+    });
+  };
+
+  // Helper function to filter out duplicate questions
+  const removeDuplicateQuestions = (newQuestions, existingQuestions) => {
+    // Get all questions from current session to check against
+    const allExistingQuestions = [
+      ...(existingQuestions || []),
+      ...(questions || []) // Include questions from current test
+    ];
+    
+    return newQuestions.filter(newQuestion => 
+      !isQuestionDuplicate(newQuestion, allExistingQuestions)
+    );
+  };
+
   const generateQuestionBatch = async (subject, section, difficulty, numQuestions, startId, apiKey, apiUrl, selectedUnits = []) => {
     console.log('generateQuestionBatch called with selectedUnits:', selectedUnits);
     let sectionInstructions = '';
@@ -2426,10 +3609,10 @@ Format as JSON:
 Focus specifically on these units: ${selectedUnits.join(', ')}. 
 Ensure all questions draw from content and concepts within these selected units only.`;
     } else {
-      // If no units are selected, indicate that questions should cover all units/topics
+      // If no units are selected, treat as if all units are selected
       unitContext = `
       
-Generate questions that cover all units and topics for this subject. Ensure comprehensive coverage across the entire curriculum.`;
+No specific units selected - generate questions that cover all units and topics for this subject. Ensure comprehensive coverage across the entire curriculum and all available units.`;
     }
     
     // Add subject-specific context for better questions
@@ -2482,7 +3665,7 @@ Generate questions that cover all units and topics for this subject. Ensure comp
         if (selectedUnits && selectedUnits.length > 0) {
           subjectContext = `Focus exclusively on these selected units: ${selectedUnits.join(', ')}. Draw all questions from content within these specific units only. Include laboratory scenarios and quantitative analysis within the selected unit scope.
 
-IMPORTANT: Use proper LaTeX formatting for chemical and mathematical expressions:
+IMPORTANT: Use proper LaTeX formatting with $ delimiters for chemical and mathematical expressions:
 - Chemical formulas: $H_2O$, $NaCl$, $C_6H_{12}O_6$
 - Chemical equations: $2H_2 + O_2 \\rightarrow 2H_2O$
 - Equilibrium: $K_{eq} = \\frac{[products]}{[reactants]}$
@@ -2494,7 +3677,7 @@ ${unitContext}`;
         } else {
           subjectContext = `Focus on: Atomic structure, bonding, stoichiometry, kinetics, equilibrium, thermodynamics, electrochemistry. Include laboratory scenarios and quantitative analysis.
 
-IMPORTANT: Use proper LaTeX formatting for chemical and mathematical expressions:
+IMPORTANT: Use proper LaTeX formatting with $ delimiters for chemical and mathematical expressions:
 - Chemical formulas: $H_2O$, $NaCl$, $C_6H_{12}O_6$
 - Chemical equations: $2H_2 + O_2 \\rightarrow 2H_2O$
 - Equilibrium: $K_{eq} = \\frac{[products]}{[reactants]}$
@@ -2511,7 +3694,7 @@ ${unitContext}`;
       case 'AP Physics C: Electricity and Magnetism':
         subjectContext = `Focus on: Mechanics, waves, thermodynamics, electricity, magnetism. Include laboratory scenarios and quantitative problem-solving.
 
-IMPORTANT: Use proper LaTeX formatting for physics expressions:
+IMPORTANT: Use proper LaTeX formatting with $ delimiters for physics expressions:
 - Forces: $F = ma$, $\\vec{F} = m\\vec{a}$
 - Energy: $E = mc^2$, $KE = \\frac{1}{2}mv^2$
 - Waves: $v = f\\lambda$, $y = A\\sin(kx - \\omega t)$
@@ -2526,7 +3709,7 @@ ${unitContext}`;
         if (selectedUnits && selectedUnits.length > 0) {
           subjectContext = `Focus exclusively on these selected units: ${selectedUnits.join(', ')}. Draw all questions from content within these specific units only. Include real-world contexts like motion, optimization, and area problems within the selected unit scope. 
 
-IMPORTANT: Use proper LaTeX formatting for all mathematical expressions:
+IMPORTANT: Use proper LaTeX formatting with $ delimiters for all mathematical expressions:
 - Functions: $f(x) = x^2 + 3x - 1$
 - Derivatives: $\\frac{d}{dx}[x^3] = 3x^2$ or $f'(x)$
 - Integrals: $\\int x^2 dx = \\frac{x^3}{3} + C$ or $\\int_a^b f(x) dx$
@@ -2541,7 +3724,7 @@ ${unitContext}`;
         } else {
           subjectContext = `Focus on: Limits, derivatives, integrals, fundamental theorem, applications. Include real-world contexts like motion, optimization, and area problems. 
 
-IMPORTANT: Use proper LaTeX formatting for all mathematical expressions:
+IMPORTANT: Use proper LaTeX formatting with $ delimiters for all mathematical expressions:
 - Functions: $f(x) = x^2 + 3x - 1$
 - Derivatives: $\\frac{d}{dx}[x^3] = 3x^2$ or $f'(x)$
 - Integrals: $\\int x^2 dx = \\frac{x^3}{3} + C$ or $\\int_a^b f(x) dx$
@@ -2559,7 +3742,7 @@ ${unitContext}`;
         if (selectedUnits && selectedUnits.length > 0) {
           subjectContext = `Focus exclusively on these selected units: ${selectedUnits.join(', ')}. Draw all questions from content within these specific units only. Use real statistical studies and data analysis scenarios within the selected unit scope.
 
-IMPORTANT: Use proper LaTeX formatting for statistical expressions:
+IMPORTANT: Use proper LaTeX formatting with $ delimiters for statistical expressions:
 - Probability: $P(A) = 0.5$, $P(A|B)$
 - Statistics: $\\bar{x}$, $s$, $\\sigma$, $\\mu$
 - Distributions: $N(\\mu, \\sigma^2)$, $t_{df}$, $\\chi^2$
@@ -2570,7 +3753,7 @@ ${unitContext}`;
         } else {
           subjectContext = `Focus on: Collecting data, exploring data, probability, sampling distributions, inference. Use real statistical studies and data analysis scenarios.
 
-IMPORTANT: Use proper LaTeX formatting for statistical expressions:
+IMPORTANT: Use proper LaTeX formatting with $ delimiters for statistical expressions:
 - Probability: $P(A) = 0.5$, $P(A|B)$
 - Statistics: $\\bar{x}$, $s$, $\\sigma$, $\\mu$
 - Distributions: $N(\\mu, \\sigma^2)$, $t_{df}$, $\\chi^2$
@@ -2603,39 +3786,149 @@ ${unitContext}`;
     
     // Specific instructions for different question types
     if (section === 'mcq') {
-      sectionInstructions = `Create ${numQuestions} multiple choice questions that test deep understanding of ${subject} concepts.
+      // Determine if subject requires stimulus material
+      const requiresStimulus = subject.includes('History') || subject.includes('Government') || subject.includes('English') || subject.includes('Human Geography');
+      
+      if (requiresStimulus) {
+        sectionInstructions = `Create ${numQuestions} multiple choice questions that test deep understanding of ${subject} concepts.
 
-CRITICAL REQUIREMENTS:
+CRITICAL REQUIREMENTS - FOLLOW EXACTLY:
 1. STIMULUS MATERIAL: Each group of 2-4 questions must have stimulus material (primary source text, graph, chart, image description, scenario, etc.)
 2. EXPLANATIONS: Every question must include a detailed explanation of why the correct answer is right and why others are wrong
 3. STRUCTURE: Group questions that share the same stimulus together
+4. EXACTLY 4 OPTIONS: Each question MUST have exactly 4 answer options (A, B, C, D)
+5. ONE CORRECT ANSWER: Mark exactly one option as correct: true, others as false
 
 Each question must include:
 - Relevant stimulus material (primary sources, documents, graphs, scenarios) - USE THE SAME STIMULUS FOR 2-4 CONSECUTIVE QUESTIONS
 - A challenging question that requires analysis of the stimulus
-- Exactly 4 options (A, B, C, D) with one clearly correct answer
+- EXACTLY 4 options (A, B, C, D) with ONE clearly correct answer
 - A detailed explanation covering the correct answer and common misconceptions
 - Plausible distractors based on common student errors
 
 ${subjectContext}
 
-Format each question as:
-{
-  "id": number,
-  "type": "mcq", 
-  "stimulus": "stimulus material here (MUST be shared across 2-4 consecutive questions)",
-  "question": "question text here",
-  "options": ["A) option 1", "B) option 2", "C) option 3", "D) option 4"],
-  "correctAnswer": index,
-  "explanation": "detailed explanation of correct answer and why others are wrong"
-}
+VALIDATION REQUIREMENTS:
+- MUST have exactly 4 options per question
+- MUST have exactly one correct answer per question
+- MUST include stimulus material
+- MUST use proper JSON formatting
 
-CRITICAL: Every MCQ must include the explanation field with a thorough explanation of why the correct answer is right and why each incorrect option is wrong.
+JSON FORMAT EXAMPLE:
+[
+  {
+    "id": 1,
+    "type": "mcq", 
+    "stimulus": "The following excerpt from President Lincoln's Gettysburg Address (1863): 'Four score and seven years ago our fathers brought forth on this continent, a new nation, conceived in Liberty, and dedicated to the proposition that all men are created equal.'",
+    "question": "Based on the stimulus, Lincoln's reference to 'four score and seven years ago' refers to which historical event?",
+    "options": [
+      {"text": "The signing of the Declaration of Independence", "correct": true},
+      {"text": "The ratification of the Constitution", "correct": false},
+      {"text": "The end of the Revolutionary War", "correct": false},
+      {"text": "The establishment of the first colony", "correct": false}
+    ],
+    "explanation": "Four score and seven years equals 87 years before 1863, which points to 1776 and the Declaration of Independence. This connects to Lincoln's theme of equality and the founding principles."
+  }
+]`;
+      } else {
+        // For STEM subjects (Math, Science) - NO STIMULUS REQUIRED
+        sectionInstructions = `Create ${numQuestions} multiple choice questions that test deep understanding of ${subject} concepts.
 
-IMPORTANT: Generate stimulus in groups - questions 1-3 share stimulus A, questions 4-6 share stimulus B, etc. Each stimulus should be substantial enough for multiple analytical questions.`;
+CRITICAL REQUIREMENTS - FOLLOW EXACTLY:
+1. NO STIMULUS REQUIRED: For STEM subjects, questions should be self-contained
+2. PROPER LaTeX FORMAT: Use ONLY $ delimiters for math expressions, NOT \\( \\) or \\[ \\]:
+   - CORRECT: $\\lim_{x \\to 0} \\frac{\\sin(x)}{x}$
+   - WRONG: \\\\( \\\\lim_{x \\\\to 0} \\\\frac{\\\\sin(x)}{x} \\\\)
+   - Use single backslashes: $\\frac{a}{b}$ not $\\\\frac{a}{b}$
+   - Limits: $\\lim_{x \\to 0}$ NOT $\\lim_{x o 0}$
+   - Fractions: $\\frac{numerator}{denominator}$
+   - Trigonometric: $\\sin(x)$, $\\cos(x)$, $\\tan(x)$
+   - Integrals: $\\int_a^b f(x) dx$
+   - Derivatives: $\\frac{d}{dx}[f(x)]$ or $f'(x)$
+   - Greek letters: $\\pi$, $\\theta$, $\\alpha$, $\\beta$
+   - Arrows: $\\to$, $\\rightarrow$
+   - Infinity: $\\infty$
+3. EXPLANATIONS: Every question must include a detailed explanation
+4. EXACTLY 4 OPTIONS: Each question MUST have exactly 4 answer options (A, B, C, D)
+5. ONE CORRECT ANSWER: Mark exactly one option as correct: true, others as false
+6. UNIQUE QUESTIONS: Ensure each question is substantially different from others
+
+Each question must include:
+- A challenging, self-contained question testing conceptual understanding
+- EXACTLY 4 options with ONE clearly correct answer
+- Proper LaTeX formatting for mathematical expressions using \\ prefix
+- A detailed explanation covering the solution method
+- Plausible distractors based on common calculation errors
+
+${subjectContext}
+
+VALIDATION REQUIREMENTS:
+- MUST have exactly 4 options per question
+- MUST have exactly one correct answer per question
+- MUST use proper JSON formatting
+- MUST include detailed explanations
+
+JSON FORMAT EXAMPLE:
+[
+  {
+    "id": 1,
+    "type": "mcq",
+    "question": "Evaluate $\\lim_{x \\to 2} \\frac{x^2 - 4}{x - 2}$",
+    "options": [
+      {"text": "0", "correct": false},
+      {"text": "2", "correct": false},
+      {"text": "4", "correct": true},
+      {"text": "Does not exist", "correct": false}
+    ],
+    "explanation": "Factor the numerator: $x^2 - 4 = (x-2)(x+2)$. Cancel $(x-2)$ terms to get $\\lim_{x \\to 2}(x+2) = 4$."
+  }
+]`;
+      }
 
     } else if (section === 'frq') {
-      sectionInstructions = `Create ${numQuestions} free response questions with detailed, specific prompts. Each question must:
+      // Different FRQ requirements for different subjects
+      if (subject.includes('Calculus')) {
+        sectionInstructions = `Create ${numQuestions} AP Calculus FRQ questions. Each question MUST:
+
+CRITICAL REQUIREMENTS:
+1. MULTI-PART STRUCTURE: Each FRQ must have exactly 3-4 parts labeled (a), (b), (c), and optionally (d)
+2. POINT VALUE: Each FRQ is worth exactly 9 points total distributed across parts
+3. REALISTIC CONTEXTS: Use real-world applications (motion, rates, optimization, area/volume, etc.)
+4. PROPER LaTeX FORMAT: Use ONLY $ delimiters for math expressions:
+   - Functions: $f(x) = x^2 + 3x - 1$
+   - Derivatives: $\\frac{d}{dx}[x^3] = 3x^2$ or $f'(x)$
+   - Integrals: $\\int x^2 dx = \\frac{x^3}{3} + C$
+   - Limits: $\\lim_{x \\to a} f(x) = L$
+   - Fractions: $\\frac{numerator}{denominator}$
+   - Trigonometric: $\\sin(x)$, $\\cos(x)$, $\\tan(x)$
+5. CLEAR PART SEPARATION: Each part should be clearly marked and test different skills
+
+${subjectContext}
+
+PART DISTRIBUTION (9 points total):
+- Part (a): 2-3 points - Setup or basic calculation
+- Part (b): 2-3 points - Application or interpretation  
+- Part (c): 2-3 points - Advanced analysis or extension
+- Part (d): 1-2 points - Justification or conceptual understanding
+
+JSON FORMAT:
+[
+  {
+    "id": number,
+    "type": "frq",
+    "question": "Multi-part question with realistic context and proper LaTeX formatting. Part (a) [...] Part (b) [...] Part (c) [...] Part (d) [...]",
+    "rubric": {
+      "totalPoints": 9,
+      "a": {"points": 2, "description": "Setup and calculation"},
+      "b": {"points": 3, "description": "Application and interpretation"},  
+      "c": {"points": 3, "description": "Advanced analysis"},
+      "d": {"points": 1, "description": "Justification"}
+    },
+    "sampleAnswer": "Part (a): [Complete solution with work shown]\nPart (b): [Complete solution]\nPart (c): [Complete solution]\nPart (d): [Complete justification]"
+  }
+]`;
+      } else {
+        sectionInstructions = `Create ${numQuestions} free response questions with detailed, specific prompts. Each question must:
 - Have clear, specific instructions
 - Include multiple parts (a, b, c) that build on each other
 - Test different cognitive skills (analysis, evaluation, synthesis)
@@ -2645,6 +3938,7 @@ IMPORTANT: Generate stimulus in groups - questions 1-3 share stimulus A, questio
 ${subjectContext}
 
 Questions should be substantive and require extended, thoughtful responses that demonstrate mastery of course concepts.`;
+      }
 
     } else if (section === 'saq') {
       sectionInstructions = `Create ${numQuestions} Short Answer Questions with REAL historical stimulus material. Each question must:
@@ -3096,63 +4390,120 @@ ${subjectContext}
 
 Essays should demonstrate mastery of course content through sophisticated writing.`;
     } else if (section === 'full') {
-      // For full tests, create a mix appropriate to the subject
+      // For full tests, use proper question distribution based on subject configuration
       const config = TEST_CONFIGURATIONS[subject] || DEFAULT_CONFIG;
-      const sectionConfig = config.sections.find(s => s.id === 'mcq');
+      const mcqSection = config.sections.find(s => s.id === 'mcq');
+      const frqSection = config.sections.find(s => s.id === 'frq');
       
-      // Ensure we have valid question counts - don't allow negative numbers
-      let mcqCount = 0;
-      let frqCount = 0;
+      // Use actual AP test format counts
+      const mcqCount = mcqSection ? mcqSection.questions : 45;
+      const frqCount = frqSection ? frqSection.questions : 6;
       
-      if (section === 'mcq') {
-        mcqCount = numQuestions;
-      } else if (section === 'frq') {
-        frqCount = numQuestions;
-      } else {
-        // For full tests, distribute questions properly
-        mcqCount = sectionConfig ? Math.min(sectionConfig.questions, Math.max(0, numQuestions - 5)) : Math.max(0, Math.floor(numQuestions * 0.85));
-        frqCount = Math.max(0, numQuestions - mcqCount);
-      }
+      // Determine if subject requires stimulus for MCQs
+      const requiresStimulus = subject.includes('History') || subject.includes('Government') || subject.includes('English') || subject.includes('Human Geography');
       
-      sectionInstructions = `Create a complete AP ${subject} practice test with:
-- ${mcqCount} challenging multiple choice questions testing analytical thinking (each with stimulus material shared across 2-4 questions)
-- ${frqCount} comprehensive free response questions with detailed rubrics
+      if (subject.includes('Calculus')) {
+        sectionInstructions = `Create a complete AP ${subject} practice test with EXACTLY:
+- ${mcqCount} multiple choice questions (NO stimulus required for math)
+- ${frqCount} free response questions (each worth 9 points with 3-4 parts)
+
+CRITICAL GENERATION REQUIREMENTS:
+- Generate EXACTLY ${mcqCount} MCQ questions first (IDs 1 to ${mcqCount})
+- Then generate EXACTLY ${frqCount} FRQ questions (IDs ${mcqCount + 1} to ${mcqCount + frqCount})
+- TOTAL QUESTIONS: ${mcqCount + frqCount} (no more, no less)
+
+CRITICAL MCQ REQUIREMENTS:
+- Self-contained questions with proper LaTeX formatting
+- Test conceptual understanding and problem-solving
+- NO stimulus field required for mathematics
+- Each MCQ must have exactly 4 options with exactly one correct answer
+
+CRITICAL FRQ REQUIREMENTS:
+- Each FRQ worth exactly 9 points total
+- Each FRQ has 3-4 parts (a, b, c, d)
+- Real-world applications and contexts
+- Proper LaTeX formatting for all mathematical expressions
 
 ${subjectContext}
 
-CRITICAL MCQ REQUIREMENTS:
+IMPORTANT: Return EXACTLY ${mcqCount + frqCount} questions total. Use this exact structure:
+[
+  {"id": 1, "type": "mcq", ...}, 
+  {"id": 2, "type": "mcq", ...}, 
+  ... (${mcqCount} MCQ questions),
+  {"id": ${mcqCount + 1}, "type": "frq", ...},
+  {"id": ${mcqCount + 2}, "type": "frq", ...},
+  ... (${frqCount} FRQ questions)
+]
+
+Generate EXACTLY ${mcqCount + frqCount} questions - no extras!`;
+      } else {
+        sectionInstructions = `Create a complete AP ${subject} practice test with EXACTLY:
+- ${mcqCount} multiple choice questions${requiresStimulus ? ' (with stimulus material)' : ''}
+- ${frqCount} comprehensive free response questions
+
+CRITICAL GENERATION REQUIREMENTS:
+- Generate EXACTLY ${mcqCount} MCQ questions first (IDs 1 to ${mcqCount})
+- Then generate EXACTLY ${frqCount} FRQ questions (IDs ${mcqCount + 1} to ${mcqCount + frqCount})
+- TOTAL QUESTIONS: ${mcqCount + frqCount} (no more, no less)
+
+${requiresStimulus ? `CRITICAL MCQ REQUIREMENTS:
 - Group MCQs by stimulus: questions 1-3 share stimulus A, questions 4-6 share stimulus B, etc.
 - Each MCQ must have stimulus field with primary sources, documents, or scenarios
 - Questions must test analysis of the stimulus material
+- Each MCQ must have exactly 4 options with exactly one correct answer` : `CRITICAL MCQ REQUIREMENTS:
+- Self-contained questions appropriate for ${subject}
+- NO stimulus field required
+- Test conceptual understanding
+- Each MCQ must have exactly 4 options with exactly one correct answer`}
 
 CRITICAL FRQ REQUIREMENTS:
-- SAQs must have real historical stimulus content (not null)
-- DBQs must have 7 actual historical documents with real text
-- LEQs must have one specific question (no promptOptions array)
+- Detailed multi-part questions with comprehensive rubrics
+- Include realistic scenarios and authentic source material
+- Test different cognitive skills across parts
 
-Give the MCQs first and then the FRQs in the proper order to simulate a realistic AP exam experience with authentic content and appropriate difficulty progression.`;
+${subjectContext}
+
+IMPORTANT: Return EXACTLY ${mcqCount + frqCount} questions total. Use this exact structure:
+[
+  {"id": 1, "type": "mcq", ...}, 
+  {"id": 2, "type": "mcq", ...}, 
+  ... (${mcqCount} MCQ questions),
+  {"id": ${mcqCount + 1}, "type": "frq", ...},
+  {"id": ${mcqCount + 2}, "type": "frq", ...},
+  ... (${frqCount} FRQ questions)
+]
+
+Generate EXACTLY ${mcqCount + frqCount} questions - no extras!`;
+      }
     }
     
     // Use the API to generate questions based on the section instructions
     const prompt = `You are an expert ${subject} question generator. ${sectionInstructions}
 
-CRITICAL INSTRUCTIONS:
-1. Return ONLY a valid JSON array starting with [ and ending with ]
+CRITICAL INSTRUCTIONS - FOLLOW EXACTLY:
+1. Return ONLY valid JSON array starting with [ and ending with ]
 2. Generate EXACTLY ${numQuestions} complete questions
-3. Each question must be complete with all required fields
-4. No explanatory text before or after the JSON
+3. Each question MUST be complete with ALL required fields
+4. NO explanatory text before or after the JSON
 5. Ensure all JSON objects are properly closed with }
 6. End the response with ] to close the array
+7. Use proper LaTeX formatting: \\frac{}{}, \\sin(), \\cos(), \\lim_{}, etc.
+8. Each MCQ MUST have exactly 4 options with exactly one correct answer
+9. Avoid invalid escape characters that break JSON parsing
 
-FORMAT: [{"id": ${startId}, "type": "...", "question": "...", ...}, {"id": ${startId + 1}, ...}]
+VALIDATION CHECKLIST:
+✓ Starts with [
+✓ Ends with ]  
+✓ Exactly ${numQuestions} question objects
+✓ Each MCQ has exactly 4 options
+✓ Each question has all required fields
+✓ Proper LaTeX formatting
+✓ Valid JSON syntax
 
-VALIDATION: Your response must:
-- Start with [
-- End with ]
-- Have exactly ${numQuestions} complete question objects
-- Pass JSON.parse() validation
+FORMAT TEMPLATE: [{"id": ${startId}, "type": "...", "question": "...", ...}, {"id": ${startId + 1}, ...}]
 
-Generate the questions now:`;
+Generate ${numQuestions} questions now:`;
 
     console.log('🔍 Sending prompt to AI:', prompt.substring(0, 200) + '...');
 
@@ -3227,20 +4578,22 @@ Generate the questions now:`;
               console.log('Could not parse retry delay, using default');
             }
             
-            apiKeyManager.markKeyAsRateLimited(undefined, retryDelay);
+            // Mark current key as failed and rotate to next key
+            apiKeyManager.markCurrentKeyFailed(retryDelay);
             
             // Try with next available key
-            if (apiKeyManager.rotateToNextKey()) {
-              console.log('Retrying generateTestQuestions with next available API key');
-              // Continue with the rotated key - retry the request immediately
-              return fetch(apiKeyManager.getCurrentUrl(), requestOptions);
+            if (apiKeyManager.getTotalKeys() > 1 && apiKeyManager.getCurrentKeyIndex() !== undefined) {
+              console.log('Retrying generateQuestionBatch with next available API key');
+              // Recursively retry with the new key
+              return generateQuestionBatch(subject, section, difficulty, numQuestions, startId, 
+                apiKeyManager.getCurrentKey(), apiKeyManager.getCurrentUrl(), selectedUnits);
             } else {
               // All keys are rate limited
-              const errorMessage = this.apiKeys.length > 1 
-                ? `We've reached the daily usage limit for our AI service. Please try again tomorrow, or come back in a few hours when the limits reset.`
+              const errorMessage = apiKeyManager.getTotalKeys() > 1 
+                ? `All ${apiKeyManager.getTotalKeys()} API keys are rate limited. Please try again tomorrow, or come back in a few hours when the limits reset.`
                 : 'Our AI service is temporarily unavailable due to usage limits. Please try again in about an hour.';
               
-              throw new Error(errorMessage);
+              throw new Error(`All API keys are rate limited. ${errorMessage}`);
             }
           } else {
             // 429 but not rate limiting - could be malformed request
@@ -3273,14 +4626,81 @@ Generate the questions now:`;
       // Use robust JSON parsing with error recovery
       const questions = parseAIResponse(generatedText, startId);
       
+      // Fix LaTeX expressions in the parsed questions
+      const questionsWithFixedLaTeX = fixLaTeXInQuestions(Array.isArray(questions) ? questions : [questions]);
+      
       // Ensure we have an array
-      const questionArray = Array.isArray(questions) ? questions : [questions];
+      const questionArray = Array.isArray(questionsWithFixedLaTeX) ? questionsWithFixedLaTeX : [questionsWithFixedLaTeX];
       
       console.log('Batch validation: Generated questions:', questionArray.length);
       console.log('Sample question structure:', questionArray[0]);
       
+      // Repair questions with minor issues before validation
+      const repairedQuestions = questionArray.map(q => {
+        if (!q || !q.question) return q;
+        
+        // Repair MCQ structure issues
+        if (q.type === 'mcq' && q.options) {
+          // Ensure options is an array
+          if (!Array.isArray(q.options)) {
+            q.options = [];
+          }
+          
+          // If we have an answer field but malformed options, try to repair
+          if (q.answer && q.options.length < 4) {
+            // Try to create basic options structure
+            const answerChoices = ['A', 'B', 'C', 'D'];
+            q.options = answerChoices.map((choice, index) => ({
+              text: q[choice.toLowerCase()] || q[choice] || `Option ${choice}`,
+              correct: q.answer === choice || q.answer === choice.toLowerCase() || q.answer === index
+            }));
+          }
+          
+          // Fix options that are strings instead of objects
+          q.options = q.options.map((opt, index) => {
+            if (typeof opt === 'string') {
+              return {
+                text: opt,
+                correct: q.correctAnswer === index || q.answer === index
+              };
+            }
+            return opt;
+          });
+          
+          // Ensure exactly one correct answer
+          const correctCount = q.options.filter(opt => opt.correct === true).length;
+          if (correctCount !== 1) {
+            // If no correct answer, mark the first as correct
+            if (correctCount === 0 && q.options.length > 0) {
+              q.options[0].correct = true;
+              q.correctAnswer = 0;
+            }
+            // If multiple correct answers, keep only the first
+            else if (correctCount > 1) {
+              let foundCorrect = false;
+              q.options.forEach((opt, index) => {
+                if (opt.correct && foundCorrect) {
+                  opt.correct = false;
+                } else if (opt.correct && !foundCorrect) {
+                  foundCorrect = true;
+                  q.correctAnswer = index;
+                }
+              });
+            }
+          }
+          
+          // Ensure all options have required fields
+          q.options.forEach(opt => {
+            if (!opt.hasOwnProperty('text')) opt.text = 'Option text';
+            if (!opt.hasOwnProperty('correct')) opt.correct = false;
+          });
+        }
+        
+        return q;
+      });
+      
       // Validate and clean up the questions
-      const validQuestions = questionArray.filter(q => {
+      const validQuestions = repairedQuestions.filter(q => {
         if (!q || !q.question) {
           console.log('Invalid question detected: Missing question object or question field');
           return false;
@@ -3288,12 +4708,28 @@ Generate the questions now:`;
         
         // Different validation based on question type
         if (q.type === 'mcq') {
-          const isValid = q.options && Array.isArray(q.options) && q.options.length >= 4;
+          // Check for 4 options
+          const hasValidOptions = q.options && Array.isArray(q.options) && q.options.length >= 4;
+          
+          // Check for exactly one correct answer
+          const correctAnswers = hasValidOptions ? q.options.filter(opt => opt.correct === true) : [];
+          const hasOneCorrectAnswer = correctAnswers.length === 1;
+          
+          // Check for proper answer field structure
+          const hasValidAnswerFields = hasValidOptions ? q.options.every(opt => 
+            (opt.hasOwnProperty('text') || typeof opt === 'string') && opt.hasOwnProperty('correct')
+          ) : false;
+          
+          const isValid = hasValidOptions && hasOneCorrectAnswer && hasValidAnswerFields;
+          
           if (!isValid) {
             console.log('Invalid MCQ detected:', {
               hasOptions: !!q.options,
               isArray: Array.isArray(q.options),
-              optionsLength: q.options ? q.options.length : 0
+              optionsLength: q.options ? q.options.length : 0,
+              correctAnswersCount: correctAnswers.length,
+              hasValidAnswerFields,
+              sampleOptions: q.options ? q.options.slice(0, 2) : 'none'
             });
           }
           return isValid;
@@ -3358,9 +4794,41 @@ Generate the questions now:`;
             });
           }
           return isValid;
-        } else if (q.type === 'long-frq' || q.type === 'short-frq') {
-          // FRQ questions should have question text and can have optional rubric/points
-          const isValid = q.question && q.question.trim().length > 10;
+        } else if (q.type === 'long-frq' || q.type === 'short-frq' || q.type === 'frq' || q.type === 'calculator-frq' || q.type === 'no-calculator-frq') {
+          // FRQ questions should have question text and for Calculus, should have proper parts structure
+          let isValid = q.question && q.question.trim().length > 10;
+          
+          // Additional validation for AP Calculus FRQs
+          if (isValid && (subject === 'AP Calculus AB' || subject === 'AP Calculus BC')) {
+            const questionText = q.question.toLowerCase();
+            // Check if it has proper parts structure (a), (b), (c), etc.
+            const hasPartStructure = /\(a\)|part\s*a|a\)/i.test(questionText) && 
+                                    /\(b\)|part\s*b|b\)/i.test(questionText);
+            
+            // Check if it has proper point distribution in rubric
+            const hasValidRubric = q.rubric && 
+                                  q.rubric.totalPoints && 
+                                  (q.rubric.totalPoints === 9 || q.rubric.totalPoints === 10);
+            
+            if (!hasPartStructure) {
+              console.log('⚠️ AP Calculus FRQ missing proper parts structure:', {
+                questionPreview: q.question.substring(0, 100),
+                hasPartA: /\(a\)|part\s*a|a\)/i.test(questionText),
+                hasPartB: /\(b\)|part\s*b|b\)/i.test(questionText)
+              });
+              // Don't mark as invalid, but log warning
+            }
+            
+            if (!hasValidRubric) {
+              console.log('⚠️ AP Calculus FRQ missing valid rubric:', {
+                hasRubric: !!q.rubric,
+                totalPoints: q.rubric?.totalPoints,
+                rubricKeys: q.rubric ? Object.keys(q.rubric) : []
+              });
+              // Don't mark as invalid, but log warning
+            }
+          }
+          
           if (!isValid) {
             console.log('Invalid FRQ question detected:', {
               hasQuestion: !!q.question,
@@ -3398,19 +4866,37 @@ Generate the questions now:`;
         throw new Error('No valid questions generated from AI response');
       }
       
+      // For batch generation, limit to the exact number requested to prevent overshooting
+      const limitedQuestions = validQuestions.slice(0, numQuestions);
+      
       // Be more lenient with fewer questions - accept any positive number
-      if (validQuestions.length < Math.max(1, numQuestions * 0.3)) {
-        console.warn(`⚠️ Got ${validQuestions.length} questions but expected ${numQuestions}. This might be due to incomplete AI response.`);
-        throw new Error(`Incomplete batch: Got only ${validQuestions.length} valid questions out of ${numQuestions} expected. Please retry.`);
+      if (limitedQuestions.length < Math.max(1, numQuestions * 0.3)) {
+        console.warn(`⚠️ Got ${limitedQuestions.length} questions but expected ${numQuestions}. This might be due to incomplete AI response.`);
+        throw new Error(`Incomplete batch: Got only ${limitedQuestions.length} valid questions out of ${numQuestions} expected. Please retry.`);
       }
       
-      // If we got close to what we expected, accept it
-      if (validQuestions.length < numQuestions) {
-        console.warn(`⚠️ Got ${validQuestions.length} questions instead of ${numQuestions}, but this is acceptable.`);
+      // If we got more than expected, we'll use only what we need
+      if (limitedQuestions.length > numQuestions) {
+        console.warn(`⚠️ Got ${validQuestions.length} questions but only needed ${numQuestions}, using first ${numQuestions}.`);
+      } else if (limitedQuestions.length < numQuestions) {
+        console.warn(`⚠️ Got ${limitedQuestions.length} questions instead of ${numQuestions}, but this is acceptable.`);
       }
       
-      console.log(`Batch validation: ${validQuestions.length} valid questions from ${questionArray.length} generated`);
-      return validQuestions;
+      // Remove duplicate questions by comparing with existing questions of the same type from same section
+      const existingSameTypeQuestions = questions.filter(q => 
+        q.type === section && q.section === section
+      );
+      const uniqueQuestions = removeDuplicateQuestions(limitedQuestions, existingSameTypeQuestions);
+      
+      console.log(`Batch validation: ${limitedQuestions.length} valid questions, ${uniqueQuestions.length} unique questions`);
+      
+      // If all questions were filtered as duplicates, return the valid questions anyway to avoid infinite loops
+      if (uniqueQuestions.length === 0 && limitedQuestions.length > 0) {
+        console.warn('⚠️ All questions were filtered as duplicates. Returning valid questions to prevent infinite generation loop.');
+        return limitedQuestions;
+      }
+      
+      return uniqueQuestions;
     } catch (error) {
       console.error('Error generating questions with AI:', error);
       throw new Error(`Failed to generate questions: ${error.message}`);
@@ -3634,7 +5120,12 @@ Please provide a clear, educational response that helps the student understand t
                   whileHover={{ scale: 1.02 }}
                   className="cursor-pointer"
                   onClick={() => {
-                    setTestResults(test.results);
+                    console.log('🚨 HISTORY: Loading test results:', test.results);
+                    const sanitizedResults = sanitizeResultsData(test.results);
+                    console.log('🚨 HISTORY: Sanitized test results:', sanitizedResults);
+                    const emergencyCleanedResults = emergencyCleanResults(sanitizedResults);
+                    console.log('🚨 HISTORY: Emergency cleaned test results:', emergencyCleanedResults);
+                    setTestResults(emergencyCleanedResults);
                     setQuestions(test.questions || []);
                     setUserAnswers(test.userAnswers || {});
                     setSelectedSubject(test.subject);
@@ -4114,7 +5605,12 @@ Please provide a clear, educational response that helps the student understand t
                     {testHistory.slice(0, 3).map((test) => (
                       <div key={test.id} className="p-3 bg-slate-700/50 rounded-lg hover:bg-slate-700/70 transition-colors cursor-pointer"
                            onClick={() => {
-                             setTestResults(test.results);
+                             console.log('🚨 RECENT: Loading test results:', test.results);
+                             const sanitizedResults = sanitizeResultsData(test.results);
+                             console.log('🚨 RECENT: Sanitized test results:', sanitizedResults);
+                             const emergencyCleanedResults = emergencyCleanResults(sanitizedResults);
+                             console.log('🚨 RECENT: Emergency cleaned test results:', emergencyCleanedResults);
+                             setTestResults(emergencyCleanedResults);
                              setQuestions(test.questions || []);
                              setUserAnswers(test.userAnswers || {});
                              setSelectedSubject(test.subject);
@@ -4682,7 +6178,13 @@ Please provide a clear, educational response that helps the student understand t
                                 {String.fromCharCode(65 + index)}.
                               </span>
                               <span className={`flex-1 leading-relaxed ${isMobile ? 'text-sm' : ''}`}>
-                                <LaTeXRenderer content={option.replace(/^[A-D]\)\s*/, '') || ''} />
+                                <LaTeXRenderer content={
+                                  typeof option === 'string' 
+                                    ? option.replace(/^[A-D]\)\s*/, '') 
+                                    : typeof option === 'object' && option?.text
+                                      ? option.text.replace(/^[A-D]\)\s*/, '')
+                                      : (option?.text || String(option || ''))
+                                } />
                               </span>
                               {isSelected && (
                                 <CheckCircle className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} text-blue-400 flex-shrink-0 mt-0.5`} />
@@ -4708,7 +6210,7 @@ Please provide a clear, educational response that helps the student understand t
                       
                       <div className="relative">
                         <textarea
-                          value={userAnswers[currentQuestion.id] || ''}
+                          value={renderSafeValue(userAnswers[currentQuestion.id])}
                           onChange={(e) => handleAnswerSelect(currentQuestion.id, e.target.value)}
                           placeholder={
                             currentQuestion?.type === 'frq' ? 'Write your detailed response here. Be sure to address all parts of the question...' :
@@ -4725,7 +6227,7 @@ Please provide a clear, educational response that helps the student understand t
                         
                         {/* Character count */}
                         <div className="absolute bottom-3 right-3 text-xs text-slate-400">
-                          {(userAnswers[currentQuestion.id] || '').length} characters
+                          {renderSafeValue(userAnswers[currentQuestion.id]).length} characters
                         </div>
                       </div>
                       
@@ -4741,8 +6243,8 @@ Please provide a clear, educational response that helps the student understand t
                     </div>
                   )}
 
-                  {/* Drawing Canvas for STEM subjects */}
-                  {DRAWING_CANVAS_SUBJECTS.includes(selectedSubject) && canvasSettings.enabled && (
+                  {/* Drawing Canvas for STEM subjects - Only show for FRQ questions */}
+                  {DRAWING_CANVAS_SUBJECTS.includes(selectedSubject) && canvasSettings.enabled && currentQuestion?.type !== 'mcq' && (
                     <div className="mt-6 space-y-4">
                       <div className="flex items-center justify-between">
                         <h3 className="text-lg font-medium text-slate-200">Drawing Canvas</h3>
@@ -4807,8 +6309,14 @@ Please provide a clear, educational response that helps the student understand t
                             const x = e.clientX - rect.left;
                             const y = e.clientY - rect.top;
                             const ctx = canvas.getContext('2d');
-                            ctx.beginPath();
-                            ctx.moveTo(x, y);
+                            
+                            // Store starting position for shape tools
+                            setCanvasSettings(prev => ({ ...prev, startX: x, startY: y }));
+                            
+                            if (canvasSettings.tool === 'pen' || canvasSettings.tool === 'eraser') {
+                              ctx.beginPath();
+                              ctx.moveTo(x, y);
+                            }
                           }}
                           onMouseMove={(e) => {
                             if (!isDrawing) return;
@@ -4818,7 +6326,7 @@ Please provide a clear, educational response that helps the student understand t
                             const y = e.clientY - rect.top;
                             const ctx = canvas.getContext('2d');
                             
-                            ctx.lineWidth = canvasSettings.brushSize;
+                            ctx.lineWidth = canvasSettings.tool === 'eraser' ? canvasSettings.brushSize * 2 : canvasSettings.brushSize; // Make eraser thicker
                             ctx.strokeStyle = canvasSettings.tool === 'eraser' ? '#ffffff' : canvasSettings.brushColor;
                             ctx.lineCap = 'round';
                             
@@ -4826,17 +6334,48 @@ Please provide a clear, educational response that helps the student understand t
                               ctx.lineTo(x, y);
                               ctx.stroke();
                             }
+                            // Shape tools will be drawn on mouse up
                           }}
-                          onMouseUp={() => {
+                          onMouseUp={(e) => {
+                            if (!isDrawing) return;
                             setIsDrawing(false);
-                            const canvas = document.getElementById(`canvas-${currentQuestion?.id}`);
-                            if (canvas) {
-                              const dataURL = canvas.toDataURL();
-                              setDrawingCanvases(prev => ({
-                                ...prev,
-                                [currentQuestion.id]: dataURL
-                              }));
+                            
+                            const canvas = e.target;
+                            const rect = canvas.getBoundingClientRect();
+                            const x = e.clientX - rect.left;
+                            const y = e.clientY - rect.top;
+                            const ctx = canvas.getContext('2d');
+                            
+                            // Draw shapes for shape tools
+                            if (canvasSettings.tool === 'line') {
+                              ctx.beginPath();
+                              ctx.lineWidth = canvasSettings.brushSize;
+                              ctx.strokeStyle = canvasSettings.brushColor;
+                              ctx.moveTo(canvasSettings.startX, canvasSettings.startY);
+                              ctx.lineTo(x, y);
+                              ctx.stroke();
+                            } else if (canvasSettings.tool === 'rectangle') {
+                              ctx.beginPath();
+                              ctx.lineWidth = canvasSettings.brushSize;
+                              ctx.strokeStyle = canvasSettings.brushColor;
+                              const width = x - canvasSettings.startX;
+                              const height = y - canvasSettings.startY;
+                              ctx.strokeRect(canvasSettings.startX, canvasSettings.startY, width, height);
+                            } else if (canvasSettings.tool === 'circle') {
+                              ctx.beginPath();
+                              ctx.lineWidth = canvasSettings.brushSize;
+                              ctx.strokeStyle = canvasSettings.brushColor;
+                              const radius = Math.sqrt(Math.pow(x - canvasSettings.startX, 2) + Math.pow(y - canvasSettings.startY, 2));
+                              ctx.arc(canvasSettings.startX, canvasSettings.startY, radius, 0, 2 * Math.PI);
+                              ctx.stroke();
                             }
+                            
+                            // Save canvas state
+                            const dataURL = canvas.toDataURL();
+                            setDrawingCanvases(prev => ({
+                              ...prev,
+                              [currentQuestion.id]: dataURL
+                            }));
                           }}
                           onTouchStart={(e) => {
                             e.preventDefault();
@@ -4847,8 +6386,14 @@ Please provide a clear, educational response that helps the student understand t
                             const x = touch.clientX - rect.left;
                             const y = touch.clientY - rect.top;
                             const ctx = canvas.getContext('2d');
-                            ctx.beginPath();
-                            ctx.moveTo(x, y);
+                            
+                            // Store starting position for shape tools
+                            setCanvasSettings(prev => ({ ...prev, startX: x, startY: y }));
+                            
+                            if (canvasSettings.tool === 'pen' || canvasSettings.tool === 'eraser') {
+                              ctx.beginPath();
+                              ctx.moveTo(x, y);
+                            }
                           }}
                           onTouchMove={(e) => {
                             e.preventDefault();
@@ -4860,7 +6405,7 @@ Please provide a clear, educational response that helps the student understand t
                             const y = touch.clientY - rect.top;
                             const ctx = canvas.getContext('2d');
                             
-                            ctx.lineWidth = canvasSettings.brushSize;
+                            ctx.lineWidth = canvasSettings.tool === 'eraser' ? canvasSettings.brushSize * 2 : canvasSettings.brushSize; // Make eraser thicker
                             ctx.strokeStyle = canvasSettings.tool === 'eraser' ? '#ffffff' : canvasSettings.brushColor;
                             ctx.lineCap = 'round';
                             
@@ -4871,15 +6416,46 @@ Please provide a clear, educational response that helps the student understand t
                           }}
                           onTouchEnd={(e) => {
                             e.preventDefault();
+                            if (!isDrawing) return;
                             setIsDrawing(false);
-                            const canvas = document.getElementById(`canvas-${currentQuestion?.id}`);
-                            if (canvas) {
-                              const dataURL = canvas.toDataURL();
-                              setDrawingCanvases(prev => ({
-                                ...prev,
-                                [currentQuestion.id]: dataURL
-                              }));
+                            
+                            const canvas = e.target;
+                            const touch = e.changedTouches[0];
+                            const rect = canvas.getBoundingClientRect();
+                            const x = touch.clientX - rect.left;
+                            const y = touch.clientY - rect.top;
+                            const ctx = canvas.getContext('2d');
+                            
+                            // Draw shapes for shape tools
+                            if (canvasSettings.tool === 'line') {
+                              ctx.beginPath();
+                              ctx.lineWidth = canvasSettings.brushSize;
+                              ctx.strokeStyle = canvasSettings.brushColor;
+                              ctx.moveTo(canvasSettings.startX, canvasSettings.startY);
+                              ctx.lineTo(x, y);
+                              ctx.stroke();
+                            } else if (canvasSettings.tool === 'rectangle') {
+                              ctx.beginPath();
+                              ctx.lineWidth = canvasSettings.brushSize;
+                              ctx.strokeStyle = canvasSettings.brushColor;
+                              const width = x - canvasSettings.startX;
+                              const height = y - canvasSettings.startY;
+                              ctx.strokeRect(canvasSettings.startX, canvasSettings.startY, width, height);
+                            } else if (canvasSettings.tool === 'circle') {
+                              ctx.beginPath();
+                              ctx.lineWidth = canvasSettings.brushSize;
+                              ctx.strokeStyle = canvasSettings.brushColor;
+                              const radius = Math.sqrt(Math.pow(x - canvasSettings.startX, 2) + Math.pow(y - canvasSettings.startY, 2));
+                              ctx.arc(canvasSettings.startX, canvasSettings.startY, radius, 0, 2 * Math.PI);
+                              ctx.stroke();
                             }
+                            
+                            // Save canvas state
+                            const dataURL = canvas.toDataURL();
+                            setDrawingCanvases(prev => ({
+                              ...prev,
+                              [currentQuestion.id]: dataURL
+                            }));
                           }}
                         />
                       </div>
@@ -5007,11 +6583,11 @@ Please provide a clear, educational response that helps the student understand t
             >
               <Card className="p-6 text-center">
                 <div className="text-4xl font-bold text-blue-400 mb-2">
-                  {testResults.apScore}
+                  {safeTestResults.apScore}
                 </div>
                 <p className="text-slate-300 mb-1">Predicted AP Score</p>
                 <p className="text-sm text-slate-400">
-                  {testResults.apScore >= 4 ? 'Likely to Pass' : 'Needs Improvement'}
+                  {safeTestResults.apScore >= 4 ? 'Likely to Pass' : 'Needs Improvement'}
                 </p>
               </Card>
             </motion.div>
@@ -5023,11 +6599,11 @@ Please provide a clear, educational response that helps the student understand t
             >
               <Card className="p-6 text-center">
                 <div className="text-4xl font-bold text-green-400 mb-2">
-                  {testResults.percentage}%
+                  {safeTestResults.percentage}%
                 </div>
                 <p className="text-slate-300 mb-1">Overall Score</p>
                 <p className="text-sm text-slate-400">
-                  {testResults.score} / {testResults.totalPoints} points
+                  {safeTestResults.score} / {safeTestResults.totalPoints} points
                 </p>
               </Card>
             </motion.div>
@@ -5039,7 +6615,7 @@ Please provide a clear, educational response that helps the student understand t
             >
               <Card className="p-6 text-center">
                 <div className="text-4xl font-bold text-purple-400 mb-2">
-                  {testResults.timeSpent}
+                  {safeTestResults.timeSpent}
                 </div>
                 <p className="text-slate-300 mb-1">Minutes Used</p>
                 <p className="text-sm text-slate-400">Time Management</p>
@@ -5064,7 +6640,7 @@ Please provide a clear, educational response that helps the student understand t
           </div>
 
           {/* Section Breakdown */}
-          {testResults.breakdown && (
+          {safeTestResults.breakdown && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -5077,7 +6653,7 @@ Please provide a clear, educational response that helps the student understand t
                   Section Performance
                 </h2>
                 <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {Object.entries(testResults.breakdown).map(([section, data]) => (
+                  {Object.entries(safeTestResults.breakdown).map(([section, data]) => (
                     data.total > 0 && (
                       <div key={section} className="p-4 bg-slate-700/50 rounded-lg">
                         <h3 className="font-medium text-slate-200 mb-2 capitalize">
@@ -5120,7 +6696,7 @@ Please provide a clear, educational response that helps the student understand t
 
               <div className="space-y-6">
                 {questions.map((question, index) => {
-                  const result = testResults.questionResults.find(r => r.questionId === question.id);
+                  const result = safeTestResults.questionResults.find(r => r.questionId === question.id);
                   const isCorrect = result?.correct;
                   
                   return (
@@ -5141,7 +6717,7 @@ Please provide a clear, educational response that helps the student understand t
                             </Badge>
                           </div>
                           <div className="text-slate-300 mb-4">
-                            <MarkdownRenderer content={question.question} />
+                            <MarkdownRenderer content={renderSafeValue(question.question)} />
                           </div>
 
                           {/* MCQ Review */}
@@ -5149,30 +6725,45 @@ Please provide a clear, educational response that helps the student understand t
                             <div className="space-y-2 mb-4">
                               {question.options.map((option, i) => {
                                 const isUserAnswer = result.userAnswer === i;
-                                const isCorrectAnswer = result.correctAnswer === i;
+                                const isCorrectAnswer = result.correctAnswer === i || question.correctAnswer === i;
                                 
                                 let borderColor = 'border-slate-600';
                                 let bgColor = 'bg-slate-700/50';
                                 let textColor = 'text-slate-200';
+                                let label = '';
 
                                 if (isCorrectAnswer) {
                                   borderColor = 'border-green-500';
                                   bgColor = 'bg-green-500/20';
                                   textColor = 'text-green-100';
+                                  label = ' ✓ Correct Answer';
                                 }
                                 if (isUserAnswer && !isCorrectAnswer) {
                                   borderColor = 'border-red-500';
                                   bgColor = 'bg-red-500/20';
                                   textColor = 'text-red-100';
+                                  label = ' ✗ Your Answer';
+                                }
+                                if (isUserAnswer && isCorrectAnswer) {
+                                  label = ' ✓ Your Correct Answer';
                                 }
 
                                 return (
                                   <div 
                                     key={i} 
-                                    className={`p-3 rounded-lg border-2 ${borderColor} ${bgColor} ${textColor}`}
+                                    className={`p-3 rounded-lg border-2 ${borderColor} ${bgColor} ${textColor} relative`}
                                   >
-                                    <span className="font-bold mr-2">{String.fromCharCode(65 + i)}.</span>
-                                    <div className="prose prose-sm max-w-none inline"><MarkdownRenderer content={option} /></div>
+                                    <div className="flex items-start justify-between">
+                                      <div className="flex-1">
+                                        <span className="font-bold mr-2">{String.fromCharCode(65 + i)}.</span>
+                                        <div className="prose prose-sm max-w-none inline"><MarkdownRenderer content={renderSafeValue(option)} /></div>
+                                      </div>
+                                      {label && (
+                                        <span className="text-xs font-medium ml-2 px-2 py-1 rounded bg-black/20">
+                                          {label}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
                                 );
                               })}
@@ -5193,8 +6784,22 @@ Please provide a clear, educational response that helps the student understand t
                                 <h4 className="font-medium text-slate-200 mb-2">Your Response:</h4>
                                 <div className="p-4 bg-slate-700/50 rounded-lg">
                                   <p className="text-slate-300 whitespace-pre-wrap">
-                                    {result?.userAnswer || 'No response provided'}
+                                    {renderSafeValue(result?.userAnswer) || 'No response provided'}
                                   </p>
+                                  {/* Display canvas data if available */}
+                                  {result?.canvasData && (
+                                    <div className="mt-3 pt-3 border-t border-slate-600">
+                                      <p className="text-slate-400 text-sm mb-2">Drawing Canvas Work:</p>
+                                      <div className="bg-white rounded-lg p-2 inline-block">
+                                        <img 
+                                          src={result.canvasData} 
+                                          alt="Student's drawing canvas work" 
+                                          className="max-w-xs max-h-40 object-contain"
+                                          style={{ filter: 'none' }}
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
 
@@ -5204,12 +6809,7 @@ Please provide a clear, educational response that helps the student understand t
                                   <h4 className="font-medium text-slate-200 mb-2">Score Breakdown:</h4>
                                   <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
                                     <div className="grid grid-cols-2 gap-4 mb-3">
-                                      {Object.entries(result.breakdown).map(([part, score]) => (
-                                        <div key={part} className="flex justify-between">
-                                          <span className="text-slate-300 capitalize">{part.replace('_', ' ')}:</span>
-                                          <span className="text-blue-400 font-medium">{score} pts</span>
-                                        </div>
-                                      ))}
+                                      {renderBreakdownSafely(result.breakdown)}
                                     </div>
                                   </div>
                                 </div>
@@ -5220,7 +6820,7 @@ Please provide a clear, educational response that helps the student understand t
                                 <div>
                                   <h4 className="font-medium text-slate-200 mb-2">AI Feedback:</h4>
                                   <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg space-y-3">
-                                    <LaTeXRenderer content={result.feedback} />
+                                    <LaTeXRenderer content={renderSafeValue(result.feedback)} />
                                     
                                     {/* Strengths and Improvements */}
                                     {(result.strengths?.length > 0 || result.improvements?.length > 0) && (
@@ -5232,7 +6832,7 @@ Please provide a clear, educational response that helps the student understand t
                                               {result.strengths.map((strength, idx) => (
                                                 <li key={idx} className="flex items-start gap-2">
                                                   <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
-                                                  {strength}
+                                                  {renderSafeValue(strength)}
                                                 </li>
                                               ))}
                                             </ul>
@@ -5246,7 +6846,7 @@ Please provide a clear, educational response that helps the student understand t
                                               {result.improvements.map((improvement, idx) => (
                                                 <li key={idx} className="flex items-start gap-2">
                                                   <Target className="w-4 h-4 text-yellow-400 mt-0.5 flex-shrink-0" />
-                                                  {improvement}
+                                                  {renderSafeValue(improvement)}
                                                 </li>
                                               ))}
                                             </ul>
@@ -5262,7 +6862,7 @@ Please provide a clear, educational response that helps the student understand t
                                 <div>
                                   <h4 className="font-medium text-slate-200 mb-2">Sample Answer:</h4>
                                   <div className="p-4 bg-purple-500/10 border border-purple-500/30 rounded-lg">
-                                    <MarkdownRenderer content={question.sampleAnswer} />
+                                    <MarkdownRenderer content={renderSafeValue(question.sampleAnswer)} />
                                   </div>
                                 </div>
                               )}
@@ -5273,11 +6873,11 @@ Please provide a clear, educational response that helps the student understand t
                                   <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
                                     <div className="mb-3">
                                       <p className="text-slate-300 text-sm mb-2">
-                                        Total Points: {question.rubric.totalPoints}
+                                        Total Points: {renderSafeValue(question.rubric.totalPoints)}
                                       </p>
                                       {question.rubric.scoringGuidelines && (
                                         <p className="text-slate-400 text-sm mb-2">
-                                          {question.rubric.scoringGuidelines}
+                                          {renderSafeValue(question.rubric.scoringGuidelines)}
                                         </p>
                                       )}
                                     </div>
@@ -5287,7 +6887,7 @@ Please provide a clear, educational response that helps the student understand t
                                         <div className="flex flex-wrap gap-2">
                                           {question.rubric.keyTerms.map((term, termIndex) => (
                                             <Badge key={termIndex} variant="secondary">
-                                              {term}
+                                              {renderSafeValue(term)}
                                             </Badge>
                                           ))}
                                         </div>
@@ -5343,7 +6943,7 @@ Please provide a clear, educational response that helps the student understand t
                                       <Brain className="w-4 h-4" />
                                       AI Tutor Response:
                                     </h5>
-                                    <MarkdownRenderer content={tutorResponse} />
+                                    <MarkdownRenderer content={renderSafeValue(tutorResponse)} />
                                   </div>
                                 )}
                               </div>
@@ -5391,13 +6991,13 @@ Please provide a clear, educational response that helps the student understand t
                   subject: selectedSubject,
                   section: selectedSection,
                   difficulty: selectedDifficulty,
-                  score: testResults.percentage,
-                  apScore: testResults.apScore,
-                  questionsCorrect: testResults.questionResults?.filter(r => r.correct).length || 0,
-                  totalQuestions: testResults.questionResults?.length || 0,
-                  timeSpent: testResults.timeSpent,
+                  score: safeTestResults.percentage,
+                  apScore: safeTestResults.apScore,
+                  questionsCorrect: safeTestResults.questionResults?.filter(r => r.correct).length || 0,
+                  totalQuestions: safeTestResults.questionResults?.length || 0,
+                  timeSpent: safeTestResults.timeSpent,
                   date: new Date().toLocaleDateString(),
-                  breakdown: testResults.breakdown
+                  breakdown: safeTestResults.breakdown
                 };
                 
                 const dataStr = JSON.stringify(resultsSummary, null, 2);
