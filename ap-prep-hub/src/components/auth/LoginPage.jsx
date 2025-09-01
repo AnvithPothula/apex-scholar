@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { GraduationCap, Brain, Calendar, Shield, Target, ChevronRight, Users, Zap, Trophy } from 'lucide-react';
+import { GraduationCap, Brain, Calendar, Shield, Target, ChevronRight, Users, Zap, Trophy, 
+         FileQuestion, Calculator, BookOpen, Sparkles, Clock, BarChart3, CheckCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button, Input, Card, CardHeader, CardTitle, CardContent } from '../ui/UIComponents';
 import { useAuth } from '../../contexts/AuthContext';
@@ -76,14 +77,14 @@ export function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex">
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex overflow-hidden">
             {/* Left Side - App Information */}
-            <div className="hidden lg:flex lg:w-1/2 flex-col justify-center px-12 py-16">
+            <div className="hidden lg:flex lg:w-3/5 flex-col justify-center px-8 py-12 overflow-y-auto">
                 <motion.div
                     initial={{ opacity: 0, x: -50 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.8 }}
-                    className="max-w-lg"
+                    className="max-w-2xl mx-auto"
                 >
                     {/* Logo and Main Title */}
                     <div className="flex items-center mb-8">
@@ -94,91 +95,168 @@ export function LoginPage() {
                             <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
                                 Apex Scholar
                             </h1>
-                            <p className="text-slate-300 text-lg">Your AI-powered study companion</p>
+                            <p className="text-slate-300 text-lg">Your Complete AI-Powered AP Study Platform</p>
                         </div>
                     </div>
 
-                    {/* Main Selling Points */}
+                    {/* Hero Message */}
+                    <motion.div 
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.8, delay: 0.1 }}
+                        className="mb-8 p-6 bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-xl"
+                    >
+                        <div className="flex items-center space-x-3 mb-3">
+                            <Trophy className="w-6 h-6 text-yellow-400" />
+                            <span className="text-lg font-semibold text-white">Transform Your AP Journey</span>
+                        </div>
+                        <p className="text-slate-300">Everything you need to excel in Advanced Placement courses and exams, powered by cutting-edge AI technology.</p>
+                    </motion.div>
+
+                    {/* Feature Grid */}
                     <motion.div 
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.8, delay: 0.2 }}
-                        className="space-y-6 mb-8"
+                        className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8"
                     >
-                        <div className="flex items-start space-x-4">
-                            <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 flex items-center justify-center">
-                                <Brain className="w-6 h-6 text-white" />
+                        <div className="bg-gradient-to-br from-blue-600/20 to-blue-700/20 border border-blue-500/30 rounded-xl p-4">
+                            <div className="flex items-center space-x-3 mb-3">
+                                <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center">
+                                    <Brain className="w-5 h-5 text-white" />
+                                </div>
+                                <h3 className="font-semibold text-white">AI Tutors</h3>
                             </div>
-                            <div>
-                                <h3 className="text-xl font-semibold text-white mb-2">AI Tutors for Every Subject</h3>
-                                <p className="text-slate-300">Get personalized help from specialized AI tutors across all 39 AP subjects, available 24/7.</p>
-                            </div>
+                            <p className="text-sm text-slate-300">Specialized AI tutors for all 39 AP subjects, available 24/7 for personalized help and explanations.</p>
                         </div>
 
-                        <div className="flex items-start space-x-4">
-                            <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-gradient-to-r from-green-600 to-green-700 flex items-center justify-center">
-                                <Target className="w-6 h-6 text-white" />
+                        <div className="bg-gradient-to-br from-green-600/20 to-green-700/20 border border-green-500/30 rounded-xl p-4">
+                            <div className="flex items-center space-x-3 mb-3">
+                                <div className="w-10 h-10 rounded-lg bg-green-600 flex items-center justify-center">
+                                    <FileQuestion className="w-5 h-5 text-white" />
+                                </div>
+                                <h3 className="font-semibold text-white">Practice Tests</h3>
                             </div>
-                            <div>
-                                <h3 className="text-xl font-semibold text-white mb-2">Authentic Practice Tests</h3>
-                                <p className="text-slate-300">Practice with exam-style questions including MCQs, FRQs, DBQs, and more that mirror real AP exams.</p>
-                            </div>
+                            <p className="text-sm text-slate-300">Authentic AP exam simulations with MCQs, FRQs, DBQs, and timed conditions matching real exams.</p>
                         </div>
 
-                        <div className="flex items-start space-x-4">
-                            <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-gradient-to-r from-purple-600 to-purple-700 flex items-center justify-center">
-                                <Calendar className="w-6 h-6 text-white" />
+                        <div className="bg-gradient-to-br from-purple-600/20 to-purple-700/20 border border-purple-500/30 rounded-xl p-4">
+                            <div className="flex items-center space-x-3 mb-3">
+                                <div className="w-10 h-10 rounded-lg bg-purple-600 flex items-center justify-center">
+                                    <Calendar className="w-5 h-5 text-white" />
+                                </div>
+                                <h3 className="font-semibold text-white">Smart Scheduler</h3>
                             </div>
-                            <div>
-                                <h3 className="text-xl font-semibold text-white mb-2">Smart Study Scheduling</h3>
-                                <p className="text-slate-300">AI-powered study plans that adapt to your exam dates and learning progress.</p>
+                            <p className="text-sm text-slate-300">AI-powered study plans that adapt to your exam dates, progress, and learning preferences.</p>
+                        </div>
+
+                        <div className="bg-gradient-to-br from-amber-600/20 to-amber-700/20 border border-amber-500/30 rounded-xl p-4">
+                            <div className="flex items-center space-x-3 mb-3">
+                                <div className="w-10 h-10 rounded-lg bg-amber-600 flex items-center justify-center">
+                                    <Calculator className="w-5 h-5 text-white" />
+                                </div>
+                                <h3 className="font-semibold text-white">Problem Solver</h3>
+                            </div>
+                            <p className="text-sm text-slate-300">Upload photos of homework problems and get step-by-step AI solutions with explanations.</p>
+                        </div>
+
+                        <div className="bg-gradient-to-br from-pink-600/20 to-pink-700/20 border border-pink-500/30 rounded-xl p-4">
+                            <div className="flex items-center space-x-3 mb-3">
+                                <div className="w-10 h-10 rounded-lg bg-pink-600 flex items-center justify-center">
+                                    <Zap className="w-5 h-5 text-white" />
+                                </div>
+                                <h3 className="font-semibold text-white">Flashcards</h3>
+                            </div>
+                            <p className="text-sm text-slate-300">AI-generated flashcards for any topic, with spaced repetition and progress tracking.</p>
+                        </div>
+
+                        <div className="bg-gradient-to-br from-indigo-600/20 to-indigo-700/20 border border-indigo-500/30 rounded-xl p-4">
+                            <div className="flex items-center space-x-3 mb-3">
+                                <div className="w-10 h-10 rounded-lg bg-indigo-600 flex items-center justify-center">
+                                    <BarChart3 className="w-5 h-5 text-white" />
+                                </div>
+                                <h3 className="font-semibold text-white">Progress Tracking</h3>
+                            </div>
+                            <p className="text-sm text-slate-300">Detailed analytics on your study progress, strengths, and areas for improvement.</p>
+                        </div>
+                    </motion.div>
+
+                    {/* Comprehensive Features List */}
+                    <motion.div 
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.8, delay: 0.3 }}
+                        className="bg-slate-800/50 border border-slate-600 rounded-xl p-6 mb-8"
+                    >
+                        <h3 className="text-lg font-semibold text-white mb-4 flex items-center space-x-2">
+                            <Sparkles className="w-5 h-5 text-yellow-400" />
+                            <span>Everything You Need for AP Success</span>
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                            <div className="flex items-center space-x-2">
+                                <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+                                <span className="text-slate-300">All 39 AP subjects covered</span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+                                <span className="text-slate-300">Authentic exam-style questions</span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+                                <span className="text-slate-300">Personalized study schedules</span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+                                <span className="text-slate-300">Step-by-step problem solving</span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+                                <span className="text-slate-300">Interactive flashcard system</span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+                                <span className="text-slate-300">Real-time progress analytics</span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+                                <span className="text-slate-300">Exam scheduling & tracking</span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+                                <span className="text-slate-300">Secure data protection</span>
                             </div>
                         </div>
                     </motion.div>
 
-                    {/* Stats */}
+                    {/* Stats and Trust Indicators */}
                     <motion.div 
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.8, delay: 0.4 }}
-                        className="grid grid-cols-3 gap-4 mb-8"
+                        className="grid grid-cols-4 gap-4"
                     >
                         <div className="text-center">
-                            <div className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">39</div>
-                            <div className="text-sm text-slate-400">AP Subjects</div>
+                            <div className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">39</div>
+                            <div className="text-xs text-slate-400">AP Subjects</div>
                         </div>
                         <div className="text-center">
-                            <div className="text-3xl font-bold bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">24/7</div>
-                            <div className="text-sm text-slate-400">AI Support</div>
+                            <div className="text-2xl font-bold bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">24/7</div>
+                            <div className="text-xs text-slate-400">AI Support</div>
                         </div>
                         <div className="text-center">
-                            <div className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Smart</div>
-                            <div className="text-sm text-slate-400">Learning</div>
+                            <div className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Smart</div>
+                            <div className="text-xs text-slate-400">Learning</div>
                         </div>
-                    </motion.div>
-
-                    {/* Success Message */}
-                    <motion.div 
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.8, delay: 0.6 }}
-                        className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-xl p-6"
-                    >
-                        <div className="flex items-center space-x-3 mb-3">
-                            <Trophy className="w-6 h-6 text-yellow-400" />
-                            <span className="text-lg font-semibold text-white">Join Thousands of Success Stories</span>
-                        </div>
-                        <p className="text-slate-300">Students using Apex Scholar have consistently improved their AP exam scores and gained confidence in their studies.</p>
-                        <div className="flex items-center mt-4 space-x-2 text-blue-400">
-                            <Users className="w-4 h-4" />
-                            <span className="text-sm font-medium">Trusted by students nationwide</span>
+                        <div className="text-center">
+                            <div className="text-2xl font-bold bg-gradient-to-r from-amber-400 to-orange-400 bg-clip-text text-transparent">Secure</div>
+                            <div className="text-xs text-slate-400">Platform</div>
                         </div>
                     </motion.div>
                 </motion.div>
             </div>
 
             {/* Right Side - Login Form */}
-            <div className="w-full lg:w-1/2 flex items-center justify-center p-4 lg:p-8">
+            <div className="w-full lg:w-2/5 flex items-center justify-center p-4 lg:p-8">
                 <motion.div 
                     initial={{ opacity: 0, x: 50 }}
                     animate={{ opacity: 1, x: 0 }}
@@ -204,23 +282,26 @@ export function LoginPage() {
                         <CardContent className="p-6">
                             {/* Quick Benefits for Mobile */}
                             <div className="lg:hidden mb-6 space-y-3">
-                                <div className="flex items-center space-x-3 text-sm">
-                                    <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
-                                        <Brain className="w-4 h-4 text-white" />
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="flex items-center space-x-2 text-xs bg-blue-600/20 rounded-lg p-2">
+                                        <Brain className="w-4 h-4 text-blue-400" />
+                                        <span className="text-slate-300">AI Tutors</span>
                                     </div>
-                                    <span className="text-slate-300">39 AP subjects with AI tutors</span>
+                                    <div className="flex items-center space-x-2 text-xs bg-green-600/20 rounded-lg p-2">
+                                        <FileQuestion className="w-4 h-4 text-green-400" />
+                                        <span className="text-slate-300">Practice Tests</span>
+                                    </div>
+                                    <div className="flex items-center space-x-2 text-xs bg-purple-600/20 rounded-lg p-2">
+                                        <Calendar className="w-4 h-4 text-purple-400" />
+                                        <span className="text-slate-300">Smart Scheduler</span>
+                                    </div>
+                                    <div className="flex items-center space-x-2 text-xs bg-amber-600/20 rounded-lg p-2">
+                                        <Calculator className="w-4 h-4 text-amber-400" />
+                                        <span className="text-slate-300">Problem Solver</span>
+                                    </div>
                                 </div>
-                                <div className="flex items-center space-x-3 text-sm">
-                                    <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center">
-                                        <Target className="w-4 h-4 text-white" />
-                                    </div>
-                                    <span className="text-slate-300">Authentic practice tests</span>
-                                </div>
-                                <div className="flex items-center space-x-3 text-sm">
-                                    <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center">
-                                        <Zap className="w-4 h-4 text-white" />
-                                    </div>
-                                    <span className="text-slate-300">Smart study scheduling</span>
+                                <div className="text-center p-3 bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-lg">
+                                    <span className="text-sm text-slate-300">39 AP subjects • 24/7 support • Smart learning</span>
                                 </div>
                             </div>
 
