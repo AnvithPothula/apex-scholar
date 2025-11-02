@@ -61,7 +61,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
-import apiKeyManager from '../services/APIKeyManager';
+import geminiService from '../services/geminiService';
 
 const AITutors = () => {
   const { subject: urlSubject } = useParams();
@@ -80,6 +80,19 @@ const AITutors = () => {
   const [isSwitchingSubjects, setIsSwitchingSubjects] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  // Removed diagnostics UI and state
+
+  // Warm up AI service (Puter model probe) to reduce first-call latency
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        await geminiService.prewarm({ multimodal: true });
+      } catch (_) { /* ignore */ }
+      if (cancelled) return;
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Load messages for a specific conversation
   const loadConversationMessages = useCallback(async (conversationId) => {
@@ -630,11 +643,34 @@ const AITutors = () => {
     }
     
     try {
+      // Sanitize files for Firestore (no base64 data/content, no functions/undefined)
+      let sanitizedFiles = undefined;
+      if (Array.isArray(message.files) && message.files.length > 0) {
+        sanitizedFiles = message.files.map((f) => {
+          const fileMeta = {
+            id: f.id,
+            name: f.name,
+            size: typeof f.size === 'number' ? f.size : undefined,
+            mimeType: f.mimeType || f.type || undefined,
+            category: f.category || undefined,
+            uploadedAt: f.uploadedAt instanceof Date ? f.uploadedAt.toISOString() : (typeof f.uploadedAt === 'string' ? f.uploadedAt : undefined)
+          };
+          // Remove undefined keys
+          Object.keys(fileMeta).forEach((k) => fileMeta[k] === undefined && delete fileMeta[k]);
+          return fileMeta;
+        });
+      }
+
       const messageData = {
-        ...message,
+        id: message.id,
+        type: message.type,
+        content: message.content,
         timestamp: message.timestamp || new Date(),
         createdAt: serverTimestamp()
       };
+      if (sanitizedFiles && sanitizedFiles.length > 0) {
+        messageData.files = sanitizedFiles;
+      }
       
       console.log('Saving message to Firebase...', { conversationId, messageId: messageData.id });
       const docRef = await addDoc(collection(db, 'conversations', conversationId, 'messages'), messageData);
@@ -898,9 +934,11 @@ const AITutors = () => {
 
   // Enhanced AI-powered response generator with markdown, LaTeX, and curriculum focus
   const generateKnowledgeableResponse = async (subject, userMessage, curriculumData, uploadedFiles = []) => {
+    const { default: geminiService } = await import('../services/geminiService');
     const subjectName = curriculumData?.name || subject;
     
     // Build conversation history for context (last 6 messages for optimal performance)
+    const hasFiles = Array.isArray(uploadedFiles) && uploadedFiles.length > 0;
     const conversationHistory = messages.slice(-6).map(msg => {
       const sanitizedContent = msg.type === 'user' ? sanitizeUserInput(msg.content) : msg.content;
       const parts = [{ text: sanitizedContent }];
@@ -910,8 +948,8 @@ const AITutors = () => {
         msg.files.forEach(file => {
           if (file.category === 'image' && file.data) {
             parts.push({
-              inlineData: {
-                mimeType: file.mimeType,
+              inline_data: {
+                mime_type: file.mimeType || file.type || 'image/png',
                 data: file.data
               }
             });
@@ -957,8 +995,43 @@ STUDY STRATEGIES:
 ${curriculumData.studyTips?.join('\n- ') || 'Active learning, practice problems, conceptual understanding'}
 ` : 'AP-level curriculum with comprehensive academic standards';
 
-    // Enhanced system prompt with file analysis capabilities
-    const systemPrompt = `You are an expert AP ${subjectName} tutor with deep mastery of the official College Board curriculum and advanced multimodal analysis capabilities. You ONLY answer questions related to ${subjectName}.
+    // Subject suggestion for boundary messaging
+    const suggestSubject = (current, text) => {
+      const t = (text || '').toLowerCase();
+      const mapping = [
+        { name: 'Biology', kws: ['cell', 'photosynthesis', 'mitosis', 'dna', 'genetics', 'evolution', 'ecology'] },
+        { name: 'Chemistry', kws: ['mole', 'stoichiometry', 'acid', 'base', 'equilibrium', 'bond', 'organic', 'enthalpy', 'redox'] },
+        { name: 'Physics', kws: ['force', 'velocity', 'acceleration', 'electric', 'magnetic', 'momentum', 'energy', 'wave', 'optics', 'quantum'] },
+        { name: 'Calculus', kws: ['derivative', 'integral', 'limit', 'series', 'differential', 'optimization'] },
+        { name: 'Statistics', kws: ['probability', 'regression', 'confidence', 'p-value', 'hypothesis', 'normal distribution', 'anova'] },
+        { name: 'Computer Science', kws: ['algorithm', 'data structure', 'runtime', 'recursion', 'binary', 'sorting', 'coding', 'program', 'compile'] },
+        { name: 'English Language', kws: ['rhetoric', 'argument', 'syntax', 'diction', 'tone', 'appeal'] },
+        { name: 'English Literature', kws: ['poem', 'novel', 'metaphor', 'iambic', 'alliteration', 'sonnet'] },
+        { name: 'World History', kws: ['empire', 'revolution', 'industrial', 'imperialism', 'silk road'] },
+        { name: 'US History', kws: ['constitution', 'civil war', 'new deal', 'reconstruction', 'federalist'] },
+        { name: 'Government & Politics', kws: ['congress', 'executive', 'judicial', 'federalism', 'policy'] },
+        { name: 'Macroeconomics', kws: ['gdp', 'inflation', 'unemployment', 'fiscal', 'monetary', 'aggregate'] },
+        { name: 'Microeconomics', kws: ['supply', 'demand', 'elasticity', 'utility', 'market', 'oligopoly'] },
+        { name: 'Environmental Science', kws: ['ecosystem', 'biodiversity', 'sustainability', 'pollution', 'climate'] },
+        { name: 'Psychology', kws: ['cognition', 'behavior', 'conditioning', 'memory', 'perception', 'personality'] },
+        { name: 'Art History', kws: ['renaissance', 'baroque', 'impressionism', 'sculpture', 'architecture'] },
+        { name: 'Music Theory', kws: ['chord', 'scale', 'harmony', 'interval', 'cadence', 'notation'] }
+      ];
+      const currentL = (current || '').toLowerCase();
+      for (const m of mapping) {
+        if (m.kws.some(k => t.includes(k))) {
+          if (!m.name.toLowerCase().includes(currentL)) return m.name;
+        }
+      }
+      return null;
+    };
+    const recommendedSubject = suggestSubject(subjectName, userMessage);
+    const boundaryLine = recommendedSubject
+      ? `I don't know about that topic, but the ${recommendedSubject} tutor might be able to help you with that question.`
+      : `I don't know about that topic, but another subject tutor might be able to help you with that question.`;
+
+  // Enhanced system prompt with strict anti-hallucination guidance
+  const systemPrompt = `You are an expert AP ${subjectName} tutor with deep mastery of the official College Board curriculum and advanced multimodal analysis capabilities. You ONLY answer questions related to ${subjectName}.
 
 ${curriculumContext}
 
@@ -969,12 +1042,22 @@ When analyzing uploaded files:
 - **Text Files**: Analyze notes, practice problems, or study materials and provide targeted feedback
 - **Connection to Curriculum**: Always connect file content to specific units and learning objectives
 
+ATTACHMENT CONTEXT: ${hasFiles ? 'Files are attached for the current user request.' : 'No files are attached for the current user request.'}
+
+ATTACHMENT POLICY:
+- Do NOT mention or describe any files, images, or PDFs unless they are explicitly attached in THIS conversation.
+- If no files are attached, answer based on the user's text only. Do NOT ask the user to upload files unless they specifically request file-based analysis.
+- If files are attached, you MUST analyze them first and describe what they show before anything else. Never claim you cannot view attachments when they exist.
+
 CRITICAL FORMATTING REQUIREMENTS:
 1. **Use Markdown**: Bold with **text**, italics with *text*, headers with ## Header
 2. **LaTeX Math**: Use LaTeX for ALL mathematical expressions: $inline$ or $$display$$
-   - Examples: $x^2 + y^2 = r^2$, $$\\frac{d}{dx}[f(x)] = f'(x)$$, $\\Delta H = H_{products} - H_{reactants}$
+  - Examples: $x^2 + y^2 = r^2$, $$\\frac{d}{dx}[f(x)] = f'(x)$$, $\\Delta H = H_{products} - H_{reactants}$
 3. **Concise Responses**: Keep responses under 400 words unless specifically asked for more detail
-4. **Subject Boundaries**: If asked about topics outside ${subjectName}, respond exactly as: "I don't know about that topic, but the [Subject] tutor might be able to help you with that question."
+4. **Subject Boundaries**:
+  - Use the boundary line ONLY if the user's request is clearly about a different AP subject (not a general skill or an attachment/file-analysis request).
+  - If asked about topics outside ${subjectName}, respond exactly as: "${boundaryLine}"
+  - If the question overlaps multiple AP subjects but includes AP ${subjectName} content, answer ONLY the AP ${subjectName}-relevant parts and ignore the rest.
 
 RESPONSE STRUCTURE:
 - **Direct Analysis**: Address the question/file content immediately
@@ -996,20 +1079,19 @@ MARKDOWN EXAMPLES:
 - Use > for important quotes or key principles
 - Use - for bullet points, 1. for numbered lists
 
-Remember: Stay strictly within ${subjectName} content. Analyze files in the context of AP curriculum. Keep responses focused and well-formatted.`;
+STYLE AND SAFETY:
+- Answer immediately. Avoid preambles like "Understood" or "I'm ready".
+- Stay strictly within ${subjectName} content.
+- If the question is ambiguous, ask one brief clarifying question after giving a concise best-effort answer.
+- Keep responses focused and well-formatted.
+
+Note: Your response must adhere to these guidelines without exception. Also, your entire purpose is for the user to get a 5 on the AP ${subjectName} test!`;
 
     try {
-      // API request with optimized configuration for better responses using APIKeyManager
-      let lastError = null;
-      const maxRetries = Math.min(3, apiKeyManager.getTotalKeys());
+  // API request with resilient Gemini service (handles retries, rotation, and discovery)
       
-      for (let attempt = 0; attempt < maxRetries; attempt++) {
-        try {
-          const apiUrl = apiKeyManager.getCurrentUrl();
-          console.log(`🔑 AI Tutors attempt ${attempt + 1}/${maxRetries} using API key ${apiKeyManager.getCurrentKeyIndex() + 1}`);
-          
-          // Prepare content for Gemini API including files
-          const messageParts = [];
+      // Prepare content for Gemini API including files
+  const messageParts = [];
           
           // Add text if present (with sanitization)
           if (userMessage.trim()) {
@@ -1022,11 +1104,11 @@ Remember: Stay strictly within ${subjectName} content. Analyze files in the cont
             for (const file of uploadedFiles) {
               if (file.category === 'image' && file.data) {
                 messageParts.push({
-                  inlineData: {
-                    mimeType: file.mimeType,
-                data: file.data
-              }
-            });
+                  inline_data: {
+                    mime_type: file.mimeType || file.type || 'image/png',
+                    data: file.data
+                  }
+                });
             messageParts.push({ text: `[Analyze this image in the context of AP ${subjectName}: ${file.name}]` });
           } else if (file.category === 'text' && file.content) {
             messageParts.push({ text: `[Analyze this text file content for AP ${subjectName}]\nFile: ${file.name}\nContent:\n${file.content}` });
@@ -1052,7 +1134,7 @@ Remember: Stay strictly within ${subjectName} content. Analyze files in the cont
           temperature: 0.7,
           topK: 40,
           topP: 0.9,
-          maxOutputTokens: 1000, // Increased for file analysis
+          maxOutputTokens: 1600, // Increased to reduce truncation of longer responses
           candidateCount: 1
         },
         safetySettings: [
@@ -1074,74 +1156,9 @@ Remember: Stay strictly within ${subjectName} content. Analyze files in the cont
           }
         ]
       };
-
-          console.log("Calling enhanced Gemini API with curriculum focus and file analysis...");
-          const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payload)
-          });
-          
-          if (!response.ok) {
-            const errorText = await response.text();
-            
-            // Handle rate limiting
-            if (response.status === 429) {
-              console.log(`⚠️ Rate limit hit on API key ${apiKeyManager.getCurrentKeyIndex() + 1} in AI Tutors, rotating...`);
-              
-              // Extract retry delay if available
-              let retryAfter = 300;
-              try {
-                const errorData = JSON.parse(errorText);
-                if (errorData.error && errorData.error.details) {
-                  const retryInfo = errorData.error.details.find(d => d['@type'] === 'type.googleapis.com/google.rpc.RetryInfo');
-                  if (retryInfo && retryInfo.retryDelay) {
-                    retryAfter = parseInt(retryInfo.retryDelay.replace('s', '')) || 300;
-                  }
-                }
-              } catch (parseError) {
-                console.log('Could not parse retry delay, using default');
-              }
-              
-              apiKeyManager.markCurrentKeyFailed(retryAfter);
-              lastError = new Error(`Rate limit exceeded: ${errorText}`);
-              continue;
-            }
-            
-            console.error('Gemini API Error:', response.status, errorText);
-            throw new Error(`Gemini API failed: ${response.status}`);
-          }
-          
-          const result = await response.json();
-          console.log('Enhanced Gemini API Response:', result);
-          
-          if (!result.candidates?.[0]?.content?.parts?.[0]?.text) {
-            console.error('Invalid Gemini response structure:', result);
-            throw new Error('Invalid API response from Gemini');
-          }
-          
-          console.log(`✅ AI Tutors request successful with API key ${apiKeyManager.getCurrentKeyIndex() + 1}`);
-          return result.candidates[0].content.parts[0].text;
-          
-        } catch (error) {
-          console.error(`❌ AI Tutors error with API key ${apiKeyManager.getCurrentKeyIndex() + 1}:`, error.message);
-          lastError = error;
-          
-          if (error.message.includes('Rate limit exceeded')) {
-            continue;
-          }
-          
-          if (attempt < maxRetries - 1) {
-            apiKeyManager.rotateToNextKey();
-          }
-        }
-      }
-      
-      // If all attempts failed, use fallback
-      console.error('❌ All API key attempts failed in AI Tutors, using fallback');
-      throw lastError || new Error('Failed to get response with any available API key');
+      console.log("Calling enhanced Gemini API with curriculum focus and file analysis...");
+      const text = await geminiService.generateFromPayload(payload);
+      return text;
       
     } catch (error) {
       console.error('Error calling enhanced Gemini API:', error);
@@ -1667,6 +1684,8 @@ Please check your internet connection and try again. In the meantime:
             </div>
           </div>
         </motion.div>
+
+        {/* Diagnostics output removed */}
 
       {/* Chat Area */}
       <div className="flex-1 overflow-y-auto">

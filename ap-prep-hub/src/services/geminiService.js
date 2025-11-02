@@ -1,177 +1,459 @@
 import apiKeyManager from './APIKeyManager';
 
+// Small utility: wait for a promise with timeout
+const withTimeout = (promise, ms, errMsg = 'Timed out') => {
+  let timer;
+  return Promise.race([
+    promise.finally(() => clearTimeout(timer)),
+    new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(errMsg)), ms); })
+  ]);
+};
+
 class GeminiService {
   constructor() {
-    this.baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+    // Default model selection (can be overridden by env or runtime discovery)
+    this.modelName = (process.env.REACT_APP_GEMINI_MODEL && process.env.REACT_APP_GEMINI_MODEL.trim() !== '')
+      ? process.env.REACT_APP_GEMINI_MODEL.trim()
+      : 'google/gemini-2.0-flash-lite-001';
+    this.debug = (process.env.REACT_APP_AI_DEBUG || '').toLowerCase() !== 'false';
+    this._workingModel = null;
+    this._workingModelSupportsMM = false;
+    this._lastPuterFailureAt = 0; // for backoff on repeated failures
+  }
+  // Normalize payload parts to Google's expected snake_case for inline image data
+  _normalizePayloadForGoogle(payload) {
+    try {
+      const p = JSON.parse(JSON.stringify(payload || {}));
+      if (Array.isArray(p.contents)) {
+        p.contents = p.contents.map(c => {
+          const parts = Array.isArray(c?.parts) ? c.parts.map(part => {
+            if (part && part.inlineData && !part.inline_data) {
+              const id = part.inlineData;
+              const nd = { inline_data: { mime_type: id.mime_type || id.mimeType, data: id.data } };
+              if (part.text) nd.text = part.text;
+              return nd;
+            }
+            // Ensure mime_type key when present under inline_data
+            if (part && part.inline_data) {
+              const id = part.inline_data;
+              return { ...part, inline_data: { mime_type: id.mime_type || id.mimeType, data: id.data } };
+            }
+            return part;
+          }) : [];
+          return { ...c, parts };
+        });
+      }
+      return p;
+    } catch (_) {
+      return payload;
+    }
+  }
+  // Try a list of candidate models on Puter with a tiny prompt; cache the first that works
+  async ensureWorkingModel(opts = {}) {
+    const multimodal = !!opts.multimodal;
+    const probeMs = typeof opts.probeMs === 'number' ? opts.probeMs : 3000; // slightly less aggressive
+    // Basic backoff to avoid hammering Puter when it's down
+    if (this._lastPuterFailureAt && Date.now() - this._lastPuterFailureAt < 15000) {
+      throw new Error('Puter temporarily unavailable (backoff)');
+    }
+    if (this._workingModel && (!multimodal || (multimodal && this._workingModelSupportsMM))) {
+      return this._workingModel;
+    }
+    const envModel = (process.env.REACT_APP_GEMINI_MODEL || '').trim();
+    // Prefer image-capable models when multimodal is requested
+    // Keep candidate list short to avoid long probe chains
+    const mmCandidates = [
+      envModel || null,
+      'google/gemini-2.5-flash',
+      'google/gemini-2.5-flash-image-preview:free',
+      'google/gemini-flash-1.5-8b',
+      'google/gemini-flash-1.5'
+    ].filter(Boolean);
+    const textCandidates = [
+      envModel || null,
+      'google/gemini-2.0-flash-lite-001',
+      'google/gemini-2.0-flash-001',
+      'google/gemini-2.0-flash-exp:free'
+    ].filter(Boolean);
+    const candidates = Array.from(new Set(multimodal ? mmCandidates : textCandidates));
+
+    const puter = this.getPuter();
+    if (!puter) throw new Error('Puter.js is not available');
+
+    // Try default (no model specified) first to discover a server-side default
+    try {
+      const t0 = Date.now();
+      const resp = await withTimeout(puter.ai.chat('PING', { stream: false }), probeMs, 'Puter default probe timed out');
+      const text = (resp && resp.message && typeof resp.message.content === 'string') ? resp.message.content : (typeof resp === 'string' ? resp : resp?.text || '');
+      if (text) {
+        this._workingModel = null; // indicates using server default is fine
+        this._workingModelSupportsMM = multimodal; // unknown, but assume fine for text-only; will re-probe for MM when needed
+        if (this.debug) console.debug('[AI] ensureWorkingModel selected default model', { ms: Date.now() - t0 });
+        return null;
+      }
+    } catch (e) {
+      if (this.debug) console.warn('[AI] ensureWorkingModel default probe failed', String(e));
+      this._lastPuterFailureAt = Date.now();
+    }
+
+    for (const m of candidates) {
+      try {
+        const t0 = Date.now();
+        const resp = await withTimeout(puter.ai.chat('PING', { model: m, stream: false }), probeMs, 'Puter probe timed out');
+        const text = (resp && resp.message && typeof resp.message.content === 'string') ? resp.message.content : (typeof resp === 'string' ? resp : resp?.text || '');
+        if (text) {
+          this._workingModel = m;
+          this._workingModelSupportsMM = multimodal;
+          if (this.debug) console.debug('[AI] ensureWorkingModel selected', { model: m, ms: Date.now() - t0 });
+          return m;
+        }
+      } catch (e) {
+        if (this.debug) console.warn('[AI] ensureWorkingModel candidate failed', { model: m, error: String(e) });
+        this._lastPuterFailureAt = Date.now();
+      }
+    }
+    // If none worked, leave null and let caller fallback to Google
+    throw new Error('No Puter models responded');
+  }
+  // Safe access to Puter SDK in browser
+  getPuter() {
+    try {
+      if (typeof window !== 'undefined' && window.puter && window.puter.ai && typeof window.puter.ai.chat === 'function') {
+        return window.puter;
+      }
+    } catch (_) { /* ignore */ }
+    return null;
   }
 
   async generateContent(prompt, options = {}) {
-    let lastError = null;
-    const maxRetries = Math.min(3, apiKeyManager.getTotalKeys()); // Try up to 3 keys or all available keys
-    
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      try {
-        const apiUrl = apiKeyManager.getCurrentUrl();
-        console.log(`🔑 Attempt ${attempt + 1}/${maxRetries} using API key ${apiKeyManager.getCurrentKeyIndex() + 1}`);
-        
-        const response = await fetch(apiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            contents: [{
-              parts: [{
-                text: prompt
-              }]
-            }],
-            generationConfig: {
-              temperature: options.temperature || 0.7,
-              topK: options.topK || 40,
-              topP: options.topP || 0.95,
-              maxOutputTokens: options.maxOutputTokens || 2048,
-            }
-          })
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          
-          // Handle rate limiting specifically
-          if (response.status === 429) {
-            console.log(`⚠️ Rate limit hit on API key ${apiKeyManager.getCurrentKeyIndex() + 1}, rotating to next key...`);
-            
-            // Extract retry delay from error if available
-            let retryAfter = 300; // Default 5 minutes
-            try {
-              const errorData = JSON.parse(errorText);
-              if (errorData.error && errorData.error.details) {
-                const retryInfo = errorData.error.details.find(d => d['@type'] === 'type.googleapis.com/google.rpc.RetryInfo');
-                if (retryInfo && retryInfo.retryDelay) {
-                  const delay = retryInfo.retryDelay;
-                  retryAfter = parseInt(delay.replace('s', '')) || 300;
-                }
-              }
-            } catch (parseError) {
-              console.log('Could not parse retry delay, using default');
-            }
-            
-            apiKeyManager.markCurrentKeyFailed(retryAfter);
-            lastError = new Error(`Rate limit exceeded: ${errorText}`);
-            continue; // Try next key
-          }
-          
-          throw new Error(`Gemini API failed: ${response.status} - ${errorText}`);
-        }
-
-        const result = await response.json();
-        
-        if (!result.candidates || !result.candidates[0] || !result.candidates[0].content) {
-          throw new Error('Invalid API response structure');
-        }
-
-        console.log(`✅ Request successful with API key ${apiKeyManager.getCurrentKeyIndex() + 1}`);
-        return result.candidates[0].content.parts[0].text;
-        
-      } catch (error) {
-        console.error(`❌ Error with API key ${apiKeyManager.getCurrentKeyIndex() + 1}:`, error.message);
-        lastError = error;
-        
-        // If it's a rate limit error, we already handled it above
-        if (error.message.includes('Rate limit exceeded')) {
-          continue;
-        }
-        
-        // For other errors, try rotating to next key
-        if (attempt < maxRetries - 1) {
-          apiKeyManager.rotateToNextKey();
-        }
+    let model = options.model || this._workingModel || this.modelName;
+    const t0 = Date.now();
+    // Try Puter first with a timeout
+    try {
+      const puter = this.getPuter();
+      if (!puter) {
+        throw new Error('Puter.js is not available');
       }
+      const puterOpts = model ? { model, stream: false } : { stream: false };
+      if (this.debug) console.debug('[AI] Puter.generateContent start', { model: model || 'default', hasImage: false });
+  const resp = await withTimeout(puter.ai.chat(prompt, puterOpts), Math.min(options.timeoutMs || 8000, 12000), 'Puter request timed out');
+      if (this.debug) console.debug('[AI] Puter.generateContent success', { model, ms: Date.now() - t0, respType: typeof resp });
+      if (resp && resp.message && typeof resp.message.content === 'string') return resp.message.content;
+      if (typeof resp === 'string') return resp;
+      // Some models may return an object with text
+      if (resp && typeof resp.text === 'string') return resp.text;
+      throw new Error('Unexpected response from Puter.ai.chat');
+    } catch (e) {
+      if (this.debug) console.warn('[AI] Puter.generateContent failed, falling back to Google', { error: String(e), ms: Date.now() - t0 });
+      this._lastPuterFailureAt = Date.now();
+      // One quick retry with a discovered model if we didn't have one yet
+      try {
+        const puter = this.getPuter();
+        if (puter && !options.model && (!this._lastPuterFailureAt || Date.now() - this._lastPuterFailureAt > 15000)) {
+          const retryModel = await this.ensureWorkingModel({ multimodal: false, probeMs: 3000 });
+          const tR = Date.now();
+          const resp = await withTimeout(puter.ai.chat(prompt, { model: retryModel || undefined, stream: false }), 5000, 'Puter retry timed out');
+          if (this.debug) console.debug('[AI] Puter.generateContent retry success', { model: retryModel, ms: Date.now() - tR });
+          if (resp && resp.message && typeof resp.message.content === 'string') return resp.message.content;
+          if (typeof resp === 'string') return resp;
+          if (resp && typeof resp.text === 'string') return resp.text;
+        }
+      } catch (er) {
+        if (this.debug) console.warn('[AI] Puter.generateContent retry failed', String(er));
+      }
+      // Fallback to Google Gemini v1
+      const apiUrl = apiKeyManager.getCurrentUrl();
+      const body = {
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: options.temperature ?? 0.3,
+          maxOutputTokens: options.maxTokens ?? 4000
+        }
+      };
+      const t1 = Date.now();
+      const res = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (!res.ok) {
+        const t = await res.text().catch(() => '');
+        throw new Error(`Google fallback failed: ${res.status} ${t}`);
+      }
+      const data = await res.json();
+      if (this.debug) console.debug('[AI] Google.generateContent success', { ms: Date.now() - t1 });
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      if (!text) throw new Error('Empty response from Google fallback');
+      return text;
     }
-    
-    // If all attempts failed, throw the last error
-    console.error('❌ All API key attempts failed');
-    throw lastError || new Error('Failed to generate content with any available API key');
   }
 
   async generateWithImages(prompt, images = [], options = {}) {
-    let lastError = null;
-    const maxRetries = Math.min(3, apiKeyManager.getTotalKeys());
-    
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      try {
-        const apiUrl = apiKeyManager.getCurrentUrl();
-        console.log(`🔑 Image generation attempt ${attempt + 1}/${maxRetries} using API key ${apiKeyManager.getCurrentKeyIndex() + 1}`);
-        
-        const parts = [{ text: prompt }];
-        
-        // Add images to the request
-        images.forEach(image => {
-          parts.push({
-            inline_data: {
-              mime_type: image.mimeType || 'image/jpeg',
-              data: image.data
-            }
-          });
-        });
+  let model = options.model || this._workingModel || this.modelName;
+    const t0 = Date.now();
+    // If an image is provided, pass the first as a data URL to Puter
+    let imageArg = undefined;
+    if (Array.isArray(images) && images.length > 0) {
+      const img = images[0];
+      if (img && (img.data || img.inline_data?.data)) {
+        const mime = img.mimeType || img.inline_data?.mime_type || 'image/png';
+        const data = img.data || img.inline_data?.data;
+        imageArg = `data:${mime};base64,${data}`;
+      } else if (typeof img === 'string') {
+        imageArg = img; // assume URL
+      }
+    }
+    // If we only have a data: URL, skip Puter and go straight to Google (Puter expects an http(s) URL)
+    if (typeof imageArg === 'string' && imageArg.startsWith('data:')) {
+      if (this.debug) console.warn('[AI] Skipping Puter for data URL image; using Google fallback');
+      return await this._googleGenerateWithImages(prompt, imageArg, options);
+    }
+    try {
+      const puter = this.getPuter();
+      if (!puter) {
+        throw new Error('Puter.js is not available');
+      }
+      const puterOptsBase = { stream: false };
+      const puterOpts = model ? { ...puterOptsBase, model } : puterOptsBase;
+      if (this.debug) console.debug('[AI] Puter.generateWithImages start', { model: model || 'default', hasImage: !!imageArg });
+      const p = imageArg
+        ? puter.ai.chat(prompt, imageArg, puterOpts)
+        : puter.ai.chat(prompt, puterOpts);
+  const resp = await withTimeout(p, Math.min(options.timeoutMs || 9000, 12000), 'Puter image request timed out');
+      if (this.debug) console.debug('[AI] Puter.generateWithImages success', { model, ms: Date.now() - t0, respType: typeof resp });
+      if (resp && resp.message && typeof resp.message.content === 'string') return resp.message.content;
+      if (typeof resp === 'string') return resp;
+      if (resp && typeof resp.text === 'string') return resp.text;
+      throw new Error('Unexpected response from Puter.ai.chat (images)');
+    } catch (e) {
+  if (this.debug) console.warn('[AI] Puter.generateWithImages failed, falling back to Google', { error: String(e), ms: Date.now() - t0 });
+      this._lastPuterFailureAt = Date.now();
+      return await this._googleGenerateWithImages(prompt, imageArg, options);
+    }
+  }
 
-        const response = await fetch(apiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            contents: [{
-              parts: parts
-            }],
-            generationConfig: {
-              temperature: options.temperature || 0.7,
-              topK: options.topK || 40,
-              topP: options.topP || 0.95,
-              maxOutputTokens: options.maxOutputTokens || 2048,
-            }
-          })
-        });
+  // Internal helper to call Google for image generation
+  async _googleGenerateWithImages(prompt, imageArg, options = {}) {
+    const apiUrl = apiKeyManager.getCurrentUrl();
+    const parts = [{ text: prompt }];
+    if (imageArg && typeof imageArg === 'string') {
+      if (imageArg.startsWith('data:')) {
+        const [meta, b64] = imageArg.split(',');
+        const mime = meta.substring(5, meta.indexOf(';'));
+        parts.push({ inline_data: { mime_type: mime, data: b64 } });
+      } else {
+        // For a remote URL, include it as text; Google's v1 can accept image parts only as inline_data here
+        parts.push({ text: imageArg });
+      }
+    }
+    const body = {
+      contents: [{ role: 'user', parts }],
+      generationConfig: { temperature: options.temperature ?? 0.2, maxOutputTokens: options.maxTokens ?? 1000 }
+    };
+    const t1 = Date.now();
+    const res = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!res.ok) {
+      const t = await res.text().catch(() => '');
+      throw new Error(`Google image fallback failed: ${res.status} ${t}`);
+    }
+    const data = await res.json();
+    if (this.debug) console.debug('[AI] Google.generateWithImages success', { ms: Date.now() - t1 });
+    return data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  }
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          
-          // Handle rate limiting
-          if (response.status === 429) {
-            console.log(`⚠️ Rate limit hit on API key ${apiKeyManager.getCurrentKeyIndex() + 1} for image generation, rotating...`);
-            apiKeyManager.markCurrentKeyFailed();
-            lastError = new Error(`Rate limit exceeded: ${errorText}`);
-            continue;
-          }
-          
-          throw new Error(`Gemini API failed: ${response.status} - ${errorText}`);
+  /**
+   * Low-level call that accepts a complete generateContent payload (contents, generationConfig, etc.)
+   * Applies the same retry, key-rotation, and model discovery logic as other methods.
+   * Returns the response text (first candidate part.text) on success.
+   */
+  async generateFromPayload(payload) {
+    // Translate payload.contents into a single prompt string for Puter
+    // Flatten all contents into a single prompt string for Puter
+    const contents = Array.isArray(payload?.contents) ? payload.contents : [];
+    let prompt = '';
+    const imageParts = [];
+    for (const c of contents) {
+      const role = (c?.role || '').toLowerCase();
+      const parts = Array.isArray(c?.parts) ? c.parts : [];
+      for (const p of parts) {
+        if (p?.text) {
+          // Add light role markers to help Puter interpret context
+          const prefix = role === 'model' ? 'Assistant: ' : 'User: ';
+          prompt += prefix + p.text + '\n';
         }
-
-        const result = await response.json();
-        
-        if (!result.candidates || !result.candidates[0] || !result.candidates[0].content) {
-          throw new Error('Invalid API response structure');
-        }
-
-        console.log(`✅ Image generation successful with API key ${apiKeyManager.getCurrentKeyIndex() + 1}`);
-        return result.candidates[0].content.parts[0].text;
-        
-      } catch (error) {
-        console.error(`❌ Image generation error with API key ${apiKeyManager.getCurrentKeyIndex() + 1}:`, error.message);
-        lastError = error;
-        
-        if (error.message.includes('Rate limit exceeded')) {
-          continue;
-        }
-        
-        if (attempt < maxRetries - 1) {
-          apiKeyManager.rotateToNextKey();
+        // Accept both snake_case and camelCase for inline data
+        const idata = p?.inline_data || p?.inlineData;
+        if (idata?.data) {
+          const mime = idata?.mime_type || idata?.mimeType || 'image/png';
+          imageParts.push(`data:${mime};base64,${idata.data}`);
         }
       }
     }
-    
-    console.error('❌ All API key attempts failed for image generation');
-    throw lastError || new Error('Failed to generate content with images using any available API key');
+    // Nudge the model to answer directly instead of posting readiness statements
+    if (contents.length > 0) {
+      prompt += '\nAnswer the user\'s latest question directly. Do not ask for uploads or restatements. Provide the answer immediately.\n';
+    }
+    let model = (payload?.generationConfig?.model) || this._workingModel || this.modelName;
+    const t0 = Date.now();
+    // If we have only data: URLs for images, skip Puter and go straight to Google (Puter expects http(s) URLs for images)
+    const hasOnlyDataUrls = imageParts.length > 0 && imageParts.every(u => typeof u === 'string' && u.startsWith('data:'));
+    if (hasOnlyDataUrls) {
+      if (this.debug) console.warn('[AI] Skipping Puter for data URL images in payload; using Google fallback');
+      const apiUrl = apiKeyManager.getCurrentUrl();
+      const normalized = this._normalizePayloadForGoogle(payload);
+      const t1 = Date.now();
+      const res = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(normalized) });
+      if (!res.ok) {
+        const t = await res.text().catch(() => '');
+        throw new Error(`Google payload fallback failed: ${res.status} ${t}`);
+      }
+      const data = await res.json();
+      if (this.debug) console.debug('[AI] Google.generateFromPayload success', { ms: Date.now() - t1 });
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      if (!text) throw new Error('Empty response from Google payload fallback');
+      return text;
+    }
+    try {
+      const puter = this.getPuter();
+      if (!puter) {
+        throw new Error('Puter.js is not available');
+      }
+      const puterOptsBase = { stream: false };
+      const puterOpts = model ? { ...puterOptsBase, model } : puterOptsBase;
+      if (this.debug) console.debug('[AI] Puter.generateFromPayload start', { model: model || 'default', hasImage: imageParts.length > 0 });
+      // If prompt is very long, use a truncated version for Puter attempt to avoid stalls
+      let promptForPuter = prompt;
+      if (promptForPuter.length > 12000) {
+        const head = promptForPuter.slice(0, 8000);
+        const tail = promptForPuter.slice(-2000);
+        promptForPuter = head + '\n...\n' + tail;
+      }
+      // Prefer the last image supplied (likely from the latest user message)
+      const selectedImage = imageParts.length > 0 ? imageParts[imageParts.length - 1] : undefined;
+      const p = selectedImage
+        ? puter.ai.chat(promptForPuter, selectedImage, puterOpts)
+        : puter.ai.chat(promptForPuter, puterOpts);
+  const resp = await withTimeout(p, Math.min(payload?.timeoutMs || 8000, 12000), 'Puter payload request timed out');
+      if (this.debug) console.debug('[AI] Puter.generateFromPayload success', { model, ms: Date.now() - t0, respType: typeof resp });
+      if (resp && resp.message && typeof resp.message.content === 'string') return resp.message.content;
+      if (typeof resp === 'string') return resp;
+      if (resp && typeof resp.text === 'string') return resp.text;
+      throw new Error('Unexpected response from Puter.ai.chat (payload)');
+    } catch (e) {
+      if (this.debug) console.warn('[AI] Puter.generateFromPayload failed, falling back to Google', { error: String(e), ms: Date.now() - t0 });
+      this._lastPuterFailureAt = Date.now();
+      // Retry once with ensured model if not already
+      try {
+        const puter = this.getPuter();
+        if (puter && !payload?.generationConfig?.model && (!this._lastPuterFailureAt || Date.now() - this._lastPuterFailureAt > 15000)) {
+          const retryModel = await this.ensureWorkingModel({ multimodal: imageParts.length > 0, probeMs: 3000 });
+          const tR = Date.now();
+          let promptForPuter = prompt;
+          if (promptForPuter.length > 12000) {
+            const head = promptForPuter.slice(0, 8000);
+            const tail = promptForPuter.slice(-2000);
+            promptForPuter = head + '\n...\n' + tail;
+          }
+          const p2 = imageParts.length > 0
+            ? puter.ai.chat(promptForPuter, imageParts[0], { model: retryModel || undefined, stream: false })
+            : puter.ai.chat(promptForPuter, { model: retryModel || undefined, stream: false });
+          const resp2 = await withTimeout(p2, 5000, 'Puter payload retry timed out');
+          if (this.debug) console.debug('[AI] Puter.generateFromPayload retry success', { model: retryModel, ms: Date.now() - tR });
+          if (resp2 && resp2.message && typeof resp2.message.content === 'string') return resp2.message.content;
+          if (typeof resp2 === 'string') return resp2;
+          if (resp2 && typeof resp2.text === 'string') return resp2.text;
+        }
+      } catch (er) {
+        if (this.debug) console.warn('[AI] Puter.generateFromPayload retry failed', String(er));
+      }
+      // Fallback to Google
+      const apiUrl = apiKeyManager.getCurrentUrl();
+      const normalized = this._normalizePayloadForGoogle(payload);
+      const t1 = Date.now();
+      const res = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(normalized) });
+      if (!res.ok) {
+        const t = await res.text().catch(() => '');
+        throw new Error(`Google payload fallback failed: ${res.status} ${t}`);
+      }
+      const data = await res.json();
+      if (this.debug) console.debug('[AI] Google.generateFromPayload success', { ms: Date.now() - t1 });
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      if (!text) throw new Error('Empty response from Google payload fallback');
+      return text;
+    }
+  }
+
+  /**
+   * Discover a supported model for generateContent using ListModels
+   * Preference order: env-provided -> gemini-2.5-flash -> gemini-2.0-flash -> any 'flash' with generateContent -> gemini-flash-latest
+   */
+  async discoverSupportedModel() {
+    // With Puter, we can select from known free models; prefer fast Flash
+    const candidates = Array.from(new Set([
+      process.env.REACT_APP_GEMINI_MODEL,
+      'google/gemini-2.0-flash-lite-001',
+      'google/gemini-2.5-flash',
+      'google/gemini-flash-1.5-8b'
+    ].filter(Boolean)));
+    // In absence of programmatic listing, return first candidate
+    return candidates[0];
+  }
+
+  // Diagnostics: test Puter and fallback paths and report timings
+  async diagnose(testPrompt = "Reply with PONG only.") {
+    const model = this.modelName;
+    const result = { ok: false, provider: null, model, latencyMs: null, text: null, error: null };
+    // Try Puter
+    try {
+      const puter = this.getPuter();
+      if (!puter) {
+        throw new Error('Puter.js is not available');
+      }
+      const t0 = Date.now();
+  const resp = await withTimeout(puter.ai.chat(testPrompt, { model, stream: false }), 9000, 'Puter diagnostics timed out');
+      const text = (resp && resp.message && typeof resp.message.content === 'string') ? resp.message.content : (typeof resp === 'string' ? resp : resp?.text || '');
+      result.ok = !!text;
+      result.provider = 'puter';
+      result.latencyMs = Date.now() - t0;
+      result.text = text;
+      if (this.debug) console.debug('[AI] Diagnostics via Puter', result);
+      return result;
+    } catch (e) {
+      if (this.debug) console.warn('[AI] Diagnostics Puter failed, trying Google fallback', e);
+      this._lastPuterFailureAt = Date.now();
+      // Try Google fallback
+      try {
+        const apiUrl = apiKeyManager.getCurrentUrl();
+        const body = {
+          contents: [{ role: 'user', parts: [{ text: testPrompt }] }],
+          generationConfig: { temperature: 0.0, maxOutputTokens: 16 }
+        };
+        const t1 = Date.now();
+        const res = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        if (!res.ok) {
+          const t = await res.text().catch(() => '');
+          throw new Error(`Google diagnostics failed: ${res.status} ${t}`);
+        }
+        const data = await res.json();
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        result.ok = !!text;
+        result.provider = 'google';
+        result.latencyMs = Date.now() - t1;
+        result.text = text;
+        if (this.debug) console.debug('[AI] Diagnostics via Google', result);
+        return result;
+      } catch (gErr) {
+        result.ok = false;
+        result.provider = null;
+        result.error = String(gErr);
+        return result;
+      }
+    }
+  }
+
+  // Optional warm-up to reduce first-call latency and cold starts
+  async prewarm({ multimodal = false } = {}) {
+    try {
+      await this.ensureWorkingModel({ multimodal, probeMs: 3500 });
+    } catch (_) {
+      // ignore; we'll fallback during actual calls
+    }
   }
 
   // Specialized methods for different features

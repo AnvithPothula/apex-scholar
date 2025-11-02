@@ -21,6 +21,10 @@ class APIKeyManager {
     ].filter(key => key && key.trim() !== ''); // Filter out undefined/empty keys
 
     this.currentKeyIndex = 0;
+    // Default model can be overridden via env or at runtime
+    this.defaultModel = process.env.REACT_APP_GEMINI_MODEL && process.env.REACT_APP_GEMINI_MODEL.trim() !== ''
+      ? process.env.REACT_APP_GEMINI_MODEL.trim()
+      : 'gemini-2.5-flash';
     this.failedKeys = new Set();
     this.keyRetryTimes = new Map(); // Track when keys can be retried
     
@@ -47,14 +51,39 @@ class APIKeyManager {
    */
   getCurrentUrl() {
     const key = this.apiKeys[this.currentKeyIndex];
-    return `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+    return `https://generativelanguage.googleapis.com/v1/models/${this.defaultModel}:generateContent?key=${key}`;
+  }
+
+  /**
+   * Build a generateContent URL for a specific model name
+   */
+  getGenerateContentUrl(modelName) {
+    const key = this.apiKeys[this.currentKeyIndex];
+    const model = (modelName || this.defaultModel).replace(/^models\//, '');
+    return `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${key}`;
+  }
+
+  /**
+   * Build a ListModels URL for the current key
+   */
+  getModelsListUrl() {
+    const key = this.apiKeys[this.currentKeyIndex];
+    return `https://generativelanguage.googleapis.com/v1/models?key=${key}`;
+  }
+
+  /**
+   * Update default model at runtime after discovery
+   */
+  setDefaultModel(modelName) {
+    if (modelName && typeof modelName === 'string') {
+      this.defaultModel = modelName.replace(/^models\//, '');
+    }
   }
 
   /**
    * Mark the current key as failed and rotate to next available key
    */
   markCurrentKeyFailed(retryAfterSeconds = 300) {
-    const currentKey = this.apiKeys[this.currentKeyIndex];
     console.log(`⚠️ Marking API key ${this.currentKeyIndex + 1} as failed, will retry after ${retryAfterSeconds} seconds`);
     
     // Mark key as failed with retry time

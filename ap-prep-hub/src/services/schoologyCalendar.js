@@ -4,9 +4,10 @@
  */
 
 import { 
-  getUserTimezone, 
-  formatDateTimeInUserTimezone
+  getUserTimezone
 } from '../utils/timezone';
+
+// Console output intentionally minimized; rely on assignmentSync summary only.
 
 class SchoologyCalendarService {
   constructor() {
@@ -24,10 +25,10 @@ class SchoologyCalendarService {
    * Parse iCal data to extract assignments
    */
   parseICalData(icalData) {
-    const assignments = [];
-    const lines = icalData.split('\n').map(line => line.trim());
+  const assignments = [];
+  const lines = icalData.split('\n').map(line => line.trim());
     
-    console.log(`📄 Parsing iCal data with ${lines.length} lines`);
+    
     
     let currentEvent = null;
     let inEvent = false;
@@ -54,12 +55,12 @@ class SchoologyCalendarService {
           rawStartDate: '',
           rawEndDate: ''
         };
-        console.log(`📅 Starting event ${eventCount}`);
+        
       } else if (line === 'END:VEVENT' && inEvent) {
         if (currentEvent) {
           // Validate and clean up the event before processing
           if (!currentEvent.title || currentEvent.title.trim() === '' || currentEvent.title === 'undefined') {
-            console.log(`⚠️ Event ${eventCount} has no title, creating default title`);
+            
             currentEvent.title = `Calendar Event ${eventCount} (${new Date().toISOString().split('T')[0]})`;
           }
           
@@ -68,7 +69,7 @@ class SchoologyCalendarService {
             currentEvent.title = `Schoology Calendar Item ${eventCount}`;
           }
           
-          console.log(`🔍 Processing event: "${currentEvent.title}"`);
+          
           
           // Only include events that are confirmed as assignments by URL pattern
           if (this.isAssignmentEvent(currentEvent)) {
@@ -76,12 +77,12 @@ class SchoologyCalendarService {
             // Final validation of processed assignment
             if (processedAssignment && processedAssignment.title && processedAssignment.title.trim() !== '') {
               assignments.push(processedAssignment);
-              console.log(`✅ Added assignment: "${processedAssignment.title}"`);
+              
             } else {
-              console.log(`❌ Skipping invalid assignment with missing title`);
+              
             }
           } else {
-            console.log(`⏭️ Skipping non-assignment event: "${currentEvent.title}"`);
+            
           }
         }
         inEvent = false;
@@ -89,13 +90,13 @@ class SchoologyCalendarService {
       } else if (inEvent && currentEvent) {
         // Debug: log each line being processed for events
         if (line.startsWith('DTSTART') || line.startsWith('DTEND') || line.startsWith('SUMMARY')) {
-          console.log(`📝 Processing line in event ${eventCount}: ${line}`);
+          // intentionally no per-line logging
         }
         this.parseEventProperty(line, currentEvent);
       }
     }
 
-    console.log(`📊 Parsed ${eventCount} total events, found ${assignments.length} assignments`);
+    
     return assignments;
   }
 
@@ -116,13 +117,13 @@ class SchoologyCalendarService {
       if (urlMatch) {
         event.url = urlMatch[1];
         event.isAssignmentByUrl = this.isAssignmentUrl(event.url);
-        console.log(`🔗 Extracted URL from description: ${event.url} - isAssignment: ${event.isAssignmentByUrl}`);
+        
       }
     } else if (line.startsWith('URL:')) {
       // Also check the URL field directly (fallback)
       event.url = line.substring(4);
       event.isAssignmentByUrl = this.isAssignmentUrl(event.url);
-      console.log(`🔗 Found URL field: ${event.url} - isAssignment: ${event.isAssignmentByUrl}`);
+      
     } else if (line.startsWith('DTSTART')) {
       // Handle both DTSTART: and DTSTART;VALUE=DATE: formats
       const colonIndex = line.indexOf(':');
@@ -130,7 +131,7 @@ class SchoologyCalendarService {
         const dateStr = line.substring(colonIndex + 1);
         event.rawStartDate = dateStr;
         const parsedDate = this.parseICalDate(dateStr);
-        console.log(`📅 DTSTART parsed: ${dateStr} → ${parsedDate ? parsedDate.toLocaleString() : 'null'}`);
+        
         if (parsedDate) {
           event.startDate = parsedDate;
           // Set initial due date to start date (will be overridden by end date if available)
@@ -144,7 +145,7 @@ class SchoologyCalendarService {
         const dateStr = line.substring(colonIndex + 1);
         event.rawEndDate = dateStr;
         const parsedDate = this.parseICalDate(dateStr);
-        console.log(`📅 DTEND parsed: ${dateStr} → ${parsedDate ? parsedDate.toLocaleString() : 'null'}`);
+        
         if (parsedDate) {
           event.endDate = parsedDate;
           // Use end date as the due date (this is typically when assignment is due)
@@ -165,7 +166,7 @@ class SchoologyCalendarService {
    */
   parseICalDate(dateStr) {
     try {
-      console.log(`📅 Parsing date string: "${dateStr}"`);
+      
       
       // Clean up the date string
       const cleanDateStr = dateStr.trim();
@@ -189,7 +190,7 @@ class SchoologyCalendarService {
         
         const date = new Date(isoStr);
         if (!isNaN(date.getTime())) {
-          console.log(`✅ Parsed datetime: ${cleanDateStr} → ${formatDateTimeInUserTimezone(date)}`);
+          
           return date;
         }
       } else if (cleanDateStr.length === 8 && /^\d{8}$/.test(cleanDateStr)) {
@@ -205,7 +206,7 @@ class SchoologyCalendarService {
           const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
           
           if (!isNaN(date.getTime())) {
-            console.log(`✅ Parsed date in local timezone (avoiding double conversion): ${cleanDateStr} → ${formatDateTimeInUserTimezone(date)}`);
+            
             return date;
           }
         } catch (timezoneError) {
@@ -213,7 +214,7 @@ class SchoologyCalendarService {
           // Fallback to ISO string parsing
           const date = new Date(`${year}-${month}-${day}T00:00:00`);
           if (!isNaN(date.getTime())) {
-            console.log(`✅ Parsed date (ISO fallback): ${cleanDateStr} → ${formatDateTimeInUserTimezone(date)}`);
+            
             return date;
           }
         }
@@ -222,7 +223,7 @@ class SchoologyCalendarService {
       // Try parsing as a regular date string as fallback
       const fallbackDate = new Date(cleanDateStr);
       if (!isNaN(fallbackDate.getTime())) {
-        console.log(`✅ Parsed fallback: ${cleanDateStr} → ${formatDateTimeInUserTimezone(fallbackDate)}`);
+  
         return fallbackDate;
       }
       
@@ -241,26 +242,24 @@ class SchoologyCalendarService {
   calculateDueDate(parsedDate, rawDateStr) {
     try {
       // Create a new date object to avoid mutating the original
-      const dueDate = new Date(parsedDate);
-      const userTimezone = getUserTimezone();
+  const dueDate = new Date(parsedDate);
       
       // If the raw date string includes time information, use it
       if (rawDateStr.includes('T')) {
-        console.log(`⏰ Using specific time from calendar: ${formatDateTimeInUserTimezone(dueDate)} (${userTimezone})`);
+  
         return dueDate;
       } else {
-        // If it's a date-only event (no time specified), default to 11:59 PM in user's timezone
+  // If it's a date-only event (no time specified), default to 11:59 PM local time
         dueDate.setHours(23, 59, 59, 999);
-        console.log(`🌙 No time specified, defaulting to 11:59 PM in ${userTimezone}: ${formatDateTimeInUserTimezone(dueDate)}`);
+  
         return dueDate;
       }
     } catch (error) {
       console.warn('Failed to calculate due date:', error);
       // Fallback to end of the parsed date in user's timezone
-      const fallback = new Date(parsedDate);
-      fallback.setHours(23, 59, 59, 999);
-      const userTimezone = getUserTimezone();
-      console.log(`⚠️ Using fallback due date in ${userTimezone}: ${formatDateTimeInUserTimezone(fallback)}`);
+  const fallback = new Date(parsedDate);
+  fallback.setHours(23, 59, 59, 999);
+  
       return fallback;
     }
   }
@@ -278,13 +277,13 @@ class SchoologyCalendarService {
     const eventPattern = /\/event\/\d+/i;
     
     if (assignmentPattern.test(url)) {
-      console.log(`📝 URL pattern indicates ASSIGNMENT: ${url}`);
+  
       return true;
     } else if (eventPattern.test(url)) {
-      console.log(`📅 URL pattern indicates EVENT: ${url}`);
+  
       return false;
     } else {
-      console.log(`❓ Unknown URL pattern: ${url}`);
+  
       return null; // Unknown pattern
     }
   }
@@ -305,21 +304,21 @@ class SchoologyCalendarService {
    * This follows the user's requirement to base assignment detection solely on the link
    */
   isAssignmentEvent(event) {
-    console.log(`🔍 Checking event: "${event.title}"`);
-    console.log(`🔗 URL: ${event.url || 'No URL found'}`);
+  
+  
     
     // ONLY use URL pattern to determine if it's an assignment
     // Assignment URLs: http://school.district196.org/assignment/7863396025
     // Event URLs: http://school.district196.org/event/7863601655/profile
     if (event.isAssignmentByUrl === true) {
-      console.log(`✅ ASSIGNMENT confirmed by URL pattern: "${event.title}"`);
+  
       return true;
     } else if (event.isAssignmentByUrl === false) {
-      console.log(`❌ EVENT (non-assignment) confirmed by URL pattern: "${event.title}"`);
+  
       return false;
     } else {
       // No URL found or unknown pattern - skip this event
-      console.log(`❓ No assignment URL found or unknown pattern, skipping: "${event.title}"`);
+  
       return false;
     }
   }
@@ -332,7 +331,7 @@ class SchoologyCalendarService {
     let title = event.title;
     if (!title || title.trim() === '' || title === 'undefined' || title === null || title === 'null') {
       title = `Schoology Assignment ${event.id || Date.now()}`;
-      console.log(`⚠️ No valid title found, using default: "${title}"`);
+  
     } else {
       title = title.trim(); // Clean up any whitespace
     }
@@ -366,7 +365,7 @@ class SchoologyCalendarService {
       dueDate = new Date();
       dueDate.setHours(23, 59, 59, 999);
       dueDateSource = `defaulted to 11:59 PM today in ${userTimezone} (no date found)`;
-      console.log(`⚠️ No date found for "${event.title}", using 11:59 PM today in ${userTimezone}`);
+  // Intentionally no console logs here to keep output clean
     }
     
     // Convert to timestamp (seconds, not milliseconds, to match Schoology format)
@@ -400,11 +399,10 @@ class SchoologyCalendarService {
       dueDateSource: dueDateSource // For debugging
     };
     
-    console.log(`✅ Processed assignment: "${title}"`);
-    console.log(`   Due: ${formatDateTimeInUserTimezone(dueDate)} (${dueDateSource})`);
-    console.log(`   Due Timestamp: ${dueTimestamp}`);
-    console.log(`   Description Length: ${description.length} chars`);
-    console.log('---');
+  
+  
+  
+  
     
     return processedAssignment;
   }
@@ -416,15 +414,15 @@ class SchoologyCalendarService {
     const maxRetries = this.corsProxies.length;
     let lastError = null;
 
-    console.log('🗓️ Fetching Schoology calendar feed:', calendarUrl);
+  
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
         const currentProxy = this.corsProxies[this.currentProxyIndex];
         const proxyUrl = currentProxy + encodeURIComponent(calendarUrl);
         
-        console.log(`🔗 Attempt ${attempt + 1}/${maxRetries} using proxy: ${currentProxy}`);
-        console.log('🔗 Full proxy URL:', proxyUrl);
+  
+  
         
         const response = await fetch(proxyUrl, {
           method: 'GET',
@@ -451,8 +449,8 @@ class SchoologyCalendarService {
           throw new Error('Invalid iCal format: Missing VCALENDAR header');
         }
 
-        console.log('✅ Successfully fetched calendar data');
-        console.log(`📊 Calendar data length: ${icalData.length} characters`);
+  
+  
         return icalData;
 
       } catch (error) {
@@ -464,7 +462,7 @@ class SchoologyCalendarService {
         
         // Add delay between attempts (except for last attempt)
         if (attempt < maxRetries - 1) {
-          console.log('⏳ Waiting 1 second before trying next proxy...');
+          
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
@@ -479,12 +477,9 @@ class SchoologyCalendarService {
    */
   async parseCalendarToAssignments(calendarUrl) {
     try {
-      const icalData = await this.fetchCalendarFeed(calendarUrl);
-      console.log('📄 Calendar data fetched, length:', icalData.length);
-      console.log('📄 First 500 chars:', icalData.substring(0, 500));
+    const icalData = await this.fetchCalendarFeed(calendarUrl);
       
-      const assignments = this.parseICalData(icalData);
-      console.log(`✅ Parsed ${assignments.length} assignments from calendar`);
+    const assignments = this.parseICalData(icalData);
       
       return assignments;
     } catch (error) {
@@ -523,7 +518,7 @@ class SchoologyCalendarService {
    * Test date parsing functionality
    */
   testDateParsing() {
-    console.log('🧪 Testing iCal date parsing:');
+  
     
     const testDates = [
       '20250825T140000Z',     // UTC datetime

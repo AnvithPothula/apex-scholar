@@ -21,7 +21,15 @@ export function Layout({ children }) {
             <header className="sticky top-0 z-50 border-b border-slate-700 bg-slate-900/90 backdrop-blur-lg shadow-lg">
                 <div className="max-w-screen-xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
                     <div className="flex items-center justify-between h-14 sm:h-16">
-                        <Link to="/AITutors" className="flex items-center space-x-2 sm:space-x-3 group">
+                                                <Link
+                                                        to="/"
+                                                        onClick={(e) => {
+                                                            // Ensure client-side navigation to home works even if already on a similar route
+                                                            e.preventDefault();
+                                                            navigate('/');
+                                                        }}
+                                                        className="flex items-center space-x-2 sm:space-x-3 group"
+                                                >
                             <div className="p-1 sm:p-1.5 rounded-lg group-hover:opacity-80 transition-all duration-200">
                                 <ApexScholarLogo 
                                     className="w-8 h-8 sm:w-10 sm:h-10" 

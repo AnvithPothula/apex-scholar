@@ -83,14 +83,8 @@ class AssignmentSyncService {
     // Determine task type
     const taskType = this.determineTaskType(assignment);
 
-    // Check if this is an assignment based on content (for validation)
-    const isAssignment = this.isAssignmentContent(assignment);
-    if (!isAssignment) {
-      console.log(`⚠️ Content analysis suggests "${assignment.title}" may not be an assignment`);
-    }
-
-    // Log assignment details for debugging
-    console.log(`📝 ASSIGNMENT SYNC: "${assignment.title}" due ${deadline.toLocaleString()}`);
+  // Optionally validate content (suppressed logging)
+  // this.isAssignmentContent(assignment);
 
     return {
       name: assignment.title.trim(),
@@ -326,7 +320,7 @@ class AssignmentSyncService {
         lastUpdated: new Date()
       }, { merge: true });
       
-      console.log(`📝 Recorded assignment "${assignmentTitle}" (${schoologyId}) in sync history`);
+  // Quiet logging for normal sync flow
     } catch (error) {
       console.error('Error recording assignment sync:', error);
     }
@@ -392,7 +386,7 @@ class AssignmentSyncService {
         clearedAt: new Date()
       });
       
-      console.log(`🗑️ Cleared sync history for user ${userId}`);
+  // logging removed to keep console clean during sync operations
       return { success: true };
     } catch (error) {
       console.error('Error clearing sync history:', error);
@@ -426,20 +420,16 @@ class AssignmentSyncService {
    */
   async syncAssignments(userId, options = {}) {
     try {
-      console.log('🔄 Starting Schoology assignment sync for user:', userId);
 
       // Check if user has Schoology connected
       const isConnected = await schoologyAPI.isConnected(userId);
       if (!isConnected) {
-        console.log('❌ User does not have Schoology connected');
         return { success: false, error: 'Schoology not connected' };
       }
 
       // Get assignments from Schoology using both API and calendar
       const daysBack = options.daysBack || 1; // Only sync recent assignments by default
-      const assignments = await schoologyAPI.getCombinedAssignments(userId, daysBack);
-
-      console.log(`📚 Found ${assignments.length} assignments from Schoology`);
+  const assignments = await schoologyAPI.getCombinedAssignments(userId, daysBack);
 
       let syncedCount = 0;
       let skippedCount = 0;
@@ -448,11 +438,11 @@ class AssignmentSyncService {
 
       for (const assignment of assignments) {
         try {
-          console.log(`🔄 Processing assignment: "${assignment.title || 'UNNAMED'}"`);
+          // minimize console noise; avoid per-assignment logs
           
           // Validate assignment data before processing
           if (!assignment || !assignment.title || assignment.title.trim() === '') {
-            console.warn(`⏭️ Skipping invalid assignment (missing title)`);
+            // silently skip invalid assignment
             errorCount++;
             continue;
           }
@@ -462,7 +452,6 @@ class AssignmentSyncService {
           // FIXED: Check if this assignment has been synced before (even if deleted)
           const hasBeenSynced = await this.hasBeenSyncedBefore(userId, assignmentId);
           if (hasBeenSynced) {
-            console.log(`⏭️ Skipping previously synced assignment: "${assignment.title}" (ID: ${assignmentId})`);
             // Update the last seen date to track that this assignment is still active in Schoology
             await this.updateAssignmentLastSeen(userId, assignmentId);
             skippedCount++;
@@ -472,7 +461,6 @@ class AssignmentSyncService {
           // Check if assignment currently exists in user's tasks (backup check)
           const exists = await this.assignmentExists(userId, assignmentId);
           if (exists) {
-            console.log(`⏭️ Skipping existing assignment: "${assignment.title}"`);
             // Record it in sync history if not already there
             await this.recordAssignmentSynced(userId, assignmentId, assignment.title, assignment);
             skippedCount++;
@@ -481,7 +469,6 @@ class AssignmentSyncService {
 
           // Skip completed assignments unless forced
           if (assignment.completed && !options.includeCompleted) {
-            console.log(`⏭️ Skipping completed assignment: "${assignment.title}"`);
             skippedCount++;
             continue;
           }
@@ -492,7 +479,6 @@ class AssignmentSyncService {
           // Skip assignments that are already past due
           const now = new Date();
           if (task.deadline < now) {
-            console.log(`⏭️ Skipping past due assignment: "${assignment.title}"`);
             pastDueCount++;
             continue;
           }
@@ -509,7 +495,6 @@ class AssignmentSyncService {
           await this.recordAssignmentSynced(userId, assignmentId, assignment.title, assignment);
 
           syncedCount++;
-          console.log(`✅ Synced: "${assignment.title}" (ID: ${assignmentId})`);
 
         } catch (error) {
           console.error(`❌ Error syncing assignment "${assignment?.title || 'UNNAMED'}":`, error.message);
@@ -530,7 +515,8 @@ class AssignmentSyncService {
         lastSync: new Date()
       };
 
-      console.log('🎉 Schoology sync completed:', result);
+  // Single concise log per request
+  console.log(`Fetched assignments: total=${result.totalAssignments}, synced=${result.syncedCount}, skipped=${result.skippedCount}, pastDue=${result.pastDueCount}, errors=${result.errorCount}`);
       return result;
 
     } catch (error) {
@@ -553,11 +539,11 @@ class AssignmentSyncService {
     // Clear existing interval if any
     this.stopAutoSync(userId);
 
-    console.log(`🔄 Starting auto-sync for user ${userId} every ${intervalMinutes} minutes`);
+  // logging removed to keep console clean during sync operations
 
     const intervalId = setInterval(async () => {
       try {
-        console.log(`⏰ Running scheduled sync for user ${userId}`);
+  // logging removed to keep console clean during sync operations
         await this.syncAssignments(userId, { daysBack: 1 });
       } catch (error) {
         console.error('Error in scheduled sync:', error);
@@ -574,7 +560,7 @@ class AssignmentSyncService {
         syncInterval: intervalMinutes,
         autoSyncStarted: new Date()
       });
-      console.log(`✅ Auto-sync settings saved to Firebase for user ${userId}`);
+  // logging removed to keep console clean during sync operations
     } catch (error) {
       console.error('Error saving auto-sync settings:', error);
       // Don't fail the entire operation if Firebase save fails
@@ -589,7 +575,7 @@ class AssignmentSyncService {
     if (intervalId) {
       clearInterval(intervalId);
       this.syncIntervals.delete(userId);
-      console.log(`⏹️ Stopped auto-sync for user ${userId}`);
+  // logging removed to keep console clean during sync operations
     }
 
     // Save auto-sync settings to Firebase for persistence
@@ -601,7 +587,7 @@ class AssignmentSyncService {
           autoSync: false,
           autoSyncStopped: new Date()
         });
-        console.log(`✅ Auto-sync disabled state saved to Firebase for user ${userId}`);
+  // logging removed to keep console clean during sync operations
       }
     } catch (error) {
       console.error('Error saving auto-sync disabled state:', error);
@@ -613,7 +599,7 @@ class AssignmentSyncService {
    * Manual sync trigger
    */
   async manualSync(userId, options = {}) {
-    console.log('🔄 Manual sync triggered for user:', userId);
+  // logging removed to keep console clean during sync operations
     
     const result = await this.syncAssignments(userId, {
       daysBack: options.daysBack || 7, // Sync more history for manual sync
@@ -642,7 +628,7 @@ class AssignmentSyncService {
 
       // If Firebase says auto-sync should be on but it's not running in memory, restart it
       if (autoSyncFromFirebase && !hasAutoSyncInMemory && isConnected) {
-        console.log(`🔄 Restarting auto-sync from Firebase settings for user ${userId}`);
+  // logging removed to keep console clean during sync operations
         this.startAutoSync(userId, syncInterval);
       }
 
@@ -693,7 +679,7 @@ class AssignmentSyncService {
 
       await setDoc(userTokensRef, settingsToSave, { merge: true });
       
-      console.log(`✅ Sync settings saved for user ${userId}:`, settings);
+  // logging removed to keep console clean during sync operations
       return { success: true };
     } catch (error) {
       console.error('Error saving sync settings:', error);

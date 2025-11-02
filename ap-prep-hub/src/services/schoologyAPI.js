@@ -304,7 +304,7 @@ class SchoologyAPIService {
    */
   async getAllAssignments(userId, daysBack = 7) {
     try {
-      console.log('📚 Getting assignments from calendar only...');
+  // minimize console noise during fetch
       return await this.getAssignmentsFromCalendar(userId);
     } catch (error) {
       console.error('Error fetching Schoology assignments:', error);
@@ -322,15 +322,11 @@ class SchoologyAPIService {
       const tokenDoc = await getDoc(userTokensRef);
       
       if (!tokenDoc.exists() || !tokenDoc.data().calendarUrl) {
-        console.log('No calendar URL configured for user');
         return [];
       }
 
       const calendarUrl = tokenDoc.data().calendarUrl;
-      console.log('🗓️ Fetching assignments from calendar feed...');
-      
       const assignments = await schoologyCalendar.parseCalendarToAssignments(calendarUrl);
-      console.log(`✅ Found ${assignments.length} assignments from calendar`);
       
       return assignments;
     } catch (error) {
