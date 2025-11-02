@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useParams, Navigate, useNavigate } from 'react-router-dom';
-import { 
-  Send, 
-  Bot, 
-  User, 
+import {
+  Send,
+  Bot,
+  User,
   BookOpen,
   ChevronLeft,
   Sparkles,
@@ -42,6 +42,10 @@ import {
   PenTool
 } from 'lucide-react';
 import { Card, CardContent, Button, Badge, Input } from '../components/ui/UIComponents';
+import MCQCard from '../components/tutors/MCQCard.jsx';
+import CalculatorPad from '../components/tools/CalculatorPad.jsx';
+import { cedSearch } from '../services/cedSearch';
+import { extractPdfTextFromBase64 } from '../services/pdfUtils';
 import SubjectSelector from '../components/tutors/SubjectSelector.jsx';
 import MarkdownRenderer from '../components/MarkdownRenderer.jsx';
 import { subjects } from '../constants/subjects';
@@ -77,6 +81,9 @@ const AITutors = () => {
   const [editingName, setEditingName] = useState('');
   const [showConversationMenu, setShowConversationMenu] = useState(null);
   const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [selectedMode, setSelectedMode] = useState('Explain'); // 'Explain' | 'Practice MCQ' | 'Walkthrough' | 'Summarize Attachment'
+  const [checkMySteps, setCheckMySteps] = useState(false);
+  const [showCalculator, setShowCalculator] = useState(false);
   const [isSwitchingSubjects, setIsSwitchingSubjects] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -346,6 +353,27 @@ const AITutors = () => {
       }
     };
   }, [activeConversationId, loadConversationMessages]);
+
+  // Keyboard-first shortcuts
+  useEffect(() => {
+    const handler = (e) => {
+      const meta = e.metaKey || e.ctrlKey;
+      if (meta && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        inputRef.current?.focus();
+      } else if (meta && e.key.toLowerCase() === 'u') {
+        e.preventDefault();
+        handleFileSelect();
+      } else if (meta && ['1','2','3','4'].includes(e.key)) {
+        e.preventDefault();
+        const map = { '1':'Explain', '2':'Practice MCQ', '3':'Walkthrough', '4':'Summarize Attachment' };
+        setSelectedMode(map[e.key]);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Debug effect to track state changes
   useEffect(() => {
@@ -871,23 +899,37 @@ const AITutors = () => {
       console.log('Generating real AI response for subject:', subjectName);
       
       // Always use the real AI for intelligent, contextual responses
-      const response = await generateKnowledgeableResponse(selectedSubject, userMessage, curriculumData, uploadedFiles);
+  const response = await generateKnowledgeableResponse(selectedSubject, userMessage, curriculumData, uploadedFiles, { mode: selectedMode, checkMySteps });
       
       if (!response || response.trim().length === 0) {
         throw new Error('Empty response from AI');
       }
       
-      const aiMessage = {
+      let aiMessage = {
         id: `ai_${Date.now()}`,
         type: 'ai',
         content: response,
         timestamp: new Date()
       };
+
+      // If MCQ mode and response is JSON, render as MCQ card
+      if (selectedMode === 'Practice MCQ') {
+        try {
+          const jsonMatch = response.match(/\{[\s\S]*\}$/);
+          if (jsonMatch) {
+            const mcq = JSON.parse(jsonMatch[0]);
+            if (mcq && Array.isArray(mcq.choices)) {
+              aiMessage.responseType = 'mcq';
+              aiMessage.mcq = mcq;
+            }
+          }
+        } catch (_) { /* ignore JSON parse issues */ }
+      }
       
       console.log('Adding AI response:', aiMessage);
       
       // Save AI message to Firebase (user is guaranteed to exist due to auth protection)
-      await saveMessage(activeConversationId, aiMessage);
+  await saveMessage(activeConversationId, aiMessage);
       
     } catch (error) {
       console.error('Error generating AI response:', error);
@@ -933,9 +975,10 @@ const AITutors = () => {
   };
 
   // Enhanced AI-powered response generator with markdown, LaTeX, and curriculum focus
-  const generateKnowledgeableResponse = async (subject, userMessage, curriculumData, uploadedFiles = []) => {
+  const generateKnowledgeableResponse = async (subject, userMessage, curriculumData, uploadedFiles = [], opts = {}) => {
     const { default: geminiService } = await import('../services/geminiService');
     const subjectName = curriculumData?.name || subject;
+    const { mode = 'Explain', checkMySteps = false } = opts;
     
     // Build conversation history for context (last 6 messages for optimal performance)
     const hasFiles = Array.isArray(uploadedFiles) && uploadedFiles.length > 0;
@@ -968,7 +1011,7 @@ const AITutors = () => {
       };
     });
 
-    // Get comprehensive curriculum information for deep subject knowledge
+  // Get comprehensive curriculum information for deep subject knowledge
     const curriculumContext = curriculumData ? `
 COMPREHENSIVE CURRICULUM MASTERY:
 Course: ${curriculumData.name}
@@ -1030,10 +1073,40 @@ ${curriculumData.studyTips?.join('\n- ') || 'Active learning, practice problems,
       ? `I don't know about that topic, but the ${recommendedSubject} tutor might be able to help you with that question.`
       : `I don't know about that topic, but another subject tutor might be able to help you with that question.`;
 
+  // Fetch CED citations (best-effort)
+  let citations = [];
+  try {
+    citations = await cedSearch(subjectName, userMessage);
+  } catch (_) { citations = []; }
+
+  const modeDirective = mode === 'Practice MCQ'
+    ? `MODE: Practice MCQ.
+Output STRICT JSON with keys: question (string), choices (array of 4 strings), correctIndex (0-3), explanations (array of 4 strings). No prose before or after JSON.`
+    : mode === 'Walkthrough'
+    ? `MODE: Step-by-step walkthrough with short steps and $LaTeX$ for math.`
+    : mode === 'Summarize Attachment'
+    ? `MODE: Summarize the attached files first (key ideas, formulas, exam relevance), then answer the user's prompt.`
+    : `MODE: Clear explanation of the concept with examples and exam alignment.`;
+
+  const critiqueDirective = checkMySteps
+    ? `Critique Mode ON: If the user shares steps, briefly check for correctness and point out specific fixes before providing the final answer.`
+    : `Critique Mode OFF.`;
+
+  const citationsBlock = citations.length > 0
+    ? `
+CED REFERENCE SNIPPETS (use to support your answer; cite page numbers):
+${citations.map(c => `- Page ${c.page}: ${c.snippet}`).join('\n')}
+`
+    : '';
+
   // Enhanced system prompt with strict anti-hallucination guidance
   const systemPrompt = `You are an expert AP ${subjectName} tutor with deep mastery of the official College Board curriculum and advanced multimodal analysis capabilities. You ONLY answer questions related to ${subjectName}.
 
 ${curriculumContext}
+
+${modeDirective}
+${critiqueDirective}
+${citationsBlock}
 
 MULTIMODAL ANALYSIS CAPABILITIES:
 When analyzing uploaded files:
@@ -1090,7 +1163,7 @@ Note: Your response must adhere to these guidelines without exception. Also, you
     try {
   // API request with resilient Gemini service (handles retries, rotation, and discovery)
       
-      // Prepare content for Gemini API including files
+    // Prepare content for Gemini API including files
   const messageParts = [];
           
           // Add text if present (with sanitization)
@@ -1113,7 +1186,16 @@ Note: Your response must adhere to these guidelines without exception. Also, you
           } else if (file.category === 'text' && file.content) {
             messageParts.push({ text: `[Analyze this text file content for AP ${subjectName}]\nFile: ${file.name}\nContent:\n${file.content}` });
           } else if (file.category === 'document' && file.data) {
-            messageParts.push({ text: `[Document uploaded: ${file.name}. Please provide guidance on how to analyze this document type in the context of AP ${subjectName} curriculum.]` });
+            // Try to extract first pages for better context
+            try {
+              if ((file.mimeType || file.type) === 'application/pdf') {
+                const extracted = await extractPdfTextFromBase64(file.data, { maxPages: 2, maxChars: 2000 });
+                if (extracted) {
+                  messageParts.push({ text: `[Extracted from PDF ${file.name}]:\n${extracted}` });
+                }
+              }
+            } catch (_) { /* ignore extraction errors */ }
+            messageParts.push({ text: `[Document uploaded: ${file.name}. Analyze in the context of AP ${subjectName}.]` });
           }
         }
       }
@@ -1131,10 +1213,10 @@ Note: Your response must adhere to these guidelines without exception. Also, you
           }
         ],
         generationConfig: {
-          temperature: 0.7,
+          temperature: mode === 'Practice MCQ' ? 0.4 : 0.7,
           topK: 40,
           topP: 0.9,
-          maxOutputTokens: 1600, // Increased to reduce truncation of longer responses
+          maxOutputTokens: mode === 'Practice MCQ' ? 800 : 1600, // smaller for JSON
           candidateCount: 1
         },
         safetySettings: [
@@ -1690,6 +1772,25 @@ Please check your internet connection and try again. In the meantime:
       {/* Chat Area */}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-4xl mx-auto p-6 space-y-6">
+          {/* Mode Selector */}
+          <div className="flex flex-wrap items-center gap-2 mb-2" role="group" aria-label="Tutor modes">
+            {['Explain','Practice MCQ','Walkthrough','Summarize Attachment'].map((m) => (
+              <Button
+                key={m}
+                variant={selectedMode === m ? 'primary' : 'ghost'}
+                size="sm"
+                aria-pressed={selectedMode === m}
+                onClick={() => setSelectedMode(m)}
+                className={selectedMode === m ? 'bg-blue-700 text-white' : 'text-slate-300 hover:text-slate-100'}
+              >
+                {m}
+              </Button>
+            ))}
+            <label className="ml-2 inline-flex items-center gap-2 text-sm text-slate-300">
+              <input type="checkbox" checked={checkMySteps} onChange={(e) => setCheckMySteps(e.target.checked)} />
+              Check my steps
+            </label>
+          </div>
           {/* Welcome Message */}
           {messages.length === 1 && messages[0].suggestions && (
             <motion.div
@@ -1781,12 +1882,32 @@ Please check your internet connection and try again. In the meantime:
                             )}
                           </div>
                         ) : (
-                          <MarkdownRenderer 
-                            content={message.content}
-                            className={`text-sm leading-relaxed ${
-                              message.type === 'user' ? 'text-white' : 'text-slate-200'
-                            }`}
-                          />
+                          message.responseType === 'mcq' && message.mcq ? (
+                            <MCQCard
+                              mcq={message.mcq}
+                              onSelect={async (choiceIdx) => {
+                                try {
+                                  const correct = typeof message.mcq.correctIndex === 'number' ? (choiceIdx === message.mcq.correctIndex) : null;
+                                  await addDoc(collection(db, 'conversations', activeConversationId, 'mcqResponses'), {
+                                    question: message.mcq.question,
+                                    choiceIndex: choiceIdx,
+                                    correctIndex: message.mcq.correctIndex,
+                                    correct,
+                                    createdAt: serverTimestamp()
+                                  });
+                                } catch (e) {
+                                  console.error('Failed to save MCQ response', e);
+                                }
+                              }}
+                            />
+                          ) : (
+                            <MarkdownRenderer 
+                              content={message.content}
+                              className={`text-sm leading-relaxed ${
+                                message.type === 'user' ? 'text-white' : 'text-slate-200'
+                              }`}
+                            />
+                          )
                         )}
                         
                         <div className={`text-xs mt-2 ${
@@ -1948,6 +2069,9 @@ Please check your internet connection and try again. In the meantime:
           </div>
         </div>
       </motion.div>
+      {showCalculator && (
+        <CalculatorPad onClose={() => setShowCalculator(false)} />
+      )}
       </div>
     </div>
   );

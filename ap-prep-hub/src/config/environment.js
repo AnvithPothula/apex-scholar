@@ -103,10 +103,12 @@ export const getRateLimitConfig = () => {
   };
 };
 
-export default {
+const environment = {
   getConfig,
   isFeatureEnabled,
   getBatchingConfig,
   getRateLimitConfig,
   getCurrentEnvironment
 };
+
+export default environment;

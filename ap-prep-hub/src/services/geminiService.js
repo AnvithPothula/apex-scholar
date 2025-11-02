@@ -487,24 +487,32 @@ Return ONLY the JSON array, no additional text or formatting.`;
   }
 
   async solveProblem(problemText, subject = '', imageData = null) {
-    let prompt = `Solve this ${subject} problem step by step:
+    const isHumanities = /(history|government|politics|english|literature|world|u\s*s\s*history)/i.test(subject || '');
+    let prompt = `Solve this ${subject || 'AP'} problem step by step:
 
 ${problemText}
 
-IMPORTANT: Use LaTeX formatting for all mathematical expressions. Wrap inline math with single dollar signs $...$ and block math with double dollar signs $$...$$.
-
+${isHumanities ? `Formatting:
+- Use clear, concise academic writing.
+- Organize with short sections (analysis, evidence, reasoning, conclusion) as needed.
+- No LaTeX is required unless math appears.
+` : `IMPORTANT: Use LaTeX formatting for all mathematical expressions. Wrap inline math with single dollar signs $...$ and block math with double dollar signs $$...$$.
+`}
 Provide:
 1. Problem identification and type
-2. Step-by-step solution with explanations (use LaTeX for all math)
-3. Final answer (use LaTeX for mathematical expressions)
+2. Step-by-step solution with explanations${isHumanities ? '' : ' (use LaTeX for all math)'}
+3. Final answer or thesis/summary
 4. Key concepts used
 5. Common mistakes to avoid
 
-Format as JSON with fields: problemType, steps (array of {step, title, content, explanation}), finalAnswer, concepts, commonMistakes
-
-Example LaTeX formatting:
-- Inline: "The derivative of $f(x) = x^2$ is $f'(x) = 2x$"
-- Block: "$$\\int_{0}^{1} x^2 dx = \\frac{1}{3}$$"`;
+Return ONLY valid JSON (no code fences, no preamble, no trailing commentary) with fields:
+problemType (string),
+steps (array of { step (number), title (string), content (string), explanation (string) }),
+finalAnswer (string),
+concepts (array of strings),
+commonMistakes (array of strings),
+difficulty ("Easy"|"Medium"|"Hard"),
+timeToSolve (string like "5-10 minutes").`;
 
     if (imageData) {
       return await this.generateWithImages(prompt, [imageData]);

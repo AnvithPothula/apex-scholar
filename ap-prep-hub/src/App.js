@@ -1,16 +1,23 @@
-import React, { useEffect } from 'react';
+/* eslint-disable import/first */
+import React, { useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Layout } from './components/Layout.jsx';
 import { LoginPage } from './components/auth/LoginPage';
 import { SchoologyCallback } from './components/auth/SchoologyCallback';
-import AITutors from './pages/AITutors';
-import SmartScheduler from './pages/SmartScheduler';
-import PracticeTests from './pages/PracticeTests';
-import Settings from './pages/Settings';
-import Flashcards from './pages/Flashcards';
-import Solver from './pages/Solver';
+// eslint-disable-next-line import/first
+const AITutors = lazy(() => import('./pages/AITutors'));
+// eslint-disable-next-line import/first
+const SmartScheduler = lazy(() => import('./pages/SmartScheduler'));
+// eslint-disable-next-line import/first
+const PracticeTests = lazy(() => import('./pages/PracticeTests'));
+// eslint-disable-next-line import/first
+const Settings = lazy(() => import('./pages/Settings'));
+// eslint-disable-next-line import/first
+const Flashcards = lazy(() => import('./pages/Flashcards'));
+// eslint-disable-next-line import/first
+const Solver = lazy(() => import('./pages/Solver'));
 import { createPageUrl } from './utils/helpers';
 import { initializeBackgroundSync } from './services/backgroundSync';
 
@@ -38,16 +45,18 @@ function App() {
 function MainApp() {
   return (
     <Layout>
-      <Routes>
-        <Route path={createPageUrl("AITutors")} element={<AITutors />} />
-        <Route path={createPageUrl("AITutors", ":subject")} element={<AITutors />} />
-        <Route path={createPageUrl("SmartScheduler")} element={<SmartScheduler />} />
-        <Route path={createPageUrl("PracticeTests")} element={<PracticeTests />} />
-        <Route path={createPageUrl("Flashcards")} element={<Flashcards />} />
-        <Route path={createPageUrl("Solver")} element={<Solver />} />
-        <Route path={createPageUrl("Settings")} element={<Settings />} />
-        <Route path="*" element={<Navigate to={createPageUrl("AITutors")} replace />} />
-      </Routes>
+      <Suspense fallback={<div className="p-6 text-slate-300">Loading…</div>}>
+        <Routes>
+          <Route path={createPageUrl("AITutors")} element={<AITutors />} />
+          <Route path={createPageUrl("AITutors", ":subject")} element={<AITutors />} />
+          <Route path={createPageUrl("SmartScheduler")} element={<SmartScheduler />} />
+          <Route path={createPageUrl("PracticeTests")} element={<PracticeTests />} />
+          <Route path={createPageUrl("Flashcards")} element={<Flashcards />} />
+          <Route path={createPageUrl("Solver")} element={<Solver />} />
+          <Route path={createPageUrl("Settings")} element={<Settings />} />
+          <Route path="*" element={<Navigate to={createPageUrl("AITutors")} replace />} />
+        </Routes>
+      </Suspense>
     </Layout>
   );
 }

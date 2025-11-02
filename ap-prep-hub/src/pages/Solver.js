@@ -140,11 +140,37 @@ Provide a detailed step-by-step solution with proper LaTeX formatting for mathem
       }
 
       // Try to parse JSON response, fallback to text parsing
+      const extractJson = (txt) => {
+        if (!txt) return null;
+        // Prefer fenced json blocks
+        const fenced = txt.match(/```json\s*([\s\S]*?)```/i);
+        if (fenced && fenced[1]) {
+          try { return JSON.parse(fenced[1]); } catch(_) {}
+        }
+        // Remove any code fences for parsing
+        const stripped = txt.replace(/```[\s\S]*?```/g, (m) => {
+          const inner = m.replace(/^```[a-z]*\n?/i,'').replace(/```$/,'');
+          return inner;
+        });
+        // Attempt to find first JSON object
+        const firstBrace = stripped.indexOf('{');
+        const lastBrace = stripped.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+          const candidate = stripped.slice(firstBrace, lastBrace + 1);
+          try { return JSON.parse(candidate); } catch(_) {}
+        }
+        // Fallback regex
+        const loose = stripped.match(/\{[\s\S]*\}/);
+        if (loose) {
+          try { return JSON.parse(loose[0]); } catch(_) {}
+        }
+        return null;
+      };
       let parsedSolution;
       try {
-        const jsonMatch = solutionText.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          parsedSolution = JSON.parse(jsonMatch[0]);
+        const obj = extractJson(solutionText);
+        if (obj) {
+          parsedSolution = obj;
         } else {
           throw new Error('No JSON found');
         }
@@ -185,7 +211,10 @@ Provide a detailed step-by-step solution with proper LaTeX formatting for mathem
 
   const parseTextSolution = (text, question, subject) => {
     // Simple text parsing for fallback
-    const lines = text.split('\n').filter(line => line.trim());
+    const lines = text
+      .split('\n')
+      .filter(line => line.trim())
+      .filter(line => !/^```/i.test(line)); // drop code fence markers
     
     return {
       question: question || "Problem from image",
