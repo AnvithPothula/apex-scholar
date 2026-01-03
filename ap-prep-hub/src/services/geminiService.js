@@ -19,6 +19,77 @@ class GeminiService {
     this._workingModel = null;
     this._workingModelSupportsMM = false;
     this._lastPuterFailureAt = 0; // for backoff on repeated failures
+
+    // Request deduplication cache
+    this._requestCache = new Map(); // hash -> {promise, timestamp}
+    this._cacheExpiry = 5 * 60 * 1000; // 5 minutes
+    this._cacheCleanupInterval = null;
+
+    // Start cache cleanup interval
+    this._startCacheCleanup();
+  }
+
+  /**
+   * Start periodic cleanup of expired cache entries
+   */
+  _startCacheCleanup() {
+    if (this._cacheCleanupInterval) return;
+
+    this._cacheCleanupInterval = setInterval(() => {
+      const now = Date.now();
+      for (const [hash, entry] of this._requestCache.entries()) {
+        if (now - entry.timestamp > this._cacheExpiry) {
+          this._requestCache.delete(hash);
+        }
+      }
+    }, 60 * 1000); // Clean up every minute
+  }
+
+  /**
+   * Generate a hash for request deduplication
+   */
+  _hashRequest(prompt, options = {}) {
+    const key = `${prompt.substring(0, 100)}_${options.temperature || 0}_${options.maxTokens || 0}_${options.model || ''}`;
+    // Simple hash function
+    let hash = 0;
+    for (let i = 0; i < key.length; i++) {
+      const char = key.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return hash.toString(36);
+  }
+
+  /**
+   * Check if identical request is in cache
+   */
+  _getFromCache(hash) {
+    const entry = this._requestCache.get(hash);
+    if (!entry) return null;
+
+    const age = Date.now() - entry.timestamp;
+    if (age > this._cacheExpiry) {
+      this._requestCache.delete(hash);
+      return null;
+    }
+
+    if (this.debug) console.debug('[AI] Request cache hit', { hash, age });
+    return entry.promise;
+  }
+
+  /**
+   * Add request to cache
+   */
+  _addToCache(hash, promise) {
+    this._requestCache.set(hash, {
+      promise,
+      timestamp: Date.now()
+    });
+
+    // Auto-cleanup this entry after expiry
+    setTimeout(() => {
+      this._requestCache.delete(hash);
+    }, this._cacheExpiry);
   }
   // Normalize payload parts to Google's expected snake_case for inline image data
   _normalizePayloadForGoogle(payload) {
@@ -56,6 +127,27 @@ class GeminiService {
     if (this._lastPuterFailureAt && Date.now() - this._lastPuterFailureAt < 15000) {
       throw new Error('Puter temporarily unavailable (backoff)');
     }
+
+    // Check localStorage cache first
+    try {
+      const cacheKey = multimodal ? 'gemini_mm_model' : 'gemini_text_model';
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const { model, timestamp} = JSON.parse(cached);
+        const age = Date.now() - timestamp;
+        // Cache valid for 1 hour
+        if (age < 3600000) {
+          this._workingModel = model;
+          this._workingModelSupportsMM = multimodal;
+          if (this.debug) console.debug('[AI] Using cached working model', { model, age });
+          return model;
+        }
+      }
+    } catch (e) {
+      // Ignore localStorage errors
+      if (this.debug) console.warn('[AI] localStorage cache read failed', e);
+    }
+
     if (this._workingModel && (!multimodal || (multimodal && this._workingModelSupportsMM))) {
       return this._workingModel;
     }
@@ -105,6 +197,19 @@ class GeminiService {
           this._workingModel = m;
           this._workingModelSupportsMM = multimodal;
           if (this.debug) console.debug('[AI] ensureWorkingModel selected', { model: m, ms: Date.now() - t0 });
+
+          // Cache the successful model to localStorage
+          try {
+            const cacheKey = multimodal ? 'gemini_mm_model' : 'gemini_text_model';
+            localStorage.setItem(cacheKey, JSON.stringify({
+              model: m,
+              timestamp: Date.now()
+            }));
+          } catch (e) {
+            // Ignore localStorage errors
+            if (this.debug) console.warn('[AI] localStorage cache write failed', e);
+          }
+
           return m;
         }
       } catch (e) {
@@ -128,6 +233,24 @@ class GeminiService {
   async generateContent(prompt, options = {}) {
     let model = options.model || this._workingModel || this.modelName;
     const t0 = Date.now();
+
+    // Check cache for duplicate requests
+    const requestHash = this._hashRequest(prompt, options);
+    const cachedPromise = this._getFromCache(requestHash);
+    if (cachedPromise) {
+      return await cachedPromise;
+    }
+
+    // Create the actual request promise
+    const requestPromise = this._doGenerateContent(prompt, options, model, t0);
+
+    // Cache the promise for deduplication
+    this._addToCache(requestHash, requestPromise);
+
+    return await requestPromise;
+  }
+
+  async _doGenerateContent(prompt, options, model, t0) {
     // Try Puter first with a timeout
     try {
       const puter = this.getPuter();
@@ -263,6 +386,8 @@ class GeminiService {
    * Returns the response text (first candidate part.text) on success.
    */
   async generateFromPayload(payload) {
+    console.log('[AI] generateFromPayload called');
+
     // Translate payload.contents into a single prompt string for Puter
     // Flatten all contents into a single prompt string for Puter
     const contents = Array.isArray(payload?.contents) ? payload.contents : [];
@@ -291,6 +416,12 @@ class GeminiService {
     }
     let model = (payload?.generationConfig?.model) || this._workingModel || this.modelName;
     const t0 = Date.now();
+
+    console.log('[AI] Payload info:', {
+      hasImages: imageParts.length > 0,
+      promptLength: prompt.length,
+      model: model || 'default'
+    });
     // If we have only data: URLs for images, skip Puter and go straight to Google (Puter expects http(s) URLs for images)
     const hasOnlyDataUrls = imageParts.length > 0 && imageParts.every(u => typeof u === 'string' && u.startsWith('data:'));
     if (hasOnlyDataUrls) {
@@ -310,13 +441,16 @@ class GeminiService {
       return text;
     }
     try {
+      console.log('[AI] Attempting Puter request...');
       const puter = this.getPuter();
       if (!puter) {
+        console.warn('[AI] Puter not available, will fall back to Google');
         throw new Error('Puter.js is not available');
       }
+      console.log('[AI] Puter is available, preparing request...');
       const puterOptsBase = { stream: false };
       const puterOpts = model ? { ...puterOptsBase, model } : puterOptsBase;
-      if (this.debug) console.debug('[AI] Puter.generateFromPayload start', { model: model || 'default', hasImage: imageParts.length > 0 });
+      console.log('[AI] Puter.generateFromPayload start', { model: model || 'default', hasImage: imageParts.length > 0 });
       // If prompt is very long, use a truncated version for Puter attempt to avoid stalls
       let promptForPuter = prompt;
       if (promptForPuter.length > 12000) {
@@ -329,19 +463,25 @@ class GeminiService {
       const p = selectedImage
         ? puter.ai.chat(promptForPuter, selectedImage, puterOpts)
         : puter.ai.chat(promptForPuter, puterOpts);
-  const resp = await withTimeout(p, Math.min(payload?.timeoutMs || 8000, 12000), 'Puter payload request timed out');
-      if (this.debug) console.debug('[AI] Puter.generateFromPayload success', { model, ms: Date.now() - t0, respType: typeof resp });
+      console.log('[AI] Waiting for Puter response...');
+      const timeoutMs = Math.min(payload?.timeoutMs || 15000, 30000); // Allow up to 30s for complex prompts
+      const resp = await withTimeout(p, timeoutMs, 'Puter payload request timed out');
+      console.log('[AI] Puter.generateFromPayload success', { model, ms: Date.now() - t0, respType: typeof resp });
       if (resp && resp.message && typeof resp.message.content === 'string') return resp.message.content;
       if (typeof resp === 'string') return resp;
       if (resp && typeof resp.text === 'string') return resp.text;
       throw new Error('Unexpected response from Puter.ai.chat (payload)');
     } catch (e) {
-      if (this.debug) console.warn('[AI] Puter.generateFromPayload failed, falling back to Google', { error: String(e), ms: Date.now() - t0 });
+      console.warn('[AI] Puter.generateFromPayload failed, falling back to Google', { error: String(e), ms: Date.now() - t0 });
+      const previousFailureTime = this._lastPuterFailureAt;
       this._lastPuterFailureAt = Date.now();
-      // Retry once with ensured model if not already
+
+      // Retry once with ensured model if not already (only if enough time passed since previous failure)
       try {
         const puter = this.getPuter();
-        if (puter && !payload?.generationConfig?.model && (!this._lastPuterFailureAt || Date.now() - this._lastPuterFailureAt > 15000)) {
+        const timeSinceLastFailure = previousFailureTime ? (Date.now() - previousFailureTime) : Infinity;
+        if (puter && !payload?.generationConfig?.model && timeSinceLastFailure > 15000) {
+          console.log('[AI] Attempting Puter retry with model discovery...');
           const retryModel = await this.ensureWorkingModel({ multimodal: imageParts.length > 0, probeMs: 3000 });
           const tR = Date.now();
           let promptForPuter = prompt;
@@ -354,27 +494,38 @@ class GeminiService {
             ? puter.ai.chat(promptForPuter, imageParts[0], { model: retryModel || undefined, stream: false })
             : puter.ai.chat(promptForPuter, { model: retryModel || undefined, stream: false });
           const resp2 = await withTimeout(p2, 5000, 'Puter payload retry timed out');
-          if (this.debug) console.debug('[AI] Puter.generateFromPayload retry success', { model: retryModel, ms: Date.now() - tR });
+          console.log('[AI] Puter.generateFromPayload retry success', { model: retryModel, ms: Date.now() - tR });
           if (resp2 && resp2.message && typeof resp2.message.content === 'string') return resp2.message.content;
           if (typeof resp2 === 'string') return resp2;
           if (resp2 && typeof resp2.text === 'string') return resp2.text;
         }
       } catch (er) {
-        if (this.debug) console.warn('[AI] Puter.generateFromPayload retry failed', String(er));
+        console.warn('[AI] Puter.generateFromPayload retry failed', String(er));
       }
+
       // Fallback to Google
+      console.log('[AI] Using Google Gemini API fallback...');
       const apiUrl = apiKeyManager.getCurrentUrl();
+      console.log('[AI] Google API URL:', apiUrl.replace(/key=.*/, 'key=***'));
       const normalized = this._normalizePayloadForGoogle(payload);
       const t1 = Date.now();
+      console.log('[AI] Sending request to Google API...');
       const res = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(normalized) });
       if (!res.ok) {
         const t = await res.text().catch(() => '');
+        console.error('[AI] Google API error:', res.status, t);
+        // Try rotating to next key on failure
+        apiKeyManager.markCurrentKeyFailed();
         throw new Error(`Google payload fallback failed: ${res.status} ${t}`);
       }
       const data = await res.json();
-      if (this.debug) console.debug('[AI] Google.generateFromPayload success', { ms: Date.now() - t1 });
+      console.log('[AI] Google.generateFromPayload success', { ms: Date.now() - t1 });
       const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      if (!text) throw new Error('Empty response from Google payload fallback');
+      if (!text) {
+        console.error('[AI] Empty response from Google', data);
+        throw new Error('Empty response from Google payload fallback');
+      }
+      console.log('[AI] Returning response, length:', text.length);
       return text;
     }
   }

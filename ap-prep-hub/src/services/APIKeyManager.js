@@ -27,9 +27,11 @@ class APIKeyManager {
       : 'gemini-2.5-flash';
     this.failedKeys = new Set();
     this.keyRetryTimes = new Map(); // Track when keys can be retried
-    
-    console.log(`🔑 APIKeyManager: Loaded ${this.apiKeys.length} API key(s) for rotation`);
-    
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🔑 APIKeyManager: Loaded ${this.apiKeys.length} API key(s) for rotation`);
+    }
+
     // Validate we have at least one key
     if (this.apiKeys.length === 0) {
       console.error('❌ No valid API keys found! Please configure REACT_APP_GEMINI_API_KEY environment variables.');
@@ -84,18 +86,22 @@ class APIKeyManager {
    * Mark the current key as failed and rotate to next available key
    */
   markCurrentKeyFailed(retryAfterSeconds = 300) {
-    console.log(`⚠️ Marking API key ${this.currentKeyIndex + 1} as failed, will retry after ${retryAfterSeconds} seconds`);
-    
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`⚠️ Marking API key ${this.currentKeyIndex + 1} as failed, will retry after ${retryAfterSeconds} seconds`);
+    }
+
     // Mark key as failed with retry time
     this.failedKeys.add(this.currentKeyIndex);
     const retryTime = Date.now() + (retryAfterSeconds * 1000);
     this.keyRetryTimes.set(this.currentKeyIndex, retryTime);
-    
+
     // Remove from failed set after retry time
     setTimeout(() => {
       this.failedKeys.delete(this.currentKeyIndex);
       this.keyRetryTimes.delete(this.currentKeyIndex);
-      console.log(`✅ API key ${this.currentKeyIndex + 1} is now available for retry`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`✅ API key ${this.currentKeyIndex + 1} is now available for retry`);
+      }
     }, retryAfterSeconds * 1000);
     
     // Rotate to next available key
@@ -115,16 +121,20 @@ class APIKeyManager {
       
       // Check if current key is available (not failed or past retry time)
       if (!this.failedKeys.has(this.currentKeyIndex)) {
-        console.log(`🔄 Rotated to API key ${this.currentKeyIndex + 1}`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`🔄 Rotated to API key ${this.currentKeyIndex + 1}`);
+        }
         return true;
       }
-      
+
       // Check if retry time has passed
       const retryTime = this.keyRetryTimes.get(this.currentKeyIndex);
       if (retryTime && Date.now() >= retryTime) {
         this.failedKeys.delete(this.currentKeyIndex);
         this.keyRetryTimes.delete(this.currentKeyIndex);
-        console.log(`🔄 Rotated to API key ${this.currentKeyIndex + 1} (retry time passed)`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`🔄 Rotated to API key ${this.currentKeyIndex + 1} (retry time passed)`);
+        }
         return true;
       }
       
@@ -178,7 +188,9 @@ class APIKeyManager {
    * Reset all failed keys (emergency recovery)
    */
   resetAllKeys() {
-    console.log('🔄 Resetting all API keys...');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔄 Resetting all API keys...');
+    }
     this.failedKeys.clear();
     this.keyRetryTimes.clear();
     this.currentKeyIndex = 0;

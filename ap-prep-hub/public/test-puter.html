@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Puter.js Test</title>
+    <script src="https://js.puter.com/v2/"></script>
+</head>
+<body>
+    <h1>Puter.js Diagnostic Test</h1>
+    <div id="status"></div>
+    <pre id="output"></pre>
+
+    <script>
+        const statusDiv = document.getElementById('status');
+        const outputDiv = document.getElementById('output');
+
+        function log(message, isError = false) {
+            const p = document.createElement('p');
+            p.textContent = message;
+            p.style.color = isError ? 'red' : 'green';
+            outputDiv.appendChild(p);
+            console.log(message);
+        }
+
+        async function testPuter() {
+            try {
+                // Test 1: Check if Puter is loaded
+                log('Step 1: Checking if Puter.js is loaded...');
+                if (typeof window.puter === 'undefined') {
+                    log('❌ ERROR: Puter.js is not loaded!', true);
+                    statusDiv.textContent = '❌ Failed: Puter.js not available';
+                    return;
+                }
+                log('✅ Puter.js is loaded');
+
+                // Test 2: Check if puter.ai exists
+                log('\nStep 2: Checking if puter.ai is available...');
+                if (!window.puter.ai || typeof window.puter.ai.chat !== 'function') {
+                    log('❌ ERROR: puter.ai.chat is not available!', true);
+                    statusDiv.textContent = '❌ Failed: puter.ai not available';
+                    return;
+                }
+                log('✅ puter.ai.chat is available');
+
+                // Test 3: Try a simple request
+                log('\nStep 3: Testing simple AI request...');
+                const testModel = 'google/gemini-2.0-flash-lite-001';
+                log(`Using model: ${testModel}`);
+
+                const response = await window.puter.ai.chat('Say "Hello Apex Scholar!"', {
+                    model: testModel,
+                    stream: false
+                });
+
+                log('\nStep 4: Checking response...');
+                console.log('Full response:', response);
+
+                let text = '';
+                if (response && response.message && typeof response.message.content === 'string') {
+                    text = response.message.content;
+                } else if (typeof response === 'string') {
+                    text = response;
+                } else if (response && typeof response.text === 'string') {
+                    text = response.text;
+                }
+
+                if (text) {
+                    log(`✅ SUCCESS! AI responded: "${text}"`);
+                    statusDiv.textContent = '✅ All tests passed! AI is working.';
+                    statusDiv.style.color = 'green';
+                } else {
+                    log('❌ ERROR: Got response but no text content', true);
+                    log('Response structure: ' + JSON.stringify(response, null, 2));
+                    statusDiv.textContent = '❌ Failed: Unexpected response format';
+                }
+
+            } catch (error) {
+                log(`❌ ERROR: ${error.message}`, true);
+                console.error('Full error:', error);
+                statusDiv.textContent = `❌ Failed: ${error.message}`;
+                statusDiv.style.color = 'red';
+            }
+        }
+
+        // Wait for page to load
+        window.addEventListener('load', () => {
+            setTimeout(testPuter, 1000); // Give Puter.js time to initialize
+        });
+    </script>
+</body>
+</html>

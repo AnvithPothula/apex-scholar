@@ -4,7 +4,7 @@ import { Sparkles, User as UserIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { PerformanceIndicator } from './PerformanceIndicator';
 
-export function ChatMessage({ message }) {
+const ChatMessageComponent = ({ message }) => {
   const isUser = message.role === "user";
   
   // Simple HTML sanitization for safety
@@ -88,4 +88,15 @@ export function ChatMessage({ message }) {
       )}
     </motion.div>
   );
-}
+};
+
+// Memoize ChatMessage to prevent unnecessary re-renders
+// Only re-render if message id or content changes
+export const ChatMessage = React.memo(ChatMessageComponent, (prevProps, nextProps) => {
+  return (
+    prevProps.message.id === nextProps.message.id &&
+    prevProps.message.content === nextProps.message.content &&
+    prevProps.message.responseTime === nextProps.message.responseTime &&
+    prevProps.message.cached === nextProps.message.cached
+  );
+});

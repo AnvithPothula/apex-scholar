@@ -1,9 +1,75 @@
-import React from 'react';
-import 'katex/dist/katex.min.css';
-import { InlineMath, BlockMath } from 'react-katex';
+import React, { useState, useEffect, useCallback } from 'react';
+
+// Lazy load KaTeX and react-katex only when needed
+let InlineMath = null;
+let BlockMath = null;
+let katexCSSLoaded = false;
+
+const loadKaTeX = async () => {
+  if (InlineMath && BlockMath) {
+    return { InlineMath, BlockMath };
+  }
+
+  try {
+    // Load CSS first
+    if (!katexCSSLoaded) {
+      await import('katex/dist/katex.min.css');
+      katexCSSLoaded = true;
+    }
+
+    // Load react-katex components
+    const reactKatex = await import('react-katex');
+    InlineMath = reactKatex.InlineMath;
+    BlockMath = reactKatex.BlockMath;
+
+    return { InlineMath, BlockMath };
+  } catch (error) {
+    console.error('Failed to load KaTeX:', error);
+    throw error;
+  }
+};
 
 const LaTeXRenderer = ({ content, inline = false }) => {
+  const [katexLoaded, setKatexLoaded] = useState(!!InlineMath);
+  const [loadError, setLoadError] = useState(null);
+
+  // Detect if content contains LaTeX
+  const hasLatex = useCallback((text) => {
+    if (typeof text !== 'string') return false;
+    return /\$\$[\s\S]*?\$\$|\$[^$\n]*?\$/.test(text);
+  }, []);
+
+  // Load KaTeX when component mounts and content has LaTeX
+  useEffect(() => {
+    if (!content || !hasLatex(content) || katexLoaded) return;
+
+    loadKaTeX()
+      .then(() => setKatexLoaded(true))
+      .catch((error) => setLoadError(error));
+  }, [content, hasLatex, katexLoaded]);
+
   if (!content) return null;
+
+  // If no LaTeX in content, just return plain text
+  if (!hasLatex(content)) {
+    return inline ? <span>{content}</span> : <div>{content}</div>;
+  }
+
+  // Show loading state while KaTeX loads
+  if (!katexLoaded) {
+    if (loadError) {
+      return (
+        <span className="text-red-400">
+          [Failed to load math renderer]
+        </span>
+      );
+    }
+    return (
+      <span className="text-slate-400 animate-pulse">
+        Loading math...
+      </span>
+    );
+  }
 
   // Function to process mixed LaTeX and regular text
   const processContent = (text) => {
@@ -12,10 +78,10 @@ const LaTeXRenderer = ({ content, inline = false }) => {
     // Pattern to match both inline $...$ and block $$...$$ LaTeX
     const latexPattern = /(\$\$[\s\S]*?\$\$|\$[^$\n]*?\$)/g;
     const parts = text.split(latexPattern);
-    
+
     return parts.map((part, index) => {
       if (!part) return null;
-      
+
       // Check if this part is LaTeX
       if (part.startsWith('$$') && part.endsWith('$$')) {
         // Block math

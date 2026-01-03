@@ -5,7 +5,7 @@ import apiKeyManager from './APIKeyManager';
  * Provides request queuing, rate limiting, fallback responses, and intelligent retry logic
  */
 
-import { getRateLimitConfig, getBatchingConfig, isFeatureEnabled } from '../config/environment';
+import { getRateLimitConfig, getBatchingConfig } from '../config/environment';
 
 class APIManager {
   constructor() {

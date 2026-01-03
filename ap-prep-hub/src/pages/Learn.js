@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Search, Book, Brain, Target, TrendingUp, Award, Users, Clock, ChevronRight, FileText, Zap, CheckCircle, ArrowLeft, BookOpen } from 'lucide-react';
 import { Button, Card, Badge, Input } from '../components/ui/UIComponents';
@@ -1438,14 +1438,23 @@ const Learn = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const [filteredSubjects, setFilteredSubjects] = useState(Object.entries(LEARN_SUBJECTS));
   const [selectedSubject, setSelectedSubject] = useState(null);
   const [selectedUnit, setSelectedUnit] = useState(null);
   const [selectedTopic, setSelectedTopic] = useState(null);
 
-  // Filter subjects based on search and category
+  // Debounce search input (update after 300ms of no typing)
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Memoized filtered subjects - only recalculate when debounced search or category changes
+  const filteredSubjects = useMemo(() => {
     let subjects = Object.entries(LEARN_SUBJECTS);
 
     // Filter by category
@@ -1454,17 +1463,18 @@ const Learn = () => {
       subjects = subjects.filter(([key]) => categorySubjects.includes(key));
     }
 
-    // Filter by search query
-    if (searchQuery.trim()) {
-      subjects = subjects.filter(([key, subject]) => 
-        key.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        subject.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        subject.description?.toLowerCase().includes(searchQuery.toLowerCase())
+    // Filter by search query (using debounced value)
+    if (debouncedSearch.trim()) {
+      const searchLower = debouncedSearch.toLowerCase();
+      subjects = subjects.filter(([key, subject]) =>
+        key.toLowerCase().includes(searchLower) ||
+        subject.name.toLowerCase().includes(searchLower) ||
+        subject.description?.toLowerCase().includes(searchLower)
       );
     }
 
-    setFilteredSubjects(subjects);
-  }, [searchQuery, selectedCategory]);
+    return subjects;
+  }, [debouncedSearch, selectedCategory]);
 
   const handleSubjectClick = async (subjectKey) => {
     // Track subject exploration achievement

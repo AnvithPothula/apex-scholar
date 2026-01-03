@@ -976,7 +976,7 @@ const AITutors = () => {
 
   // Enhanced AI-powered response generator with markdown, LaTeX, and curriculum focus
   const generateKnowledgeableResponse = async (subject, userMessage, curriculumData, uploadedFiles = [], opts = {}) => {
-    const { default: geminiService } = await import('../services/geminiService');
+    // geminiService is already imported at top of file
     const subjectName = curriculumData?.name || subject;
     const { mode = 'Explain', checkMySteps = false } = opts;
     
@@ -1073,11 +1073,16 @@ ${curriculumData.studyTips?.join('\n- ') || 'Active learning, practice problems,
       ? `I don't know about that topic, but the ${recommendedSubject} tutor might be able to help you with that question.`
       : `I don't know about that topic, but another subject tutor might be able to help you with that question.`;
 
-  // Fetch CED citations (best-effort)
+  // Fetch CED citations (best-effort, non-blocking)
+  console.log('[AI] Fetching CED citations...');
   let citations = [];
   try {
     citations = await cedSearch(subjectName, userMessage);
-  } catch (_) { citations = []; }
+    console.log('[AI] CED citations fetched:', citations.length);
+  } catch (e) {
+    console.warn('[AI] CED citations failed:', e);
+    citations = [];
+  }
 
   const modeDirective = mode === 'Practice MCQ'
     ? `MODE: Practice MCQ.
@@ -1208,7 +1213,7 @@ Note: Your response must adhere to these guidelines without exception. Also, you
           },
           ...conversationHistory,
           {
-            role: "user", 
+            role: "user",
             parts: messageParts.length > 0 ? messageParts : [{ text: userMessage }]
           }
         ],
@@ -1225,7 +1230,7 @@ Note: Your response must adhere to these guidelines without exception. Also, you
             threshold: "BLOCK_NONE"
           },
           {
-            category: "HARM_CATEGORY_HATE_SPEECH", 
+            category: "HARM_CATEGORY_HATE_SPEECH",
             threshold: "BLOCK_NONE"
           },
           {
@@ -1236,10 +1241,17 @@ Note: Your response must adhere to these guidelines without exception. Also, you
             category: "HARM_CATEGORY_DANGEROUS_CONTENT",
             threshold: "BLOCK_MEDIUM_AND_ABOVE"
           }
-        ]
+        ],
+        timeoutMs: 30000 // 30 second timeout for complex prompts
       };
-      console.log("Calling enhanced Gemini API with curriculum focus and file analysis...");
+      console.log("Calling enhanced Gemini API with curriculum focus and file analysis...", {
+        messagePartsCount: messageParts.length,
+        conversationHistoryCount: conversationHistory.length,
+        mode,
+        hasFiles
+      });
       const text = await geminiService.generateFromPayload(payload);
+      console.log("Received AI response, length:", text?.length || 0);
       return text;
       
     } catch (error) {
@@ -1536,6 +1548,7 @@ Please check your internet connection and try again. In the meantime:
     return 'from-blue-500 to-purple-600';
   };
 
+  // Early return for subject selection
   if (!selectedSubject) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -1548,8 +1561,10 @@ Please check your internet connection and try again. In the meantime:
     );
   }
 
+  // Get computed values (these are simple lookups, no need for useMemo)
   const SubjectIcon = getSubjectIcon(selectedSubject);
   const subjectColor = getSubjectColor(selectedSubject);
+  const subjectSuggestions = getSubjectSuggestions(selectedSubject);
 
   return (
     <div className="h-[calc(100vh-4rem)] flex bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -1805,7 +1820,7 @@ Please check your internet connection and try again. In the meantime:
                     <h3 className="font-semibold text-slate-200">Quick Start Suggestions</h3>
                   </div>
                   <div className="space-y-2">
-                    {getSubjectSuggestions(selectedSubject).map((suggestion, index) => (
+                    {subjectSuggestions.map((suggestion, index) => (
                       <Button
                         key={index}
                         variant="ghost"

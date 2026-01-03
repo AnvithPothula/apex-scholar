@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Zap, Plus, Search, Play, Trash2, Clock, BookOpen, Sparkles, CheckCircle, X, Edit3, Save, ChevronDown } from 'lucide-react';
 import { Button, Card, Input } from '../components/ui/UIComponents';
@@ -108,14 +108,9 @@ const FlashcardsPage = () => {
     }
   ]);
 
-  // Load user's flashcard decks on component mount
-  useEffect(() => {
-    if (user) {
-      loadUserFlashcards();
-    }
-  }, [user]);
-
-  const loadUserFlashcards = async () => {
+  // Load user's flashcard decks
+  const loadUserFlashcards = useCallback(async () => {
+    if (!user) return;
     try {
       const decks = await dataService.getUserFlashcardDecks(user.uid);
       setUserCollections(decks.map(deck => ({
@@ -126,7 +121,12 @@ const FlashcardsPage = () => {
     } catch (error) {
       console.error('Error loading flashcards:', error);
     }
-  };
+  }, [user]);
+
+  // Load user's flashcard decks on component mount
+  useEffect(() => {
+    loadUserFlashcards();
+  }, [loadUserFlashcards]);
 
   const handleCreateCollection = async () => {
     if (!createSubject || !createTopic || !user) return;

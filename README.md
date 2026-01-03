@@ -76,26 +76,26 @@ The platform supports all major AP subjects including:
    ```
 
 3. **Environment Setup**
-   Create a `.env` file in the `ap-prep-hub` directory:
-   ```env
-   REACT_APP_GEMINI_API_KEY=AIzaSyD9Rjt3n083o1gCqMk05DhvtVYUYIF_Alc
 
-   # Firebase Configuration
-   REACT_APP_FIREBASE_API_KEY=AIzaSyDTEBAW1r2EALeZHltn-xhRloXB4UzokMI
-   REACT_APP_FIREBASE_AUTH_DOMAIN=ai-study-helper-f2f24.firebaseapp.com
-   REACT_APP_FIREBASE_DATABASE_URL=https://ai-study-helper-f2f24-default-rtdb.firebaseio.com
-   REACT_APP_FIREBASE_PROJECT_ID=ai-study-helper-f2f24
-   REACT_APP_FIREBASE_STORAGE_BUCKET=ai-study-helper-f2f24.firebasestorage.app
-   REACT_APP_FIREBASE_MESSAGING_SENDER_ID=634347733489
-   REACT_APP_FIREBASE_APP_ID=1:634347733489:web:d00a26255a993c2e308450
-   REACT_APP_FIREBASE_MEASUREMENT_ID=G-Q27DPEG7S5
-
-   # EmailJS Configuration (for feedback form)
-   # NOTE: These are demo keys. Replace with real EmailJS credentials for production
-   REACT_APP_EMAILJS_SERVICE_ID=service_kry0eao
-   REACT_APP_EMAILJS_TEMPLATE_ID=template_clug30b
-   REACT_APP_EMAILJS_PUBLIC_KEY=q7C2QoIVA7UMJHC41
+   a. Copy the environment template:
+   ```bash
+   cd ap-prep-hub
+   cp .env.example .env
    ```
+
+   b. Get your API keys:
+   - **Google Gemini API**: Visit [Google AI Studio](https://makersuite.google.com/app/apikey) to create API keys
+   - **Firebase**: Create a project at [Firebase Console](https://console.firebase.google.com/), then go to Project Settings > General > Your apps
+   - **EmailJS** (optional): Sign up at [EmailJS](https://www.emailjs.com/) for feedback form functionality
+
+   c. Edit `.env` and fill in your actual API keys:
+   ```env
+   REACT_APP_GEMINI_API_KEY=your_actual_gemini_key_here
+   REACT_APP_FIREBASE_API_KEY=your_actual_firebase_key_here
+   # ... (see .env.example for all required fields)
+   ```
+
+   ⚠️ **Security Note**: Never commit your `.env` file to version control. It contains sensitive credentials.
 
 4. **Start the development server**
    ```bash

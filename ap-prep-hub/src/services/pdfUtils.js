@@ -1,8 +1,38 @@
 // Lightweight PDF utilities using pdfjs-dist for client-side text extraction
-// Note: Ensure pdfjs-dist is installed and worker is set up.
-import * as pdfjsLib from 'pdfjs-dist';
-// Use CDN worker to avoid bundler worker config
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Lazy loads pdfjs-dist only when PDF extraction is needed
+
+// Cache for loaded pdfjs library
+let pdfjsLib = null;
+
+/**
+ * Lazy load pdfjs-dist library
+ * @returns {Promise} pdfjs library instance
+ */
+async function loadPdfJs() {
+  if (pdfjsLib) {
+    return pdfjsLib;
+  }
+
+  try {
+    // Dynamically import pdfjs-dist
+    const pdfjs = await import('pdfjs-dist');
+    pdfjsLib = pdfjs;
+
+    // Use unpkg CDN which has the latest versions available
+    // pdfjs-dist v4+ uses .mjs extension for workers
+    const version = pdfjsLib.version || '5.4.394';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${version}/build/pdf.worker.min.mjs`;
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[PDF] pdfjs-dist loaded successfully');
+    }
+
+    return pdfjsLib;
+  } catch (error) {
+    console.error('[PDF] Failed to load pdfjs-dist:', error);
+    throw new Error('Failed to load PDF library');
+  }
+}
 
 export function base64ToUint8Array(b64) {
   try {
@@ -17,9 +47,12 @@ export function base64ToUint8Array(b64) {
 }
 
 export async function extractPdfTextFromBase64(base64Data, opts = {}) {
+  // Lazy load pdfjs when actually needed
+  const pdfjs = await loadPdfJs();
+
   const { maxPages = 2, maxChars = 3000 } = opts;
   const data = base64ToUint8Array(base64Data);
-  const loadingTask = pdfjsLib.getDocument({ data });
+  const loadingTask = pdfjs.getDocument({ data });
   const doc = await loadingTask.promise;
   const total = doc.numPages;
   const pagesToRead = Math.min(maxPages, total);
@@ -38,9 +71,12 @@ export async function extractPdfTextFromBase64(base64Data, opts = {}) {
 }
 
 export async function extractCitationsFromPdfUrl(url, query, opts = {}) {
+  // Lazy load pdfjs when actually needed
+  const pdfjs = await loadPdfJs();
+
   const { maxSnippets = 2 } = opts;
   try {
-    const loadingTask = pdfjsLib.getDocument(url);
+    const loadingTask = pdfjs.getDocument(url);
     const doc = await loadingTask.promise;
     const total = doc.numPages;
     const q = (query || '').toLowerCase();

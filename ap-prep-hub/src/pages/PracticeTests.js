@@ -768,7 +768,7 @@ const PracticeTests = () => {
   const [selectedSubject, setSelectedSubject] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
   const [selectedSubSection, setSelectedSubSection] = useState('');
-  const [selectedDifficulty, setSelectedDifficulty] = useState('');
+  const [selectedDifficulty] = useState('medium'); // Setter not currently used
   const [selectedUnits, setSelectedUnits] = useState([]);
   const [customTime, setCustomTime] = useState('');
   const [useDefaultTime, setUseDefaultTime] = useState(true);
@@ -882,26 +882,19 @@ const PracticeTests = () => {
   // Helper function to clean breakdown objects
   const cleanBreakdownObject = useCallback((breakdown) => {
     if (!breakdown || typeof breakdown !== 'object') return {};
-    
-    console.log('🧹 DEBUG: cleanBreakdownObject input:', breakdown, 'typeof:', typeof breakdown);
-    
+
     const cleaned = {};
     Object.entries(breakdown).forEach(([key, value]) => {
-      console.log('🧹 DEBUG: Processing key:', key, 'value:', value, 'typeof value:', typeof value);
-      
       if (typeof value === 'object' && value !== null) {
         // If value is an object, try to extract the score
         const extracted = value.score || value.points || value.value || 0;
         cleaned[key] = Number(extracted) || 0;
-        console.log('🧹 DEBUG: Extracted from object:', extracted, '-> cleaned[' + key + ']:', cleaned[key]);
       } else {
         // If value is already primitive, use it
         cleaned[key] = Number(value) || 0;
-        console.log('🧹 DEBUG: Direct conversion:', value, '-> cleaned[' + key + ']:', cleaned[key]);
       }
     });
-    
-    console.log('🧹 DEBUG: cleanBreakdownObject output:', cleaned);
+
     return cleaned;
   }, []);
 
@@ -927,10 +920,6 @@ const PracticeTests = () => {
             }
             Object.entries(obj).forEach(([key, value]) => {
               const currentPath = path ? `${path}.${key}` : key;
-              if (value && typeof value === 'object' && 
-                  ('part_a' in value || 'part_b' in value || 'part_c' in value || 'part_d' in value)) {
-                console.log(`🎯 FOUND CULPRIT: part_* object at path "${currentPath}":`, value);
-              }
               findPartObjects(value, currentPath);
             });
           };
@@ -1070,38 +1059,31 @@ const PracticeTests = () => {
   // Comprehensive data sanitizer for all test results
   const sanitizeResultsData = useCallback((results) => {
     if (!results || typeof results !== 'object') return results;
-    
-    console.log('🔧 DEBUG: sanitizeResultsData input:', results);
-    
+
     const sanitized = { ...results };
-    
+
     // Clean breakdown data
     if (sanitized.breakdown) {
-      console.log('🔧 DEBUG: Cleaning results.breakdown:', sanitized.breakdown);
       sanitized.breakdown = cleanBreakdownObject(sanitized.breakdown);
     }
-    
+
     // Clean questionResults
     if (sanitized.questionResults && Array.isArray(sanitized.questionResults)) {
-      sanitized.questionResults = sanitized.questionResults.map((result, index) => {
-        console.log('🔧 DEBUG: Cleaning questionResult[' + index + ']:', result);
+      sanitized.questionResults = sanitized.questionResults.map((result) => {
         const cleanResult = { ...result };
-        
+
         if (cleanResult.breakdown) {
-          console.log('🔧 DEBUG: Cleaning questionResult[' + index + '].breakdown:', cleanResult.breakdown);
           cleanResult.breakdown = cleanBreakdownObject(cleanResult.breakdown);
         }
-        
+
         if (cleanResult.partScores) {
-          console.log('🔧 DEBUG: Cleaning questionResult[' + index + '].partScores:', cleanResult.partScores);
           cleanResult.partScores = cleanBreakdownObject(cleanResult.partScores);
         }
-        
+
         return cleanResult;
       });
     }
-    
-    console.log('🔧 DEBUG: sanitizeResultsData output:', sanitized);
+
     return sanitized;
   }, [cleanBreakdownObject]);
 
@@ -2682,11 +2664,12 @@ Format as JSON:
             consecutiveFailures = 0;
             
             console.log(`✅ ${section} batch ${batchNumber} generated: ${batchQuestions.length} questions`);
-            
-            // Update progress
-            setGenerationProgress(prev => ({ 
-              generated: prev.generated + batchQuestions.length, 
-              total: prev.total 
+
+            // Update progress - capture count to avoid closure issues
+            const generatedCount = batchQuestions.length;
+            setGenerationProgress(prev => ({
+              generated: prev.generated + generatedCount,
+              total: prev.total
             }));
             
             await new Promise(resolve => setTimeout(resolve, 500));
@@ -2746,6 +2729,7 @@ Format as JSON:
   };
 
   // Helper function to sort questions in proper AP exam order
+  // eslint-disable-next-line no-unused-vars
   const sortQuestionsForProperOrder = (questions, section) => {
     // If not a full test, return as is
     if (section !== 'full') {
@@ -2889,7 +2873,7 @@ Format as JSON:
             .replace(/\\\\rightarrow/g, '\\\\rightarrow')
             .replace(/\\\\leftarrow/g, '\\\\leftarrow')
             // Fix invalid single character escapes that are not valid JSON
-            .replace(/\\([^"\\\/bfnrtu$])/g, '$1') // Remove backslash from other invalid escapes (but keep $ for LaTeX)
+            .replace(/\\([^"\\\/bfnrtu$])/g, '$1') // eslint-disable-line no-useless-escape
             // Fix specific problematic sequences seen in logs (only if not followed by valid LaTeX)
             .replace(/\\l(?![aitm])/g, 'l')
             .replace(/\\i(?![mn])/g, 'i')

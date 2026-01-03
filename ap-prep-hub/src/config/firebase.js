@@ -13,26 +13,34 @@ const firebaseConfig = {
   measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID || "G-Q27DPEG7S5"
 };
 
-console.log("🔥 Firebase config loaded:", {
-  projectId: firebaseConfig.projectId,
-  authDomain: firebaseConfig.authDomain,
-  environment: process.env.NODE_ENV,
-  timestamp: new Date().toISOString()
-});
+if (process.env.NODE_ENV === 'development') {
+  console.log("🔥 Firebase config loaded:", {
+    projectId: firebaseConfig.projectId,
+    authDomain: firebaseConfig.authDomain,
+    environment: process.env.NODE_ENV,
+    timestamp: new Date().toISOString()
+  });
+}
 
 let app, auth, db;
 
 try {
   // Initialize Firebase
   app = initializeApp(firebaseConfig);
-  console.log("✅ Firebase app initialized successfully");
+  if (process.env.NODE_ENV === 'development') {
+    console.log("✅ Firebase app initialized successfully");
+  }
 
   // Initialize Firebase services with error handling
   auth = getAuth(app);
-  console.log("✅ Firebase Auth initialized successfully");
+  if (process.env.NODE_ENV === 'development') {
+    console.log("✅ Firebase Auth initialized successfully");
+  }
 
   db = getFirestore(app);
-  console.log("✅ Firestore initialized successfully");
+  if (process.env.NODE_ENV === 'development') {
+    console.log("✅ Firestore initialized successfully");
+  }
 
     // Add connection monitoring
   const monitorConnection = () => {
@@ -52,13 +60,16 @@ try {
   monitorConnection();
 
 } catch (error) {
-  console.error("❌ Failed to initialize Firebase:", error);
-  console.error("Error details:", {
-    code: error.code,
-    message: error.message,
-    stack: error.stack
-  });
-  
+  console.error("❌ Failed to initialize Firebase:", error.message);
+
+  // Only log full error details in development
+  if (process.env.NODE_ENV === 'development') {
+    console.error("Error details:", {
+      code: error.code,
+      message: error.message
+    });
+  }
+
   // You might want to show a user-friendly error message here
   // or implement a fallback mechanism
 }

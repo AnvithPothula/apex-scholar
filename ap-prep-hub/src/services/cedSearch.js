@@ -19,13 +19,25 @@ const SUBJECT_TO_PDF = {
   'AP Microeconomics': 'ap-microeconomics-course-and-exam-description.pdf',
 };
 
+// Helper to add timeout to a promise
+const withTimeout = (promise, ms, fallbackValue = []) =>
+  Promise.race([
+    promise,
+    new Promise((resolve) => setTimeout(() => resolve(fallbackValue), ms))
+  ]);
+
 export async function cedSearch(subjectName, query, { maxSnippets = 2 } = {}) {
   try {
     const file = SUBJECT_TO_PDF[subjectName];
     if (!file) return [];
     // Expect PDFs under /ced/
     const url = `/ced/${file}`;
-    const hits = await extractCitationsFromPdfUrl(url, query, { maxSnippets });
+    // Add 5 second timeout to prevent blocking AI responses
+    const hits = await withTimeout(
+      extractCitationsFromPdfUrl(url, query, { maxSnippets }),
+      5000,
+      []
+    );
     return hits.map((h) => ({ url, page: h.page, snippet: h.snippet }));
   } catch (e) {
     console.warn('[CED] cedSearch failed', e);

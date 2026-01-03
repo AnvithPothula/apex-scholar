@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { GraduationCap, Brain, Calendar, Shield, Target, ChevronRight, Users, Zap, Trophy, 
-         FileQuestion, Calculator, BookOpen, Sparkles, Clock, BarChart3, CheckCircle } from 'lucide-react';
+import { GraduationCap, Brain, Calendar, Shield, ChevronRight, Zap, Trophy,
+         FileQuestion, Calculator, Sparkles, BarChart3, CheckCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button, Input, Card, CardHeader, CardTitle, CardContent } from '../ui/UIComponents';
 import { useAuth } from '../../contexts/AuthContext';
