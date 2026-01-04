@@ -619,19 +619,45 @@ Requirements:
 - Use LaTeX notation for mathematical expressions (e.g., $x^2$ for inline math, $$\\frac{a}{b}$$ for block math)
 - Format as JSON array with objects containing "question" and "answer" fields
 
-Return ONLY the JSON array, no additional text or formatting.`;
+IMPORTANT: Return ONLY the JSON array. No code blocks, no markdown, no explanation - just the raw JSON array starting with [ and ending with ].
+
+Example format:
+[{"question": "What is X?", "answer": "X is Y"}, {"question": "Define Z", "answer": "Z means..."}]`;
 
     const response = await this.generateContent(prompt, { temperature: 0.8 });
-    
+
     try {
-      // Extract JSON from response
-      const jsonMatch = response.match(/\[[\s\S]*\]/);
+      // Clean the response and extract JSON
+      let cleaned = response
+        .replace(/```json\s*/gi, '')
+        .replace(/```\s*/g, '')
+        .trim();
+
+      // Try to find JSON array in the response
+      const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
+        // Try to parse the matched JSON
+        try {
+          return JSON.parse(jsonMatch[0]);
+        } catch (parseError) {
+          // Try to fix common JSON issues
+          let fixedJson = jsonMatch[0]
+            .replace(/,\s*]/g, ']') // Remove trailing commas
+            .replace(/'/g, '"') // Replace single quotes with double quotes
+            .replace(/(\w+):/g, '"$1":') // Add quotes to unquoted keys
+            .replace(/""+/g, '"'); // Fix double quotes
+          return JSON.parse(fixedJson);
+        }
       }
-      throw new Error('No valid JSON found in response');
+
+      // If response starts with [ try to parse directly
+      if (cleaned.startsWith('[')) {
+        return JSON.parse(cleaned);
+      }
+
+      throw new Error('No valid JSON array found in response');
     } catch (error) {
-      console.error('Error parsing flashcards JSON:', error);
+      console.error('Error parsing flashcards JSON:', error, 'Response:', response?.substring(0, 200));
       // Fallback: create basic flashcards
       return this.createFallbackFlashcards(subject, topic, count);
     }

@@ -7,7 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { AP_SUBJECTS } from '../constants/subjects';
 import geminiService from '../services/geminiService';
 import dataService from '../services/dataService';
-import { InlineMath, BlockMath } from 'react-katex';
+import { InlineMath } from 'react-katex';
 import 'katex/dist/katex.min.css';
 
 const SolverPage = () => {
@@ -21,40 +21,52 @@ const SolverPage = () => {
   const [analysisHistory, setAnalysisHistory] = useState([]);
 
   // Component to render text with LaTeX support
-  const MathText = ({ children }) => {
+  // Uses a div wrapper to avoid DOM nesting issues with BlockMath
+  const MathText = ({ children, inline = false }) => {
     if (!children) return null;
-    
+
     const text = typeof children === 'string' ? children : String(children);
-    
+
+    // Check if content has block math ($$...$$)
+    const hasBlockMath = /\$\$.*?\$\$/s.test(text);
+
     // Split text by LaTeX delimiters
-    const parts = text.split(/(\$\$.*?\$\$|\$.*?\$)/g);
-    
-    return (
-      <span>
-        {parts.map((part, index) => {
-          if (part.startsWith('$$') && part.endsWith('$$')) {
-            // Block math
-            const math = part.slice(2, -2);
-            try {
-              return <BlockMath key={index} math={math} />;
-            } catch (error) {
-              return <span key={index} className="text-red-400">[Math Error: {part}]</span>;
-            }
-          } else if (part.startsWith('$') && part.endsWith('$')) {
-            // Inline math
-            const math = part.slice(1, -1);
-            try {
-              return <InlineMath key={index} math={math} />;
-            } catch (error) {
-              return <span key={index} className="text-red-400">[Math Error: {part}]</span>;
-            }
-          } else {
-            // Regular text
-            return <span key={index}>{part}</span>;
-          }
-        })}
-      </span>
-    );
+    const parts = text.split(/(\$\$[\s\S]*?\$\$|\$[^$\n]*?\$)/g);
+
+    const content = parts.map((part, index) => {
+      if (part.startsWith('$$') && part.endsWith('$$')) {
+        // Block math - render as div
+        const math = part.slice(2, -2).trim();
+        try {
+          return (
+            <span key={index} className="block my-2">
+              <InlineMath math={math} />
+            </span>
+          );
+        } catch (error) {
+          return <span key={index} className="text-red-400">[Math Error: {part}]</span>;
+        }
+      } else if (part.startsWith('$') && part.endsWith('$')) {
+        // Inline math
+        const math = part.slice(1, -1);
+        try {
+          return <InlineMath key={index} math={math} />;
+        } catch (error) {
+          return <span key={index} className="text-red-400">[Math Error: {part}]</span>;
+        }
+      } else if (part.trim()) {
+        // Regular text
+        return <span key={index}>{part}</span>;
+      }
+      return null;
+    }).filter(Boolean);
+
+    // Use div wrapper if content has block math to avoid nesting issues
+    if (hasBlockMath && !inline) {
+      return <span className="block">{content}</span>;
+    }
+
+    return <span>{content}</span>;
   };
 
   const loadSolverHistory = useCallback(async () => {
@@ -181,25 +193,27 @@ Provide a detailed step-by-step solution with proper LaTeX formatting for mathem
 
       setSolution(parsedSolution);
 
-      // Save to history
-      await dataService.saveSolverHistory(user.uid, {
-        question: questionText || "Problem from uploaded image",
-        subject: subjectName || "General",
-        solution: parsedSolution,
-        hasImage: !!selectedImage,
-        solved: true
-      });
-
-      // Update local history
+      // Update local history immediately (don't wait for Firebase)
       const newItem = {
         id: Date.now(),
         subject: subjectName || "General",
         question: questionText || "Problem from uploaded image",
         timestamp: 'Just now',
         solved: true,
-        solution: solution // Store the complete solution
+        solution: parsedSolution
       };
       setAnalysisHistory(prev => [newItem, ...prev]);
+
+      // Save to history in background (don't block UI on Firebase errors)
+      dataService.saveSolverHistory(user.uid, {
+        question: questionText || "Problem from uploaded image",
+        subject: subjectName || "General",
+        solution: parsedSolution,
+        hasImage: !!selectedImage,
+        solved: true
+      }).catch(saveError => {
+        console.warn('Could not save to history (will retry later):', saveError.message);
+      });
 
     } catch (error) {
       console.error('Error analyzing problem:', error);

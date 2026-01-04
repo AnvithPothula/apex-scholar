@@ -47,6 +47,46 @@ service cloud.firestore {
       }
     }
 
+    // Flashcard decks at root level - accessible by owner
+    match /flashcardDecks/{deckId} {
+      allow read, write: if request.auth != null &&
+                           request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null &&
+                      request.auth.uid == request.resource.data.userId;
+    }
+
+    // Solver history at root level - accessible by owner
+    match /solverHistory/{historyId} {
+      allow read, write: if request.auth != null &&
+                           request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null &&
+                      request.auth.uid == request.resource.data.userId;
+    }
+
+    // Schoology tokens at root level - accessible by owner
+    match /schoologyTokens/{tokenId} {
+      allow read, write: if request.auth != null &&
+                           request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null &&
+                      request.auth.uid == request.resource.data.userId;
+    }
+
+    // User progress at root level - accessible by owner
+    match /userProgress/{progressId} {
+      allow read, write: if request.auth != null &&
+                           request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null &&
+                      request.auth.uid == request.resource.data.userId;
+    }
+
+    // Tasks at root level - accessible by owner
+    match /tasks/{taskId} {
+      allow read, write: if request.auth != null &&
+                           request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null &&
+                      request.auth.uid == request.resource.data.userId;
+    }
+
     // Public read-only data (for future use - e.g., shared study resources)
     match /publicData/{document=**} {
       allow read: if true;
