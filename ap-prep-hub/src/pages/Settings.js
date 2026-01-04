@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -62,8 +62,10 @@ const Settings = () => {
   const [blackoutDates, setBlackoutDates] = useState(() => getDefaultBlackoutSchedule()); // Initialize with empty schedule
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState('');
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [lastSavedData, setLastSavedData] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false); // Track if initial load is complete
+  const saveTimeoutRef = useRef(null); // For debouncing auto-save
+  const AUTO_SAVE_DELAY = 1000; // 1 second debounce
 
   const fetchSettings = useCallback(async () => {
     if (!user?.uid) {
@@ -89,14 +91,6 @@ const Settings = () => {
         
         // Set user's timezone preference
         setUserTimezonePreference(mergedPrefs.timezone || 'America/Chicago');
-        
-        // Set baseline for change detection
-        const savedData = JSON.stringify({
-          userSubjects: data.subjects || [],
-          studyPreferences: mergedPrefs,
-          blackoutDates: data.blackoutDates || getDefaultBlackoutSchedule()
-        });
-        setLastSavedData(savedData);
       } else {
         // Set empty defaults if no document exists
         const emptySchedule = getDefaultBlackoutSchedule();
@@ -133,17 +127,22 @@ const Settings = () => {
       setBlackoutDates(getDefaultBlackoutSchedule());
     } finally {
       setIsLoading(false);
+      // Mark as initialized after a short delay to prevent immediate auto-save
+      setTimeout(() => setIsInitialized(true), 100);
     }
   }, [user?.uid]);
 
-  const handleSaveSettings = useCallback(async () => {
+  const handleSaveSettings = useCallback(async (showMessage = true) => {
     if (!user?.uid) {
-      setMessage('You must be logged in to save settings.');
-      setTimeout(() => setMessage(''), 5000);
+      if (showMessage) {
+        setMessage('You must be logged in to save settings.');
+        setTimeout(() => setMessage(''), 5000);
+      }
       return;
     }
     
-    setMessage('Saving...');
+    setIsSaving(true);
+    if (showMessage) setMessage('Saving...');
     
     try {
       // Validate data before saving
@@ -183,60 +182,50 @@ const Settings = () => {
         settingsLastUpdated: new Date().toISOString()
       }, { merge: true });
       
-      // Update baseline for change detection
-      const savedData = JSON.stringify({
-        userSubjects: userSubjects || [],
-        studyPreferences: validatedStudyPreferences,
-        blackoutDates: validatedBlackoutDates
-      });
-      setLastSavedData(savedData);
-      setHasUnsavedChanges(false);
-      
-      setMessage('All settings saved successfully!');
-      setTimeout(() => setMessage(''), 3000);
+      if (showMessage) {
+        setMessage('Settings saved!');
+        setTimeout(() => setMessage(''), 2000);
+      }
     } catch (error) {
       console.error("Error saving user settings:", error);
       setMessage('Error: Could not save your settings. Please try again.');
       setTimeout(() => setMessage(''), 5000);
+    } finally {
+      setIsSaving(false);
     }
   }, [user?.uid, studyPreferences, blackoutDates, userSubjects]);
 
-  // Track changes to detect unsaved modifications
+  // Auto-save when settings change (debounced)
   useEffect(() => {
-    if (lastSavedData) {
-      const currentData = JSON.stringify({ userSubjects, studyPreferences, blackoutDates });
-      setHasUnsavedChanges(currentData !== lastSavedData);
+    // Don't auto-save during initial load or if not initialized
+    if (!isInitialized || isLoading) return;
+    
+    // Clear any existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
     }
-  }, [userSubjects, studyPreferences, blackoutDates, lastSavedData]);
-
-  // Add keyboard shortcut for saving (Cmd+S / Ctrl+S)
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
-        e.preventDefault();
-        if (hasUnsavedChanges) {
-          handleSaveSettings();
-        }
+    
+    // Set a new timeout for auto-save
+    saveTimeoutRef.current = setTimeout(() => {
+      handleSaveSettings(false); // Save without showing message
+    }, AUTO_SAVE_DELAY);
+    
+    // Cleanup on unmount or when dependencies change
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
       }
     };
+  }, [userSubjects, studyPreferences, blackoutDates, isInitialized, isLoading, handleSaveSettings]);
 
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [hasUnsavedChanges, handleSaveSettings]);
-
-  // Warn user before leaving page with unsaved changes
+  // Cleanup timeout on unmount
   useEffect(() => {
-    const handleBeforeUnload = (e) => {
-      if (hasUnsavedChanges) {
-        e.preventDefault();
-        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
-        return e.returnValue;
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
       }
     };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [hasUnsavedChanges]);
+  }, []);
 
   useEffect(() => {
     fetchSettings();
@@ -245,8 +234,8 @@ const Settings = () => {
   const handleRevertToDefaults = () => {
     if (window.confirm("Are you sure you want to revert all study preferences to their default values? This cannot be undone.")) {
       setStudyPreferences(getDefaultStudyPreferences());
-      setMessage('Study preferences reverted to defaults. Remember to save your settings.');
-      setTimeout(() => setMessage(''), 5000);
+      setMessage('Study preferences reverted to defaults and will be saved automatically.');
+      setTimeout(() => setMessage(''), 3000);
     }
   };
 
@@ -271,12 +260,20 @@ const Settings = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       <div className="container mx-auto p-3 sm:p-4 md:p-8 max-w-6xl">
-        <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-slate-100">Settings</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-slate-100">
+          Settings
+          {isSaving && (
+            <span className="ml-3 text-sm font-normal text-blue-400">
+              <span className="inline-block w-2 h-2 bg-blue-400 rounded-full animate-pulse mr-2"></span>
+              Saving...
+            </span>
+          )}
+        </h1>
         {message && (
           <div className={`p-3 sm:p-4 mb-4 text-sm rounded-lg border ${
             message.startsWith('Error') 
               ? 'bg-red-900/50 text-red-300 border-red-700' 
-              : message === 'Saving...'
+              : message.includes('Saving')
               ? 'bg-blue-900/50 text-blue-300 border-blue-700'
               : 'bg-green-900/50 text-green-300 border-green-700'
           }`}>
@@ -598,23 +595,12 @@ const Settings = () => {
           </Card>
         </div>
 
-        <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row justify-center sm:justify-end items-center gap-4">
-          {hasUnsavedChanges && (
-            <div className="flex items-center gap-2 text-amber-400 text-sm">
-              <div className="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></div>
-              You have unsaved changes (Press Cmd+S to save)
-            </div>
-          )}
-          <Button 
-            onClick={handleSaveSettings}
-            className={`px-8 w-full sm:w-auto ${
-              hasUnsavedChanges 
-                ? 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700' 
-                : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700'
-            }`}
-          >
-            {hasUnsavedChanges ? 'Save Changes' : 'Save All Settings'}
-          </Button>
+        {/* Auto-save indicator */}
+        <div className="mt-6 sm:mt-8 flex justify-center sm:justify-end items-center">
+          <div className="text-sm text-slate-400 flex items-center gap-2">
+            <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+            Settings auto-save when changed
+          </div>
         </div>
       </div>
     </div>
