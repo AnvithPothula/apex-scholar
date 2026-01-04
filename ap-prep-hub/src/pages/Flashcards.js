@@ -5,7 +5,7 @@ import { Button, Card, Input } from '../components/ui/UIComponents';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { AP_SUBJECTS } from '../constants/subjects';
-import geminiService from '../services/geminiService';
+import geminiService, { RateLimitError } from '../services/geminiService';
 import dataService from '../services/dataService';
 import { renderWithLaTeX } from '../components/LaTeX';
 
@@ -170,7 +170,12 @@ const FlashcardsPage = () => {
       setCreateDescription('');
     } catch (error) {
       console.error('Error creating flashcards:', error);
-      alert('Failed to generate flashcards. Please try again.');
+      if (error instanceof RateLimitError || error?.isRateLimit) {
+        const waitTime = error.retryAfter || 60;
+        alert(`AI service is temporarily busy. Please wait ${waitTime} seconds and try again.`);
+      } else {
+        alert('Failed to generate flashcards. Please try again.');
+      }
     } finally {
       setIsGenerating(false);
     }

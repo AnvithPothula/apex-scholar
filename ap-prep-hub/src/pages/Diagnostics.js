@@ -5,7 +5,7 @@ import { Button, Card, Badge, Input } from '../components/ui/UIComponents';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AP_SUBJECTS } from '../constants/subjects';
-import geminiService from '../services/geminiService';
+import geminiService, { RateLimitError } from '../services/geminiService';
 import dataService from '../services/dataService';
 
 // Subjects to exclude from diagnostics (no standard exam format or not suitable for practice tests)
@@ -107,7 +107,12 @@ const DiagnosticTypes = () => {
       setAnswers({});
     } catch (error) {
       console.error('Error generating questions:', error);
-      alert('Failed to generate diagnostic questions. Please try again.');
+      if (error instanceof RateLimitError || error?.isRateLimit) {
+        const waitTime = error.retryAfter || 60;
+        alert(`AI service is temporarily busy. Please wait ${waitTime} seconds and try again.`);
+      } else {
+        alert('Failed to generate diagnostic questions. Please try again.');
+      }
       setTakingDiagnostic(null);
     } finally {
       setIsGeneratingQuestions(false);

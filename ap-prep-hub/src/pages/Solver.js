@@ -5,7 +5,7 @@ import { Button, Card, Badge, Textarea } from '../components/ui/UIComponents';
 import CustomDropdown from '../components/ui/CustomDropdown';
 import { useAuth } from '../contexts/AuthContext';
 import { AP_SUBJECTS } from '../constants/subjects';
-import geminiService from '../services/geminiService';
+import geminiService, { RateLimitError } from '../services/geminiService';
 import dataService from '../services/dataService';
 import { InlineMath } from 'react-katex';
 import 'katex/dist/katex.min.css';
@@ -181,6 +181,9 @@ const SolverPage = () => {
       let solutionText;
       const subjectName = selectedSubject ? AP_SUBJECTS[selectedSubject]?.name || selectedSubject : '';
       
+      // Sanitize user input to prevent prompt injection
+      const sanitizedQuestion = geminiService.sanitizeInput(questionText, { maxLength: 5000 });
+      
       // Build the structured prompt for JSON output
       const buildSolverPrompt = (problem, hasImage) => `Solve this ${subjectName || 'math'} problem step by step.
 
@@ -201,11 +204,11 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
   "timeToSolve": "X-Y minutes"
 }`;
 
-      if (selectedImage && questionText) {
+      if (selectedImage && sanitizedQuestion) {
         // Both image and text provided
         const imageData = convertImageToBase64(selectedImage);
         solutionText = await geminiService.generateWithImages(
-          buildSolverPrompt(questionText, true),
+          buildSolverPrompt(sanitizedQuestion, true),
           [imageData]
         );
       } else if (selectedImage) {
@@ -216,8 +219,8 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
           [imageData]
         );
       } else {
-        // Only text provided
-        solutionText = await geminiService.solveProblem(questionText, subjectName);
+        // Only text provided - sanitizedQuestion is already prepared
+        solutionText = await geminiService.solveProblem(sanitizedQuestion, subjectName);
       }
 
       // Try to parse JSON response, fallback to text parsing
@@ -301,16 +304,25 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
         return null;
       };
       let parsedSolution;
-      try {
-        const obj = extractJson(solutionText);
-        if (obj) {
-          parsedSolution = obj;
-        } else {
-          throw new Error('No JSON found');
+      
+      // Try geminiService's robust JSON parsing first
+      const jsonResult = geminiService.parseJSON(solutionText, false);
+      if (jsonResult.success && jsonResult.data) {
+        parsedSolution = jsonResult.data;
+        console.log('[Solver] Parsed solution with geminiService.parseJSON');
+      } else {
+        // Fall back to local extraction
+        try {
+          const obj = extractJson(solutionText);
+          if (obj) {
+            parsedSolution = obj;
+          } else {
+            throw new Error('No JSON found');
+          }
+        } catch (parseError) {
+          // Fallback: create solution from text
+          parsedSolution = parseTextSolution(solutionText, questionText, subjectName);
         }
-      } catch (parseError) {
-        // Fallback: create solution from text
-        parsedSolution = parseTextSolution(solutionText, questionText, subjectName);
       }
 
       setSolution(parsedSolution);
@@ -339,7 +351,15 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
 
     } catch (error) {
       console.error('Error analyzing problem:', error);
-      alert('Failed to analyze the problem. Please try again.');
+      
+      // Check for rate limit error
+      if (error instanceof RateLimitError || error.isRateLimit ||
+          (error.message && (error.message.includes('rate') || error.message.includes('quota') || error.message.includes('429')))) {
+        const waitTime = error.retryAfter || 60;
+        alert(`⏳ AI service is temporarily unavailable due to high demand. Please wait ${waitTime} seconds and try again.`);
+      } else {
+        alert('Failed to analyze the problem. Please try again.');
+      }
     } finally {
       setIsAnalyzing(false);
     }

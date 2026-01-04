@@ -65,7 +65,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
-import geminiService from '../services/geminiService';
+import geminiService, { RateLimitError } from '../services/geminiService';
 
 const AITutors = () => {
   const { subject: urlSubject } = useParams();
@@ -956,22 +956,9 @@ const AITutors = () => {
 
   // Remove all hardcoded response generators - we now use real AI
 
-  // Input sanitization to prevent prompt injection
+  // Input sanitization to prevent prompt injection - use centralized sanitizer
   const sanitizeUserInput = (input) => {
-    if (!input || typeof input !== 'string') return '';
-    
-    // Remove or escape common prompt injection patterns
-    return input
-      .replace(/\[ignore.*?instructions?\]/gi, '[content filtered]')
-      .replace(/\[system.*?prompt\]/gi, '[content filtered]')
-      .replace(/ignore\s+all\s+previous\s+instructions?/gi, '[content filtered]')
-      .replace(/forget\s+everything\s+above/gi, '[content filtered]')
-      .replace(/act\s+as\s+if\s+you\s+are/gi, '[content filtered]')
-      .replace(/you\s+are\s+now/gi, '[content filtered]')
-      .replace(/pretend\s+to\s+be/gi, '[content filtered]')
-      .replace(/roleplay\s+as/gi, '[content filtered]')
-      .replace(/simulate\s+being/gi, '[content filtered]')
-      .trim();
+    return geminiService.sanitizeInput(input, { maxLength: 8000, allowMarkdown: true });
   };
 
   // Enhanced AI-powered response generator with markdown, LaTeX, and curriculum focus
@@ -1257,6 +1244,21 @@ Note: Your response must adhere to these guidelines without exception. Also, you
     } catch (error) {
       console.error('Error calling enhanced Gemini API:', error);
       
+      // Check for rate limit error and provide specific message
+      if (error instanceof RateLimitError || error.isRateLimit || 
+          (error.message && (error.message.includes('rate') || error.message.includes('quota') || error.message.includes('429')))) {
+        const waitTime = error.retryAfter || 60;
+        return `⏳ **AI Service Temporarily Unavailable**
+
+The AI service is currently experiencing high demand. Please wait **${waitTime} seconds** before trying again.
+
+**While you wait:**
+- Review your course materials for ${subjectName}
+- Check out the Practice Tests section
+- Browse flashcards for quick review
+
+*The service will automatically become available again shortly. Thank you for your patience!*`;
+      }
       
       // Enhanced contextual fallback with proper formatting
       return `I apologize, but I'm experiencing connectivity issues right now.

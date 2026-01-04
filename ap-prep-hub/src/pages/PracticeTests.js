@@ -11,7 +11,7 @@ import MarkdownRenderer from '../components/MarkdownRenderer';
 import LaTeXRenderer from '../components/LaTeXRenderer';
 import apiKeyManager from '../services/APIKeyManager';
 import apiManager from '../services/apiManager';
-import geminiService from '../services/geminiService';
+import geminiService, { RateLimitError } from '../services/geminiService';
 
 // Helper function to format time in seconds to MM:SS format
 const formatTimeFromSeconds = (seconds) => {
@@ -1144,6 +1144,9 @@ const PracticeTests = () => {
       };
     }
 
+    // Sanitize user answer to prevent prompt injection
+    const sanitizedAnswer = geminiService.sanitizeInput(userAnswer, { maxLength: 10000, allowMarkdown: true });
+
     // Detect fake/test responses and prevent them from getting points
     const suspiciousPatterns = [
       /this is worth full points/i,
@@ -1159,7 +1162,7 @@ const PracticeTests = () => {
     ];
 
     const containsSuspiciousContent = suspiciousPatterns.some(pattern => 
-      pattern.test(userAnswer.toLowerCase())
+      pattern.test(sanitizedAnswer.toLowerCase())
     );
 
     if (containsSuspiciousContent) {
@@ -1249,7 +1252,7 @@ DOCUMENTS PROVIDED: ${question.documents.length} historical documents were provi
 ${question.promptOptions ? `
 PROMPT OPTIONS: Student should choose one of ${question.promptOptions.length} provided prompts.` : ''}
 
-STUDENT RESPONSE: ${userAnswer}
+STUDENT RESPONSE: ${sanitizedAnswer}
 
 RUBRIC:
 - Total Points: ${maxPoints}
@@ -1290,8 +1293,15 @@ Format as JSON:
       
       console.log('Scoring: Parsing AI response for scoring');
       
-      // Use robust JSON parsing with error recovery
-  const scoring = parseAIResponse(scoringText);
+      // Use geminiService's robust JSON parsing first, fall back to parseAIResponse
+      let scoring;
+      const jsonResult = geminiService.parseJSON(scoringText, false);
+      if (jsonResult.success) {
+        scoring = jsonResult.data;
+      } else {
+        // Fall back to the local parsing function
+        scoring = parseAIResponse(scoringText);
+      }
       
       // Ensure partScores contains only numeric values
       const cleanPartScores = {};
@@ -1317,6 +1327,21 @@ Format as JSON:
       };
     } catch (error) {
       console.error('Error scoring response:', error);
+      
+      // Check for rate limit error
+      if (error instanceof RateLimitError || error.isRateLimit ||
+          (error.message && (error.message.includes('rate') || error.message.includes('quota') || error.message.includes('429')))) {
+        const waitTime = error.retryAfter || 60;
+        return {
+          score: 0,
+          maxPoints: maxPoints,
+          feedback: `⏳ **AI Scoring Temporarily Unavailable**\n\nThe AI service is experiencing high demand. Please wait ${waitTime} seconds and try again.\n\nYour response has been saved and you can re-submit for scoring later.`,
+          breakdown: {},
+          strengths: [],
+          improvements: ["Please retry scoring after the cooldown period"]
+        };
+      }
+      
       // Fallback scoring - provide some points for reasonable effort
       const estimatedScore = userAnswer.length > 100 ? Math.floor(maxPoints * 0.4) : 0;
       return {
@@ -4536,8 +4561,17 @@ Generate ${numQuestions} questions now:`;
       
       console.log(`Batch parsing: Received ${generatedText.length} characters from AI`);
       
-      // Use robust JSON parsing with error recovery
-      const questions = parseAIResponse(generatedText, startId);
+      // Use geminiService's robust JSON parsing first, fall back to parseAIResponse
+      let questions;
+      const jsonResult = geminiService.parseJSON(generatedText, true);
+      if (jsonResult.success && Array.isArray(jsonResult.data)) {
+        questions = jsonResult.data;
+        console.log('Batch parsing: Successfully parsed with geminiService.parseJSON');
+      } else {
+        // Fall back to the local parsing function with more repairs
+        console.log('Batch parsing: Falling back to parseAIResponse', jsonResult.error);
+        questions = parseAIResponse(generatedText, startId);
+      }
       
       // Fix LaTeX expressions in the parsed questions
       const questionsWithFixedLaTeX = fixLaTeXInQuestions(Array.isArray(questions) ? questions : [questions]);
@@ -4838,27 +4872,50 @@ Generate ${numQuestions} questions now:`;
   };
 
   const getTutorResponse = async (subject, question, userQuestion) => {
+    // Build options text with letter labels for clarity
     const optionsText = Array.isArray(question.options)
-      ? question.options.map(o => (typeof o === 'string' ? o : (o?.text || String(o)))).join(', ')
+      ? question.options.map((o, idx) => {
+          const letter = String.fromCharCode(65 + idx); // A, B, C, D
+          const text = typeof o === 'string' ? o : (o?.text || String(o));
+          return `${letter}) ${text}`;
+        }).join('\n')
       : '';
-    const correctAnswerText = (Array.isArray(question.options) && question.correctAnswer !== undefined)
-      ? (typeof question.options[question.correctAnswer] === 'string'
-          ? question.options[question.correctAnswer]
-          : (question.options[question.correctAnswer]?.text || String(question.options[question.correctAnswer])))
+    
+    // Get correct answer letter and text
+    const correctAnswerIndex = question.correctAnswer;
+    const correctAnswerLetter = correctAnswerIndex !== undefined ? String.fromCharCode(65 + correctAnswerIndex) : '';
+    const correctAnswerText = (Array.isArray(question.options) && correctAnswerIndex !== undefined)
+      ? (typeof question.options[correctAnswerIndex] === 'string'
+          ? question.options[correctAnswerIndex]
+          : (question.options[correctAnswerIndex]?.text || String(question.options[correctAnswerIndex])))
       : '';
+    
+    // Include the existing explanation if available
+    const existingExplanation = question.explanation || '';
 
-    const prompt = `You are an expert ${subject} tutor. A student is asking about this practice test question:
+    const prompt = `You are an expert ${subject} tutor helping a student understand a practice test question they got wrong.
 
 QUESTION: ${question.question}
-${optionsText ? `OPTIONS: ${optionsText}` : ''}
-${correctAnswerText ? `CORRECT ANSWER: ${correctAnswerText}` : ''}
+
+${optionsText ? `ANSWER OPTIONS:\n${optionsText}` : ''}
+
+CORRECT ANSWER: ${correctAnswerLetter}) ${correctAnswerText}
+${existingExplanation ? `\nEXPLANATION: ${existingExplanation}` : ''}
 
 STUDENT'S QUESTION: ${userQuestion}
 
-Please provide a clear, educational response that helps the student understand the concept. Use specific examples and connect to broader ${subject} principles. Keep your response under 300 words.`;
+CRITICAL INSTRUCTIONS:
+1. The CORRECT answer is ${correctAnswerLetter}) ${correctAnswerText} - this is DEFINITELY the right answer
+2. You MUST clearly state that ${correctAnswerLetter} is the correct answer
+3. Explain WHY ${correctAnswerLetter} is correct using ${subject} principles
+4. If the student seems confused about why another option is wrong, explain why that option is incorrect
+5. Do NOT suggest any other answer is correct - only ${correctAnswerLetter} is correct
+6. Be encouraging and help the student learn from this mistake
+
+Provide a clear, educational response that helps the student understand why ${correctAnswerLetter}) ${correctAnswerText} is the correct answer. Keep your response under 300 words.`;
 
     try {
-      const text = await geminiService.generateContent(prompt, { model: 'google/gemini-2.0-flash-lite-001', timeoutMs: 20000, temperature: 0.7, maxTokens: 600 });
+      const text = await geminiService.generateContent(prompt, { model: 'google/gemini-2.0-flash-lite-001', timeoutMs: 20000, temperature: 0.3, maxTokens: 600 });
       return text || 'Sorry, I could not generate a response at this time.';
     } catch (error) {
       throw new Error('Failed to get tutor response');

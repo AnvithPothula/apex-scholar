@@ -9,6 +9,110 @@ const withTimeout = (promise, ms, errMsg = 'Timed out') => {
   ]);
 };
 
+/**
+ * Custom error class for rate limit situations
+ */
+class RateLimitError extends Error {
+  constructor(message, retryAfterSeconds = 60) {
+    super(message);
+    this.name = 'RateLimitError';
+    this.retryAfter = retryAfterSeconds;
+    this.isRateLimit = true;
+  }
+}
+
+/**
+ * Sanitize user input to prevent prompt injection attacks
+ * This should be applied to any user-provided text before including it in AI prompts
+ */
+const sanitizeForPrompt = (input, options = {}) => {
+  if (!input || typeof input !== 'string') return '';
+  
+  const { maxLength = 10000, allowMarkdown = true } = options;
+  
+  let sanitized = input;
+  
+  // 1. Truncate to max length to prevent token exhaustion attacks
+  if (sanitized.length > maxLength) {
+    sanitized = sanitized.substring(0, maxLength) + '... [truncated]';
+  }
+  
+  // 2. Remove/neutralize prompt injection patterns
+  const injectionPatterns = [
+    // Direct instruction overrides
+    /\[?\s*ignore\s+(all\s+)?(previous\s+)?instructions?\s*\]?/gi,
+    /\[?\s*disregard\s+(all\s+)?(previous\s+)?instructions?\s*\]?/gi,
+    /\[?\s*forget\s+(everything|all)\s+(above|before)\s*\]?/gi,
+    /\[?\s*system\s*:?\s*prompt\s*\]?/gi,
+    /\[?\s*new\s+instructions?\s*:?\s*\]?/gi,
+    
+    // Role manipulation
+    /\b(you\s+are\s+now|act\s+as(\s+if)?|pretend\s+(to\s+be|you('re|are))|roleplay\s+as|simulate\s+being|behave\s+as)\b/gi,
+    /\bswitch\s+to\s+(a\s+)?different\s+(mode|persona|role)\b/gi,
+    
+    // System prompt extraction attempts
+    /\b(reveal|show|display|print|output)\s+(your\s+)?(system\s+)?(prompt|instructions?|rules?)\b/gi,
+    /what\s+(are\s+)?(your\s+)?(system\s+)?(prompt|instructions?|rules?)/gi,
+    
+    // Output manipulation
+    /\[?\s*(begin|start)\s+(output|response)\s*\]?/gi,
+    /\brespond\s+with\s+only\b/gi,
+    
+    // Delimiter injection
+    /```\s*(system|assistant|user)\s*\n/gi,
+    /<\s*\|?(system|assistant|user|im_start|im_end)\|?\s*>/gi,
+    
+    // SQL-like injection (in case prompts hit databases)
+    /;\s*(DROP|DELETE|UPDATE|INSERT|ALTER|CREATE|TRUNCATE)\s/gi,
+    /'\s*OR\s+'?\d+'?\s*=\s*'?\d+/gi,
+    /"\s*OR\s+"?\d+"?\s*=\s*"?\d+/gi,
+    /--\s*$/gm,
+    
+    // Command injection patterns
+    /\$\([^)]+\)/g, // $(command)
+    /`[^`]+`/g, // `command` - but preserve markdown code blocks
+  ];
+  
+  for (const pattern of injectionPatterns) {
+    sanitized = sanitized.replace(pattern, '[filtered]');
+  }
+  
+  // 3. Escape special delimiters that might confuse the model
+  // But preserve legitimate markdown if allowed
+  if (!allowMarkdown) {
+    sanitized = sanitized
+      .replace(/\*\*/g, '')
+      .replace(/##/g, '')
+      .replace(/```/g, "'''");
+  }
+  
+  // 4. Remove null bytes and other control characters (except newlines/tabs)
+  sanitized = sanitized.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  
+  // 5. Normalize excessive whitespace
+  sanitized = sanitized.replace(/\n{4,}/g, '\n\n\n').replace(/[ \t]{10,}/g, '    ');
+  
+  return sanitized.trim();
+};
+
+/**
+ * Check if an error indicates rate limiting
+ */
+const isRateLimitError = (error) => {
+  if (!error) return false;
+  const msg = String(error.message || error).toLowerCase();
+  return (
+    error.isRateLimit ||
+    msg.includes('rate limit') ||
+    msg.includes('rate_limit') ||
+    msg.includes('quota') ||
+    msg.includes('429') ||
+    msg.includes('too many requests') ||
+    msg.includes('resource exhausted') ||
+    (msg.includes('all') && msg.includes('api keys'))
+  );
+};
+
 class GeminiService {
   constructor() {
     // Default model selection (can be overridden by env or runtime discovery)
@@ -19,6 +123,7 @@ class GeminiService {
     this._workingModel = null;
     this._workingModelSupportsMM = false;
     this._lastPuterFailureAt = 0; // for backoff on repeated failures
+    this._rateLimitUntil = 0; // Timestamp until which we should not make requests
 
     // Request deduplication cache
     this._requestCache = new Map(); // hash -> {promise, timestamp}
@@ -27,6 +132,277 @@ class GeminiService {
 
     // Start cache cleanup interval
     this._startCacheCleanup();
+  }
+
+  /**
+   * Sanitize user input before including in prompts
+   * Exported for use by other components
+   */
+  sanitizeInput(input, options = {}) {
+    return sanitizeForPrompt(input, options);
+  }
+
+  /**
+   * Check if we're currently rate limited
+   */
+  isRateLimited() {
+    return Date.now() < this._rateLimitUntil;
+  }
+
+  /**
+   * Get seconds until rate limit expires
+   */
+  getRateLimitSecondsRemaining() {
+    const remaining = this._rateLimitUntil - Date.now();
+    return remaining > 0 ? Math.ceil(remaining / 1000) : 0;
+  }
+
+  /**
+   * Handle rate limit error - set backoff and throw user-friendly error
+   */
+  _handleRateLimit(error, context = '') {
+    const retryAfter = 60; // Default 60 seconds
+    this._rateLimitUntil = Date.now() + (retryAfter * 1000);
+    
+    console.error(`[AI] Rate limit hit${context ? ` during ${context}` : ''}:`, error.message);
+    
+    throw new RateLimitError(
+      `AI service is temporarily unavailable due to high demand. Please wait ${retryAfter} seconds and try again.`,
+      retryAfter
+    );
+  }
+
+  /**
+   * Robust JSON extraction and parsing with multiple fallback strategies
+   * Handles malformed JSON, code blocks, and partial responses
+   */
+  _extractJSON(text, expectArray = false) {
+    if (!text || typeof text !== 'string') {
+      return { success: false, data: null, error: 'Empty or invalid input' };
+    }
+
+    // Step 1: Clean the response
+    let cleaned = text
+      .replace(/^```json\s*/gi, '')
+      .replace(/^```\s*/gi, '')
+      .replace(/\s*```\s*$/gi, '')
+      .replace(/```json\n?|\n?```/g, '')
+      .replace(/```\n?|\n?```/g, '')
+      .replace(/^`+|`+$/g, '')
+      .trim();
+
+    // Normalize unicode and whitespace
+    cleaned = cleaned
+      .replace(/[\u2018\u2019]/g, "'")
+      .replace(/[\u201C\u201D]/g, '"')
+      .replace(/\u2013|\u2014/g, '-')
+      .replace(/\u00A0/g, ' ')
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n');
+
+    // Step 2: Try direct parsing
+    try {
+      const parsed = JSON.parse(cleaned);
+      if (expectArray && !Array.isArray(parsed)) {
+        return { success: false, data: null, error: 'Expected array but got object' };
+      }
+      return { success: true, data: parsed, error: null };
+    } catch (e) {
+      // Continue with repair strategies
+    }
+
+    // Step 3: Find JSON bounds using brace matching
+    const startChar = expectArray ? '[' : '{';
+    const endChar = expectArray ? ']' : '}';
+    const startIdx = cleaned.indexOf(startChar);
+    if (startIdx === -1) {
+      return { success: false, data: null, error: `No ${startChar} found in response` };
+    }
+
+    // Count braces to find matching end
+    let braceCount = 0;
+    let inString = false;
+    let escapeNext = false;
+    let endIdx = -1;
+
+    for (let i = startIdx; i < cleaned.length; i++) {
+      const char = cleaned[i];
+
+      if (escapeNext) {
+        escapeNext = false;
+        continue;
+      }
+
+      if (char === '\\') {
+        escapeNext = true;
+        continue;
+      }
+
+      if (char === '"') {
+        inString = !inString;
+        continue;
+      }
+
+      if (!inString) {
+        if (char === startChar) braceCount++;
+        if (char === endChar) {
+          braceCount--;
+          if (braceCount === 0) {
+            endIdx = i;
+            break;
+          }
+        }
+      }
+    }
+
+    if (endIdx === -1) {
+      // Try to repair truncated JSON
+      return this._repairTruncatedJSON(cleaned.slice(startIdx), expectArray);
+    }
+
+    const candidate = cleaned.slice(startIdx, endIdx + 1);
+
+    // Step 4: Try parsing extracted JSON
+    try {
+      return { success: true, data: JSON.parse(candidate), error: null };
+    } catch (e) {
+      // Step 5: Apply common fixes
+      return this._repairJSON(candidate, expectArray);
+    }
+  }
+
+  /**
+   * Attempt to repair common JSON issues
+   */
+  _repairJSON(text, expectArray = false) {
+    const repairs = [
+      // Remove trailing commas
+      t => t.replace(/,\s*([}\]])/g, '$1'),
+      // Fix unescaped quotes in strings (tricky - basic attempt)
+      t => t.replace(/([^\\])"([^":,{}\[\]]+)":/g, '$1"$2":'),
+      // Remove control characters
+      t => t.replace(/[\x00-\x1F\x7F]/g, ' '),
+      // Fix double commas
+      t => t.replace(/,,+/g, ','),
+      // Remove empty array elements
+      t => t.replace(/\[\s*,/g, '[').replace(/,\s*\]/g, ']'),
+      // Fix invalid escape sequences that aren't valid JSON
+      t => t.replace(/\\([^"\\\//bfnrtu])/g, '$1'),
+      // Fix missing quotes on keys (basic)
+      t => t.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":'),
+    ];
+
+    let repaired = text;
+    for (const repair of repairs) {
+      try {
+        repaired = repair(repaired);
+        const parsed = JSON.parse(repaired);
+        if (this.debug) console.debug('[AI] JSON repaired successfully');
+        return { success: true, data: parsed, error: null };
+      } catch (e) {
+        // Continue trying repairs
+      }
+    }
+
+    return { success: false, data: null, error: 'Could not repair JSON' };
+  }
+
+  /**
+   * Attempt to repair truncated JSON by closing open structures
+   */
+  _repairTruncatedJSON(text, expectArray = false) {
+    if (this.debug) console.debug('[AI] Attempting to repair truncated JSON');
+
+    let repaired = text.trim();
+
+    // Count unclosed braces/brackets
+    let openBraces = 0;
+    let openBrackets = 0;
+    let inString = false;
+    let escapeNext = false;
+
+    for (const char of repaired) {
+      if (escapeNext) {
+        escapeNext = false;
+        continue;
+      }
+      if (char === '\\') {
+        escapeNext = true;
+        continue;
+      }
+      if (char === '"') {
+        inString = !inString;
+        continue;
+      }
+      if (!inString) {
+        if (char === '{') openBraces++;
+        if (char === '}') openBraces--;
+        if (char === '[') openBrackets++;
+        if (char === ']') openBrackets--;
+      }
+    }
+
+    // If we're in a string, close it
+    if (inString) {
+      repaired += '"';
+    }
+
+    // Remove any trailing incomplete key-value pairs
+    repaired = repaired.replace(/,\s*"[^"]*"\s*:\s*$/g, '');
+    repaired = repaired.replace(/,\s*"[^"]*"\s*$/g, '');
+    repaired = repaired.replace(/,\s*$/g, '');
+
+    // Close unclosed structures
+    for (let i = 0; i < openBraces; i++) {
+      repaired += '}';
+    }
+    for (let i = 0; i < openBrackets; i++) {
+      repaired += ']';
+    }
+
+    try {
+      const parsed = JSON.parse(repaired);
+      if (this.debug) console.debug('[AI] Truncated JSON repaired successfully');
+      return { success: true, data: parsed, error: null, wasRepaired: true };
+    } catch (e) {
+      return { success: false, data: null, error: 'Could not repair truncated JSON: ' + e.message };
+    }
+  }
+
+  /**
+   * Validate AI response for common hallucination patterns
+   */
+  _validateResponse(text, context = {}) {
+    if (!text || typeof text !== 'string') {
+      return { valid: false, reason: 'Empty response' };
+    }
+
+    // Check for common hallucination/confusion patterns
+    const hallucinations = [
+      /I('m| am) (an AI|a language model|unable to|not able to)/i,
+      /I (don't|cannot|can't) (have access|see|view|process) (the|your|any) (image|file|upload)/i,
+      /please (provide|share|upload|send) (the|your|an)/i,
+      /I('d| would) be happy to help.*but/i,
+      /As an AI/i,
+      /I apologize.*I (cannot|can't|don't)/i,
+      /Could you (please )?(provide|share|clarify)/i,
+    ];
+
+    // Only flag as hallucination if asking for something already provided
+    if (context.hasImage || context.hasFile) {
+      for (const pattern of hallucinations) {
+        if (pattern.test(text)) {
+          return { valid: false, reason: 'AI is asking for already-provided content', pattern: pattern.source };
+        }
+      }
+    }
+
+    // Check for empty or stub responses
+    if (text.trim().length < 20) {
+      return { valid: false, reason: 'Response too short' };
+    }
+
+    return { valid: true };
   }
 
   /**
@@ -251,6 +627,15 @@ class GeminiService {
   }
 
   async _doGenerateContent(prompt, options, model, t0) {
+    // Check if we're rate limited
+    if (this.isRateLimited()) {
+      const seconds = this.getRateLimitSecondsRemaining();
+      throw new RateLimitError(
+        `AI service is temporarily unavailable. Please wait ${seconds} seconds and try again.`,
+        seconds
+      );
+    }
+
     // Try Puter first with a timeout
     try {
       const puter = this.getPuter();
@@ -259,7 +644,7 @@ class GeminiService {
       }
       const puterOpts = model ? { model, stream: false } : { stream: false };
       if (this.debug) console.debug('[AI] Puter.generateContent start', { model: model || 'default', hasImage: false });
-  const resp = await withTimeout(puter.ai.chat(prompt, puterOpts), Math.min(options.timeoutMs || 8000, 12000), 'Puter request timed out');
+      const resp = await withTimeout(puter.ai.chat(prompt, puterOpts), Math.min(options.timeoutMs || 8000, 12000), 'Puter request timed out');
       if (this.debug) console.debug('[AI] Puter.generateContent success', { model, ms: Date.now() - t0, respType: typeof resp });
       if (resp && resp.message && typeof resp.message.content === 'string') return resp.message.content;
       if (typeof resp === 'string') return resp;
@@ -267,6 +652,11 @@ class GeminiService {
       if (resp && typeof resp.text === 'string') return resp.text;
       throw new Error('Unexpected response from Puter.ai.chat');
     } catch (e) {
+      // Check if Puter returned a rate limit error
+      if (isRateLimitError(e)) {
+        this._handleRateLimit(e, 'Puter generateContent');
+      }
+      
       if (this.debug) console.warn('[AI] Puter.generateContent failed, falling back to Google', { error: String(e), ms: Date.now() - t0 });
       this._lastPuterFailureAt = Date.now();
       // One quick retry with a discovered model if we didn't have one yet
@@ -283,32 +673,85 @@ class GeminiService {
         }
       } catch (er) {
         if (this.debug) console.warn('[AI] Puter.generateContent retry failed', String(er));
+        if (isRateLimitError(er)) {
+          this._handleRateLimit(er, 'Puter retry');
+        }
       }
       // Fallback to Google Gemini v1
-      const apiUrl = apiKeyManager.getCurrentUrl();
-      const body = {
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: options.temperature ?? 0.3,
-          maxOutputTokens: options.maxTokens ?? 4000
-        }
-      };
-      const t1 = Date.now();
-      const res = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      if (!res.ok) {
-        const t = await res.text().catch(() => '');
-        throw new Error(`Google fallback failed: ${res.status} ${t}`);
-      }
-      const data = await res.json();
-      if (this.debug) console.debug('[AI] Google.generateContent success', { ms: Date.now() - t1 });
-      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      if (!text) throw new Error('Empty response from Google fallback');
-      return text;
+      return await this._googleFallback(prompt, options);
     }
   }
 
+  /**
+   * Google API fallback with proper rate limit handling
+   */
+  async _googleFallback(prompt, options = {}) {
+    // Check if all API keys are rate limited
+    const keyStatus = apiKeyManager.getKeyStatus();
+    const allFailed = keyStatus.every(k => k.isFailed);
+    if (allFailed) {
+      this._handleRateLimit(new Error('All API keys exhausted'), 'Google fallback');
+    }
+
+    const apiUrl = apiKeyManager.getCurrentUrl();
+    const body = {
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: options.temperature ?? 0.3,
+        maxOutputTokens: options.maxTokens ?? 4000
+      }
+    };
+    const t1 = Date.now();
+    const res = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    
+    if (!res.ok) {
+      const t = await res.text().catch(() => '');
+      
+      // Check for rate limit response (429 or quota errors)
+      if (res.status === 429 || t.toLowerCase().includes('quota') || t.toLowerCase().includes('rate')) {
+        apiKeyManager.markCurrentKeyFailed(300); // Mark failed for 5 minutes
+        
+        // Try rotating to another key
+        const rotated = apiKeyManager.rotateToNextKey();
+        if (!rotated) {
+          // All keys are exhausted
+          this._handleRateLimit(new Error(`Rate limited: ${res.status}`), 'Google API');
+        }
+        
+        // Retry with new key (one retry only)
+        const retryUrl = apiKeyManager.getCurrentUrl();
+        const retryRes = await fetch(retryUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        if (!retryRes.ok) {
+          const retryText = await retryRes.text().catch(() => '');
+          if (retryRes.status === 429) {
+            this._handleRateLimit(new Error('All API keys rate limited'), 'Google retry');
+          }
+          throw new Error(`Google fallback failed: ${retryRes.status} ${retryText}`);
+        }
+        const retryData = await retryRes.json();
+        return retryData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      }
+      
+      throw new Error(`Google fallback failed: ${res.status} ${t}`);
+    }
+    const data = await res.json();
+    if (this.debug) console.debug('[AI] Google.generateContent success', { ms: Date.now() - t1 });
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (!text) throw new Error('Empty response from Google fallback');
+    return text;
+  }
+
   async generateWithImages(prompt, images = [], options = {}) {
-  let model = options.model || this._workingModel || this.modelName;
+    // Check if we're rate limited
+    if (this.isRateLimited()) {
+      const seconds = this.getRateLimitSecondsRemaining();
+      throw new RateLimitError(
+        `AI service is temporarily unavailable. Please wait ${seconds} seconds and try again.`,
+        seconds
+      );
+    }
+
+    let model = options.model || this._workingModel || this.modelName;
     const t0 = Date.now();
     // If an image is provided, pass the first as a data URL to Puter
     let imageArg = undefined;
@@ -338,21 +781,45 @@ class GeminiService {
       const p = imageArg
         ? puter.ai.chat(prompt, imageArg, puterOpts)
         : puter.ai.chat(prompt, puterOpts);
-  const resp = await withTimeout(p, Math.min(options.timeoutMs || 9000, 12000), 'Puter image request timed out');
+      const resp = await withTimeout(p, Math.min(options.timeoutMs || 9000, 12000), 'Puter image request timed out');
       if (this.debug) console.debug('[AI] Puter.generateWithImages success', { model, ms: Date.now() - t0, respType: typeof resp });
-      if (resp && resp.message && typeof resp.message.content === 'string') return resp.message.content;
-      if (typeof resp === 'string') return resp;
-      if (resp && typeof resp.text === 'string') return resp.text;
-      throw new Error('Unexpected response from Puter.ai.chat (images)');
+      
+      let responseText = null;
+      if (resp && resp.message && typeof resp.message.content === 'string') responseText = resp.message.content;
+      else if (typeof resp === 'string') responseText = resp;
+      else if (resp && typeof resp.text === 'string') responseText = resp.text;
+      
+      if (!responseText) {
+        throw new Error('Unexpected response from Puter.ai.chat (images)');
+      }
+      
+      // Validate for hallucinations when image was provided
+      const validation = this._validateResponse(responseText, { hasImage: !!imageArg });
+      if (!validation.valid) {
+        console.warn('[AI] Image response failed validation:', validation.reason);
+        throw new Error(`Response validation failed: ${validation.reason}`);
+      }
+      
+      return responseText;
     } catch (e) {
-  if (this.debug) console.warn('[AI] Puter.generateWithImages failed, falling back to Google', { error: String(e), ms: Date.now() - t0 });
+      if (isRateLimitError(e)) {
+        this._handleRateLimit(e, 'Puter generateWithImages');
+      }
+      if (this.debug) console.warn('[AI] Puter.generateWithImages failed, falling back to Google', { error: String(e), ms: Date.now() - t0 });
       this._lastPuterFailureAt = Date.now();
       return await this._googleGenerateWithImages(prompt, imageArg, options);
     }
   }
 
-  // Internal helper to call Google for image generation
+  // Internal helper to call Google for image generation with rate limit handling
   async _googleGenerateWithImages(prompt, imageArg, options = {}) {
+    // Check if all API keys are rate limited
+    const keyStatus = apiKeyManager.getKeyStatus();
+    const allFailed = keyStatus.every(k => k.isFailed);
+    if (allFailed) {
+      this._handleRateLimit(new Error('All API keys exhausted for image request'), 'Google image fallback');
+    }
+
     const apiUrl = apiKeyManager.getCurrentUrl();
     const parts = [{ text: prompt }];
     if (imageArg && typeof imageArg === 'string') {
@@ -373,6 +840,27 @@ class GeminiService {
     const res = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     if (!res.ok) {
       const t = await res.text().catch(() => '');
+      
+      // Check for rate limit
+      if (res.status === 429 || t.toLowerCase().includes('quota') || t.toLowerCase().includes('rate')) {
+        apiKeyManager.markCurrentKeyFailed(300);
+        const rotated = apiKeyManager.rotateToNextKey();
+        if (!rotated) {
+          this._handleRateLimit(new Error(`Rate limited on image request: ${res.status}`), 'Google image API');
+        }
+        // One retry with new key
+        const retryUrl = apiKeyManager.getCurrentUrl();
+        const retryRes = await fetch(retryUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        if (!retryRes.ok) {
+          if (retryRes.status === 429) {
+            this._handleRateLimit(new Error('All keys rate limited for images'), 'Google image retry');
+          }
+          throw new Error(`Google image fallback failed: ${retryRes.status}`);
+        }
+        const retryData = await retryRes.json();
+        return retryData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      }
+      
       throw new Error(`Google image fallback failed: ${res.status} ${t}`);
     }
     const data = await res.json();
@@ -388,11 +876,22 @@ class GeminiService {
   async generateFromPayload(payload) {
     console.log('[AI] generateFromPayload called');
 
+    // Check if we're rate limited
+    if (this.isRateLimited()) {
+      const seconds = this.getRateLimitSecondsRemaining();
+      throw new RateLimitError(
+        `AI service is temporarily unavailable. Please wait ${seconds} seconds and try again.`,
+        seconds
+      );
+    }
+
     // Translate payload.contents into a single prompt string for Puter
     // Flatten all contents into a single prompt string for Puter
     const contents = Array.isArray(payload?.contents) ? payload.contents : [];
     let prompt = '';
     const imageParts = [];
+    let hasUserContent = false;
+    
     for (const c of contents) {
       const role = (c?.role || '').toLowerCase();
       const parts = Array.isArray(c?.parts) ? c.parts : [];
@@ -401,6 +900,7 @@ class GeminiService {
           // Add light role markers to help Puter interpret context
           const prefix = role === 'model' ? 'Assistant: ' : 'User: ';
           prompt += prefix + p.text + '\n';
+          if (role === 'user') hasUserContent = true;
         }
         // Accept both snake_case and camelCase for inline data
         const idata = p?.inline_data || p?.inlineData;
@@ -410,9 +910,17 @@ class GeminiService {
         }
       }
     }
-    // Nudge the model to answer directly instead of posting readiness statements
-    if (contents.length > 0) {
-      prompt += '\nAnswer the user\'s latest question directly. Do not ask for uploads or restatements. Provide the answer immediately.\n';
+    
+    // Anti-hallucination prompt suffix - be very explicit about what we need
+    if (hasUserContent) {
+      prompt += `\n---\nIMPORTANT INSTRUCTIONS:\n`;
+      prompt += `1. Answer the user's question directly and completely.\n`;
+      prompt += `2. Do NOT ask the user to provide, upload, or share anything - all needed information is already in this conversation.\n`;
+      prompt += `3. Do NOT say "I cannot see" or "please provide" - process what is given.\n`;
+      if (imageParts.length > 0) {
+        prompt += `4. An image has been provided - analyze it directly.\n`;
+      }
+      prompt += `5. Provide substantive, helpful content immediately.\n`;
     }
     let model = (payload?.generationConfig?.model) || this._workingModel || this.modelName;
     const t0 = Date.now();
@@ -467,10 +975,25 @@ class GeminiService {
       const timeoutMs = Math.min(payload?.timeoutMs || 15000, 30000); // Allow up to 30s for complex prompts
       const resp = await withTimeout(p, timeoutMs, 'Puter payload request timed out');
       console.log('[AI] Puter.generateFromPayload success', { model, ms: Date.now() - t0, respType: typeof resp });
-      if (resp && resp.message && typeof resp.message.content === 'string') return resp.message.content;
-      if (typeof resp === 'string') return resp;
-      if (resp && typeof resp.text === 'string') return resp.text;
-      throw new Error('Unexpected response from Puter.ai.chat (payload)');
+      
+      let responseText = null;
+      if (resp && resp.message && typeof resp.message.content === 'string') responseText = resp.message.content;
+      else if (typeof resp === 'string') responseText = resp;
+      else if (resp && typeof resp.text === 'string') responseText = resp.text;
+      
+      if (!responseText) {
+        throw new Error('Unexpected response from Puter.ai.chat (payload)');
+      }
+      
+      // Validate response for hallucinations
+      const validation = this._validateResponse(responseText, { hasImage: imageParts.length > 0 });
+      if (!validation.valid) {
+        console.warn('[AI] Response failed validation:', validation.reason);
+        // Don't throw - let it fall through to Google fallback for a potentially better response
+        throw new Error(`Puter response failed validation: ${validation.reason}`);
+      }
+      
+      return responseText;
     } catch (e) {
       console.warn('[AI] Puter.generateFromPayload failed, falling back to Google', { error: String(e), ms: Date.now() - t0 });
       const previousFailureTime = this._lastPuterFailureAt;
@@ -607,158 +1130,196 @@ class GeminiService {
     }
   }
 
+  /**
+   * Public method to parse JSON from AI responses
+   * Can be used by other parts of the app for consistent JSON extraction
+   * @param {string} text - The AI response text
+   * @param {boolean} expectArray - Whether to expect a JSON array (default: false for object)
+   * @returns {{ success: boolean, data: any, error: string|null }}
+   */
+  parseJSON(text, expectArray = false) {
+    return this._extractJSON(text, expectArray);
+  }
+
   // Specialized methods for different features
   async generateFlashcards(subject, topic, count = 20, difficulty = 'medium') {
-    const prompt = `Create ${count} high-quality flashcards for ${subject} - ${topic}.
+    const prompt = `Generate exactly ${count} flashcards for ${subject} - ${topic}.
 
-Requirements:
-- Difficulty level: ${difficulty}
-- Focus on key concepts, formulas, and important facts
-- Each card should have a clear, concise question and comprehensive answer
-- Include relevant examples where appropriate
-- Use LaTeX notation for mathematical expressions (e.g., $x^2$ for inline math, $$\\frac{a}{b}$$ for block math)
-- Format as JSON array with objects containing "question" and "answer" fields
+Difficulty: ${difficulty}
 
-IMPORTANT: Return ONLY the JSON array. No code blocks, no markdown, no explanation - just the raw JSON array starting with [ and ending with ].
+RULES (FOLLOW EXACTLY):
+1. Output ONLY a JSON array - no text before or after
+2. Each object has exactly two fields: "question" and "answer"
+3. Use LaTeX: $x^2$ for inline, $$\\frac{a}{b}$$ for block math
+4. Make questions specific and answers comprehensive
+5. Start with [ and end with ]
 
-Example format:
-[{"question": "What is X?", "answer": "X is Y"}, {"question": "Define Z", "answer": "Z means..."}]`;
+Output format:
+[{"question":"...","answer":"..."},{"question":"...","answer":"..."}]
 
-    const response = await this.generateContent(prompt, { temperature: 0.8 });
+Generate ${count} flashcards now:`;
 
-    try {
-      // Clean the response and extract JSON
-      let cleaned = response
-        .replace(/```json\s*/gi, '')
-        .replace(/```\s*/g, '')
-        .trim();
+    const response = await this.generateContent(prompt, { temperature: 0.7, maxTokens: Math.max(count * 200, 2000) });
 
-      // Try to find JSON array in the response
-      const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        // Try to parse the matched JSON
-        try {
-          return JSON.parse(jsonMatch[0]);
-        } catch (parseError) {
-          // Try to fix common JSON issues
-          let fixedJson = jsonMatch[0]
-            .replace(/,\s*]/g, ']') // Remove trailing commas
-            .replace(/'/g, '"') // Replace single quotes with double quotes
-            .replace(/(\w+):/g, '"$1":') // Add quotes to unquoted keys
-            .replace(/""+/g, '"'); // Fix double quotes
-          return JSON.parse(fixedJson);
-        }
+    // Use robust JSON extraction
+    const result = this._extractJSON(response, true);
+    
+    if (result.success && Array.isArray(result.data)) {
+      // Validate flashcard structure
+      const validCards = result.data.filter(card => 
+        card && typeof card.question === 'string' && typeof card.answer === 'string' &&
+        card.question.trim().length > 0 && card.answer.trim().length > 0
+      );
+      
+      if (validCards.length >= Math.min(count * 0.5, 5)) {
+        if (this.debug) console.debug('[AI] Generated', validCards.length, 'valid flashcards');
+        return validCards;
       }
-
-      // If response starts with [ try to parse directly
-      if (cleaned.startsWith('[')) {
-        return JSON.parse(cleaned);
-      }
-
-      throw new Error('No valid JSON array found in response');
-    } catch (error) {
-      console.error('Error parsing flashcards JSON:', error, 'Response:', response?.substring(0, 200));
-      // Fallback: create basic flashcards
-      return this.createFallbackFlashcards(subject, topic, count);
     }
+    
+    console.error('Error parsing flashcards:', result.error, 'Response:', response?.substring(0, 200));
+    return this.createFallbackFlashcards(subject, topic, count);
   }
 
   async solveProblem(problemText, subject = '', imageData = null) {
     const isHumanities = /(history|government|politics|english|literature|world|u\s*s\s*history)/i.test(subject || '');
-    let prompt = `Solve this ${subject || 'AP'} problem step by step:
+    
+    const prompt = `Solve this ${subject || 'AP'} problem completely.
 
-${problemText}
+Problem: ${problemText}
 
-${isHumanities ? `Formatting:
-- Use clear, concise academic writing.
-- Organize with short sections (analysis, evidence, reasoning, conclusion) as needed.
-- No LaTeX is required unless math appears.
-` : `IMPORTANT: Use LaTeX formatting for all mathematical expressions. Wrap inline math with single dollar signs $...$ and block math with double dollar signs $$...$$.
-`}
-Provide:
-1. Problem identification and type
-2. Step-by-step solution with explanations${isHumanities ? '' : ' (use LaTeX for all math)'}
-3. Final answer or thesis/summary
-4. Key concepts used
-5. Common mistakes to avoid
+${isHumanities ? '' : 'Use LaTeX: $x^2$ inline, $$\\frac{a}{b}$$ for block math.\n'}
+RULES:
+1. Output ONLY valid JSON - no markdown, no code fences, no extra text
+2. Solve the problem completely - do not ask for clarification
+3. Be thorough in explanations
 
-Return ONLY valid JSON (no code fences, no preamble, no trailing commentary) with fields:
-problemType (string),
-steps (array of { step (number), title (string), content (string), explanation (string) }),
-finalAnswer (string),
-concepts (array of strings),
-commonMistakes (array of strings),
-difficulty ("Easy"|"Medium"|"Hard"),
-timeToSolve (string like "5-10 minutes").`;
+Required JSON structure:
+{
+  "problemType": "type of problem",
+  "steps": [{"step": 1, "title": "Step Name", "content": "what was done", "explanation": "why"}],
+  "finalAnswer": "the complete final answer",
+  "concepts": ["concept1", "concept2"],
+  "commonMistakes": ["mistake1"],
+  "difficulty": "Easy|Medium|Hard",
+  "timeToSolve": "X-Y minutes"
+}
 
+Solve now:`;
+
+    let response;
     if (imageData) {
-      return await this.generateWithImages(prompt, [imageData]);
+      response = await this.generateWithImages(prompt, [imageData], { temperature: 0.3, maxTokens: 3000 });
     } else {
-      return await this.generateContent(prompt, { temperature: 0.3 });
+      response = await this.generateContent(prompt, { temperature: 0.3, maxTokens: 3000 });
     }
+    
+    // Try to extract JSON, but return raw text if it fails (caller can handle it)
+    const result = this._extractJSON(response, false);
+    if (result.success) {
+      // Validate required fields
+      const data = result.data;
+      if (data.steps && data.finalAnswer) {
+        return JSON.stringify(data); // Return as string for compatibility
+      }
+    }
+    
+    // Return raw response - caller has fallback parsing
+    return response;
   }
 
   async generateDiagnosticQuestions(subject, topic, difficulty = 'medium', count = 10) {
-    const prompt = `Generate ${count} diagnostic multiple-choice questions for ${subject} - ${topic}.
+    const prompt = `Generate exactly ${count} multiple-choice questions for ${subject} - ${topic}.
 
-Requirements:
-- Difficulty: ${difficulty}
-- Focus on identifying student understanding and common misconceptions
-- Each question should test different aspects of the topic
-- Include 4 answer choices with one correct answer
-- Provide explanations for why each choice is correct or incorrect
+Difficulty: ${difficulty}
 
-Format as JSON array with objects containing:
-- question: the question text
-- choices: array of 4 answer choices
-- correctAnswer: index of correct choice (0-3)
-- explanations: array of explanations for each choice
-- concept: main concept being tested
+RULES (FOLLOW EXACTLY):
+1. Output ONLY a JSON array - no text before or after
+2. Each question has: question, choices (4 strings), correctAnswer (0-3), explanations (4 strings), concept
+3. Exactly 4 choices per question
+4. correctAnswer is the index (0, 1, 2, or 3) of the correct choice
+5. Start with [ and end with ]
 
-Return ONLY the JSON array.`;
+Format:
+[{"question":"...","choices":["A","B","C","D"],"correctAnswer":0,"explanations":["...","...","...","..."],"concept":"..."}]
 
-    const response = await this.generateContent(prompt, { temperature: 0.7 });
+Generate ${count} questions now:`;
+
+    const response = await this.generateContent(prompt, { temperature: 0.6, maxTokens: Math.max(count * 400, 3000) });
     
-    try {
-      const jsonMatch = response.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
+    const result = this._extractJSON(response, true);
+    
+    if (result.success && Array.isArray(result.data)) {
+      // Validate and fix question structure
+      const validQuestions = result.data.filter(q => {
+        if (!q || !q.question || !Array.isArray(q.choices)) return false;
+        // Ensure 4 choices
+        if (q.choices.length !== 4) {
+          while (q.choices.length < 4) q.choices.push(`Option ${q.choices.length + 1}`);
+          q.choices = q.choices.slice(0, 4);
+        }
+        // Ensure valid correctAnswer
+        if (typeof q.correctAnswer !== 'number' || q.correctAnswer < 0 || q.correctAnswer > 3) {
+          q.correctAnswer = 0;
+        }
+        // Ensure explanations array
+        if (!Array.isArray(q.explanations) || q.explanations.length !== 4) {
+          q.explanations = q.choices.map((_, i) => i === q.correctAnswer ? 'Correct answer' : 'Incorrect');
+        }
+        return true;
+      });
+      
+      if (validQuestions.length >= Math.min(count * 0.5, 3)) {
+        return validQuestions;
       }
-      throw new Error('No valid JSON found in response');
-    } catch (error) {
-      console.error('Error parsing diagnostic questions JSON:', error);
-      return this.createFallbackDiagnosticQuestions(subject, topic, count);
     }
+    
+    console.error('Error parsing diagnostic questions:', result.error);
+    return this.createFallbackDiagnosticQuestions(subject, topic, count);
   }
 
   async analyzeStudentProgress(subjects, activities, weakAreas = []) {
-    const prompt = `Analyze this student's learning progress and provide personalized recommendations:
+    const prompt = `Analyze student progress and provide recommendations.
 
-Subjects studied: ${subjects.join(', ')}
-Recent activities: ${JSON.stringify(activities)}
-Identified weak areas: ${weakAreas.join(', ')}
+Subjects: ${subjects.join(', ')}
+Activities: ${JSON.stringify(activities).substring(0, 1000)}
+Weak areas: ${weakAreas.join(', ') || 'None identified'}
 
-Provide analysis with:
-1. Overall progress assessment
-2. Strengths and areas for improvement
-3. Specific study recommendations
-4. Suggested next steps
-5. Time allocation advice
+RULES:
+1. Output ONLY valid JSON - no markdown, no code fences
+2. Be specific and actionable in recommendations
 
-Format as JSON with fields: overallProgress, strengths, weaknesses, recommendations, nextSteps, timeAllocation`;
+Required JSON format:
+{
+  "overallProgress": "assessment string",
+  "strengths": ["strength1", "strength2"],
+  "weaknesses": ["weakness1", "weakness2"],
+  "recommendations": ["rec1", "rec2"],
+  "nextSteps": ["step1", "step2"],
+  "timeAllocation": "allocation advice"
+}
 
-    const response = await this.generateContent(prompt, { temperature: 0.6 });
+Analyze now:`;
+
+    const response = await this.generateContent(prompt, { temperature: 0.5, maxTokens: 1500 });
     
-    try {
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
-      }
-      throw new Error('No valid JSON found in response');
-    } catch (error) {
-      console.error('Error parsing progress analysis JSON:', error);
-      return this.createFallbackProgressAnalysis();
+    const result = this._extractJSON(response, false);
+    
+    if (result.success && result.data) {
+      const data = result.data;
+      // Ensure all required fields exist
+      return {
+        overallProgress: data.overallProgress || 'Good progress shown',
+        strengths: Array.isArray(data.strengths) ? data.strengths : ['Consistent effort'],
+        weaknesses: Array.isArray(data.weaknesses) ? data.weaknesses : [],
+        recommendations: Array.isArray(data.recommendations) ? data.recommendations : ['Continue practicing'],
+        nextSteps: Array.isArray(data.nextSteps) ? data.nextSteps : ['Review weak areas'],
+        timeAllocation: data.timeAllocation || 'Balance time across all subjects'
+      };
     }
+    
+    console.error('Error parsing progress analysis:', result.error);
+    return this.createFallbackProgressAnalysis();
   }
 
   // Fallback methods for when AI generation fails
@@ -810,4 +1371,7 @@ Format as JSON with fields: overallProgress, strengths, weaknesses, recommendati
 }
 
 const geminiServiceInstance = new GeminiService();
+
+// Export the instance as default and utility functions/classes as named exports
 export default geminiServiceInstance;
+export { RateLimitError, sanitizeForPrompt, isRateLimitError };
