@@ -93,7 +93,7 @@ class IntelligentScheduler {
     merged.maxStudyHoursPerDay = Math.max(2, Math.min(10, merged.maxStudyHoursPerDay || scientificDefaults.maxStudyHoursPerDay));
     merged.sessionLength = Math.max(15, Math.min(120, merged.sessionLength || scientificDefaults.sessionLength));
     merged.breakLength = Math.max(5, Math.min(30, merged.breakLength || scientificDefaults.breakLength));
-    merged.studyStartTime = Math.max(5, Math.min(10, merged.studyStartTime || scientificDefaults.studyStartTime));
+    merged.studyStartTime = Math.max(5, Math.min(12, merged.studyStartTime || scientificDefaults.studyStartTime)); // Allow up to noon (12)
     merged.studyEndTime = Math.max(18, Math.min(24, merged.studyEndTime || scientificDefaults.studyEndTime));
     
     console.log("🧠 Merged user preferences with scientific defaults:", merged);

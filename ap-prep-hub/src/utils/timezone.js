@@ -216,8 +216,16 @@ export const parseTimeInUserTimezone = (timeString, date = new Date()) => {
       const [time, period] = timeString.split(' ');
       const [h, m] = time.split(':').map(Number);
       
-      hours = h === 12 ? 0 : h;
-      if (period === 'PM' && h !== 12) hours += 12;
+      // Handle 12-hour format correctly:
+      // 12:00 AM = 0:00 (midnight)
+      // 12:00 PM = 12:00 (noon)
+      // 1:00 AM = 1:00
+      // 1:00 PM = 13:00
+      if (period === 'AM') {
+        hours = h === 12 ? 0 : h;  // 12 AM is midnight (0)
+      } else {  // PM
+        hours = h === 12 ? 12 : h + 12;  // 12 PM is noon (12), others add 12
+      }
       minutes = m || 0;
     } else {
       // 24-hour format
