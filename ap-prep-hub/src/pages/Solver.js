@@ -21,52 +21,95 @@ const SolverPage = () => {
   const [analysisHistory, setAnalysisHistory] = useState([]);
 
   // Component to render text with LaTeX support
-  // Uses a div wrapper to avoid DOM nesting issues with BlockMath
-  const MathText = ({ children, inline = false }) => {
+  // Uses span wrappers to avoid DOM nesting issues with BlockMath
+  const MathText = ({ children }) => {
     if (!children) return null;
 
     const text = typeof children === 'string' ? children : String(children);
 
-    // Check if content has block math ($$...$$)
-    const hasBlockMath = /\$\$.*?\$\$/s.test(text);
-
-    // Split text by LaTeX delimiters
-    const parts = text.split(/(\$\$[\s\S]*?\$\$|\$[^$\n]*?\$)/g);
-
-    const content = parts.map((part, index) => {
-      if (part.startsWith('$$') && part.endsWith('$$')) {
-        // Block math - render as div
-        const math = part.slice(2, -2).trim();
-        try {
-          return (
-            <span key={index} className="block my-2">
-              <InlineMath math={math} />
-            </span>
-          );
-        } catch (error) {
-          return <span key={index} className="text-red-400">[Math Error: {part}]</span>;
-        }
-      } else if (part.startsWith('$') && part.endsWith('$')) {
-        // Inline math
-        const math = part.slice(1, -1);
-        try {
-          return <InlineMath key={index} math={math} />;
-        } catch (error) {
-          return <span key={index} className="text-red-400">[Math Error: {part}]</span>;
-        }
-      } else if (part.trim()) {
-        // Regular text
-        return <span key={index}>{part}</span>;
-      }
-      return null;
-    }).filter(Boolean);
-
-    // Use div wrapper if content has block math to avoid nesting issues
-    if (hasBlockMath && !inline) {
-      return <span className="block">{content}</span>;
+    // Check if text contains any LaTeX delimiters
+    if (!text.includes('$')) {
+      return <span>{text}</span>;
     }
 
-    return <span>{content}</span>;
+    // Split text by LaTeX delimiters - handle both $...$ and $$...$$
+    const parts = [];
+    let lastIndex = 0;
+
+    // Process the text character by character to properly handle nested cases
+    let i = 0;
+    while (i < text.length) {
+      if (text[i] === '$') {
+        // Check for block math $$
+        if (text[i + 1] === '$') {
+          // Find closing $$
+          const closeIdx = text.indexOf('$$', i + 2);
+          if (closeIdx !== -1) {
+            // Add text before this math
+            if (i > lastIndex) {
+              parts.push({ type: 'text', content: text.slice(lastIndex, i) });
+            }
+            // Add block math
+            parts.push({ type: 'block', content: text.slice(i + 2, closeIdx) });
+            i = closeIdx + 2;
+            lastIndex = i;
+            continue;
+          }
+        } else {
+          // Check for inline math $
+          const closeIdx = text.indexOf('$', i + 1);
+          // Make sure it's on the same line (no newlines between)
+          if (closeIdx !== -1 && !text.slice(i + 1, closeIdx).includes('\n')) {
+            // Add text before this math
+            if (i > lastIndex) {
+              parts.push({ type: 'text', content: text.slice(lastIndex, i) });
+            }
+            // Add inline math
+            parts.push({ type: 'inline', content: text.slice(i + 1, closeIdx) });
+            i = closeIdx + 1;
+            lastIndex = i;
+            continue;
+          }
+        }
+      }
+      i++;
+    }
+
+    // Add remaining text
+    if (lastIndex < text.length) {
+      parts.push({ type: 'text', content: text.slice(lastIndex) });
+    }
+
+    // If no parts were found, return plain text
+    if (parts.length === 0) {
+      return <span>{text}</span>;
+    }
+
+    return (
+      <span>
+        {parts.map((part, index) => {
+          if (part.type === 'block') {
+            try {
+              return (
+                <span key={index} className="block my-2 text-center">
+                  <InlineMath math={part.content.trim()} />
+                </span>
+              );
+            } catch (error) {
+              return <span key={index} className="text-red-400 font-mono text-sm">[Math: {part.content}]</span>;
+            }
+          } else if (part.type === 'inline') {
+            try {
+              return <InlineMath key={index} math={part.content} />;
+            } catch (error) {
+              return <span key={index} className="text-red-400 font-mono text-sm">[Math: {part.content}]</span>;
+            }
+          } else {
+            return <span key={index}>{part.content}</span>;
+          }
+        })}
+      </span>
+    );
   };
 
   const loadSolverHistory = useCallback(async () => {
@@ -90,13 +133,27 @@ const SolverPage = () => {
   }, [user, loadSolverHistory]);
 
   const handleImageUpload = (event) => {
-    const file = event.target.files[0];
+    const file = event.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onload = (e) => {
         setSelectedImage(e.target.result);
       };
+      reader.onerror = (error) => {
+        console.error('Error reading file:', error);
+        alert('Failed to read the image file. Please try again.');
+      };
       reader.readAsDataURL(file);
+    }
+    // Reset the input value so the same file can be selected again
+    if (event.target) {
+      event.target.value = '';
+    }
+  };
+
+  const triggerImageUpload = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
     }
   };
 
@@ -124,26 +181,38 @@ const SolverPage = () => {
       let solutionText;
       const subjectName = selectedSubject ? AP_SUBJECTS[selectedSubject]?.name || selectedSubject : '';
       
+      // Build the structured prompt for JSON output
+      const buildSolverPrompt = (problem, hasImage) => `Solve this ${subjectName || 'math'} problem step by step.
+
+${hasImage ? 'The image shows a problem. ' : ''}${problem ? `Problem text: ${problem}` : 'Analyze the problem shown in the image.'}
+
+IMPORTANT: Use LaTeX formatting for all mathematical expressions using dollar signs: $x^2$ for inline, $$\\frac{a}{b}$$ for block math.
+
+Return ONLY valid JSON (no code fences, no extra text) with this exact structure:
+{
+  "problemType": "string describing the type",
+  "steps": [
+    {"step": 1, "title": "Step Title", "content": "What was done (use $LaTeX$ for math)", "explanation": "Why this step"}
+  ],
+  "finalAnswer": "The final answer with $LaTeX$ if needed",
+  "concepts": ["concept1", "concept2"],
+  "commonMistakes": ["mistake1"],
+  "difficulty": "Easy|Medium|Hard",
+  "timeToSolve": "X-Y minutes"
+}`;
+
       if (selectedImage && questionText) {
         // Both image and text provided
         const imageData = convertImageToBase64(selectedImage);
         solutionText = await geminiService.generateWithImages(
-          `Solve this ${subjectName} problem. Here's the text description: ${questionText}. Also analyze the image provided. 
-
-IMPORTANT: Use LaTeX formatting for all mathematical expressions. Wrap inline math with single dollar signs $...$ and block math with double dollar signs $$...$$.
-
-Provide a detailed step-by-step solution with proper LaTeX formatting for mathematical content.`,
+          buildSolverPrompt(questionText, true),
           [imageData]
         );
       } else if (selectedImage) {
         // Only image provided
         const imageData = convertImageToBase64(selectedImage);
         solutionText = await geminiService.generateWithImages(
-          `Analyze and solve this ${subjectName} problem from the image. Provide step-by-step solution.
-
-IMPORTANT: Use LaTeX formatting for all mathematical expressions. Wrap inline math with single dollar signs $...$ and block math with double dollar signs $$...$$.
-
-Provide a detailed step-by-step solution with proper LaTeX formatting for mathematical content.`,
+          buildSolverPrompt('', true),
           [imageData]
         );
       } else {
@@ -154,28 +223,81 @@ Provide a detailed step-by-step solution with proper LaTeX formatting for mathem
       // Try to parse JSON response, fallback to text parsing
       const extractJson = (txt) => {
         if (!txt) return null;
+
         // Prefer fenced json blocks
         const fenced = txt.match(/```json\s*([\s\S]*?)```/i);
         if (fenced && fenced[1]) {
           try { return JSON.parse(fenced[1]); } catch(_) {}
         }
+
         // Remove any code fences for parsing
-        const stripped = txt.replace(/```[\s\S]*?```/g, (m) => {
+        let stripped = txt.replace(/```[\s\S]*?```/g, (m) => {
           const inner = m.replace(/^```[a-z]*\n?/i,'').replace(/```$/,'');
           return inner;
         });
-        // Attempt to find first JSON object
+
+        // Try to find a complete JSON object by matching braces
         const firstBrace = stripped.indexOf('{');
-        const lastBrace = stripped.lastIndexOf('}');
-        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-          const candidate = stripped.slice(firstBrace, lastBrace + 1);
-          try { return JSON.parse(candidate); } catch(_) {}
+        if (firstBrace === -1) return null;
+
+        // Count braces to find the matching closing brace
+        let braceCount = 0;
+        let inString = false;
+        let escapeNext = false;
+        let endIdx = -1;
+
+        for (let i = firstBrace; i < stripped.length; i++) {
+          const char = stripped[i];
+
+          if (escapeNext) {
+            escapeNext = false;
+            continue;
+          }
+
+          if (char === '\\') {
+            escapeNext = true;
+            continue;
+          }
+
+          if (char === '"' && !escapeNext) {
+            inString = !inString;
+            continue;
+          }
+
+          if (!inString) {
+            if (char === '{') braceCount++;
+            if (char === '}') {
+              braceCount--;
+              if (braceCount === 0) {
+                endIdx = i;
+                break;
+              }
+            }
+          }
         }
-        // Fallback regex
-        const loose = stripped.match(/\{[\s\S]*\}/);
-        if (loose) {
-          try { return JSON.parse(loose[0]); } catch(_) {}
+
+        if (endIdx !== -1) {
+          const candidate = stripped.slice(firstBrace, endIdx + 1);
+          try {
+            return JSON.parse(candidate);
+          } catch(e) {
+            // Try to fix common JSON issues
+            try {
+              const fixed = candidate
+                .replace(/,\s*}/g, '}')  // Remove trailing commas before }
+                .replace(/,\s*]/g, ']')  // Remove trailing commas before ]
+                .replace(/\n/g, ' ')     // Replace newlines with spaces
+                .replace(/\t/g, ' ');    // Replace tabs with spaces
+              return JSON.parse(fixed);
+            } catch(_) {}
+          }
         }
+
+        // Last resort: try to parse the whole thing
+        try {
+          return JSON.parse(stripped.trim());
+        } catch(_) {}
+
         return null;
       };
       let parsedSolution;
@@ -224,36 +346,78 @@ Provide a detailed step-by-step solution with proper LaTeX formatting for mathem
   };
 
   const parseTextSolution = (text, question, subject) => {
-    // Simple text parsing for fallback
-    const lines = text
+    // Clean up the text - remove JSON-like fragments and code fences
+    let cleanText = text
+      .replace(/```[\s\S]*?```/g, '') // Remove code blocks
+      .replace(/^[\s\S]*?"problemType"[\s\S]*?{/g, '') // Remove JSON preamble
+      .replace(/^\s*[{}\[\]",:]+\s*$/gm, '') // Remove lines with only JSON syntax
+      .replace(/"[a-zA-Z]+"\s*:/g, '') // Remove JSON keys
+      .replace(/^\s*\{/gm, '')
+      .replace(/\}\s*$/gm, '')
+      .trim();
+
+    // Split into meaningful lines
+    const lines = cleanText
       .split('\n')
-      .filter(line => line.trim())
-      .filter(line => !/^```/i.test(line)); // drop code fence markers
-    
+      .map(line => line.trim())
+      .filter(line => line.length > 10) // Only keep substantial lines
+      .filter(line => !/^[{}\[\]",:\d]+$/.test(line)); // Remove JSON fragments
+
+    // Try to find step-like content
+    const steps = [];
+    let currentStep = { content: '', explanation: '' };
+    let stepNum = 1;
+
+    for (const line of lines) {
+      // Check for step indicators
+      if (/^(step\s*\d|^\d+\.|analysis|solution|answer|conclusion)/i.test(line)) {
+        if (currentStep.content) {
+          steps.push({
+            step: stepNum++,
+            title: `Step ${stepNum - 1}`,
+            content: currentStep.content,
+            explanation: currentStep.explanation || 'Working through the problem'
+          });
+        }
+        currentStep = { content: line, explanation: '' };
+      } else {
+        currentStep.content += (currentStep.content ? ' ' : '') + line;
+      }
+    }
+
+    // Push the last step
+    if (currentStep.content) {
+      steps.push({
+        step: stepNum,
+        title: `Step ${stepNum}`,
+        content: currentStep.content,
+        explanation: 'Completing the solution'
+      });
+    }
+
+    // If no steps found, create a simple structure
+    if (steps.length === 0) {
+      const allContent = lines.join(' ') || text.slice(0, 500);
+      steps.push({
+        step: 1,
+        title: "Solution",
+        content: allContent || "Solution provided",
+        explanation: "AI-generated solution"
+      });
+    }
+
+    // Find the final answer
+    const finalAnswerMatch = text.match(/final\s*answer[:\s]*([^"}\n]+)/i);
+    const finalAnswer = finalAnswerMatch
+      ? finalAnswerMatch[1].trim()
+      : (steps[steps.length - 1]?.content?.slice(0, 200) || "See solution above");
+
     return {
       question: question || "Problem from image",
       subject: subject || "General",
-      steps: [
-        {
-          step: 1,
-          title: "Problem Analysis",
-          content: lines[0] || "Analyzing the problem...",
-          explanation: "Understanding the problem type and requirements"
-        },
-        {
-          step: 2,
-          title: "Solution Process",
-          content: lines.slice(1, -1).join(' ') || "Working through the solution...",
-          explanation: "Applying relevant concepts and methods"
-        },
-        {
-          step: 3,
-          title: "Final Answer",
-          content: lines[lines.length - 1] || "Solution completed",
-          explanation: "Arrived at the final result"
-        }
-      ],
-      finalAnswer: lines[lines.length - 1] || "Solution provided above",
+      problemType: subject || "General Problem",
+      steps: steps,
+      finalAnswer: finalAnswer,
       concepts: [subject || "Problem Solving"],
       difficulty: "Medium",
       timeToSolve: "5-10 minutes"
@@ -347,18 +511,29 @@ Provide a detailed step-by-step solution with proper LaTeX formatting for mathem
                   <label className="block text-sm font-medium text-slate-300 mb-3">
                     Upload Photo
                   </label>
-                  <div 
+                  <div
                     className="border-2 border-dashed border-slate-600 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 transition-colors"
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={triggerImageUpload}
                   >
                     {selectedImage ? (
-                      <div className="space-y-4">
-                        <img 
-                          src={selectedImage} 
+                      <div className="space-y-4 relative">
+                        <img
+                          src={selectedImage}
                           alt="Uploaded problem"
                           className="max-h-48 mx-auto rounded-lg"
                         />
-                        <p className="text-sm text-slate-400">Click to change image</p>
+                        <div className="flex items-center justify-center gap-4">
+                          <p className="text-sm text-slate-400">Click to change image</p>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedImage(null);
+                            }}
+                            className="text-sm text-red-400 hover:text-red-300 underline"
+                          >
+                            Remove image
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <div className="space-y-4">
@@ -375,7 +550,7 @@ Provide a detailed step-by-step solution with proper LaTeX formatting for mathem
                     type="file"
                     accept="image/*"
                     onChange={handleImageUpload}
-                    className="hidden"
+                    style={{ display: 'none' }}
                   />
                 </div>
 

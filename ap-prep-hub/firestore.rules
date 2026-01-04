@@ -31,6 +31,16 @@ service cloud.firestore {
       match /settings/{settingId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
+
+      // User's scheduler tasks
+      match /tasks/{taskId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // User's scheduler preferences
+      match /schedulerPreferences/{prefId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
     }
 
     // Conversations at root level - accessible by owner
@@ -73,14 +83,6 @@ service cloud.firestore {
 
     // User progress at root level - accessible by owner
     match /userProgress/{progressId} {
-      allow read, write: if request.auth != null &&
-                           request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null &&
-                      request.auth.uid == request.resource.data.userId;
-    }
-
-    // Tasks at root level - accessible by owner
-    match /tasks/{taskId} {
       allow read, write: if request.auth != null &&
                            request.auth.uid == resource.data.userId;
       allow create: if request.auth != null &&
