@@ -16,11 +16,6 @@ import { getFirebaseErrorMessage } from '../utils/firebaseErrorMessages';
 
 const AuthContext = createContext(null);
 
-// Detect if user is on mobile
-const isMobile = () => {
-    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-};
-
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
