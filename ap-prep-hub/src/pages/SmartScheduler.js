@@ -10,6 +10,10 @@ import APExamDashboard from "../components/scheduler/APExamDashboard.jsx";
 import { Button, ScrollArea, Badge } from "../components/ui/UIComponents.jsx";
 import IntelligentScheduler from "../utils/intelligentScheduler";
 
+// Gate debug logging behind development mode
+const IS_DEV = process.env.NODE_ENV === 'development';
+const debugLog = IS_DEV ? (...args) => console.log(...args) : () => {}; // eslint-disable-line no-console
+
 // Helper function to convert schedule array back to object format
 const convertArrayToScheduleObject = (scheduleArray) => {
   const scheduleObject = {};
@@ -65,13 +69,13 @@ export default function SmartScheduler() {
           newScheduler.loadLearningHistory(userPreferences.learningHistory);
         }
         setScheduler(newScheduler);
-        console.log("✅ Scheduler initialized with preferences");
+        debugLog("✅ Scheduler initialized with preferences");
       } catch (error) {
         console.error("❌ Error initializing scheduler:", error);
         // Fallback with default preferences
         setUserPreferences({
           preferredStudyTimes: ['morning', 'evening'],
-          maxStudyHoursPerDay: 4,
+          maxStudyHoursPerDay: 8,
           breakDuration: 15,
           weekendStudy: true,
           blackoutSchedule: {},
@@ -81,22 +85,7 @@ export default function SmartScheduler() {
     }
   }, [userPreferences, isLoadingPreferences]);
 
-  // Debug aiSchedule changes
-  useEffect(() => {
-    console.log("🔍 aiSchedule changed:", {
-      value: aiSchedule,
-      type: typeof aiSchedule,
-      isArray: Array.isArray(aiSchedule),
-      length: Array.isArray(aiSchedule) ? aiSchedule.length : 'N/A',
-      detailed: Array.isArray(aiSchedule) ? aiSchedule.map((item, idx) => ({
-        index: idx,
-        taskName: item.taskName || item.task,
-        date: item.date,
-        startTime: item.startTime?.toLocaleString(),
-        endTime: item.endTime?.toLocaleString()
-      })) : 'Not array'
-    });
-  }, [aiSchedule]);
+
 
   // Deep sanitize function to clean undefined values
   const deepSanitize = useCallback((obj) => {
@@ -129,7 +118,7 @@ export default function SmartScheduler() {
       return;
     }
     
-    console.log("Attempting to save preferences to Firebase for user:", user.uid);
+    debugLog("Attempting to save preferences to Firebase for user:", user.uid);
     
     try {
       const userDocRef = doc(db, 'users', user.uid);
@@ -147,10 +136,10 @@ export default function SmartScheduler() {
       // Sanitize the data to prevent undefined values
       const sanitizedData = deepSanitize(dataToSave);
       
-      console.log("Data being saved (sanitized):", sanitizedData);
+      debugLog("Data being saved (sanitized):", sanitizedData);
       await setDoc(userDocRef, sanitizedData, { merge: true });
       
-      console.log("✅ User preferences saved to Firebase successfully");
+      debugLog("✅ User preferences saved to Firebase successfully");
     } catch (error) {
       console.error("❌ Error saving user preferences to Firebase:", error);
       console.error("Error code:", error.code);
@@ -162,11 +151,11 @@ export default function SmartScheduler() {
   useEffect(() => {
     if (!user) {
       setIsLoadingPreferences(false);
-      console.log("No user found, skipping preference loading");
+      debugLog("No user found, skipping preference loading");
       return;
     }
     
-    console.log("Starting to load user preferences for:", user.uid);
+    debugLog("Starting to load user preferences for:", user.uid);
     
     const loadUserData = async () => {
       try {
@@ -175,7 +164,7 @@ export default function SmartScheduler() {
         const userDocRef = doc(db, 'users', user.uid);
         const userDocSnap = await getDoc(userDocRef);
         
-        console.log("User document exists:", userDocSnap.exists());
+        debugLog("User document exists:", userDocSnap.exists());
         
         // Default preferences for new users or missing data
         const defaultPrefs = {
@@ -189,26 +178,26 @@ export default function SmartScheduler() {
         
         if (userDocSnap.exists()) {
           const userData = userDocSnap.data();
-          console.log("User data loaded:", userData);
+          debugLog("User data loaded:", userData);
           
           // Load study preferences (merge with defaults)
           if (userData.studyPreferences) {
             const prefs = {
               ...defaultPrefs,
               maxStudyHoursPerDay: parseInt(userData.studyPreferences.sessionLength) ? 
-                Math.min(8, Math.max(2, Math.ceil(parseInt(userData.studyPreferences.sessionLength) / 60 * 6))) : 4,
+                Math.min(8, Math.max(2, Math.round(parseInt(userData.studyPreferences.sessionLength) / 60))) : 8,
               breakDuration: parseInt(userData.studyPreferences.breakLength) || 15,
               weekendStudy: userData.studyPreferences.weekendStudy !== false,
               blackoutSchedule: userData.blackoutDates || {},
               learningHistory: userData.learningHistory || []
             };
             setUserPreferences(prefs);
-            console.log("User preferences set:", prefs);
+            debugLog("User preferences set:", prefs);
           } else {
             // No preferences saved yet, use defaults and save them
             setUserPreferences(defaultPrefs);
             await saveUserPreferencesToFirebase(defaultPrefs);
-            console.log("No saved preferences, using and saving defaults:", defaultPrefs);
+            debugLog("No saved preferences, using and saving defaults:", defaultPrefs);
           }
           
           // Load saved AI schedule
@@ -223,13 +212,13 @@ export default function SmartScheduler() {
               return item.startTime && item.startTime > new Date();
             });
             setAiSchedule(restoredSchedule);
-            console.log("Restored AI schedule:", restoredSchedule.length, "items");
+            debugLog("Restored AI schedule:", restoredSchedule.length, "items");
           }
         } else {
           // New user with no document, use defaults and save them
           setUserPreferences(defaultPrefs);
           await saveUserPreferencesToFirebase(defaultPrefs);
-          console.log("New user detected, using and saving default preferences:", defaultPrefs);
+          debugLog("New user detected, using and saving default preferences:", defaultPrefs);
         }
       } catch (error) {
         console.error("Error loading user data:", error);
@@ -251,7 +240,7 @@ export default function SmartScheduler() {
         }
       } finally {
         setIsLoadingPreferences(false);
-        console.log("Finished loading preferences");
+        debugLog("Finished loading preferences");
       }
     };
     
@@ -269,6 +258,8 @@ export default function SmartScheduler() {
         tasksData.push({ id: doc.id, ...doc.data() });
       });
       setTasks(tasksData);
+    }, (error) => {
+      console.error("❌ Error loading tasks:", error);
     });
 
     return () => unsubscribe();
@@ -286,7 +277,7 @@ export default function SmartScheduler() {
       return;
     }
     
-    console.log("Attempting to save AI schedule to Firebase for user:", user.uid);
+    debugLog("Attempting to save AI schedule to Firebase for user:", user.uid);
     
     try {
       const userDocRef = doc(db, 'users', user.uid);
@@ -303,10 +294,10 @@ export default function SmartScheduler() {
       // Sanitize the data to prevent undefined values
       const sanitizedData = deepSanitize(dataToSave);
       
-      console.log("Schedule data being saved (sanitized):", sanitizedData);
+      debugLog("Schedule data being saved (sanitized):", sanitizedData);
       await setDoc(userDocRef, sanitizedData, { merge: true });
       
-      console.log("✅ AI schedule and learning history saved to Firebase successfully");
+      debugLog("✅ AI schedule and learning history saved to Firebase successfully");
     } catch (error) {
       console.error("❌ Error saving AI schedule to Firebase:", error);
       console.error("Error code:", error.code);
@@ -346,7 +337,7 @@ export default function SmartScheduler() {
       
       setAiSchedule(validItems);
       await saveAiScheduleToFirebase(validItems);
-      console.log("✅ Completed tasks and their schedule items removed");
+      debugLog("✅ Completed tasks and their schedule items removed");
     } catch (error) {
       console.error("Error removing completed items:", error);
     }
@@ -358,7 +349,7 @@ export default function SmartScheduler() {
       try {
         setAiSchedule([]);
         await saveAiScheduleToFirebase([]);
-        console.log("✅ Schedule refreshed and saved to Firebase");
+        debugLog("✅ Schedule refreshed and saved to Firebase");
       } catch (error) {
         console.error("Error refreshing schedule:", error);
       }
@@ -397,7 +388,7 @@ export default function SmartScheduler() {
         await deleteDoc(doc(db, "users", user.uid, "tasks", taskId));
         
         // Trigger schedule regeneration after deletion
-        console.log("🔄 Task deleted, regenerating schedule...");
+        debugLog("🔄 Task deleted, regenerating schedule...");
         setTimeout(() => {
           if (scheduleRegenerateRef.current) {
             scheduleRegenerateRef.current(false);
@@ -486,7 +477,7 @@ export default function SmartScheduler() {
         setTasks(prev => prev.filter(t => t.id !== task.id));
         
         // Trigger schedule regeneration after deletion
-        console.log("🔄 Overdue task deleted, regenerating schedule...");
+        debugLog("🔄 Overdue task deleted, regenerating schedule...");
         setTimeout(() => {
           if (scheduleRegenerateRef.current) {
             scheduleRegenerateRef.current(false);
@@ -506,7 +497,7 @@ export default function SmartScheduler() {
         ));
         
         // Trigger schedule regeneration after rescheduling
-        console.log("🔄 Task rescheduled, regenerating schedule...");
+        debugLog("🔄 Task rescheduled, regenerating schedule...");
         setTimeout(() => {
           if (scheduleRegenerateRef.current) {
             scheduleRegenerateRef.current(false);
@@ -535,7 +526,7 @@ export default function SmartScheduler() {
       console.error("Error processing overdue task:", error);
       alert("Failed to update task. Please try again.");
     }
-  }, [user.uid]);
+  }, [user?.uid]);
 
   // Generate intelligent schedule function
   // Reset auto-trigger flag when tasks change significantly, but only if no schedule exists
@@ -550,7 +541,7 @@ export default function SmartScheduler() {
     // Track when new assignments are available but schedule is preserved
     if (hasExistingSchedule && tasks.length > lastKnownTaskCount && lastKnownTaskCount > 0) {
       setNewAssignmentsAvailable(true);
-      console.log(`📬 New assignments detected: ${tasks.length - lastKnownTaskCount} new tasks`);
+      debugLog(`📬 New assignments detected: ${tasks.length - lastKnownTaskCount} new tasks`);
     }
     
     // Update the last known task count
@@ -574,7 +565,7 @@ export default function SmartScheduler() {
 
     // Prevent multiple simultaneous generations
     if (isGeneratingRef.current) {
-      console.log("⏳ Schedule generation already in progress");
+      debugLog("⏳ Schedule generation already in progress");
       return;
     }
 
@@ -582,7 +573,7 @@ export default function SmartScheduler() {
     // skip generation to preserve user's schedule from background sync interference
     const hasExistingSchedule = Array.isArray(aiSchedule) && aiSchedule.length > 0;
     if (isAutoTrigger && hasExistingSchedule) {
-      console.log("🛡️ Auto-trigger skipped - preserving existing schedule from background sync interference");
+      debugLog("🛡️ Auto-trigger skipped - preserving existing schedule from background sync interference");
       return;
     }
 
@@ -601,14 +592,14 @@ export default function SmartScheduler() {
         return; // Wait for user to handle overdue tasks
       }
 
-      console.log("🧠 Generating intelligent schedule...");
-      console.log("Tasks:", tasks);
-      console.log("User preferences:", userPreferences);
-      console.log("Blackout overrides:", blackoutOverrides);
+      debugLog("🧠 Generating intelligent schedule...");
+      debugLog("Tasks:", tasks);
+      debugLog("User preferences:", userPreferences);
+      debugLog("Blackout overrides:", blackoutOverrides);
       
       // Convert aiSchedule array back to object format for the scheduler
       const existingScheduleObject = convertArrayToScheduleObject(aiSchedule);
-      console.log("Current schedule to preserve:", existingScheduleObject);
+      debugLog("Current schedule to preserve:", existingScheduleObject);
       
       // Enhanced error handling for schedule generation
       let result;
@@ -623,11 +614,11 @@ export default function SmartScheduler() {
         return;
       }
 
-      console.log("Generated schedule result:", result);
-      console.log("Result type:", typeof result);
-      console.log("Is result an object?", result && typeof result === 'object');
-      console.log("Does result have schedule property?", result && result.schedule);
-      console.log("Direct result content keys:", result ? Object.keys(result) : 'No result');
+      debugLog("Generated schedule result:", result);
+      debugLog("Result type:", typeof result);
+      debugLog("Is result an object?", result && typeof result === 'object');
+      debugLog("Does result have schedule property?", result && result.schedule);
+      debugLog("Direct result content keys:", result ? Object.keys(result) : 'No result');
       
       // Handle the new return format that includes conflicts
       let scheduleObject;
@@ -637,12 +628,12 @@ export default function SmartScheduler() {
         // New format with conflicts
         scheduleObject = result.schedule;
         conflicts = result.blackoutConflicts || [];
-        console.log("Using new format - schedule object:", scheduleObject);
-        console.log("Conflicts found:", conflicts);
+        debugLog("Using new format - schedule object:", scheduleObject);
+        debugLog("Conflicts found:", conflicts);
       } else if (result && typeof result === 'object') {
         // Legacy format - direct schedule object
         scheduleObject = result;
-        console.log("Using legacy format - direct schedule object");
+        debugLog("Using legacy format - direct schedule object");
       } else {
         console.error("❌ Generated schedule is not valid:", result);
         
@@ -663,7 +654,7 @@ export default function SmartScheduler() {
       
       // Check if there are blackout conflicts to resolve
       if (conflicts.length > 0) {
-        console.log("⚠️ Blackout conflicts detected, showing dialog");
+        debugLog("⚠️ Blackout conflicts detected, showing dialog");
         setBlackoutConflicts(conflicts);
         setShowBlackoutDialog(true);
         updateIsGenerating(false);
@@ -680,7 +671,7 @@ export default function SmartScheduler() {
       const scheduleArray = [];
       Object.keys(scheduleObject).forEach(dateKey => {
         const daySchedule = scheduleObject[dateKey];
-        console.log(`📅 Processing schedule for ${dateKey}:`, daySchedule);
+        debugLog(`📅 Processing schedule for ${dateKey}:`, daySchedule);
         
         if (Array.isArray(daySchedule)) {
           // Map the schedule items to match our component's expected format
@@ -691,14 +682,14 @@ export default function SmartScheduler() {
             endTime: item.endTime ? new Date(item.endTime) : null,
             date: dateKey // Ensure date is set
           }));
-          console.log(`📋 Mapped ${mappedItems.length} items for ${dateKey}:`, mappedItems);
+          debugLog(`📋 Mapped ${mappedItems.length} items for ${dateKey}:`, mappedItems);
           scheduleArray.push(...mappedItems);
         }
       });
       
-      console.log("🔄 Final converted schedule array:", scheduleArray);
-      console.log("📊 Total schedule items:", scheduleArray.length);
-      console.log("📈 Schedule items by date:", scheduleArray.reduce((acc, item) => {
+      debugLog("🔄 Final converted schedule array:", scheduleArray);
+      debugLog("📊 Total schedule items:", scheduleArray.length);
+      debugLog("📈 Schedule items by date:", scheduleArray.reduce((acc, item) => {
         const date = item.date || (item.startTime ? format(item.startTime, 'yyyy-MM-dd') : 'unknown');
         acc[date] = (acc[date] || 0) + 1;
         return acc;
@@ -803,7 +794,7 @@ export default function SmartScheduler() {
             errorMessage += "This might be due to:\n• " + suggestions.join("\n• ");
             
             // Log detailed analysis
-            console.log("📊 Detailed scheduling failure analysis:", {
+            debugLog("📊 Detailed scheduling failure analysis:", {
               totalTasks: tasks.length,
               incompleteTasks: tasks.filter(t => !t.is_completed).length,
               tasksWithoutDeadlines: tasks.filter(t => !t.deadline).length,
@@ -820,10 +811,10 @@ export default function SmartScheduler() {
         return;
       }
 
-      console.log("Setting aiSchedule to:", scheduleArray);
+      debugLog("Setting aiSchedule to:", scheduleArray);
       setAiSchedule(scheduleArray);
       await saveAiScheduleToFirebase(scheduleArray);
-      console.log("✅ Schedule generated and saved successfully!");
+      debugLog("✅ Schedule generated and saved successfully!");
     } catch (error) {
       console.error("Error generating schedule:", error);
       console.error("Error stack:", error.stack);
@@ -847,14 +838,14 @@ export default function SmartScheduler() {
     const hasExistingSchedule = Array.isArray(aiSchedule) && aiSchedule.length > 0;
     
     if (tasks.length > 0 && userPreferences && !isGenerating && !showBlackoutDialog && !isModalOpen && !hasAutoTriggered && !hasExistingSchedule) {
-      console.log("🔄 Auto-triggering schedule generation (no existing schedule found)");
+      debugLog("🔄 Auto-triggering schedule generation (no existing schedule found)");
       setHasAutoTriggered(true);
       const timer = setTimeout(() => {
         generateIntelligentSchedule(true); // Pass true to indicate this is an auto-trigger
       }, 500); // Small delay to ensure UI is ready
       return () => clearTimeout(timer);
     } else if (hasExistingSchedule && !hasAutoTriggered) {
-      console.log("📅 Existing schedule found - skipping auto-trigger to preserve scheduled times");
+      debugLog("📅 Existing schedule found - skipping auto-trigger to preserve scheduled times");
       setHasAutoTriggered(true); // Mark as triggered to prevent future auto-triggers
     }
   }, [tasks.length, userPreferences, isGenerating, showBlackoutDialog, isModalOpen, hasAutoTriggered, aiSchedule, generateIntelligentSchedule]);
@@ -866,16 +857,8 @@ export default function SmartScheduler() {
     generateIntelligentSchedule(false);
   }, [generateIntelligentSchedule]);
 
-  // Auto-trigger scheduling when overdue dialog closes
-  useEffect(() => {
-    if (!overdueTasksDialog.show && overdueTasksDialog.tasks.length === 0 && tasks.length > 0) {
-      // Small delay to ensure state updates are complete
-      const timer = setTimeout(() => {
-        generateIntelligentSchedule(false);
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [overdueTasksDialog.show, overdueTasksDialog.tasks.length, tasks.length, generateIntelligentSchedule]);
+  // Note: removed auto-trigger on overdue dialog close to prevent infinite loop.
+  // The "Continue Scheduling" button in the overdue dialog handles re-triggering.
 
   if (!user) {
     return (
@@ -938,11 +921,11 @@ export default function SmartScheduler() {
           <Button 
             className="w-full mb-2 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-xs sm:text-sm py-2 sm:py-3" 
             onClick={() => generateIntelligentSchedule(false)}
-            disabled={isLoadingPreferences || !scheduler}
+            disabled={isLoadingPreferences || !scheduler || isGenerating}
           >
             <Brain size={14} className="mr-2"/>
             <span className="truncate">
-              {isLoadingPreferences ? 'Loading...' : 'Generate Smart Schedule'}
+              {isLoadingPreferences ? 'Loading...' : isGenerating ? 'Generating...' : 'Generate Smart Schedule'}
             </span>
           </Button>
           
@@ -1067,23 +1050,8 @@ export default function SmartScheduler() {
                     
                     // Handle both Date objects and date strings
                     const itemDate = item.startTime instanceof Date ? item.startTime : new Date(item.startTime);
-                    const result = isSameDay(itemDate, date);
-                    
-                    // Debug logging for schedule filtering
-                    if (dayIndex === 0) { // Only log for today to avoid spam
-                      console.log(`🔍 Schedule item filter debug:`, {
-                        taskName: item.taskName || item.task,
-                        itemDate: itemDate?.toLocaleDateString(),
-                        targetDate: date.toLocaleDateString(),
-                        matches: result,
-                        rawStartTime: item.startTime
-                      });
-                    }
-                    
-                    return result;
+                    return isSameDay(itemDate, date);
                   });
-
-                  console.log(`📅 Day ${dayIndex} (${date.toLocaleDateString()}): ${daySchedule.length} schedule items`);
 
                   // Always show the day if it's today/tomorrow/next few days, even if no items
                   const showEmptyDays = dayIndex < 3; // Show first 3 days even if empty
@@ -1106,7 +1074,7 @@ export default function SmartScheduler() {
                         <div className="space-y-1 sm:space-y-2">
                           {daySchedule.map((item, index) => {
                             if (!item) {
-                              console.log(`⚠️ Null item at index ${index} for day ${dayIndex}`);
+                              debugLog(`⚠️ Null item at index ${index} for day ${dayIndex}`);
                               return null;
                             }
                             
@@ -1117,7 +1085,7 @@ export default function SmartScheduler() {
                             
                             const uniqueKey = scheduleIndex >= 0 ? scheduleIndex : `item-${dayIndex}-${index}`;
                             
-                            console.log(`📋 Rendering schedule item:`, {
+                            debugLog(`📋 Rendering schedule item:`, {
                               key: uniqueKey,
                               taskName: item.taskName || item.task,
                               startTime: item.startTime?.toLocaleString(),
@@ -1137,7 +1105,15 @@ export default function SmartScheduler() {
                                   <div className="flex-1 min-w-0">
                                     <p className="font-medium text-slate-200 text-sm sm:text-base truncate">{item.task || item.taskName || 'Unnamed Task'}</p>
                                     <p className="text-xs sm:text-sm text-slate-400">
-                                      {item.startTime && format(item.startTime instanceof Date ? item.startTime : new Date(item.startTime), 'h:mm a')} - {item.endTime && format(item.endTime instanceof Date ? item.endTime : new Date(item.endTime), 'h:mm a')}
+                                      {(() => {
+                                        try {
+                                          const start = item.startTime instanceof Date ? item.startTime : new Date(item.startTime);
+                                          const end = item.endTime instanceof Date ? item.endTime : new Date(item.endTime);
+                                          const startStr = item.startTime && !isNaN(start) ? format(start, 'h:mm a') : '';
+                                          const endStr = item.endTime && !isNaN(end) ? format(end, 'h:mm a') : '';
+                                          return `${startStr}${startStr && endStr ? ' - ' : ''}${endStr}`;
+                                        } catch { return ''; }
+                                      })()}
                                       {item.duration && ` (${item.duration} min)`}
                                     </p>
                                     {item.subject && <p className="text-xs text-blue-400 truncate">{item.subject}</p>}

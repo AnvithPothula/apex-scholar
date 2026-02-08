@@ -5,6 +5,10 @@ import {
   getCurrentTimeInUserTimezone
 } from './timezone';
 
+// Gate debug logging behind development mode to avoid console spam in production
+const IS_DEV = process.env.NODE_ENV === 'development';
+const debugLog = IS_DEV ? (...args) => console.log(...args) : () => {}; // eslint-disable-line no-console
+
 class IntelligentScheduler {
   constructor(userPreferences, blackoutSchedule) {
     // Enhanced default preferences based on cognitive science research
@@ -83,7 +87,7 @@ class IntelligentScheduler {
    */
   mergeWithDefaults(userPrefs, scientificDefaults) {
     if (!userPrefs || typeof userPrefs !== 'object') {
-      console.log("🧠 Using scientific defaults - no user preferences provided");
+      debugLog("🧠 Using scientific defaults - no user preferences provided");
       return scientificDefaults;
     }
 
@@ -96,7 +100,7 @@ class IntelligentScheduler {
     merged.studyStartTime = Math.max(5, Math.min(12, merged.studyStartTime || scientificDefaults.studyStartTime)); // Allow up to noon (12)
     merged.studyEndTime = Math.max(18, Math.min(24, merged.studyEndTime || scientificDefaults.studyEndTime));
     
-    console.log("🧠 Merged user preferences with scientific defaults:", merged);
+    debugLog("🧠 Merged user preferences with scientific defaults:", merged);
     return merged;
   }
 
@@ -592,14 +596,14 @@ class IntelligentScheduler {
   }
 
   generateWeeklySchedule(tasks, startDate = new Date(), blackoutOverrides = [], existingSchedule = {}, preserveCurrentDay = false) {
-    console.log("🧠 Enhanced IntelligentScheduler.generateWeeklySchedule called");
-    console.log("📝 Input tasks:", tasks);
-    console.log("📅 Start date:", startDate);
-    console.log("🚫 Blackout overrides (type):", typeof blackoutOverrides, blackoutOverrides);
-    console.log("📋 Existing schedule provided:", Object.keys(existingSchedule).length > 0);
-    console.log("🔒 Preserve current day schedule:", preserveCurrentDay);
-    console.log("⚙️ User preferences:", this.userPreferences);
-    console.log("🕒 Blackout schedule:", this.userPreferences?.blackoutSchedule);
+    debugLog("🧠 Enhanced IntelligentScheduler.generateWeeklySchedule called");
+    debugLog("📝 Input tasks:", tasks);
+    debugLog("📅 Start date:", startDate);
+    debugLog("🚫 Blackout overrides (type):", typeof blackoutOverrides, blackoutOverrides);
+    debugLog("📋 Existing schedule provided:", Object.keys(existingSchedule).length > 0);
+    debugLog("🔒 Preserve current day schedule:", preserveCurrentDay);
+    debugLog("⚙️ User preferences:", this.userPreferences);
+    debugLog("🕒 Blackout schedule:", this.userPreferences?.blackoutSchedule);
 
     // Enhanced input validation
     if (!tasks || !Array.isArray(tasks)) {
@@ -608,7 +612,7 @@ class IntelligentScheduler {
     }
 
     if (tasks.length === 0) {
-      console.log("📭 No tasks provided, returning existing schedule or empty");
+      debugLog("📭 No tasks provided, returning existing schedule or empty");
       return { schedule: existingSchedule, blackoutConflicts: [] };
     }
 
@@ -625,15 +629,15 @@ class IntelligentScheduler {
     }
     
     try {
-      console.log("🧠 Starting enhanced scientific schedule generation...");
-      console.log("Tasks received:", tasks.length);
+      debugLog("🧠 Starting enhanced scientific schedule generation...");
+      debugLog("Tasks received:", tasks.length);
       
       // Validate and sanitize tasks
       const validTasks = this.validateAndSanitizeTasks(tasks);
-      console.log("Valid tasks after validation:", validTasks.length);
+      debugLog("Valid tasks after validation:", validTasks.length);
       
       if (validTasks.length === 0) {
-        console.log("📭 No valid tasks after validation");
+        debugLog("📭 No valid tasks after validation");
         return { schedule: existingSchedule, blackoutConflicts: [] };
       }
       
@@ -641,14 +645,14 @@ class IntelligentScheduler {
       
       // Detect critical conflicts that require immediate attention
       const urgentConflicts = this.detectBlackoutConflicts(validTasks);
-      console.log("⚠️ Urgent conflicts detected:", urgentConflicts.length);
+      debugLog("⚠️ Urgent conflicts detected:", urgentConflicts.length);
       
       if (urgentConflicts.length > 0) {
-        console.log("🛑 Returning due to blackout conflicts");
+        debugLog("🛑 Returning due to blackout conflicts");
         return { schedule: {}, blackoutConflicts: urgentConflicts };
       }
       
-      console.log("✅ No conflicts, proceeding with enhanced schedule generation");
+      debugLog("✅ No conflicts, proceeding with enhanced schedule generation");
       
       // Enhanced task analysis with cognitive science principles
       const analyzedTasks = validTasks.map(task => ({
@@ -658,14 +662,14 @@ class IntelligentScheduler {
         optimalSessionPlan: this.createOptimalSessionPlan(task)
       }));
       
-      console.log("🧠 Enhanced analyzed tasks:", analyzedTasks);
+      debugLog("🧠 Enhanced analyzed tasks:", analyzedTasks);
       
       // Scientific priority sorting based on multiple factors
       analyzedTasks.sort((a, b) => {
         return this.calculateScientificPriority(b) - this.calculateScientificPriority(a);
       });
       
-      console.log("📊 Scientifically sorted tasks by priority:", analyzedTasks.map(t => ({ 
+      debugLog("📊 Scientifically sorted tasks by priority:", analyzedTasks.map(t => ({ 
         id: t.id, 
         priority: this.calculateScientificPriority(t),
         urgency: this.calculateUrgency(t),
@@ -674,14 +678,14 @@ class IntelligentScheduler {
       
       // Enhanced task allocation using cognitive optimization
       const taskAllocation = this.allocateTasksWithCognitiveOptimization(analyzedTasks, existingSchedule, preserveCurrentDay);
-      console.log("🧠 Cognitive-optimized task allocation:", taskAllocation);
+      debugLog("🧠 Cognitive-optimized task allocation:", taskAllocation);
       
       // Merge with existing schedule using enhanced merging strategy
       const schedule = this.mergeScheduleWithCognitiveStrategy(existingSchedule, taskAllocation);
       
-      console.log("🎯 Enhanced schedule generated:");
-      console.log("📊 Schedule keys:", Object.keys(schedule));
-      console.log("📈 Total days with schedule:", Object.keys(schedule).length);
+      debugLog("🎯 Enhanced schedule generated:");
+      debugLog("📊 Schedule keys:", Object.keys(schedule));
+      debugLog("📈 Total days with schedule:", Object.keys(schedule).length);
       
       let totalScheduledTasks = 0;
       let totalCognitiveLoad = 0;
@@ -690,23 +694,23 @@ class IntelligentScheduler {
         const dayLoad = schedule[key].reduce((sum, item) => sum + (item.cognitiveLoad || 0), 0);
         totalScheduledTasks += dayItems;
         totalCognitiveLoad += dayLoad;
-        console.log(`📅 ${key}: ${dayItems} items (cognitive load: ${dayLoad.toFixed(2)})`);
+        debugLog(`📅 ${key}: ${dayItems} items (cognitive load: ${dayLoad.toFixed(2)})`);
       });
       
-      console.log(`📊 Total scheduled tasks: ${totalScheduledTasks}`);
-      console.log(`🧠 Total cognitive load: ${totalCognitiveLoad.toFixed(2)}`);
-      console.log(`📋 Original tasks count: ${tasks.length}`);
+      debugLog(`📊 Total scheduled tasks: ${totalScheduledTasks}`);
+      debugLog(`🧠 Total cognitive load: ${totalCognitiveLoad.toFixed(2)}`);
+      debugLog(`📋 Original tasks count: ${tasks.length}`);
       
       if (totalScheduledTasks === 0) {
-        console.log("⚠️ WARNING: No tasks were scheduled!");
-        console.log("🔍 This could be due to:");
-        console.log("   - All tasks completed");
-        console.log("   - No valid time slots available");
-        console.log("   - Blackout periods covering all available time");
-        console.log("   - Tasks filtered out by deadline logic");
+        debugLog("⚠️ WARNING: No tasks were scheduled!");
+        debugLog("🔍 This could be due to:");
+        debugLog("   - All tasks completed");
+        debugLog("   - No valid time slots available");
+        debugLog("   - Blackout periods covering all available time");
+        debugLog("   - Tasks filtered out by deadline logic");
       }
       
-      console.log("🧠 Enhanced schedule generation completed");
+      debugLog("🧠 Enhanced schedule generation completed");
       return { schedule, blackoutConflicts: [] };
     } catch (error) {
       console.error("💥 Error in enhanced generateWeeklySchedule:", error);
@@ -716,7 +720,7 @@ class IntelligentScheduler {
   }
 
   detectBlackoutConflicts(tasks) {
-    console.log("🔍 Detecting blackout conflicts...");
+    debugLog("🔍 Detecting blackout conflicts...");
     const conflicts = [];
     const now = new Date();
     
@@ -745,14 +749,14 @@ class IntelligentScheduler {
       return urgency === 1.0 || (daysUntilDue <= 2 && urgency > 0.7) || daysUntilDue <= 1;
     });
     
-    console.log(`📋 Found ${urgentTasks.length} urgent tasks to check for conflicts`);
+    debugLog(`📋 Found ${urgentTasks.length} urgent tasks to check for conflicts`);
     
     for (const task of urgentTasks) {
       const taskConflicts = this.findTaskBlackoutConflicts(task);
       conflicts.push(...taskConflicts);
     }
     
-    console.log(`⚠️ Total blackout conflicts found: ${conflicts.length}`);
+    debugLog(`⚠️ Total blackout conflicts found: ${conflicts.length}`);
     return conflicts;
   }
   
@@ -795,9 +799,9 @@ class IntelligentScheduler {
     }
     
     const remainingTime = task.timeRequired - (task.timeSpent || 0);
-    const requiredHours = remainingTime / 60;
+    const requiredHours = remainingTime; // timeRequired is already in hours
     
-    console.log(`📊 Task "${task.name}": needs ${requiredHours.toFixed(1)}h, available: ${availableHours.toFixed(1)}h`);
+    debugLog(`📊 Task "${task.name}": needs ${requiredHours.toFixed(1)}h, available: ${availableHours.toFixed(1)}h`);
     
     // If there's not enough time due to blackouts, create conflict
     if (availableHours < requiredHours && conflictingBlackouts.length > 0) {
@@ -818,7 +822,7 @@ class IntelligentScheduler {
           shortfallHours: shortfall,
           conflictingBlackout: primaryConflict,
           allConflictingBlackouts: conflictingBlackouts
-        });      console.log(`⚠️ Conflict detected for "${task.name}": need ${shortfall.toFixed(1)}h more time`);
+        });      debugLog(`⚠️ Conflict detected for "${task.name}": need ${shortfall.toFixed(1)}h more time`);
     }
     
     return conflicts;
@@ -906,11 +910,11 @@ class IntelligentScheduler {
   }
 
   generateDaySchedule(tasks, date) {
-    console.log(`🧠 generateDaySchedule called (backward compatibility) for ${format(date, 'yyyy-MM-dd')}`);
-    console.log(`📝 Input tasks count: ${tasks?.length || 0}`);
+    debugLog(`🧠 generateDaySchedule called (backward compatibility) for ${format(date, 'yyyy-MM-dd')}`);
+    debugLog(`📝 Input tasks count: ${tasks?.length || 0}`);
     
     if (!tasks || tasks.length === 0) {
-      console.log(`📭 No tasks provided for ${format(date, 'yyyy-MM-dd')}`);
+      debugLog(`📭 No tasks provided for ${format(date, 'yyyy-MM-dd')}`);
       return [];
     }
     
@@ -935,15 +939,15 @@ class IntelligentScheduler {
       };
     });
     
-    console.log(`🧠 Converted ${tasks.length} tasks to cognitive format`);
+    debugLog(`🧠 Converted ${tasks.length} tasks to cognitive format`);
     
     // Use cognitive-optimized day schedule generation
     return this.generateCognitiveOptimizedDaySchedule(allocatedTasks, date, []);
   }
 
   findAvailableTimeSlot(date, durationMinutes, task, existingSchedule = []) {
-    console.log(`🔍 Finding time slot for ${task.name} on ${format(date, 'yyyy-MM-dd')} (${durationMinutes}min)`);
-    console.log(`📋 Existing schedule items to avoid:`, existingSchedule.map(item => ({ 
+    debugLog(`🔍 Finding time slot for ${task.name} on ${format(date, 'yyyy-MM-dd')} (${durationMinutes}min)`);
+    debugLog(`📋 Existing schedule items to avoid:`, existingSchedule.map(item => ({ 
       name: item.taskName, 
       start: item.startTime?.toLocaleTimeString?.() || item.startTime, 
       end: item.endTime?.toLocaleTimeString?.() || item.endTime 
@@ -953,7 +957,7 @@ class IntelligentScheduler {
     const blackoutSchedule = this.userPreferences.blackoutSchedule || {};
     const dayBlackouts = blackoutSchedule[dayOfWeek] || [];
     
-    console.log(`📅 Day: ${dayOfWeek}, Blackouts:`, dayBlackouts);
+    debugLog(`📅 Day: ${dayOfWeek}, Blackouts:`, dayBlackouts);
     
     // Get current time in user's timezone
     const now = getCurrentTimeInUserTimezone();
@@ -964,7 +968,7 @@ class IntelligentScheduler {
     const todayDateStr = format(now, 'yyyy-MM-dd');
     const isToday = targetDateStr === todayDateStr;
     
-    console.log(`🕐 Current time in ${userTimezone}: ${formatDateTimeInUserTimezone(now)}`);
+    debugLog(`🕐 Current time in ${userTimezone}: ${formatDateTimeInUserTimezone(now)}`);
     
     // Time window boundaries
     let startHour = 7;  // Default start
@@ -984,7 +988,7 @@ class IntelligentScheduler {
         }
       }
       
-      console.log(`🕐 Today's scheduling: starting from ${startHour}:${currentMinute >= 45 ? '00' : String(Math.ceil(currentMinute / 15) * 15).padStart(2, '0')} (current time in ${userTimezone}: ${formatDateTimeInUserTimezone(now, { hour: '2-digit', minute: '2-digit' })})`);
+      debugLog(`🕐 Today's scheduling: starting from ${startHour}:${currentMinute >= 45 ? '00' : String(Math.ceil(currentMinute / 15) * 15).padStart(2, '0')} (current time in ${userTimezone}: ${formatDateTimeInUserTimezone(now, { hour: '2-digit', minute: '2-digit' })})`);
     }
 
     // Check if task deadline allows for this timing
@@ -1004,7 +1008,7 @@ class IntelligentScheduler {
         if (isToday && deadline.getDate() === now.getDate()) {
           // Task is due today - make sure we don't schedule past the deadline
           endHour = Math.min(endHour, deadlineHour);
-          console.log(`⏰ Task due today at ${formatDateTimeInUserTimezone(deadline, { hour: '2-digit', minute: '2-digit' })}, adjusting end time to ${endHour}:00`);
+          debugLog(`⏰ Task due today at ${formatDateTimeInUserTimezone(deadline, { hour: '2-digit', minute: '2-digit' })}, adjusting end time to ${endHour}:00`);
         }
       }
     }    
@@ -1028,7 +1032,7 @@ class IntelligentScheduler {
         const slotStartTime = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
         const slotEndTime = `${String(slotEnd.getHours()).padStart(2, '0')}:${String(slotEnd.getMinutes()).padStart(2, '0')}`;
         
-        console.log(`🕐 Checking slot: ${slotStartTime}-${slotEndTime}`);
+        debugLog(`🕐 Checking slot: ${slotStartTime}-${slotEndTime}`);
         
         // Check for blackout conflicts
         const hasBlackoutConflict = this.checkBlackoutConflict(slotStartTime, slotEndTime, dayBlackouts);
@@ -1037,7 +1041,7 @@ class IntelligentScheduler {
         const hasScheduleConflict = this.checkScheduleConflict(slotStart, slotEnd, existingSchedule);
         
         if (!hasBlackoutConflict && !hasScheduleConflict) {
-          console.log(`✅ Found available slot: ${slotStartTime}-${slotEndTime}`);
+          debugLog(`✅ Found available slot: ${slotStartTime}-${slotEndTime}`);
           return {
             start: slotStart,
             end: slotEnd,
@@ -1045,29 +1049,29 @@ class IntelligentScheduler {
           };
         } else {
           if (hasBlackoutConflict) {
-            console.log(`❌ Slot conflicts with blackout: ${slotStartTime}-${slotEndTime}`);
+            debugLog(`❌ Slot conflicts with blackout: ${slotStartTime}-${slotEndTime}`);
           }
           if (hasScheduleConflict) {
-            console.log(`❌ Slot conflicts with existing schedule: ${slotStartTime}-${slotEndTime}`);
+            debugLog(`❌ Slot conflicts with existing schedule: ${slotStartTime}-${slotEndTime}`);
           }
         }
       }
     }
     
-    console.log(`❌ No available time slot found for ${task.name} on ${format(date, 'yyyy-MM-dd')}`);
-    console.log(`🔍 Debugging info - Start hour: ${startHour}, End hour: ${endHour}, Is today: ${isToday}`);
-    console.log(`🔍 Duration needed: ${durationMinutes} minutes`);
-    console.log(`🔍 Day blackouts:`, dayBlackouts);
+    debugLog(`❌ No available time slot found for ${task.name} on ${format(date, 'yyyy-MM-dd')}`);
+    debugLog(`🔍 Debugging info - Start hour: ${startHour}, End hour: ${endHour}, Is today: ${isToday}`);
+    debugLog(`🔍 Duration needed: ${durationMinutes} minutes`);
+    debugLog(`🔍 Day blackouts:`, dayBlackouts);
     
     return null;
   }
 
   checkBlackoutConflict(startTime, endTime, dayBlackouts) {
-    console.log(`🔍 Checking blackout conflict: ${startTime}-${endTime}`);
-    console.log(`🚫 Day blackouts:`, dayBlackouts);
+    debugLog(`🔍 Checking blackout conflict: ${startTime}-${endTime}`);
+    debugLog(`🚫 Day blackouts:`, dayBlackouts);
     
     if (!dayBlackouts || dayBlackouts.length === 0) {
-      console.log(`✅ No blackouts for this day`);
+      debugLog(`✅ No blackouts for this day`);
       return false;
     }
     
@@ -1090,11 +1094,11 @@ class IntelligentScheduler {
         blackoutStart = blackout.startTime;
         blackoutEnd = blackout.endTime;
       } else {
-        console.log(`⚠️ Invalid blackout format:`, blackout);
+        debugLog(`⚠️ Invalid blackout format:`, blackout);
         continue;
       }
       
-      console.log(`🔍 Checking against blackout: ${blackoutStart}-${blackoutEnd}`);
+      debugLog(`🔍 Checking against blackout: ${blackoutStart}-${blackoutEnd}`);
       
       // FIXED: Better time comparison - handle overnight ranges properly
       const isOvernightRange = this.isOvernightTimeRange(blackoutStart, blackoutEnd);
@@ -1111,25 +1115,25 @@ class IntelligentScheduler {
         
         // Check conflict with period 1 (evening part)
         if (this.hasTimeOverlap(startTime, endTime, period1Start, period1End)) {
-          console.log(`❌ Conflict found with overnight blackout period 1: ${period1Start}-${period1End}`);
+          debugLog(`❌ Conflict found with overnight blackout period 1: ${period1Start}-${period1End}`);
           return true;
         }
         
         // Check conflict with period 2 (early morning part)
         if (this.hasTimeOverlap(startTime, endTime, period2Start, period2End)) {
-          console.log(`❌ Conflict found with overnight blackout period 2: ${period2Start}-${period2End}`);
+          debugLog(`❌ Conflict found with overnight blackout period 2: ${period2Start}-${period2End}`);
           return true;
         }
       } else {
         // Normal range within same day
         if (this.hasTimeOverlap(startTime, endTime, blackoutStart, blackoutEnd)) {
-          console.log(`❌ Conflict found with blackout: ${blackoutStart}-${blackoutEnd}`);
+          debugLog(`❌ Conflict found with blackout: ${blackoutStart}-${blackoutEnd}`);
           return true;
         }
       }
     }
     
-    console.log(`✅ No conflicts found`);
+    debugLog(`✅ No conflicts found`);
     return false;
   }
 
@@ -1164,17 +1168,17 @@ class IntelligentScheduler {
   }
 
   checkScheduleConflict(slotStart, slotEnd, existingSchedule) {
-    console.log(`🔍 Checking schedule conflict: ${formatDateTimeInUserTimezone(slotStart, { hour: '2-digit', minute: '2-digit' })}-${formatDateTimeInUserTimezone(slotEnd, { hour: '2-digit', minute: '2-digit' })} (${getUserTimezone()})`);
-    console.log(`📋 Existing schedule items to check:`, existingSchedule?.length || 0);
+    debugLog(`🔍 Checking schedule conflict: ${formatDateTimeInUserTimezone(slotStart, { hour: '2-digit', minute: '2-digit' })}-${formatDateTimeInUserTimezone(slotEnd, { hour: '2-digit', minute: '2-digit' })} (${getUserTimezone()})`);
+    debugLog(`📋 Existing schedule items to check:`, existingSchedule?.length || 0);
     
     if (!existingSchedule || existingSchedule.length === 0) {
-      console.log(`✅ No existing schedule items to check`);
+      debugLog(`✅ No existing schedule items to check`);
       return false;
     }
     
     for (const scheduled of existingSchedule) {
       if (!scheduled || !scheduled.startTime || !scheduled.endTime) {
-        console.log(`⚠️ Skipping invalid schedule item:`, scheduled);
+        debugLog(`⚠️ Skipping invalid schedule item:`, scheduled);
         continue;
       }
       
@@ -1190,7 +1194,7 @@ class IntelligentScheduler {
         scheduledEnd = new Date(scheduled.endTime);
       }
       
-      console.log(`🔍 Checking against: ${scheduled.taskName || scheduled.task} (${formatDateTimeInUserTimezone(scheduledStart, { hour: '2-digit', minute: '2-digit' })}-${formatDateTimeInUserTimezone(scheduledEnd, { hour: '2-digit', minute: '2-digit' })})`);
+      debugLog(`🔍 Checking against: ${scheduled.taskName || scheduled.task} (${formatDateTimeInUserTimezone(scheduledStart, { hour: '2-digit', minute: '2-digit' })}-${formatDateTimeInUserTimezone(scheduledEnd, { hour: '2-digit', minute: '2-digit' })})`);
       
       // FIXED: More robust overlap detection with better edge case handling
       // Two time slots overlap if one starts before the other ends AND one ends after the other starts
@@ -1203,14 +1207,14 @@ class IntelligentScheduler {
       const overlaps = (slotStartTime < scheduledEndTime && slotEndTime > scheduledStartTime);
       
       if (overlaps) {
-        console.log(`❌ Schedule conflict found with: ${scheduled.taskName || scheduled.task}`);
-        console.log(`   New slot: ${formatDateTimeInUserTimezone(slotStart, { hour: '2-digit', minute: '2-digit' })}-${formatDateTimeInUserTimezone(slotEnd, { hour: '2-digit', minute: '2-digit' })} (${slotStartTime}-${slotEndTime})`);
-        console.log(`   Existing: ${formatDateTimeInUserTimezone(scheduledStart, { hour: '2-digit', minute: '2-digit' })}-${formatDateTimeInUserTimezone(scheduledEnd, { hour: '2-digit', minute: '2-digit' })} (${scheduledStartTime}-${scheduledEndTime})`);
+        debugLog(`❌ Schedule conflict found with: ${scheduled.taskName || scheduled.task}`);
+        debugLog(`   New slot: ${formatDateTimeInUserTimezone(slotStart, { hour: '2-digit', minute: '2-digit' })}-${formatDateTimeInUserTimezone(slotEnd, { hour: '2-digit', minute: '2-digit' })} (${slotStartTime}-${slotEndTime})`);
+        debugLog(`   Existing: ${formatDateTimeInUserTimezone(scheduledStart, { hour: '2-digit', minute: '2-digit' })}-${formatDateTimeInUserTimezone(scheduledEnd, { hour: '2-digit', minute: '2-digit' })} (${scheduledStartTime}-${scheduledEndTime})`);
         return true;
       }
     }
     
-    console.log(`✅ No schedule conflicts found`);
+    debugLog(`✅ No schedule conflicts found`);
     return false;
   }
 
@@ -1270,7 +1274,7 @@ class IntelligentScheduler {
   }
 
   findTasksForDay(tasks, date) {
-    console.log(`🔍 Finding tasks for ${format(date, 'yyyy-MM-dd')}`);
+    debugLog(`🔍 Finding tasks for ${format(date, 'yyyy-MM-dd')}`);
     
     const targetDate = new Date(date);
     const now = new Date();
@@ -1282,7 +1286,7 @@ class IntelligentScheduler {
       // FIXED: Use consistent deadline parsing
       const taskDeadline = task.deadline || task.dueDate;
       if (!taskDeadline) {
-        console.log(`⚠️ Task ${task.name} has no deadline, including anyway`);
+        debugLog(`⚠️ Task ${task.name} has no deadline, including anyway`);
         return true; // Include tasks without deadlines
       }
       
@@ -1291,7 +1295,7 @@ class IntelligentScheduler {
       const timeSpent = task.timeSpent || 0;
       
       if (timeSpent >= timeRequired) {
-        console.log(`✅ Task ${task.name} already completed (${timeSpent}h >= ${timeRequired}h)`);
+        debugLog(`✅ Task ${task.name} already completed (${timeSpent}h >= ${timeRequired}h)`);
         return false;
       }
       
@@ -1311,25 +1315,25 @@ class IntelligentScheduler {
       
       // Don't schedule tasks that are already past their deadline
       if (deadlineDate < targetDate) {
-        console.log(`⏰ Task ${task.name} deadline (${deadlineDate.toLocaleString()}) is before target date (${targetDate.toLocaleString()}), skipping`);
+        debugLog(`⏰ Task ${task.name} deadline (${deadlineDate.toLocaleString()}) is before target date (${targetDate.toLocaleString()}), skipping`);
         return false;
       }
       
       // For today, don't schedule tasks due before current time
       if (isToday && deadlineDate < now) {
-        console.log(`⏰ Task ${task.name} deadline (${deadlineDate.toLocaleString()}) is before current time (${now.toLocaleString()}), skipping`);
+        debugLog(`⏰ Task ${task.name} deadline (${deadlineDate.toLocaleString()}) is before current time (${now.toLocaleString()}), skipping`);
         return false;
       }
       
       const hoursUntilDeadline = (deadlineDate - targetDate) / (1000 * 60 * 60);
       
-      console.log(`📋 Task ${task.name}: ${hoursUntilDeadline.toFixed(2)} hours until deadline from target date (estimated: ${task.estimated_time}min, required: ${timeRequired.toFixed(2)}h)`);
+      debugLog(`📋 Task ${task.name}: ${hoursUntilDeadline.toFixed(2)} hours until deadline from target date (estimated: ${task.estimated_time}min, required: ${timeRequired.toFixed(2)}h)`);
       
       // Include tasks that are due within the next 14 days from the target date
       return hoursUntilDeadline >= 0 && hoursUntilDeadline <= (14 * 24);
     });
     
-    console.log(`📊 Found ${relevantTasks.length} relevant tasks for ${format(date, 'yyyy-MM-dd')}`);
+    debugLog(`📊 Found ${relevantTasks.length} relevant tasks for ${format(date, 'yyyy-MM-dd')}`);
     return relevantTasks.map(task => ({
       ...task,
       // Ensure required fields exist and are properly converted
@@ -1425,7 +1429,7 @@ class IntelligentScheduler {
     
     const hoursUntilDeadline = (deadline - now) / (1000 * 60 * 60);
     
-    console.log(`⏰ Task "${task.name}": Current time in ${getUserTimezone()}: ${formatDateTimeInUserTimezone(now)}, Deadline: ${formatDateTimeInUserTimezone(deadline)}, Hours until deadline: ${hoursUntilDeadline.toFixed(2)}`);
+    debugLog(`⏰ Task "${task.name}": Current time in ${getUserTimezone()}: ${formatDateTimeInUserTimezone(now)}, Deadline: ${formatDateTimeInUserTimezone(deadline)}, Hours until deadline: ${hoursUntilDeadline.toFixed(2)}`);
     
     // Overdue tasks get maximum urgency
     if (hoursUntilDeadline < 0) return 1.0;
@@ -1448,7 +1452,7 @@ class IntelligentScheduler {
   // Load learning history from saved data
   loadLearningHistory(history) {
     this.learningHistory = history || [];
-    console.log("📚 Loaded learning history:", this.learningHistory.length, "entries");
+    debugLog("📚 Loaded learning history:", this.learningHistory.length, "entries");
   }
 
   // Get learning history in a format suitable for saving
@@ -1474,9 +1478,9 @@ class IntelligentScheduler {
    * Considers circadian rhythms, cognitive load, and spaced repetition
    */
   allocateTasksWithCognitiveOptimization(tasks, existingSchedule = {}, preserveCurrentDay = false) {
-    console.log("🧠 Starting cognitive-optimized task allocation...");
-    console.log("📋 Existing schedule to consider:", Object.keys(existingSchedule).length > 0 ? Object.keys(existingSchedule) : "none");
-    console.log("🔒 Preserve current day:", preserveCurrentDay);
+    debugLog("🧠 Starting cognitive-optimized task allocation...");
+    debugLog("📋 Existing schedule to consider:", Object.keys(existingSchedule).length > 0 ? Object.keys(existingSchedule) : "none");
+    debugLog("🔒 Preserve current day:", preserveCurrentDay);
     
     const now = new Date();
     const allocation = {};
@@ -1484,7 +1488,7 @@ class IntelligentScheduler {
     
     // Get task IDs that already have valid schedule items
     const alreadyScheduledTaskIds = this.getScheduledTaskIds(existingSchedule, tasks, preserveCurrentDay);
-    console.log("📅 Tasks already scheduled:", Array.from(alreadyScheduledTaskIds));
+    debugLog("📅 Tasks already scheduled:", Array.from(alreadyScheduledTaskIds));
     
     // Initialize allocation for the next 14 days (extended for better spaced repetition)
     for (let i = 0; i < 14; i++) {
@@ -1493,7 +1497,7 @@ class IntelligentScheduler {
       
       // Skip weekends if user preference is set
       if (!this.userPreferences.weekendStudy && isWeekend(day)) {
-        console.log(`⏭️ Skipping weekend day: ${format(day, 'yyyy-MM-dd')} (weekendStudy: ${this.userPreferences.weekendStudy})`);
+        debugLog(`⏭️ Skipping weekend day: ${format(day, 'yyyy-MM-dd')} (weekendStudy: ${this.userPreferences.weekendStudy})`);
         continue;
       }
       
@@ -1504,10 +1508,10 @@ class IntelligentScheduler {
         peakHoursUsed: 0,
         sessionCount: 0
       };
-      console.log(`📅 Added day for allocation: ${dateKey} (${format(day, 'EEEE')})`);
+      debugLog(`📅 Added day for allocation: ${dateKey} (${format(day, 'EEEE')})`);
     }
     
-    console.log("📅 Available days for allocation:", Object.keys(allocation));
+    debugLog("📅 Available days for allocation:", Object.keys(allocation));
     
     if (Object.keys(allocation).length === 0) {
       console.error("❌ No available days for allocation! Check weekend study preference.");
@@ -1519,7 +1523,7 @@ class IntelligentScheduler {
       return this.calculateScientificPriority(b) - this.calculateScientificPriority(a);
     });
     
-    console.log("🧠 Tasks sorted by scientific priority:", sortedTasks.map(t => ({ 
+    debugLog("🧠 Tasks sorted by scientific priority:", sortedTasks.map(t => ({ 
       name: t.name, 
       priority: this.calculateScientificPriority(t),
       cognitiveLoad: t.analysis?.cognitiveLoad || 0,
@@ -1531,16 +1535,16 @@ class IntelligentScheduler {
     
     for (const task of sortedTasks) {
       processedCount++;
-      console.log(`\n🔄 Processing task ${processedCount}/${sortedTasks.length}: ${task.name}`);
+      debugLog(`\n🔄 Processing task ${processedCount}/${sortedTasks.length}: ${task.name}`);
       
       if (allocatedTasks.has(task.id)) {
-        console.log(`⏭️ Task ${task.name} already in allocatedTasks set, skipping`);
+        debugLog(`⏭️ Task ${task.name} already in allocatedTasks set, skipping`);
         continue;
       }
       
       // Skip tasks that already have valid schedule items
       if (alreadyScheduledTaskIds.has(task.id)) {
-        console.log(`📅 Task ${task.name} already scheduled, skipping reallocation`);
+        debugLog(`📅 Task ${task.name} already scheduled, skipping reallocation`);
         allocatedTasks.add(task.id);
         allocatedCount++;
         continue;
@@ -1551,37 +1555,37 @@ class IntelligentScheduler {
       const remainingTime = Math.max(0, timeRequired - timeSpent);
       
       if (remainingTime <= 0) {
-        console.log(`✅ Task ${task.name} already completed, skipping allocation`);
+        debugLog(`✅ Task ${task.name} already completed, skipping allocation`);
         allocatedCount++;
         continue;
       }
       
-      console.log(`🧠 Cognitively allocating task: ${task.name} (${remainingTime.toFixed(2)}h remaining)`);
+      debugLog(`🧠 Cognitively allocating task: ${task.name} (${remainingTime.toFixed(2)}h remaining)`);
       
       // Use cognitive optimization strategies
       const allocationSuccess = this.allocateTaskWithCognitiveStrategy(task, allocation, allocatedTasks);
       
       if (allocationSuccess) {
         allocatedCount++;
-        console.log(`✅ Successfully allocated ${task.name} using cognitive strategy`);
+        debugLog(`✅ Successfully allocated ${task.name} using cognitive strategy`);
       } else {
-        console.log(`❌ Failed to allocate ${task.name} even with cognitive optimization`);
+        debugLog(`❌ Failed to allocate ${task.name} even with cognitive optimization`);
       }
       
-      console.log(`📊 Task ${task.name} allocation result: ${allocationSuccess ? 'SUCCESS' : 'FAILED'}`);
+      debugLog(`📊 Task ${task.name} allocation result: ${allocationSuccess ? 'SUCCESS' : 'FAILED'}`);
     }
     
-    console.log(`\n� Cognitive Allocation Summary:`);
-    console.log(`   Total tasks: ${sortedTasks.length}`);
-    console.log(`   Processed: ${processedCount}`);
-    console.log(`   Successfully allocated: ${allocatedCount}`);
-    console.log(`   Failed to allocate: ${processedCount - allocatedCount}`);
+    debugLog(`\n� Cognitive Allocation Summary:`);
+    debugLog(`   Total tasks: ${sortedTasks.length}`);
+    debugLog(`   Processed: ${processedCount}`);
+    debugLog(`   Successfully allocated: ${allocatedCount}`);
+    debugLog(`   Failed to allocate: ${processedCount - allocatedCount}`);
     
     // Convert allocation format back to simple task arrays
     const simpleAllocation = {};
     Object.entries(allocation).forEach(([date, dayData]) => {
       simpleAllocation[date] = dayData.tasks;
-      console.log(`  ${date}: ${dayData.tasks.length} tasks (cognitive load: ${dayData.totalCognitiveLoad.toFixed(2)}, sessions: ${dayData.sessionCount})`);
+      debugLog(`  ${date}: ${dayData.tasks.length} tasks (cognitive load: ${dayData.totalCognitiveLoad.toFixed(2)}, sessions: ${dayData.sessionCount})`);
     });
     
     return simpleAllocation;
@@ -1598,11 +1602,11 @@ class IntelligentScheduler {
     const optimalSessionPlan = task.optimalSessionPlan || this.createOptimalSessionPlan(task);
     const timePreference = task.analysis?.peakTimePreference || this.determineOptimalTimeOfDay(task);
     
-    console.log(`🧠 Cognitive allocation for ${task.name}:`);
-    console.log(`   Remaining time: ${remainingTime.toFixed(2)}h`);
-    console.log(`   Cognitive load: ${cognitiveLoad.toFixed(2)}`);
-    console.log(`   Sessions needed: ${optimalSessionPlan.totalSessions}`);
-    console.log(`   Time preference: peak hours ${timePreference.preferred.join(', ')}`);
+    debugLog(`🧠 Cognitive allocation for ${task.name}:`);
+    debugLog(`   Remaining time: ${remainingTime.toFixed(2)}h`);
+    debugLog(`   Cognitive load: ${cognitiveLoad.toFixed(2)}`);
+    debugLog(`   Sessions needed: ${optimalSessionPlan.totalSessions}`);
+    debugLog(`   Time preference: peak hours ${timePreference.preferred.join(', ')}`);
     
     // Strategy 1: High cognitive load tasks during peak hours
     if (cognitiveLoad > 0.7) {
@@ -1627,7 +1631,7 @@ class IntelligentScheduler {
    * Allocate high cognitive load tasks during peak performance hours
    */
   allocateHighCognitiveLoadTask(task, allocation, allocatedTasks, sessionPlan) {
-    console.log(`🧠 High cognitive load allocation for ${task.name}`);
+    debugLog(`🧠 High cognitive load allocation for ${task.name}`);
     
     const availableDays = Object.keys(allocation);
     const timePreference = this.determineOptimalTimeOfDay(task);
@@ -1641,7 +1645,7 @@ class IntelligentScheduler {
     });
     
     if (suitableDays.length === 0) {
-      console.log(`⚠️ No suitable peak-hour days found for ${task.name}`);
+      debugLog(`⚠️ No suitable peak-hour days found for ${task.name}`);
       return this.allocateRegularTaskOptimally(task, allocation, allocatedTasks, sessionPlan);
     }
     
@@ -1673,7 +1677,7 @@ class IntelligentScheduler {
         allocation[dateKey].peakHoursUsed += 1;
         sessionsAllocated++;
         
-        console.log(`🧠 Allocated session ${session.sessionNumber} of ${task.name} to ${dateKey} (peak cognitive)`);
+        debugLog(`🧠 Allocated session ${session.sessionNumber} of ${task.name} to ${dateKey} (peak cognitive)`);
       }
     }
     
@@ -1689,13 +1693,13 @@ class IntelligentScheduler {
    * Allocate test preparation using spaced repetition principles
    */
   allocateTestPrepWithSpacedRepetition(task, allocation, allocatedTasks) {
-    console.log(`📚 Spaced repetition allocation for test prep: ${task.name}`);
+    debugLog(`📚 Spaced repetition allocation for test prep: ${task.name}`);
     
     const spacedSchedule = task.spaceRepetitionSchedule || this.calculateSpacedRepetitionSchedule(task);
     const sessionPlan = task.optimalSessionPlan || this.createOptimalSessionPlan(task);
     const availableDays = Object.keys(allocation);
     
-    console.log(`📅 Spaced repetition schedule:`, spacedSchedule);
+    debugLog(`📅 Spaced repetition schedule:`, spacedSchedule);
     
     // Initial learning sessions
     let initialSessionsAllocated = 0;
@@ -1721,7 +1725,7 @@ class IntelligentScheduler {
         dayData.sessionCount += 1;
         initialSessionsAllocated++;
         
-        console.log(`📚 Allocated initial learning session ${initialSessionsAllocated} of ${task.name} to ${dateKey}`);
+        debugLog(`📚 Allocated initial learning session ${initialSessionsAllocated} of ${task.name} to ${dateKey}`);
       }
     }
     
@@ -1745,7 +1749,7 @@ class IntelligentScheduler {
           dayData.totalCognitiveLoad += this.calculateCognitiveLoad(task) * 0.5; // Reviews have lower cognitive load
           dayData.sessionCount += 1;
           
-          console.log(`📚 Allocated review session for ${task.name} to ${reviewDateKey} (${reviewSession.reviewType})`);
+          debugLog(`📚 Allocated review session for ${task.name} to ${reviewDateKey} (${reviewSession.reviewType})`);
         }
       }
     });
@@ -1762,7 +1766,7 @@ class IntelligentScheduler {
    * Allocate deep work tasks (projects, essays) in focused blocks
    */
   allocateDeepWorkTask(task, allocation, allocatedTasks, sessionPlan) {
-    console.log(`�️ Deep work allocation for ${task.name}`);
+    debugLog(`�️ Deep work allocation for ${task.name}`);
     
     const availableDays = Object.keys(allocation);
     const sessionsNeeded = sessionPlan.totalSessions;
@@ -1776,7 +1780,7 @@ class IntelligentScheduler {
     });
     
     if (deepWorkDays.length === 0) {
-      console.log(`⚠️ No suitable deep work days found for ${task.name}`);
+      debugLog(`⚠️ No suitable deep work days found for ${task.name}`);
       return this.allocateRegularTaskOptimally(task, allocation, allocatedTasks, sessionPlan);
     }
     
@@ -1808,7 +1812,7 @@ class IntelligentScheduler {
         dayData.sessionCount += 1;
         sessionsAllocated++;
         
-        console.log(`🛠️ Allocated deep work session ${session.sessionNumber} of ${task.name} to ${dateKey}`);
+        debugLog(`🛠️ Allocated deep work session ${session.sessionNumber} of ${task.name} to ${dateKey}`);
       }
     }
     
@@ -1824,7 +1828,7 @@ class IntelligentScheduler {
    * Allocate regular tasks with optimal distribution
    */
   allocateRegularTaskOptimally(task, allocation, allocatedTasks, sessionPlan) {
-    console.log(`📝 Optimal regular allocation for ${task.name}`);
+    debugLog(`📝 Optimal regular allocation for ${task.name}`);
     
     const availableDays = Object.keys(allocation);
     const sessionsNeeded = sessionPlan.totalSessions;
@@ -1832,11 +1836,11 @@ class IntelligentScheduler {
     
     // FIXED: Distribute sessions more evenly, considering both urgency and available capacity
     const urgency = this.calculateUrgency(task);
-    console.log(`📊 Task details: sessions=${sessionsNeeded}, cognitiveLoad=${cognitiveLoad.toFixed(2)}, urgency=${urgency.toFixed(2)}`);
+    debugLog(`📊 Task details: sessions=${sessionsNeeded}, cognitiveLoad=${cognitiveLoad.toFixed(2)}, urgency=${urgency.toFixed(2)}`);
     
     // FIXED: For urgent tasks (due soon), prioritize getting scheduled regardless of day load
     if (urgency >= 0.6) {
-      console.log(`🚨 High urgency task - using priority allocation`);
+      debugLog(`🚨 High urgency task - using priority allocation`);
       return this.allocateUrgentTask(task, allocation, allocatedTasks, sessionPlan);
     }
     
@@ -1852,11 +1856,11 @@ class IntelligentScheduler {
     });
     
     if (suitableDays.length === 0) {
-      console.log(`⚠️ No suitable days with capacity found for ${task.name}, trying fallback`);
+      debugLog(`⚠️ No suitable days with capacity found for ${task.name}, trying fallback`);
       return this.fallbackTaskAllocation(task, allocation, task.timeRequired - (task.timeSpent || 0), allocatedTasks);
     }
     
-    console.log(`📅 Found ${suitableDays.length} suitable days for distribution`);
+    debugLog(`📅 Found ${suitableDays.length} suitable days for distribution`);
     
     // Distribute sessions evenly across available days
     const daysToUse = Math.min(availableDays.length, Math.ceil(sessionsNeeded / 2));
@@ -1888,7 +1892,7 @@ class IntelligentScheduler {
           dayData.sessionCount += 1;
           sessionsAllocated++;
           
-          console.log(`� Allocated regular session ${session.sessionNumber} of ${task.name} to ${dateKey}`);
+          debugLog(`� Allocated regular session ${session.sessionNumber} of ${task.name} to ${dateKey}`);
         }
       }
       
@@ -1907,7 +1911,7 @@ class IntelligentScheduler {
    * FIXED: New method to handle urgent tasks with priority scheduling
    */
   allocateUrgentTask(task, allocation, allocatedTasks, sessionPlan) {
-    console.log(`🚨 Priority allocation for urgent task: ${task.name}`);
+    debugLog(`🚨 Priority allocation for urgent task: ${task.name}`);
     
     const availableDays = Object.keys(allocation);
     const sessionsNeeded = sessionPlan.totalSessions;
@@ -1927,7 +1931,7 @@ class IntelligentScheduler {
       const remainingCapacity = maxLoad - currentLoad;
       
       if (remainingCapacity <= 0.25) { // Minimum 15 minutes needed
-        console.log(`⏭️ Skipping ${dateKey} - no capacity remaining (${remainingCapacity.toFixed(2)}h)`);
+        debugLog(`⏭️ Skipping ${dateKey} - no capacity remaining (${remainingCapacity.toFixed(2)}h)`);
         continue;
       }
       
@@ -1958,17 +1962,17 @@ class IntelligentScheduler {
         dayData.sessionCount += 1;
         sessionsAllocated++;
         
-        console.log(`🚨 Allocated urgent session ${session.sessionNumber} of ${task.name} to ${dateKey}`);
+        debugLog(`🚨 Allocated urgent session ${session.sessionNumber} of ${task.name} to ${dateKey}`);
       }
     }
     
     if (sessionsAllocated > 0) {
       allocatedTasks.add(task.id);
-      console.log(`✅ Successfully allocated ${sessionsAllocated}/${sessionsNeeded} urgent sessions for ${task.name}`);
+      debugLog(`✅ Successfully allocated ${sessionsAllocated}/${sessionsNeeded} urgent sessions for ${task.name}`);
       return true;
     }
     
-    console.log(`❌ Failed to allocate urgent task ${task.name} even with priority scheduling`);
+    debugLog(`❌ Failed to allocate urgent task ${task.name} even with priority scheduling`);
     return false;
   }
 
@@ -1976,7 +1980,7 @@ class IntelligentScheduler {
    * Enhanced merge strategy that considers cognitive factors
    */
   mergeScheduleWithCognitiveStrategy(existingSchedule, newAllocations) {
-    console.log("🧠 Merging schedule with cognitive optimization...");
+    debugLog("🧠 Merging schedule with cognitive optimization...");
     
     const mergedSchedule = { ...existingSchedule };
     
@@ -2022,7 +2026,7 @@ class IntelligentScheduler {
       
       mergedSchedule[dateKey] = combinedSchedule;
       
-      console.log(`🧠 ${dateKey}: ${existingDaySchedule.length} existing + ${newDaySchedule.length} new = ${combinedSchedule.length} total (cognitive optimized)`);
+      debugLog(`🧠 ${dateKey}: ${existingDaySchedule.length} existing + ${newDaySchedule.length} new = ${combinedSchedule.length} total (cognitive optimized)`);
     });
     
     return mergedSchedule;
@@ -2033,12 +2037,12 @@ class IntelligentScheduler {
    * Uses circadian rhythms, cognitive load theory, and optimal session timing
    */
   generateCognitiveOptimizedDaySchedule(tasks, date, existingDaySchedule = []) {
-    console.log(`🧠 generateCognitiveOptimizedDaySchedule called for ${format(date, 'yyyy-MM-dd')}`);
-    console.log(`📝 Allocated tasks count: ${tasks?.length || 0}`);
-    console.log(`📋 Existing day schedule items: ${existingDaySchedule?.length || 0}`);
+    debugLog(`🧠 generateCognitiveOptimizedDaySchedule called for ${format(date, 'yyyy-MM-dd')}`);
+    debugLog(`📝 Allocated tasks count: ${tasks?.length || 0}`);
+    debugLog(`📋 Existing day schedule items: ${existingDaySchedule?.length || 0}`);
     
     if (!tasks || tasks.length === 0) {
-      console.log(`📭 No allocated tasks for ${format(date, 'yyyy-MM-dd')}`);
+      debugLog(`📭 No allocated tasks for ${format(date, 'yyyy-MM-dd')}`);
       return [];
     }
     
@@ -2046,11 +2050,11 @@ class IntelligentScheduler {
     
     // Calculate total available cognitive capacity for the day
     let remainingCognitiveCapacity = this.calculateDailyCognitiveCapacity(date);
-    console.log(`🧠 Available cognitive capacity for ${format(date, 'yyyy-MM-dd')}: ${remainingCognitiveCapacity.toFixed(2)}`);
+    debugLog(`🧠 Available cognitive capacity for ${format(date, 'yyyy-MM-dd')}: ${remainingCognitiveCapacity.toFixed(2)}`);
     
     // Sort tasks by cognitive optimization factors
     const cognitiveOptimizedTasks = this.sortTasksByCognitiveFactors(tasks, date);
-    console.log(`🧠 Tasks sorted by cognitive factors:`, cognitiveOptimizedTasks.map(t => ({
+    debugLog(`🧠 Tasks sorted by cognitive factors:`, cognitiveOptimizedTasks.map(t => ({
       name: t.taskName || t.name,
       cognitiveLoad: t.cognitiveLoad || 0,
       sessionType: t.sessionType,
@@ -2059,17 +2063,17 @@ class IntelligentScheduler {
     
     for (const task of cognitiveOptimizedTasks) {
       if (remainingCognitiveCapacity <= 0.1) {
-        console.log(`🧠 Cognitive capacity exhausted for ${format(date, 'yyyy-MM-dd')}`);
+        debugLog(`🧠 Cognitive capacity exhausted for ${format(date, 'yyyy-MM-dd')}`);
         break;
       }
       
-      console.log(`🧠 Processing cognitive task: ${task.taskName || task.name}`);
+      debugLog(`🧠 Processing cognitive task: ${task.taskName || task.name}`);
       
       // Calculate session duration based on cognitive factors
       const sessionDuration = this.calculateCognitiveSessionDuration(task, remainingCognitiveCapacity);
       
       if (sessionDuration < 15) {
-        console.log(`⏭️ Skipping task ${task.taskName || task.name} - session too short (${sessionDuration}min < 15min)`);
+        debugLog(`⏭️ Skipping task ${task.taskName || task.name} - session too short (${sessionDuration}min < 15min)`);
         continue;
       }
       
@@ -2084,14 +2088,14 @@ class IntelligentScheduler {
         const cognitiveLoad = task.cognitiveLoad || this.calculateCognitiveLoad(task);
         remainingCognitiveCapacity -= cognitiveLoad * (sessionDuration / 60);
         
-        console.log(`✅ Added cognitive schedule item: ${task.taskName || task.name} (${sessionDuration}min, load: ${cognitiveLoad.toFixed(2)})`);
-        console.log(`🧠 Remaining cognitive capacity: ${remainingCognitiveCapacity.toFixed(2)}`);
+        debugLog(`✅ Added cognitive schedule item: ${task.taskName || task.name} (${sessionDuration}min, load: ${cognitiveLoad.toFixed(2)})`);
+        debugLog(`🧠 Remaining cognitive capacity: ${remainingCognitiveCapacity.toFixed(2)}`);
       } else {
-        console.log(`❌ No optimal time slot found for cognitive task: ${task.taskName || task.name}`);
+        debugLog(`❌ No optimal time slot found for cognitive task: ${task.taskName || task.name}`);
       }
     }
     
-    console.log(`🧠 Generated ${daySchedule.length} cognitive-optimized schedule items from ${tasks.length} allocated tasks`);
+    debugLog(`🧠 Generated ${daySchedule.length} cognitive-optimized schedule items from ${tasks.length} allocated tasks`);
     return daySchedule;
   }
 
@@ -2239,7 +2243,7 @@ class IntelligentScheduler {
    * Find cognitive-optimal time slot considering circadian rhythms and cognitive load
    */
   findCognitiveOptimalTimeSlot(task, date, durationMinutes, existingSchedule = []) {
-    console.log(`🧠 Finding cognitive-optimal time slot for ${task.taskName || task.name} on ${format(date, 'yyyy-MM-dd')} (${durationMinutes}min)`);
+    debugLog(`🧠 Finding cognitive-optimal time slot for ${task.taskName || task.name} on ${format(date, 'yyyy-MM-dd')} (${durationMinutes}min)`);
     
     const dayOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][date.getDay()];
     const blackoutSchedule = this.userPreferences.blackoutSchedule || {};
@@ -2253,7 +2257,7 @@ class IntelligentScheduler {
     const cognitiveLoad = task.cognitiveLoad || this.calculateCognitiveLoad(task);
     const preferredTimeSlots = task.preferredTimeSlots || this.determineOptimalTimeOfDay(task).preferred;
     
-    console.log(`🧠 Task cognitive load: ${cognitiveLoad.toFixed(2)}, preferred hours: [${preferredTimeSlots.join(', ')}]`);
+    debugLog(`🧠 Task cognitive load: ${cognitiveLoad.toFixed(2)}, preferred hours: [${preferredTimeSlots.join(', ')}]`);
     
     // Time window boundaries
     let startHour = 7;
@@ -2323,7 +2327,7 @@ class IntelligentScheduler {
     }
     
     if (candidateSlots.length === 0) {
-      console.log(`❌ No available time slots found for ${task.taskName || task.name}`);
+      debugLog(`❌ No available time slots found for ${task.taskName || task.name}`);
       return null;
     }
     
@@ -2331,7 +2335,7 @@ class IntelligentScheduler {
     candidateSlots.sort((a, b) => b.cognitiveScore - a.cognitiveScore);
     
     const bestSlot = candidateSlots[0];
-    console.log(`✅ Found cognitive-optimal slot: ${bestSlot.timeStr} (score: ${bestSlot.cognitiveScore.toFixed(2)})`);
+    debugLog(`✅ Found cognitive-optimal slot: ${bestSlot.timeStr} (score: ${bestSlot.cognitiveScore.toFixed(2)})`);
     
     return {
       start: bestSlot.start,
@@ -2479,7 +2483,7 @@ class IntelligentScheduler {
 
   // Fallback allocation method when primary strategies fail
   fallbackTaskAllocation(task, allocation, remainingTime, allocatedTasks) {
-    console.log(`🔄 Attempting fallback allocation for ${task.name} (${remainingTime.toFixed(2)}h needed)`);
+    debugLog(`🔄 Attempting fallback allocation for ${task.name} (${remainingTime.toFixed(2)}h needed)`);
     
     const availableDays = Object.keys(allocation);
     let timeToAllocate = remainingTime;
@@ -2488,37 +2492,43 @@ class IntelligentScheduler {
     for (const day of availableDays) {
       if (timeToAllocate <= 0) break;
       
-      const dayTasks = allocation[day];
-      const currentDayTime = dayTasks.reduce((sum, t) => sum + (t.allocatedTime || 0), 0);
+      const dayTasks = allocation[day]?.tasks || allocation[day] || [];
+      const currentDayTime = (Array.isArray(dayTasks) ? dayTasks : []).reduce((sum, t) => sum + (t.allocatedTime || 0), 0);
       const availableTime = Math.max(0, this.userPreferences.maxStudyHoursPerDay - currentDayTime);
       
       if (availableTime > 0) {
         const sessionTime = Math.min(timeToAllocate, availableTime, 2); // Max 2 hours per session
         
-        allocation[day].push({
+        const newItem = {
           ...task,
           allocatedTime: sessionTime,
           completionStrategy: 'fallback-session',
           sessionNote: `Fallback allocation (${sessionTime.toFixed(2)}h of ${remainingTime.toFixed(2)}h total)`
-        });
+        };
+        
+        if (allocation[day]?.tasks) {
+          allocation[day].tasks.push(newItem);
+        } else if (Array.isArray(allocation[day])) {
+          allocation[day].push(newItem);
+        }
         
         timeToAllocate -= sessionTime;
-        console.log(`📅 Fallback: Allocated ${sessionTime.toFixed(2)}h of ${task.name} to ${day}`);
+        debugLog(`📅 Fallback: Allocated ${sessionTime.toFixed(2)}h of ${task.name} to ${day}`);
       }
     }
     
     // If we allocated at least some time, mark task as processed
     if (timeToAllocate < remainingTime) {
       allocatedTasks.add(task.id);
-      console.log(`✅ Fallback allocation partially successful for ${task.name} (${(remainingTime - timeToAllocate).toFixed(2)}h allocated)`);
+      debugLog(`✅ Fallback allocation partially successful for ${task.name} (${(remainingTime - timeToAllocate).toFixed(2)}h allocated)`);
       
       if (timeToAllocate > 0) {
-        console.log(`⚠️ Could not allocate remaining ${timeToAllocate.toFixed(2)}h for ${task.name}`);
+        debugLog(`⚠️ Could not allocate remaining ${timeToAllocate.toFixed(2)}h for ${task.name}`);
       }
       return true;
     }
     
-    console.log(`❌ Fallback allocation completely failed for ${task.name}`);
+    debugLog(`❌ Fallback allocation completely failed for ${task.name}`);
     return false;
   }
 
@@ -2531,43 +2541,43 @@ class IntelligentScheduler {
     const timeSpent = task.timeSpent || 0;
     const remainingTime = Math.max(0, timeRequired - timeSpent);
     
-    console.log(`🔍 Finding best day for small task ${task.name}: ${remainingTime.toFixed(2)}h needed`);
+    debugLog(`🔍 Finding best day for small task ${task.name}: ${remainingTime.toFixed(2)}h needed`);
     
     // For urgent small tasks, prefer today/tomorrow
     if (urgency >= 0.7) {
       const result = availableDays.find(day => {
-        const dayTasks = allocation[day];
-        const totalTime = dayTasks.reduce((sum, t) => sum + (t.allocatedTime || 0), 0);
+        const dayTasks = allocation[day]?.tasks || allocation[day] || [];
+        const totalTime = (Array.isArray(dayTasks) ? dayTasks : []).reduce((sum, t) => sum + (t.allocatedTime || 0), 0);
         const wouldFit = totalTime + remainingTime <= this.userPreferences.maxStudyHoursPerDay;
-        console.log(`   Checking urgent day ${day}: ${totalTime.toFixed(2)}h used + ${remainingTime.toFixed(2)}h needed = ${(totalTime + remainingTime).toFixed(2)}h (max: ${this.userPreferences.maxStudyHoursPerDay}h) -> ${wouldFit ? 'fits' : 'too much'}`);
+        debugLog(`   Checking urgent day ${day}: ${totalTime.toFixed(2)}h used + ${remainingTime.toFixed(2)}h needed = ${(totalTime + remainingTime).toFixed(2)}h (max: ${this.userPreferences.maxStudyHoursPerDay}h) -> ${wouldFit ? 'fits' : 'too much'}`);
         return wouldFit;
       });
-      console.log(`🎯 Urgent task best day result: ${result || 'none found'}`);
+      debugLog(`🎯 Urgent task best day result: ${result || 'none found'}`);
       return result;
     }
     
     // For regular small tasks, find the day with least load
     const result = availableDays.reduce((best, day) => {
-      const dayTasks = allocation[day];
-      const totalTime = dayTasks.reduce((sum, t) => sum + (t.allocatedTime || 0), 0);
+      const dayTasks = allocation[day]?.tasks || allocation[day] || [];
+      const totalTime = (Array.isArray(dayTasks) ? dayTasks : []).reduce((sum, t) => sum + (t.allocatedTime || 0), 0);
       
       if (totalTime + remainingTime > this.userPreferences.maxStudyHoursPerDay) {
-        console.log(`   Skipping day ${day}: ${totalTime.toFixed(2)}h + ${remainingTime.toFixed(2)}h = ${(totalTime + remainingTime).toFixed(2)}h > ${this.userPreferences.maxStudyHoursPerDay}h max`);
+        debugLog(`   Skipping day ${day}: ${totalTime.toFixed(2)}h + ${remainingTime.toFixed(2)}h = ${(totalTime + remainingTime).toFixed(2)}h > ${this.userPreferences.maxStudyHoursPerDay}h max`);
         return best; // Skip days that would exceed capacity
       }
       
       if (!best) {
-        console.log(`   First viable day: ${day} (${totalTime.toFixed(2)}h used)`);
+        debugLog(`   First viable day: ${day} (${totalTime.toFixed(2)}h used)`);
         return day;
       }
       
       const bestTotalTime = allocation[best].reduce((sum, t) => sum + (t.allocatedTime || 0), 0);
       const isBetter = totalTime < bestTotalTime;
-      console.log(`   Comparing ${day} (${totalTime.toFixed(2)}h) vs ${best} (${bestTotalTime.toFixed(2)}h): ${isBetter ? day : best} is better`);
+      debugLog(`   Comparing ${day} (${totalTime.toFixed(2)}h) vs ${best} (${bestTotalTime.toFixed(2)}h): ${isBetter ? day : best} is better`);
       return isBetter ? day : best;
     }, null);
     
-    console.log(`🎯 Regular task best day result: ${result || 'none found'}`);
+    debugLog(`🎯 Regular task best day result: ${result || 'none found'}`);
     return result;
   }
 
@@ -2607,22 +2617,28 @@ class IntelligentScheduler {
     
     while (timeToAllocate > 0 && dayIndex < availableDays.length && dayIndex < startIndex + daysNeeded) {
       const day = availableDays[dayIndex];
-      const dayTasks = allocation[day];
-      const currentDayTime = dayTasks.reduce((sum, t) => sum + (t.allocatedTime || 0), 0);
+      const dayTasks = allocation[day]?.tasks || allocation[day] || [];
+      const currentDayTime = (Array.isArray(dayTasks) ? dayTasks : []).reduce((sum, t) => sum + (t.allocatedTime || 0), 0);
       const availableTime = this.userPreferences.maxStudyHoursPerDay - currentDayTime;
       
       if (availableTime > 0) {
         const sessionTime = Math.min(timeToAllocate, availableTime);
         
-        allocation[day].push({
+        const newItem = {
           ...task,
           allocatedTime: sessionTime,
           completionStrategy: 'multi-session',
           sessionNumber: dayIndex - startIndex + 1
-        });
+        };
+        
+        if (allocation[day]?.tasks) {
+          allocation[day].tasks.push(newItem);
+        } else if (Array.isArray(allocation[day])) {
+          allocation[day].push(newItem);
+        }
         
         timeToAllocate -= sessionTime;
-        console.log(`📅 Allocated ${sessionTime.toFixed(2)}h of ${task.name} to ${day}`);
+        debugLog(`📅 Allocated ${sessionTime.toFixed(2)}h of ${task.name} to ${day}`);
       }
       
       dayIndex++;
@@ -2633,7 +2649,7 @@ class IntelligentScheduler {
       return true;
     }
     
-    console.log(`⚠️ Could not fully allocate task ${task.name}: ${(remainingTime - timeToAllocate).toFixed(2)}h allocated of ${remainingTime.toFixed(2)}h required (${timeToAllocate.toFixed(2)}h remaining)`);
+    debugLog(`⚠️ Could not fully allocate task ${task.name}: ${(remainingTime - timeToAllocate).toFixed(2)}h allocated of ${remainingTime.toFixed(2)}h required (${timeToAllocate.toFixed(2)}h remaining)`);
     return false;
   }
 
@@ -2665,7 +2681,7 @@ class IntelligentScheduler {
               if (preserveCurrentDay && itemDateString === todayDateString) {
                 // Preserve all items for today when preserveCurrentDay is true (page reload scenario)
                 shouldPreserve = true;
-                console.log(`🔒 Preserving current day item: ${item.taskName} at ${itemStartTime.toLocaleTimeString()}`);
+                debugLog(`🔒 Preserving current day item: ${item.taskName} at ${itemStartTime.toLocaleTimeString()}`);
               } else if (!preserveCurrentDay && itemStartTime > now) {
                 // Only preserve future items when preserveCurrentDay is false (manual regeneration)
                 shouldPreserve = true;
@@ -2686,7 +2702,7 @@ class IntelligentScheduler {
       }
     });
     
-    console.log("📋 Tasks preserved from existing schedule (future items only):", Array.from(scheduledTaskIds));
+    debugLog("📋 Tasks preserved from existing schedule (future items only):", Array.from(scheduledTaskIds));
     return scheduledTaskIds;
   }
 
@@ -2724,7 +2740,7 @@ class IntelligentScheduler {
 
         // Skip completed tasks
         if (task.is_completed === true) {
-          console.log(`✅ Skipping completed task: ${task.name}`);
+          debugLog(`✅ Skipping completed task: ${task.name}`);
           continue;
         }
 
@@ -2769,12 +2785,12 @@ class IntelligentScheduler {
 
         // Skip if already completed (time spent >= time required)
         if (sanitizedTask.timeSpent >= sanitizedTask.timeRequired) {
-          console.log(`✅ Skipping completed task (time): ${task.name} (${sanitizedTask.timeSpent}h >= ${sanitizedTask.timeRequired}h)`);
+          debugLog(`✅ Skipping completed task (time): ${task.name} (${sanitizedTask.timeSpent}h >= ${sanitizedTask.timeRequired}h)`);
           continue;
         }
 
         validTasks.push(sanitizedTask);
-        console.log(`✅ Validated task: ${sanitizedTask.name} (${(sanitizedTask.timeRequired - sanitizedTask.timeSpent).toFixed(2)}h remaining)`);
+        debugLog(`✅ Validated task: ${sanitizedTask.name} (${(sanitizedTask.timeRequired - sanitizedTask.timeSpent).toFixed(2)}h remaining)`);
 
       } catch (error) {
         console.error("❌ Error validating task:", task, error);
@@ -2782,7 +2798,7 @@ class IntelligentScheduler {
       }
     }
 
-    console.log(`📊 Task validation summary: ${tasks.length} input → ${validTasks.length} valid`);
+    debugLog(`📊 Task validation summary: ${tasks.length} input → ${validTasks.length} valid`);
     return validTasks;
   }
 

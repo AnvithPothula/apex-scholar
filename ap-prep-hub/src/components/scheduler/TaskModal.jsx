@@ -38,7 +38,8 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
         estimated_time: task.estimated_time || 30,
         pages: task.pages || 0,
         deadline: deadlineValue,
-        description: task.description || ''
+        description: task.description || '',
+        priority: task.priority || 'medium'
       });
     } else {
       // Reset form for new task
@@ -50,7 +51,8 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
         estimated_time: 30,
         pages: 0,
         deadline: new Date().toISOString().slice(0, 16),
-        description: ''
+        description: '',
+        priority: 'medium'
       });
     }
   }, [task]);
@@ -77,7 +79,8 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
       estimated_time: parseInt(formData.estimated_time),
       // Fix: Add required fields for scheduler
       timeRequired: parseInt(formData.estimated_time) / 60, // Convert minutes to hours
-      timeSpent: 0, // Initialize time spent
+      timeSpent: task?.timeSpent || 0, // Preserve existing progress on edit
+      priority: formData.priority || 'medium',
       pages: parseInt(formData.pages) || 0
     };
     onSave(taskData);
