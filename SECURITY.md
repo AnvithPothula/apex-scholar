@@ -243,14 +243,6 @@ Apex Scholar collects:
 
 ---
 
-## Security Contacts
-
-- **Security Issues**: security@apexscholar.com
-- **Privacy Questions**: privacy@apexscholar.com
-- **General Support**: support@apexscholar.com
-
----
-
 ## Changelog
 
 ### 2025-01-02

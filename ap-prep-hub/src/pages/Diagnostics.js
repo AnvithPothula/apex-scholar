@@ -271,7 +271,7 @@ const DiagnosticTypes = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100">
       {takingDiagnostic ? (
         // Diagnostic Test Interface
-        <div className="max-w-4xl mx-auto px-6 py-8">
+        <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
           {isGeneratingQuestions ? (
             <Card className="p-12 text-center">
               <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
@@ -282,7 +282,7 @@ const DiagnosticTypes = () => {
             // Results Display
             <div>
               <div className="text-center mb-8">
-                <h1 className="text-3xl font-bold text-slate-100 mb-2">Diagnostic Complete!</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-slate-100 mb-2">Diagnostic Complete!</h1>
                 <p className="text-lg text-slate-400">{takingDiagnostic.name} Assessment Results</p>
               </div>
 
@@ -290,7 +290,7 @@ const DiagnosticTypes = () => {
                 <Card className="p-6">
                   <h3 className="text-xl font-bold text-slate-200 mb-4">Overall Performance</h3>
                   <div className="text-center">
-                    <div className="text-4xl font-bold text-blue-400 mb-2">{diagnosticResult.accuracy}%</div>
+                    <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-blue-400 mb-2">{diagnosticResult.accuracy}%</div>
                     <p className="text-slate-400">{diagnosticResult.correctAnswers} out of {diagnosticResult.totalQuestions} correct</p>
                   </div>
                   <div className="mt-4">
@@ -478,22 +478,22 @@ const DiagnosticTypes = () => {
         </div>
       ) : (
         // Main Diagnostics Page
-        <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-12"
+          className="text-center mb-6 sm:mb-8 md:mb-12"
         >
-          <div className="flex items-center justify-center gap-4 mb-6">
-            <div className="p-4 bg-gradient-to-br from-purple-600 to-blue-600 rounded-2xl shadow-lg">
-              <Brain className="w-8 h-8 text-white" />
+          <div className="flex items-center justify-center gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4 md:mb-6">
+            <div className="p-2 sm:p-3 md:p-4 bg-gradient-to-br from-purple-600 to-blue-600 rounded-xl md:rounded-2xl shadow-lg">
+              <Brain className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-white" />
             </div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
               AI Diagnostics
             </h1>
           </div>
-          <p className="text-lg text-slate-300 max-w-3xl mx-auto">
+          <p className="text-sm sm:text-base md:text-lg text-slate-300 max-w-3xl mx-auto px-2">
             Get an instant diagnostic assessment in hundreds of AP subjects. Discover your 
             strengths and identify areas for improvement with our AI-powered diagnostic tests.
           </p>
@@ -597,7 +597,7 @@ const DiagnosticTypes = () => {
           className="mb-8"
         >
           <Card className="p-6">
-            <div className="flex flex-col lg:flex-row gap-4">
+            <div className="flex flex-col md:flex-row gap-4">
               {/* Search */}
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />

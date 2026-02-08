@@ -12,8 +12,12 @@ import geminiService from '../services/geminiService';
 const ProgressPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  // Planned filter state — wired up in a future update
+  // eslint-disable-next-line no-unused-vars
   const [selectedTimeframe, setSelectedTimeframe] = useState('month');
+  // eslint-disable-next-line no-unused-vars
   const [selectedSubject, setSelectedSubject] = useState('all');
+  // eslint-disable-next-line no-unused-vars
   const [selectedMetric, setSelectedMetric] = useState('overall');
   const [progressData, setProgressData] = useState(null);
   const [userAchievements, setUserAchievements] = useState(null);
@@ -358,23 +362,23 @@ const ProgressPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100">
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between mb-8"
+          className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 md:mb-8 gap-4"
         >
           <div>
-            <div className="flex items-center gap-4 mb-4">
-              <div className="p-4 bg-gradient-to-br from-purple-600 to-pink-600 rounded-2xl shadow-lg">
-                <BarChart3 className="w-8 h-8 text-white" />
+            <div className="flex items-center gap-2 sm:gap-3 md:gap-4 mb-2 sm:mb-4">
+              <div className="p-2 sm:p-3 md:p-4 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl md:rounded-2xl shadow-lg">
+                <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-white" />
               </div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
                 Progress Analytics
               </h1>
             </div>
-            <p className="text-lg text-slate-300">
+            <p className="text-sm sm:text-base md:text-lg text-slate-300">
               Track your learning journey with detailed insights and achievements.
             </p>
           </div>
@@ -570,7 +574,7 @@ const ProgressPage = () => {
             </motion.div>
 
             {/* Charts Section */}
-            <div className="grid lg:grid-cols-2 gap-8 mb-8">
+            <div className="grid md:grid-cols-2 gap-6 md:gap-8 mb-6 md:mb-8">
               {/* Weekly Activity Chart */}
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
@@ -799,7 +803,7 @@ const ProgressPage = () => {
           >
             <Card className="p-12 max-w-2xl mx-auto">
               <BarChart3 className="w-24 h-24 text-slate-600 mx-auto mb-6" />
-              <h2 className="text-3xl font-bold text-slate-200 mb-4">
+              <h2 className="text-2xl md:text-3xl font-bold text-slate-200 mb-4">
                 Track Your Learning Progress
               </h2>
               <p className="text-slate-400 text-lg mb-8">

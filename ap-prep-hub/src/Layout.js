@@ -268,13 +268,13 @@ export default function Layout({ children, currentPageName }) {
               <div>
                 <h3 className="text-lg font-semibold text-blue-400 mb-2">Contact Us</h3>
                 <p className="text-sm leading-relaxed">
-                  If you have any questions about this Privacy Policy, please contact us through our support channels or email us at privacy@apexscholar.com
+                  If you have any questions about this Privacy Policy, please contact us through the Feedback button.
                 </p>
               </div>
               
               <div className="pt-4 border-t border-slate-600">
                 <p className="text-xs text-slate-400">
-                  Last updated: 9/2/2025
+                  Last updated: 2/2/2026
                 </p>
               </div>
             </div>

@@ -207,8 +207,12 @@ const FlashcardsPage = () => {
         cardsStudied: prev.cardsStudied + 1
       }));
     } else {
-      // End of deck - finish study session
-      finishStudySession();
+      // End of deck - count last card and finish study session
+      setStudySession(prev => {
+        const updated = { ...prev, cardsStudied: prev.cardsStudied + 1 };
+        finishStudySession(updated);
+        return updated;
+      });
     }
   };
 
@@ -229,19 +233,22 @@ const FlashcardsPage = () => {
     handleNextCard();
   };
 
-  const finishStudySession = async () => {
+  const finishStudySession = async (sessionOverride) => {
     try {
+      const session = sessionOverride || studySession;
       const endTime = new Date();
-      const duration = Math.round((endTime - studySession.startTime) / 1000 / 60); // minutes
-      const accuracy = Math.round((studySession.correctAnswers / studySession.cardsStudied) * 100);
+      const duration = Math.round((endTime - session.startTime) / 1000 / 60); // minutes
+      const accuracy = session.cardsStudied > 0
+        ? Math.round((session.correctAnswers / session.cardsStudied) * 100)
+        : 0;
 
       // Save study session
       await dataService.saveStudySession(user.uid, {
         type: 'flashcards',
-        deckId: studySession.deckId,
+        deckId: session.deckId,
         subject: studyingDeck.subject,
         duration,
-        cardsStudied: studySession.cardsStudied,
+        cardsStudied: session.cardsStudied,
         accuracy,
         completedAt: endTime
       });
@@ -427,20 +434,21 @@ const FlashcardsPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100">
       {studyingDeck ? (
         // Study Interface
-        <div className="max-w-4xl mx-auto px-6 py-8">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h1 className="text-2xl font-bold text-slate-100">{studyingDeck.title}</h1>
-              <p className="text-slate-400">
+        <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
+          <div className="flex items-center justify-between gap-3 mb-4 sm:mb-6 md:mb-8">
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-100 truncate">{studyingDeck.title}</h1>
+              <p className="text-xs sm:text-sm text-slate-400">
                 Card {currentCardIndex + 1} of {studyingDeck.cards.length}
               </p>
             </div>
             <Button
               onClick={() => setStudyingDeck(null)}
               variant="outline"
+              className="flex-shrink-0 text-xs sm:text-sm px-2 sm:px-4"
             >
-              <X className="w-4 h-4 mr-2" />
-              Exit Study
+              <X className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Exit Study</span>
             </Button>
           </div>
 
@@ -453,12 +461,12 @@ const FlashcardsPage = () => {
             </div>
           </div>
 
-          <Card className="p-8 mb-6 min-h-[300px] flex flex-col justify-center">
+          <Card className="p-4 sm:p-6 md:p-8 mb-4 sm:mb-6 min-h-[200px] sm:min-h-[280px] md:min-h-[300px] flex flex-col justify-center">
             <div className="text-center">
-              <h2 className="text-xl font-bold text-slate-200 mb-6">
+              <h2 className="text-base sm:text-lg md:text-xl font-bold text-slate-200 mb-4 sm:mb-6">
                 {showAnswer ? 'Answer' : 'Question'}
               </h2>
-              <div className="text-lg text-slate-100 leading-relaxed">
+              <div className="text-sm sm:text-base md:text-lg text-slate-100 leading-relaxed">
                 {showAnswer 
                   ? renderWithLaTeX(studyingDeck.cards[currentCardIndex]?.answer || 'No answer available')
                   : renderWithLaTeX(studyingDeck.cards[currentCardIndex]?.question || 'No question available')
@@ -467,7 +475,7 @@ const FlashcardsPage = () => {
               {!showAnswer && (
                 <Button
                   onClick={() => setShowAnswer(true)}
-                  className="mt-6 bg-blue-600 hover:bg-blue-700"
+                  className="mt-4 sm:mt-6 bg-blue-600 hover:bg-blue-700 text-sm sm:text-base"
                 >
                   Show Answer
                 </Button>
@@ -518,22 +526,22 @@ const FlashcardsPage = () => {
         </div>
       ) : (
         // Main Flashcards Interface
-        <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-12"
+          className="text-center mb-6 sm:mb-8 md:mb-12"
         >
-          <div className="flex items-center justify-center gap-4 mb-6">
-            <div className="p-4 bg-gradient-to-br from-green-600 to-emerald-600 rounded-2xl shadow-lg">
-              <Zap className="w-8 h-8 text-white" />
+          <div className="flex items-center justify-center gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4 md:mb-6">
+            <div className="p-2 sm:p-3 md:p-4 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl md:rounded-2xl shadow-lg">
+              <Zap className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-white" />
             </div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">
               AI Flashcards
             </h1>
           </div>
-          <p className="text-lg text-slate-300 max-w-3xl mx-auto">
+          <p className="text-sm sm:text-base md:text-lg text-slate-300 max-w-3xl mx-auto px-2">
             Create personalized flashcard decks with AI assistance and study smarter with 
             spaced repetition algorithms that adapt to your learning pace.
           </p>
@@ -564,22 +572,22 @@ const FlashcardsPage = () => {
           transition={{ delay: 0.3 }}
           className="mb-12"
         >
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-slate-100">My Flashcards</h2>
-            <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-3">
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-100">My Flashcards</h2>
+            <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
               <Button
                 onClick={() => setShowManualCreate(true)}
-                className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+                className="flex-1 sm:flex-none bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-sm"
               >
-                <Plus className="w-4 h-4 mr-2" />
-                Create Manual
+                <Plus className="w-4 h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Create </span>Manual
               </Button>
               <Button
                 onClick={() => setShowCreateForm(true)}
-                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                className="flex-1 sm:flex-none bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-sm"
               >
-                <Sparkles className="w-4 h-4 mr-2" />
-                Create with AI
+                <Sparkles className="w-4 h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Create with </span>AI
               </Button>
             </div>
           </div>

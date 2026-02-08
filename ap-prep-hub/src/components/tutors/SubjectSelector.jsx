@@ -142,23 +142,23 @@ const SubjectSelector = ({ subjects, selectedSubject, onSelectSubject }) => {
         />
       </div>
 
-      <div className="relative z-10 container mx-auto px-6 py-12">
+      <div className="relative z-10 container mx-auto px-3 sm:px-4 md:px-6 py-6 sm:py-8 md:py-12">
         {/* Hero Section */}
         <motion.div
           initial={{ opacity: 0, y: -50 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="text-center mb-16"
+          className="text-center mb-8 sm:mb-12 md:mb-16"
         >
-          <div className="flex items-center justify-center gap-3 mb-6">
+          <div className="flex items-center justify-center gap-2 sm:gap-3 mb-4 sm:mb-6">
             <motion.div
-              className="p-4 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl"
+              className="p-2 sm:p-3 md:p-4 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl sm:rounded-2xl"
               animate={{ rotate: [0, 10, -10, 0] }}
               transition={{ duration: 4, repeat: Infinity }}
             >
-              <Brain className="w-8 h-8 text-white" />
+              <Brain className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-white" />
             </motion.div>
-            <h1 className="text-6xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent">
+            <h1 className="text-2xl sm:text-4xl md:text-6xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent">
               Apex Scholar
             </h1>
           </div>
@@ -167,10 +167,11 @@ const SubjectSelector = ({ subjects, selectedSubject, onSelectSubject }) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3, duration: 0.8 }}
-            className="text-xl text-slate-300 max-w-3xl mx-auto leading-relaxed"
+            className="text-sm sm:text-base md:text-xl text-slate-300 max-w-3xl mx-auto leading-relaxed px-2"
           >
-            Unlock your full potential with AI-powered tutoring, intelligent scheduling, 
-            and personalized study plans designed for AP success.
+            <span className="hidden sm:inline">Unlock your full potential with AI-powered tutoring, intelligent scheduling, 
+            and personalized study plans designed for AP success.</span>
+            <span className="sm:hidden">AI-powered tutoring for AP success.</span>
           </motion.p>
 
           {/* Stats Dashboard - Only show for logged in users */}
@@ -179,7 +180,7 @@ const SubjectSelector = ({ subjects, selectedSubject, onSelectSubject }) => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5, duration: 0.8 }}
-              className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-12 max-w-4xl mx-auto"
+              className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mt-6 sm:mt-8 md:mt-12 max-w-4xl mx-auto"
             >
               {[
                 { icon: Trophy, label: "AP Subjects Available", value: "38+", color: "text-yellow-500" },
@@ -192,11 +193,11 @@ const SubjectSelector = ({ subjects, selectedSubject, onSelectSubject }) => {
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.7 + index * 0.1, duration: 0.5 }}
-                  className="bg-slate-800/80 backdrop-blur-sm rounded-2xl p-6 border border-slate-700 shadow-lg"
+                  className="bg-slate-800/80 backdrop-blur-sm rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-6 border border-slate-700 shadow-lg"
                 >
-                  <stat.icon className={`w-8 h-8 ${stat.color} mx-auto mb-2`} />
-                  <div className="text-2xl font-bold text-slate-200">{stat.value}</div>
-                  <div className="text-sm text-slate-400">{stat.label}</div>
+                  <stat.icon className={`w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 ${stat.color} mx-auto mb-1 sm:mb-2`} />
+                  <div className="text-lg sm:text-xl md:text-2xl font-bold text-slate-200">{stat.value}</div>
+                  <div className="text-xs sm:text-sm text-slate-400 leading-tight">{stat.label}</div>
                 </motion.div>
               ))}
             </motion.div>
@@ -216,7 +217,7 @@ const SubjectSelector = ({ subjects, selectedSubject, onSelectSubject }) => {
               placeholder="Search AP Subjects"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="text-lg py-6"
+              className="text-base md:text-lg py-4 md:py-6"
             />
           </div>
         </motion.div>
@@ -236,18 +237,18 @@ const SubjectSelector = ({ subjects, selectedSubject, onSelectSubject }) => {
                 transition={{ delay: 1.1, duration: 0.6 }}
                 className="mb-8"
               >
-                <h2 className="text-3xl font-bold text-slate-100 mb-2 flex items-center gap-3">
-                  <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg">
-                    <Sparkles className="w-6 h-6 text-white" />
+                <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-100 mb-2 flex items-center gap-2 sm:gap-3">
+                  <div className="p-1.5 sm:p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg">
+                    <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-white" />
                   </div>
                   Your AP Subjects
                 </h2>
-                <p className="text-slate-400">
+                <p className="text-sm md:text-base text-slate-400">
                   Your personalized tutors are ready to help you succeed in these subjects.
                 </p>
               </motion.div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 mb-12">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 lg:gap-8 mb-8 sm:mb-12">
                 <AnimatePresence mode="popLayout">
                   {filteredUserSubjects.map((subject, index) => (
                     <SubjectCard
@@ -276,19 +277,19 @@ const SubjectSelector = ({ subjects, selectedSubject, onSelectSubject }) => {
                   transition={{ delay: 1.2, duration: 0.6 }}
                   className="mb-8"
                 >
-                  <h2 className="text-3xl font-bold text-slate-100 mb-2 flex items-center gap-3">
-                    <div className="p-2 bg-gradient-to-br from-slate-600 to-slate-700 rounded-lg">
-                      <BookOpen className="w-6 h-6 text-white" />
+                  <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-100 mb-2 flex items-center gap-2 sm:gap-3">
+                    <div className="p-1.5 sm:p-2 bg-gradient-to-br from-slate-600 to-slate-700 rounded-lg">
+                      <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-white" />
                     </div>
                     Explore More AP Subjects
                   </h2>
-                  <p className="text-slate-400">
+                  <p className="text-sm md:text-base text-slate-400">
                     Discover additional AP courses to add to your study plan.
                   </p>
                 </motion.div>
               )}
               
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
                 <AnimatePresence mode="popLayout">
                   {filteredOtherSubjects.map((subject, index) => (
                     <SubjectCard
@@ -317,16 +318,16 @@ const SubjectSelector = ({ subjects, selectedSubject, onSelectSubject }) => {
             className="text-center mt-20"
           >
             <Card className="max-w-4xl mx-auto bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 border-none text-white">
-              <CardContent className="p-12">
+              <CardContent className="p-6 sm:p-8 md:p-12">
                 <motion.div
                   animate={{ rotate: [0, 5, -5, 0] }}
                   transition={{ duration: 3, repeat: Infinity }}
-                  className="inline-block mb-6"
+                  className="inline-block mb-4 md:mb-6"
                 >
-                  <Lightbulb className="w-16 h-16" />
+                  <Lightbulb className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16" />
                 </motion.div>
-                <h2 className="text-4xl font-bold mb-4">Ready to Excel in Your AP Courses?</h2>
-                <p className="text-xl mb-8 text-blue-100">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3 md:mb-4">Ready to Excel in Your AP Courses?</h2>
+                <p className="text-base sm:text-lg md:text-xl mb-6 md:mb-8 text-blue-100">
                   Get personalized AI tutoring for all 39 AP subjects with our advanced study platform.
                 </p>
                 <motion.button

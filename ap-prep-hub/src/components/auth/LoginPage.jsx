@@ -10,12 +10,12 @@ import GoogleIcon from '../ui/GoogleIcon';
 export function LoginPage() {
     const navigate = useNavigate();
     const location = useLocation();
-    const { user, signInWithGoogle, signUpWithEmail, signInWithEmail } = useAuth();
+    const { user, loading: authLoading, signInWithGoogle, signUpWithEmail, signInWithEmail } = useAuth();
     
     const [isSignUp, setIsSignUp] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [fullName, setFullName] = useState('Anvith');
+    const [fullName, setFullName] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     
@@ -35,12 +35,18 @@ export function LoginPage() {
         }
     }, [user]);
 
-    // Reset loading state when auth state changes
-    useEffect(() => {
-        if (user === null && !isLoading) {
-            setIsLoading(false);
-        }
-    }, [user, isLoading]);
+    // Show loading spinner during auth initialization (e.g., processing redirect result)
+    // This prevents flashing the login form when returning from signInWithRedirect
+    if (authLoading) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto mb-4"></div>
+                    <p className="text-slate-400">Signing you in...</p>
+                </div>
+            </div>
+        );
+    }
 
     const handleAuthAction = async (e) => {
         e.preventDefault();
@@ -79,7 +85,7 @@ export function LoginPage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex overflow-hidden">
             {/* Left Side - App Information */}
-            <div className="hidden lg:flex lg:w-3/5 flex-col justify-center px-8 py-12 overflow-y-auto">
+            <div className="hidden md:flex md:w-1/2 lg:w-3/5 flex-col justify-center px-4 md:px-6 lg:px-8 py-8 md:py-10 lg:py-12 overflow-y-auto">
                 <motion.div
                     initial={{ opacity: 0, x: -50 }}
                     animate={{ opacity: 1, x: 0 }}
@@ -87,15 +93,15 @@ export function LoginPage() {
                     className="max-w-2xl mx-auto"
                 >
                     {/* Logo and Main Title */}
-                    <div className="flex items-center mb-8">
-                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 mr-4">
-                            <GraduationCap className="w-8 h-8 text-white" />
+                    <div className="flex items-center mb-4 lg:mb-8">
+                        <div className="inline-flex items-center justify-center w-12 h-12 lg:w-16 lg:h-16 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 mr-3 lg:mr-4">
+                            <GraduationCap className="w-6 h-6 lg:w-8 lg:h-8 text-white" />
                         </div>
                         <div>
-                            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                            <h1 className="text-2xl lg:text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
                                 Apex Scholar
                             </h1>
-                            <p className="text-slate-300 text-lg">Your Complete AI-Powered AP Study Platform</p>
+                            <p className="text-slate-300 text-sm lg:text-lg">Your Complete AI-Powered AP Study Platform</p>
                         </div>
                     </div>
 
@@ -104,7 +110,7 @@ export function LoginPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.8, delay: 0.1 }}
-                        className="mb-8 p-6 bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-xl"
+                        className="mb-4 lg:mb-8 p-4 lg:p-6 bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-xl"
                     >
                         <div className="flex items-center space-x-3 mb-3">
                             <Trophy className="w-6 h-6 text-yellow-400" />
@@ -118,7 +124,7 @@ export function LoginPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.8, delay: 0.2 }}
-                        className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8"
+                        className="grid grid-cols-2 gap-3 lg:gap-4 mb-4 lg:mb-8"
                     >
                         <div className="bg-gradient-to-br from-blue-600/20 to-blue-700/20 border border-blue-500/30 rounded-xl p-4">
                             <div className="flex items-center space-x-3 mb-3">
@@ -186,7 +192,7 @@ export function LoginPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.8, delay: 0.3 }}
-                        className="bg-slate-800/50 border border-slate-600 rounded-xl p-6 mb-8"
+                        className="bg-slate-800/50 border border-slate-600 rounded-xl p-4 lg:p-6 mb-4 lg:mb-8"
                     >
                         <h3 className="text-lg font-semibold text-white mb-4 flex items-center space-x-2">
                             <Sparkles className="w-5 h-5 text-yellow-400" />
@@ -256,7 +262,7 @@ export function LoginPage() {
             </div>
 
             {/* Right Side - Login Form */}
-            <div className="w-full lg:w-2/5 flex items-center justify-center p-4 lg:p-8">
+            <div className="w-full md:w-1/2 lg:w-2/5 flex items-center justify-center p-4 md:p-6 lg:p-8">
                 <motion.div 
                     initial={{ opacity: 0, x: 50 }}
                     animate={{ opacity: 1, x: 0 }}
@@ -264,7 +270,7 @@ export function LoginPage() {
                     className="w-full max-w-md"
                 >
                     {/* Mobile Logo */}
-                    <div className="lg:hidden text-center mb-8">
+                    <div className="md:hidden text-center mb-8">
                         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 mb-4">
                             <GraduationCap className="w-8 h-8 text-white" />
                         </div>
@@ -281,7 +287,7 @@ export function LoginPage() {
                         </CardHeader>
                         <CardContent className="p-6">
                             {/* Quick Benefits for Mobile */}
-                            <div className="lg:hidden mb-6 space-y-3">
+                            <div className="md:hidden mb-6 space-y-3">
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="flex items-center space-x-2 text-xs bg-blue-600/20 rounded-lg p-2">
                                         <Brain className="w-4 h-4 text-blue-400" />

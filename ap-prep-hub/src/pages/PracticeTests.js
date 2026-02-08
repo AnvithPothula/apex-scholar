@@ -4988,25 +4988,26 @@ Provide a clear, educational response that helps the student understand why ${co
   if (currentView === 'history') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100">
-        <div className="max-w-6xl mx-auto px-6 py-8">
+        <div className="max-w-6xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
           {/* Header */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-center justify-between mb-8"
+            className="flex items-center justify-between mb-4 sm:mb-6 md:mb-8"
           >
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               <Button
                 variant="ghost"
                 onClick={() => setCurrentView('setup')}
                 className="text-slate-300 hover:text-slate-100"
               >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Setup
+                <ArrowLeft className="w-4 h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Back to Setup</span>
+                <span className="sm:hidden">Back</span>
               </Button>
               <div>
-                <h1 className="text-3xl font-bold text-slate-100">Test History</h1>
-                <p className="text-slate-400">Review your past practice tests</p>
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-100">Test History</h1>
+                <p className="text-sm text-slate-400 hidden sm:block">Review your past practice tests</p>
               </div>
             </div>
           </motion.div>
@@ -5107,29 +5108,29 @@ Provide a clear, educational response that helps the student understand why ${co
     
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100">
-        <div className="max-w-6xl mx-auto px-6 py-8">
+        <div className="max-w-6xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
           {/* Header */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-center mb-12"
+            className="text-center mb-6 sm:mb-8 md:mb-12"
           >
-            <div className="flex items-center justify-center gap-4 mb-6">
-              <div className="p-4 bg-gradient-to-br from-purple-600 to-blue-600 rounded-2xl shadow-lg">
-                <Brain className="w-8 h-8 text-white" />
+            <div className="flex items-center justify-center gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4 md:mb-6">
+              <div className="p-2 sm:p-3 md:p-4 bg-gradient-to-br from-purple-600 to-blue-600 rounded-xl md:rounded-2xl shadow-lg">
+                <Brain className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-white" />
               </div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
                 AI Practice Tests
               </h1>
             </div>
-            <p className="text-lg text-slate-300 max-w-3xl mx-auto">
+            <p className="text-sm sm:text-base md:text-lg text-slate-300 max-w-3xl mx-auto px-2">
               Generate personalized AP practice tests with AI-powered questions, real-time feedback, 
               and comprehensive score analysis. Prepare like never before!
             </p>
           </motion.div>
 
           {/* Test Configuration */}
-          <div className="grid lg:grid-cols-2 gap-8 mb-6">
+          <div className="grid md:grid-cols-2 gap-4 sm:gap-6 md:gap-8 mb-6">
             {/* Left Column - Configuration */}
             <motion.div
               initial={{ opacity: 0, x: -20 }}
@@ -5680,21 +5681,21 @@ Provide a clear, educational response that helps the student understand why ${co
 
         {/* Test Header */}
         <div className="bg-slate-800/90 backdrop-blur-xl border-b border-slate-700 sticky top-0 z-50">
-          <div className="max-w-6xl mx-auto px-6 py-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-4">
-                <h1 className="text-xl font-bold text-slate-100">
+          <div className="max-w-6xl mx-auto px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4">
+            <div className="flex items-center justify-between mb-2 sm:mb-3 gap-2">
+              <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+                <h1 className="text-sm sm:text-lg md:text-xl font-bold text-slate-100 truncate">
                   {selectedSubject} - {selectedSection.toUpperCase()}
                 </h1>
-                <Badge variant="secondary">
-                  Question {currentQuestionIndex + 1} of {questions.length}
+                <Badge variant="secondary" className="text-xs sm:text-sm whitespace-nowrap flex-shrink-0">
+                  <span className="hidden sm:inline">Question </span>{currentQuestionIndex + 1}/{questions.length}
                 </Badge>
               </div>
               
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2 text-slate-300">
-                  <Clock className="w-5 h-5" />
-                  <span className={`font-mono text-lg ${timeRemaining < 300 ? 'text-red-400' : ''}`}>
+              <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
+                <div className="flex items-center gap-1 sm:gap-2 text-slate-300">
+                  <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className={`font-mono text-sm sm:text-lg ${timeRemaining < 300 ? 'text-red-400' : ''}`}>
                     {formatTimeFromSeconds(timeRemaining)}
                   </span>
                 </div>
@@ -6187,35 +6188,35 @@ Provide a clear, educational response that helps the student understand why ${co
   if (currentView === 'results' && testResults) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100">
-        <div className="max-w-6xl mx-auto px-6 py-8">
+        <div className="max-w-6xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
           {/* Results Header */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-center mb-12"
+            className="text-center mb-6 sm:mb-8 md:mb-12"
           >
-            <div className="flex items-center justify-center gap-4 mb-6">
-              <div className="p-4 bg-gradient-to-br from-green-600 to-blue-600 rounded-2xl shadow-lg">
-                <Trophy className="w-8 h-8 text-white" />
+            <div className="flex items-center justify-center gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4 md:mb-6">
+              <div className="p-2 sm:p-3 md:p-4 bg-gradient-to-br from-green-600 to-blue-600 rounded-xl md:rounded-2xl shadow-lg">
+                <Trophy className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-white" />
               </div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">
                 Test Results
               </h1>
             </div>
-            <p className="text-lg text-slate-300">
+            <p className="text-sm sm:text-base md:text-lg text-slate-300">
               {selectedSubject} • {selectedSection === 'mcq' ? 'Multiple Choice' : selectedSection === 'frq' ? 'Free Response' : 'Full Test'}
             </p>
           </motion.div>
 
           {/* Score Overview */}
-          <div className="grid md:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6 md:mb-8">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
             >
-              <Card className="p-6 text-center">
-                <div className="text-4xl font-bold text-blue-400 mb-2">
+              <Card className="p-3 sm:p-4 md:p-6 text-center">
+                <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-blue-400 mb-1 md:mb-2">
                   {safeTestResults.apScore}
                 </div>
                 <p className="text-slate-300 mb-1">Predicted AP Score</p>
@@ -6230,8 +6231,8 @@ Provide a clear, educational response that helps the student understand why ${co
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
             >
-              <Card className="p-6 text-center">
-                <div className="text-4xl font-bold text-green-400 mb-2">
+              <Card className="p-3 sm:p-4 md:p-6 text-center">
+                <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-green-400 mb-1 md:mb-2">
                   {safeTestResults.percentage}%
                 </div>
                 <p className="text-slate-300 mb-1">Overall Score</p>
@@ -6246,8 +6247,8 @@ Provide a clear, educational response that helps the student understand why ${co
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
             >
-              <Card className="p-6 text-center">
-                <div className="text-4xl font-bold text-purple-400 mb-2">
+              <Card className="p-3 sm:p-4 md:p-6 text-center">
+                <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-purple-400 mb-1 md:mb-2">
                   {safeTestResults.timeSpent}
                 </div>
                 <p className="text-slate-300 mb-1">Minutes Used</p>
@@ -6260,8 +6261,8 @@ Provide a clear, educational response that helps the student understand why ${co
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
             >
-              <Card className="p-6 text-center">
-                <div className="text-4xl font-bold text-yellow-400 mb-2">
+              <Card className="p-3 sm:p-4 md:p-6 text-center">
+                <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-yellow-400 mb-1 md:mb-2">
                   {questions.filter(q => userAnswers[q.id] !== undefined).length}
                 </div>
                 <p className="text-slate-300 mb-1">Questions Answered</p>

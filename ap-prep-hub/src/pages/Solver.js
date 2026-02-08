@@ -370,7 +370,7 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
     let cleanText = text
       .replace(/```[\s\S]*?```/g, '') // Remove code blocks
       .replace(/^[\s\S]*?"problemType"[\s\S]*?{/g, '') // Remove JSON preamble
-      .replace(/^\s*[{}\[\]",:]+\s*$/gm, '') // Remove lines with only JSON syntax
+      .replace(/^\s*[{}[\]",:]+\s*$/gm, '') // Remove lines with only JSON syntax
       .replace(/"[a-zA-Z]+"\s*:/g, '') // Remove JSON keys
       .replace(/^\s*\{/gm, '')
       .replace(/\}\s*$/gm, '')
@@ -381,7 +381,7 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
       .split('\n')
       .map(line => line.trim())
       .filter(line => line.length > 10) // Only keep substantial lines
-      .filter(line => !/^[{}\[\]",:\d]+$/.test(line)); // Remove JSON fragments
+      .filter(line => !/^[{}[\]",:\d]+$/.test(line)); // Remove JSON fragments
 
     // Try to find step-like content
     const steps = [];
@@ -453,24 +453,25 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100">
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-12"
+          className="text-center mb-6 sm:mb-8 md:mb-12"
         >
-          <div className="flex items-center justify-center gap-4 mb-6">
-            <div className="p-4 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl shadow-lg">
-              <Calculator className="w-8 h-8 text-white" />
+          <div className="flex items-center justify-center gap-2 sm:gap-4 mb-3 sm:mb-6">
+            <div className="p-2 sm:p-3 md:p-4 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl sm:rounded-2xl shadow-lg">
+              <Calculator className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-white" />
             </div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
               AI Solver
             </h1>
           </div>
-          <p className="text-lg text-slate-300 max-w-3xl mx-auto">
-            Get instant step-by-step solutions for AP homework problems. Upload a photo or type your question 
-            for detailed explanations and personalized learning insights.
+          <p className="text-sm sm:text-base md:text-lg text-slate-300 max-w-3xl mx-auto px-2">
+            <span className="hidden sm:inline">Get instant step-by-step solutions for AP homework problems. Upload a photo or type your question 
+            for detailed explanations and personalized learning insights.</span>
+            <span className="sm:hidden">Upload a photo or type your question for AI-powered solutions.</span>
           </p>
         </motion.div>
 
@@ -481,32 +482,32 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
           transition={{ delay: 0.1 }}
           className="mb-8"
         >
-          <Card className="p-6 bg-gradient-to-r from-blue-600/20 to-indigo-600/20 border-blue-500/30">
-            <div className="grid md:grid-cols-3 gap-6">
+          <Card className="p-3 sm:p-4 md:p-6 bg-gradient-to-r from-blue-600/20 to-indigo-600/20 border-blue-500/30">
+            <div className="grid grid-cols-3 gap-3 sm:gap-4 md:gap-6">
               <div className="text-center">
-                <div className="p-3 bg-blue-500/20 rounded-lg w-fit mx-auto mb-3">
-                  <Camera className="w-6 h-6 text-blue-400" />
+                <div className="p-2 sm:p-3 bg-blue-500/20 rounded-lg w-fit mx-auto mb-2 sm:mb-3">
+                  <Camera className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-blue-400" />
                 </div>
-                <h3 className="font-semibold text-slate-200 mb-2">Photo Recognition</h3>
-                <p className="text-sm text-slate-400">
+                <h3 className="font-semibold text-slate-200 mb-1 sm:mb-2 text-xs sm:text-sm md:text-base">Photo Recognition</h3>
+                <p className="text-xs text-slate-400 hidden sm:block">
                   Upload photos of handwritten or printed problems
                 </p>
               </div>
               <div className="text-center">
-                <div className="p-3 bg-indigo-500/20 rounded-lg w-fit mx-auto mb-3">
-                  <Brain className="w-6 h-6 text-indigo-400" />
+                <div className="p-2 sm:p-3 bg-indigo-500/20 rounded-lg w-fit mx-auto mb-2 sm:mb-3">
+                  <Brain className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-indigo-400" />
                 </div>
-                <h3 className="font-semibold text-slate-200 mb-2">Step-by-Step Solutions</h3>
-                <p className="text-sm text-slate-400">
+                <h3 className="font-semibold text-slate-200 mb-1 sm:mb-2 text-xs sm:text-sm md:text-base">Step-by-Step</h3>
+                <p className="text-xs text-slate-400 hidden sm:block">
                   Detailed explanations for every step of the solution
                 </p>
               </div>
               <div className="text-center">
-                <div className="p-3 bg-purple-500/20 rounded-lg w-fit mx-auto mb-3">
-                  <Lightbulb className="w-6 h-6 text-purple-400" />
+                <div className="p-2 sm:p-3 bg-purple-500/20 rounded-lg w-fit mx-auto mb-2 sm:mb-3">
+                  <Lightbulb className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-purple-400" />
                 </div>
-                <h3 className="font-semibold text-slate-200 mb-2">Learning Insights</h3>
-                <p className="text-sm text-slate-400">
+                <h3 className="font-semibold text-slate-200 mb-1 sm:mb-2 text-xs sm:text-sm md:text-base">Learn More</h3>
+                <p className="text-xs text-slate-400 hidden sm:block">
                   Understand concepts and identify knowledge gaps
                 </p>
               </div>
@@ -514,15 +515,15 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
           </Card>
         </motion.div>
 
-        <div className="grid lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
           {/* Problem Input */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <Card className="p-6 h-fit">
-              <h2 className="text-xl font-bold text-slate-100 mb-6">Submit Your Problem</h2>
+            <Card className="p-3 sm:p-4 md:p-6 h-fit">
+              <h2 className="text-lg sm:text-xl font-bold text-slate-100 mb-4 sm:mb-6">Submit Your Problem</h2>
               
               {/* Upload Methods */}
               <div className="space-y-6">

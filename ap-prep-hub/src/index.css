@@ -13,9 +13,63 @@
   overflow: hidden;
 }
 
+/* Mobile-first responsive utilities */
+@layer utilities {
+  /* Safe area insets for notched devices */
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .safe-left {
+    padding-left: env(safe-area-inset-left);
+  }
+  .safe-right {
+    padding-right: env(safe-area-inset-right);
+  }
+  
+  /* Touch-friendly tap targets (minimum 44px) */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Prevent text selection on touch */
+  .no-select {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+  
+  /* Smooth momentum scrolling on iOS */
+  .scroll-touch {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Hide on specific breakpoints */
+  .hide-mobile {
+    @apply hidden sm:block;
+  }
+  .hide-tablet {
+    @apply hidden md:block;
+  }
+  .show-mobile-only {
+    @apply block sm:hidden;
+  }
+}
+
 /* Smooth scrolling */
 html {
   scroll-behavior: smooth;
+  /* Prevent horizontal scroll on mobile */
+  overflow-x: hidden;
+}
+
+/* Mobile viewport height fix */
+body {
+  min-height: 100vh;
+  min-height: 100dvh; /* Dynamic viewport height for mobile browsers */
 }
 
 /* Custom scrollbar */

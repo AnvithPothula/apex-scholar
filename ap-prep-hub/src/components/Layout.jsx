@@ -39,56 +39,56 @@ export function Layout({ children }) {
                         </Link>
                         
                         {/* Mobile-optimized navigation */}
-                        <nav className="flex flex-wrap space-x-0.5 sm:space-x-1 bg-slate-800/80 p-0.5 sm:p-1 rounded-lg sm:rounded-xl backdrop-blur-sm border border-slate-700">
+                        <nav className="flex space-x-0.5 sm:space-x-1 md:space-x-1.5 lg:space-x-2 bg-slate-800/80 p-0.5 sm:p-1 rounded-lg sm:rounded-xl backdrop-blur-sm border border-slate-700">
                             <Link 
                                 to={createPageUrl("AITutors")} 
                                 className={cn(
-                                    "px-2 sm:px-3 py-1.5 sm:py-2 rounded-md sm:rounded-lg flex items-center space-x-1 font-medium transition-all duration-200 text-xs sm:text-sm",
+                                    "px-2 sm:px-2.5 md:px-3 lg:px-4 py-1.5 sm:py-2 rounded-md sm:rounded-lg flex items-center space-x-1 md:space-x-1.5 font-medium transition-all duration-200 text-xs sm:text-sm",
                                     isActiveTab("AITutors") ? "bg-slate-700 shadow-sm text-blue-400" : "text-slate-300 hover:text-slate-100"
                                 )}
                             >
-                                <Brain size={14} className="sm:w-4 sm:h-4" />
-                                <span className="hidden lg:inline">AI Tutors</span>
+                                <Brain size={14} className="sm:w-4 sm:h-4 flex-shrink-0" />
+                                <span className="hidden md:inline">Tutors</span>
                             </Link>
                             <Link 
                                 to={createPageUrl("PracticeTests")} 
                                 className={cn(
-                                    "px-2 sm:px-3 py-1.5 sm:py-2 rounded-md sm:rounded-lg flex items-center space-x-1 font-medium transition-all duration-200 text-xs sm:text-sm",
+                                    "px-2 sm:px-2.5 md:px-3 lg:px-4 py-1.5 sm:py-2 rounded-md sm:rounded-lg flex items-center space-x-1 md:space-x-1.5 font-medium transition-all duration-200 text-xs sm:text-sm",
                                     isActiveTab("PracticeTests") ? "bg-slate-700 shadow-sm text-blue-400" : "text-slate-300 hover:text-slate-100"
                                 )}
                             >
-                                <FileQuestion size={14} className="sm:w-4 sm:h-4" />
-                                <span className="hidden lg:inline">Tests</span>
+                                <FileQuestion size={14} className="sm:w-4 sm:h-4 flex-shrink-0" />
+                                <span className="hidden md:inline">Tests</span>
                             </Link>
                             <Link 
                                 to={createPageUrl("Flashcards")} 
                                 className={cn(
-                                    "px-2 sm:px-3 py-1.5 sm:py-2 rounded-md sm:rounded-lg flex items-center space-x-1 font-medium transition-all duration-200 text-xs sm:text-sm",
+                                    "px-2 sm:px-2.5 md:px-3 lg:px-4 py-1.5 sm:py-2 rounded-md sm:rounded-lg flex items-center space-x-1 md:space-x-1.5 font-medium transition-all duration-200 text-xs sm:text-sm",
                                     isActiveTab("Flashcards") ? "bg-slate-700 shadow-sm text-blue-400" : "text-slate-300 hover:text-slate-100"
                                 )}
                             >
-                                <Zap size={14} className="sm:w-4 sm:h-4" />
-                                <span className="hidden lg:inline">Cards</span>
+                                <Zap size={14} className="sm:w-4 sm:h-4 flex-shrink-0" />
+                                <span className="hidden md:inline">Cards</span>
                             </Link>
                             <Link 
                                 to={createPageUrl("Solver")} 
                                 className={cn(
-                                    "px-2 sm:px-3 py-1.5 sm:py-2 rounded-md sm:rounded-lg flex items-center space-x-1 font-medium transition-all duration-200 text-xs sm:text-sm",
+                                    "px-2 sm:px-2.5 md:px-3 lg:px-4 py-1.5 sm:py-2 rounded-md sm:rounded-lg flex items-center space-x-1 md:space-x-1.5 font-medium transition-all duration-200 text-xs sm:text-sm",
                                     isActiveTab("Solver") ? "bg-slate-700 shadow-sm text-blue-400" : "text-slate-300 hover:text-slate-100"
                                 )}
                             >
-                                <Calculator size={14} className="sm:w-4 sm:h-4" />
-                                <span className="hidden lg:inline">Solver</span>
+                                <Calculator size={14} className="sm:w-4 sm:h-4 flex-shrink-0" />
+                                <span className="hidden md:inline">Solver</span>
                             </Link>
                             <Link 
                                 to={createPageUrl("SmartScheduler")} 
                                 className={cn(
-                                    "px-2 sm:px-3 py-1.5 sm:py-2 rounded-md sm:rounded-lg flex items-center space-x-1 font-medium transition-all duration-200 text-xs sm:text-sm",
+                                    "px-2 sm:px-2.5 md:px-3 lg:px-4 py-1.5 sm:py-2 rounded-md sm:rounded-lg flex items-center space-x-1 md:space-x-1.5 font-medium transition-all duration-200 text-xs sm:text-sm",
                                     isActiveTab("SmartScheduler") ? "bg-slate-700 shadow-sm text-blue-400" : "text-slate-300 hover:text-slate-100"
                                 )}
                             >
-                                <Calendar size={14} className="sm:w-4 sm:h-4" />
-                                <span className="hidden lg:inline">Scheduler</span>
+                                <Calendar size={14} className="sm:w-4 sm:h-4 flex-shrink-0" />
+                                <span className="hidden md:inline">Schedule</span>
                             </Link>
                         </nav>
                         
@@ -228,13 +228,13 @@ export function Layout({ children }) {
                             <div>
                                 <h3 className="text-lg font-semibold text-blue-400 mb-2">Contact Us</h3>
                                 <p className="text-sm leading-relaxed">
-                                    If you have any questions about this Privacy Policy, please contact us through our support channels or email us at privacy@apexscholar.com
+                                    If you have any questions about this Privacy Policy, please contact us through the Feedback button.
                                 </p>
                             </div>
                             
                             <div className="pt-4 border-t border-slate-600">
                                 <p className="text-xs text-slate-400">
-                                    Last updated: 9/2/2025
+                                    Last updated: 2/2/2026
                                 </p>
                             </div>
                         </div>

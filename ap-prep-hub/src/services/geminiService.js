@@ -87,7 +87,7 @@ const sanitizeForPrompt = (input, options = {}) => {
   }
   
   // 4. Remove null bytes and other control characters (except newlines/tabs)
-  sanitized = sanitized.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  sanitized = sanitized.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // eslint-disable-line no-control-regex
   
   // 5. Normalize excessive whitespace
   sanitized = sanitized.replace(/\n{4,}/g, '\n\n\n').replace(/[ \t]{10,}/g, '    ');
@@ -279,15 +279,15 @@ class GeminiService {
       // Remove trailing commas
       t => t.replace(/,\s*([}\]])/g, '$1'),
       // Fix unescaped quotes in strings (tricky - basic attempt)
-      t => t.replace(/([^\\])"([^":,{}\[\]]+)":/g, '$1"$2":'),
+      t => t.replace(/([^\\])"([^":,{}[\]]+)":/g, '$1"$2":'),
       // Remove control characters
-      t => t.replace(/[\x00-\x1F\x7F]/g, ' '),
+      t => t.replace(/[\x00-\x1F\x7F]/g, ' '), // eslint-disable-line no-control-regex
       // Fix double commas
       t => t.replace(/,,+/g, ','),
       // Remove empty array elements
       t => t.replace(/\[\s*,/g, '[').replace(/,\s*\]/g, ']'),
       // Fix invalid escape sequences that aren't valid JSON
-      t => t.replace(/\\([^"\\\//bfnrtu])/g, '$1'),
+      t => t.replace(/\\([^"\\/bfnrtu])/g, '$1'),
       // Fix missing quotes on keys (basic)
       t => t.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":'),
     ];

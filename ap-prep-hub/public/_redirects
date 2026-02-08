@@ -1,0 +1,6 @@
+# Proxy ALL Firebase reserved paths through our domain (auth handler + its dependencies)
+# This makes signInWithRedirect work on custom domains by keeping everything same-origin
+/__/*  https://ai-study-helper-f2f24.firebaseapp.com/__/:splat  200!
+
+# SPA fallback
+/* /index.html 200

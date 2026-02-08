@@ -84,6 +84,7 @@ const AITutors = () => {
   const [selectedMode, setSelectedMode] = useState('Explain'); // 'Explain' | 'Practice MCQ' | 'Walkthrough' | 'Summarize Attachment'
   const [checkMySteps, setCheckMySteps] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [isSwitchingSubjects, setIsSwitchingSubjects] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -1569,31 +1570,51 @@ Please check your internet connection and try again. In the meantime:
   const subjectSuggestions = getSubjectSuggestions(selectedSubject);
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      {/* Conversation Sidebar */}
+    <div className="h-[calc(100vh-3.5rem)] sm:h-[calc(100vh-4rem)] flex bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative">
+      {/* Mobile Sidebar Overlay */}
+      {showMobileSidebar && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          onClick={() => setShowMobileSidebar(false)}
+        />
+      )}
+      
+      {/* Conversation Sidebar - Hidden on mobile by default */}
       {selectedSubject && (
         <motion.div
           initial={{ x: -300, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
+          animate={{ x: showMobileSidebar ? 0 : -300, opacity: showMobileSidebar ? 1 : 0 }}
           transition={{ duration: 0.3 }}
-          className="w-80 bg-slate-800/90 backdrop-blur-xl border-r border-slate-700 flex flex-col"
+          className={`fixed md:relative z-50 md:z-auto w-72 sm:w-80 h-full bg-slate-800/95 md:bg-slate-800/90 backdrop-blur-xl border-r border-slate-700 flex flex-col md:translate-x-0 ${showMobileSidebar ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
+          style={{ display: 'flex' }}
         >
           {/* Sidebar Header */}
-          <div className="p-4 border-b border-slate-700">
+          <div className="p-3 sm:p-4 border-b border-slate-700">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-slate-200">Conversations</h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleNewConversation();
-                }}
-                className="text-slate-300 hover:text-slate-100"
-              >
-                <Plus className="w-4 h-4" />
-              </Button>
+              <h3 className="text-base sm:text-lg font-semibold text-slate-200">Conversations</h3>
+              <div className="flex items-center gap-1">
+                {/* Close button for mobile */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowMobileSidebar(false)}
+                  className="text-slate-300 hover:text-slate-100 md:hidden"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleNewConversation();
+                  }}
+                  className="text-slate-300 hover:text-slate-100"
+                >
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
             <p className="text-sm text-slate-400 mt-1">
               {getCurriculumData(selectedSubject)?.name || selectedSubject}
@@ -1732,7 +1753,7 @@ Please check your internet connection and try again. In the meantime:
       )}
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Enhanced Header */}
         <motion.div
           initial={{ y: -50, opacity: 0 }}
@@ -1740,11 +1761,21 @@ Please check your internet connection and try again. In the meantime:
           transition={{ duration: 0.6 }}
           className="bg-slate-800/90 backdrop-blur-xl border-b border-slate-700 shadow-lg"
         >
-          <div className="max-w-7xl mx-auto px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
+          <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+                {/* Mobile sidebar toggle */}
                 <Button
                   variant="ghost"
+                  size="sm"
+                  onClick={() => setShowMobileSidebar(true)}
+                  className="text-slate-300 hover:text-slate-100 md:hidden flex-shrink-0 p-2"
+                >
+                  <BookOpen className="w-5 h-5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={async () => {
                     // Clean up current conversation if empty before navigating
                     if (activeConversationId && conversations.length > 1) {
@@ -1753,32 +1784,43 @@ Please check your internet connection and try again. In the meantime:
                     }
                     navigate('/dashboard');
                   }}
-                  className="text-slate-300 hover:text-slate-100"
+                  className="text-slate-300 hover:text-slate-100 hidden sm:flex"
                 >
-                  <ChevronLeft className="w-4 h-4 mr-2" />
-                  Back to Subjects
+                  <ChevronLeft className="w-4 h-4 mr-1 sm:mr-2" />
+                  <span className="hidden md:inline">Back to Subjects</span>
+                  <span className="md:hidden">Back</span>
                 </Button>
                 
-                <div className="flex items-center gap-4">
-                  <div className={`p-3 bg-gradient-to-br ${subjectColor} rounded-xl shadow-lg`}>
-                    <SubjectIcon className="w-6 h-6 text-white" />
+                <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+                  <div className={`p-2 sm:p-3 bg-gradient-to-br ${subjectColor} rounded-lg sm:rounded-xl shadow-lg flex-shrink-0`}>
+                    <SubjectIcon className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
                   </div>
-                  <div>
-                    <h1 className="text-2xl font-bold text-slate-100">
+                  <div className="min-w-0">
+                    <h1 className="text-base sm:text-xl md:text-2xl font-bold text-slate-100 truncate">
                       {getCurriculumData(selectedSubject)?.name || selectedSubject}
                     </h1>
-                    <p className="text-sm text-slate-300 flex items-center gap-2">
-                      <Bot className="w-4 h-4 text-emerald-400" />
-                      AI Tutor • Ready to help
+                    <p className="text-xs sm:text-sm text-slate-300 flex items-center gap-1 sm:gap-2">
+                      <Bot className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-400 flex-shrink-0" />
+                      <span className="hidden sm:inline">AI Tutor • Ready to help</span>
+                      <span className="sm:hidden">AI Tutor</span>
                     </p>
                   </div>
                 </div>
               </div>
               
-              <div className="flex items-center gap-6">
-                <Badge variant="primary" className="bg-emerald-800 text-emerald-200 border-emerald-600">
+              <div className="flex items-center gap-2 sm:gap-6 flex-shrink-0">
+                <Badge variant="primary" className="bg-emerald-800 text-emerald-200 border-emerald-600 text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1 hidden sm:inline-flex">
                   Active Session
                 </Badge>
+                {/* Mobile back button */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate('/dashboard')}
+                  className="text-slate-300 hover:text-slate-100 sm:hidden p-2"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </Button>
               </div>
             </div>
           </div>
@@ -1787,10 +1829,10 @@ Please check your internet connection and try again. In the meantime:
         {/* Diagnostics output removed */}
 
       {/* Chat Area */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-4xl mx-auto p-6 space-y-6">
+      <div className="flex-1 overflow-y-auto scroll-touch">
+        <div className="max-w-4xl mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
           {/* Mode Selector */}
-          <div className="flex flex-wrap items-center gap-2 mb-2" role="group" aria-label="Tutor modes">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-2" role="group" aria-label="Tutor modes">
             {['Explain','Practice MCQ','Walkthrough','Summarize Attachment'].map((m) => (
               <Button
                 key={m}
@@ -1798,14 +1840,16 @@ Please check your internet connection and try again. In the meantime:
                 size="sm"
                 aria-pressed={selectedMode === m}
                 onClick={() => setSelectedMode(m)}
-                className={selectedMode === m ? 'bg-blue-700 text-white' : 'text-slate-300 hover:text-slate-100'}
+                className={`text-xs sm:text-sm px-2 sm:px-3 py-1.5 ${selectedMode === m ? 'bg-blue-700 text-white' : 'text-slate-300 hover:text-slate-100'}`}
               >
-                {m}
+                <span className="hidden sm:inline">{m}</span>
+                <span className="sm:hidden">{m === 'Practice MCQ' ? 'MCQ' : m === 'Summarize Attachment' ? 'Summarize' : m}</span>
               </Button>
             ))}
-            <label className="ml-2 inline-flex items-center gap-2 text-sm text-slate-300">
-              <input type="checkbox" checked={checkMySteps} onChange={(e) => setCheckMySteps(e.target.checked)} />
-              Check my steps
+            <label className="ml-1 sm:ml-2 inline-flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-slate-300">
+              <input type="checkbox" checked={checkMySteps} onChange={(e) => setCheckMySteps(e.target.checked)} className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">Check my steps</span>
+              <span className="sm:hidden">Check</span>
             </label>
           </div>
           {/* Welcome Message */}
@@ -1993,39 +2037,39 @@ Please check your internet connection and try again. In the meantime:
         initial={{ y: 50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.6 }}
-        className="bg-slate-800/90 backdrop-blur-xl border-t border-slate-700 shadow-lg"
+        className="bg-slate-800/90 backdrop-blur-xl border-t border-slate-700 shadow-lg safe-bottom"
       >
-        <div className="max-w-4xl mx-auto p-6">
+        <div className="max-w-4xl mx-auto p-3 sm:p-4 md:p-6">
           {/* Display uploaded files */}
           {uploadedFiles.length > 0 && (
-            <div className="mb-4 p-3 bg-slate-700/50 rounded-lg border border-slate-600">
+            <div className="mb-3 sm:mb-4 p-2 sm:p-3 bg-slate-700/50 rounded-lg border border-slate-600">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-slate-300 font-medium">Attached Files:</span>
+                <span className="text-xs sm:text-sm text-slate-300 font-medium">Attached:</span>
                 <button
                   onClick={() => setUploadedFiles([])}
                   className="text-xs text-slate-400 hover:text-slate-200"
                 >
-                  Clear all
+                  Clear
                 </button>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5 sm:gap-2">
                 {uploadedFiles.map((file, index) => (
                   <div
                     key={file.id}
-                    className="flex items-center gap-2 px-3 py-2 bg-slate-600/50 rounded-lg border border-slate-500"
+                    className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-slate-600/50 rounded-lg border border-slate-500"
                   >
                     {file.category === 'image' ? (
-                      <Image className="w-4 h-4 text-blue-400" />
+                      <Image className="w-3 h-3 sm:w-4 sm:h-4 text-blue-400" />
                     ) : (
-                      <FileText className="w-4 h-4 text-green-400" />
+                      <FileText className="w-3 h-3 sm:w-4 sm:h-4 text-green-400" />
                     )}
-                    <span className="text-sm text-slate-200">{file.name}</span>
-                    <span className="text-xs text-slate-400">
+                    <span className="text-xs sm:text-sm text-slate-200 truncate max-w-[100px] sm:max-w-none">{file.name}</span>
+                    <span className="text-xs text-slate-400 hidden sm:inline">
                       ({Math.round(file.size / 1024)}KB)
                     </span>
                     <button
                       onClick={() => handleFileRemove(file.id)}
-                      className="ml-2 text-slate-400 hover:text-red-400"
+                      className="ml-1 sm:ml-2 text-slate-400 hover:text-red-400"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -2039,24 +2083,24 @@ Please check your internet connection and try again. In the meantime:
             <div className="flex-1">
               <Input
                 ref={inputRef}
-                placeholder={`Ask your ${getCurriculumData(selectedSubject)?.name || selectedSubject} tutor anything...`}
+                placeholder={`Ask about ${getCurriculumData(selectedSubject)?.name || selectedSubject}...`}
                 value={currentMessage}
                 onChange={(e) => setCurrentMessage(e.target.value)}
                 onKeyDown={handleKeyPress}
-                className="text-base py-4 pr-20 min-h-[3rem] max-h-32"
+                className="text-sm sm:text-base py-2.5 sm:py-4 pr-12 sm:pr-20 min-h-[2.5rem] sm:min-h-[3rem] max-h-24 sm:max-h-32"
                 multiline={true}
               />
             </div>
             
-            <div className="flex gap-2">
+            <div className="flex gap-1.5 sm:gap-2 flex-shrink-0">
               <Button
                 variant="ghost" 
                 size="sm"
                 onClick={handleFileSelect}
-                className="text-slate-300 hover:text-slate-100"
+                className="text-slate-300 hover:text-slate-100 p-2 sm:p-2.5"
                 title="Attach file"
               >
-                <Paperclip className="w-5 h-5" />
+                <Paperclip className="w-4 h-4 sm:w-5 sm:h-5" />
               </Button>
               
               <Button
@@ -2067,20 +2111,20 @@ Please check your internet connection and try again. In the meantime:
                   handleSendMessage();
                 }}
                 disabled={(!currentMessage.trim() && uploadedFiles.length === 0) || isTyping}
-                className="px-6 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                className="px-3 sm:px-6 py-2 sm:py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
                 glow
               >
-                <Send className="w-5 h-5" />
+                <Send className="w-4 h-4 sm:w-5 sm:h-5" />
               </Button>
             </div>
           </div>
           
-          <div className="flex items-center justify-between mt-4 text-xs text-slate-400">
-            <div className="flex items-center gap-4">
-              <span>Press Enter to send • Shift+Enter for new line</span>
+          <div className="hidden sm:flex items-center justify-between mt-3 sm:mt-4 text-xs text-slate-400">
+            <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
+              <span>Enter to send • Shift+Enter for new line</span>
               <span className="flex items-center gap-1">
                 <TrendingUp className="w-3 h-3" />
-                Powered by advanced AI
+                Powered by AI
               </span>
             </div>
           </div>

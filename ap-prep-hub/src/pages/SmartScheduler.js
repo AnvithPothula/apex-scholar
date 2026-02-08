@@ -889,9 +889,9 @@ export default function SmartScheduler() {
   }
 
   return (
-    <div className="h-[calc(100vh-3.5rem)] sm:h-[calc(100vh-4rem)] flex flex-col lg:flex-row bg-gradient-to-br from-slate-900 to-slate-800">
+    <div className="h-[calc(100vh-3.5rem)] sm:h-[calc(100vh-4rem)] flex flex-col md:flex-row bg-gradient-to-br from-slate-900 to-slate-800">
       {/* Mobile/Tablet optimized sidebar */}
-      <div className="w-full lg:w-80 border-r border-slate-700 flex flex-col bg-slate-800/80 backdrop-blur-sm order-2 lg:order-1 max-h-[40vh] lg:max-h-none">
+      <div className="w-full md:w-72 lg:w-80 border-r border-slate-700 flex flex-col bg-slate-800/80 backdrop-blur-sm order-2 md:order-1 max-h-[40vh] md:max-h-none">
         <div className="p-4 sm:p-6 border-b border-slate-700 bg-slate-800/60">
           <div className="flex items-center justify-between mb-3 sm:mb-4">
             <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">Scheduler</h2>
@@ -906,7 +906,7 @@ export default function SmartScheduler() {
         <div className="p-3 sm:p-4">
           {/* New assignments notification */}
           {newAssignmentsAvailable && (
-            <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="mb-3 p-3 bg-blue-900/30 border border-blue-700 rounded-lg">
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
@@ -915,9 +915,9 @@ export default function SmartScheduler() {
                     </svg>
                   </div>
                   <div className="ml-3">
-                    <p className="text-sm text-blue-800">
+                    <p className="text-sm text-blue-200">
                       New assignments have been synced from Schoology! 
-                      <span className="block text-xs text-blue-600 mt-1">
+                      <span className="block text-xs text-blue-400 mt-1">
                         Click "Generate Smart Schedule" to include them in your schedule.
                       </span>
                     </p>
@@ -925,7 +925,7 @@ export default function SmartScheduler() {
                 </div>
                 <button
                   onClick={() => setNewAssignmentsAvailable(false)}
-                  className="flex-shrink-0 ml-3 text-blue-400 hover:text-blue-600"
+                  className="flex-shrink-0 ml-3 text-blue-400 hover:text-blue-300"
                 >
                   <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -1006,7 +1006,7 @@ export default function SmartScheduler() {
       </div>
 
       {/* Main schedule view - responsive */}
-      <div className="flex-1 bg-slate-900/50 backdrop-blur-sm order-1 lg:order-2 min-h-0">
+      <div className="flex-1 bg-slate-900/50 backdrop-blur-sm order-1 md:order-2 min-h-0">
         <div className="p-4 sm:p-6 h-full flex flex-col">
           <div className="flex items-center justify-between mb-4 sm:mb-6">
             <h3 className="text-lg sm:text-xl font-semibold text-white">AI Study Schedule</h3>
