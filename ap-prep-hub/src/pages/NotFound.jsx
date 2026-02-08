@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Brain, Home, ArrowLeft, ChevronRight, Trophy, XCircle, CheckCircle2, Sparkles } from 'lucide-react';
@@ -111,7 +111,6 @@ export default function NotFound() {
   const [qIndex, setQIndex] = useState(0);
   const [selected, setSelected] = useState(null);
   const [correctCount, setCorrectCount] = useState(0);
-  const [wrongCount, setWrongCount] = useState(0);
   const [answered, setAnswered] = useState(false);
   const [gameOver, setGameOver] = useState(false);
   const totalQuestions = Math.min(5, QUESTIONS.length);
@@ -125,8 +124,6 @@ export default function NotFound() {
     setAnswered(true);
     if (choiceIdx === currentQuestion.correct) {
       setCorrectCount(c => c + 1);
-    } else {
-      setWrongCount(w => w + 1);
     }
   };
 
@@ -145,7 +142,6 @@ export default function NotFound() {
     setSelected(null);
     setAnswered(false);
     setCorrectCount(0);
-    setWrongCount(0);
     setGameOver(false);
   };
 
