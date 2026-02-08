@@ -1,244 +1,404 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useCallback, useMemo } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Brain, Home, ArrowLeft, Sparkles, RotateCcw } from 'lucide-react';
+import { Brain, Home, ArrowLeft, ChevronRight, Trophy, XCircle, CheckCircle2, Sparkles } from 'lucide-react';
 
-// AP-themed wrong answers for the 404
-const WRONG_ANSWERS = [
-  { question: "What is the derivative of 404?", answer: "0. Just like this page.", icon: "∫" },
-  { question: "In APUSH, what happened on page 404?", answer: "Nothing. It was ripped out.", icon: "🦅" },
-  { question: "Which element has atomic number 404?", answer: "Pagenotfoundium (Pn). Highly unstable.", icon: "🧪" },
-  { question: "In AP CSA, what does HTTP 404 mean?", answer: "The server ghosted your request.", icon: "💻" },
-  { question: "AP Psychology, what causes a 404?", answer: "Digital separation anxiety.", icon: "🧠" },
-  { question: "AP Physics, calculate the momentum of this page.", answer: "p = mv = 0 × 0 = absolutely nothing.", icon: "⚛️" },
-  { question: "AP English, analyze the symbolism of 404.", answer: "It represents the futility of clicking unknown links.", icon: "📚" },
-  { question: "AP Stats, what's the probability this page exists?", answer: "P(page) = 0. Confidence interval: [0, 0].", icon: "📊" },
-  { question: "AP Bio, what kingdom does a 404 belong to?", answer: "Erroraceae. Phylum: Brokenlinkia.", icon: "🔬" },
-  { question: "AP Econ, what's the opportunity cost of this 404?", answer: "The studying you could've been doing.", icon: "📈" },
+// Each question has 4 choices — one correct funny answer, three distractors
+const QUESTIONS = [
+  {
+    icon: "∫", subject: "AP Calculus",
+    question: "What is the derivative of 404?",
+    choices: ["404x³", "0 — just like this page", "undefined", "404!"],
+    correct: 1,
+  },
+  {
+    icon: "🦅", subject: "AP US History",
+    question: "In APUSH, what happened on page 404 of the textbook?",
+    choices: ["The Boston Tea Party", "It was ripped out by a student", "The Louisiana Purchase", "Nothing — nobody reads that far"],
+    correct: 1,
+  },
+  {
+    icon: "🧪", subject: "AP Chemistry",
+    question: "Which element has atomic number 404?",
+    choices: ["Unobtainium (Ub)", "Pagenotfoundium (Pn)", "Brokenlinkium (Bl)", "Errordium (Er)"],
+    correct: 1,
+  },
+  {
+    icon: "💻", subject: "AP Computer Science",
+    question: "In Java, what exception does a 404 page throw?",
+    choices: ["NullPointerException", "ArrayIndexOutOfBoundsException", "PageNotFoundError", "ClassNotFoundException"],
+    correct: 2,
+  },
+  {
+    icon: "🧠", subject: "AP Psychology",
+    question: "What cognitive bias makes you think this page should exist?",
+    choices: ["Confirmation bias", "The optimism delusion of URL typing", "Dunning-Kruger effect", "Anchoring bias"],
+    correct: 1,
+  },
+  {
+    icon: "⚛️", subject: "AP Physics",
+    question: "Calculate the momentum of this missing page.",
+    choices: ["p = mv = 404 kg·m/s", "p = mv = 0 × 0 = absolutely nothing", "p = ħk = undefined", "Insufficient data"],
+    correct: 1,
+  },
+  {
+    icon: "📚", subject: "AP English Literature",
+    question: "The 404 error is best described as which literary device?",
+    choices: ["Foreshadowing", "An ironic void where content should be", "Alliteration", "Onomatopoeia"],
+    correct: 1,
+  },
+  {
+    icon: "📊", subject: "AP Statistics",
+    question: "What is P(this page existing)?",
+    choices: ["0.5 — it either exists or it doesn't", "P = 0, CI: [0, 0]", "Approximately 0.04", "Cannot be determined"],
+    correct: 1,
+  },
+  {
+    icon: "🔬", subject: "AP Biology",
+    question: "To which taxonomic kingdom does a 404 error belong?",
+    choices: ["Animalia", "Fungi", "Erroraceae, phylum Brokenlinkia", "Protista"],
+    correct: 2,
+  },
+  {
+    icon: "📈", subject: "AP Economics",
+    question: "What is the opportunity cost of this 404 error?",
+    choices: ["$4.04", "The studying you could've been doing", "One college credit", "A marginal utility of zero"],
+    correct: 1,
+  },
+  {
+    icon: "🌍", subject: "AP World History",
+    question: "Which ancient civilization first encountered a 404?",
+    choices: ["The Romans: 'Page Not CDIV'", "The Egyptians: missing hieroglyphic scroll", "The Greeks: 'Aristotle's lost chapter'", "Nobody — they had no WiFi"],
+    correct: 3,
+  },
+  {
+    icon: "🇪🇸", subject: "AP Spanish",
+    question: "How do you say '404 Page Not Found' in Spanish?",
+    choices: ["Cuatro cero cuatro", "Página no encontrada — como mi motivación", "Error de la web", "No lo sé, I got a 2"],
+    correct: 1,
+  },
 ];
 
-// Floating formula particles
-const FORMULAS = [
-  "E=mc²", "∫f(x)dx", "F=ma", "ΔG=ΔH-TΔS", "PV=nRT",
-  "a²+b²=c²", "∑F=0", "λ=h/p", "pH=-log[H⁺]", "V=IR",
-  "dy/dx", "∇×E", "σ=F/A", "μ=Σx/n", "lim x→∞",
-];
+// Floating symbols
+const SYMBOLS = ["∫", "∑", "π", "∞", "√", "Δ", "∇", "θ", "λ", "Ω", "φ", "ε", "∂", "≈", "±"];
 
-function FloatingFormula({ formula, index }) {
-  const randomX = Math.random() * 100;
-  const randomDelay = Math.random() * 8;
-  const randomDuration = 12 + Math.random() * 10;
-  const randomSize = 10 + Math.random() * 8;
+function FloatingSymbol({ symbol }) {
+  const style = useMemo(() => ({
+    left: `${Math.random() * 100}%`,
+    fontSize: `${12 + Math.random() * 14}px`,
+    animationDelay: `${Math.random() * 20}s`,
+    animationDuration: `${15 + Math.random() * 15}s`,
+  }), []);
 
   return (
-    <motion.div
-      className="absolute text-slate-700/30 font-mono pointer-events-none select-none"
-      style={{ fontSize: randomSize, left: `${randomX}%` }}
-      initial={{ y: '110vh', opacity: 0, rotate: -15 + Math.random() * 30 }}
-      animate={{
-        y: '-10vh',
-        opacity: [0, 0.4, 0.4, 0],
-        rotate: -15 + Math.random() * 30,
-      }}
-      transition={{
-        duration: randomDuration,
-        delay: randomDelay,
-        repeat: Infinity,
-        ease: 'linear',
-      }}
-    >
-      {formula}
-    </motion.div>
+    <div className="floating-symbol absolute text-slate-700/20 font-mono pointer-events-none select-none" style={style}>
+      {symbol}
+    </div>
   );
 }
 
 export default function NotFound() {
   const navigate = useNavigate();
-  const [currentQ, setCurrentQ] = useState(() => Math.floor(Math.random() * WRONG_ANSWERS.length));
-  const [score, setScore] = useState(0);
-  const [showAnswer, setShowAnswer] = useState(false);
-  const [bubbleScore, setBubbleScore] = useState([false, false, false, false, false]);
-  const [shakeKey, setShakeKey] = useState(0);
-
-  const qa = WRONG_ANSWERS[currentQ];
-
-  const nextQuestion = useCallback(() => {
-    setShowAnswer(false);
-    let next;
-    do { next = Math.floor(Math.random() * WRONG_ANSWERS.length); } while (next === currentQ && WRONG_ANSWERS.length > 1);
-    setCurrentQ(next);
-  }, [currentQ]);
-
-  // Bubble sheet fill animation
-  useEffect(() => {
-    if (score > 0) {
-      const idx = Math.min(score - 1, 4);
-      setBubbleScore(prev => {
-        const next = [...prev];
-        next[idx] = true;
-        return next;
-      });
+  const location = useLocation();
+  const [questionOrder] = useState(() => {
+    const indices = QUESTIONS.map((_, i) => i);
+    for (let i = indices.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [indices[i], indices[j]] = [indices[j], indices[i]];
     }
-  }, [score]);
+    return indices;
+  });
+  const [qIndex, setQIndex] = useState(0);
+  const [selected, setSelected] = useState(null);
+  const [correctCount, setCorrectCount] = useState(0);
+  const [wrongCount, setWrongCount] = useState(0);
+  const [answered, setAnswered] = useState(false);
+  const [gameOver, setGameOver] = useState(false);
+  const totalQuestions = Math.min(5, QUESTIONS.length);
 
-  const handleReveal = () => {
-    setShowAnswer(true);
-    setScore(s => s + 1);
-    setShakeKey(k => k + 1);
+  const currentQuestion = QUESTIONS[questionOrder[qIndex]];
+  const questionNum = qIndex + 1;
+
+  const handleSelect = (choiceIdx) => {
+    if (answered) return;
+    setSelected(choiceIdx);
+    setAnswered(true);
+    if (choiceIdx === currentQuestion.correct) {
+      setCorrectCount(c => c + 1);
+    } else {
+      setWrongCount(w => w + 1);
+    }
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4 overflow-hidden relative">
-      {/* Floating formula background */}
-      {FORMULAS.map((f, i) => (
-        <FloatingFormula key={i} formula={f} index={i} />
-      ))}
+  const handleNext = () => {
+    if (questionNum >= totalQuestions) {
+      setGameOver(true);
+    } else {
+      setQIndex(q => q + 1);
+      setSelected(null);
+      setAnswered(false);
+    }
+  };
 
-      {/* Scantron-style decorative border */}
-      <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-500 via-purple-500 to-blue-500 opacity-60" />
-      <div className="absolute bottom-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-500 via-purple-500 to-blue-500 opacity-60" />
+  const handleRestart = () => {
+    setQIndex(0);
+    setSelected(null);
+    setAnswered(false);
+    setCorrectCount(0);
+    setWrongCount(0);
+    setGameOver(false);
+  };
+
+  const getScoreMessage = () => {
+    const pct = correctCount / totalQuestions;
+    if (pct === 1) return { score: "5", msg: "Perfect score! Too bad this page still doesn't exist.", color: "text-green-400" };
+    if (pct >= 0.8) return { score: "4", msg: "Impressive! You clearly study too much.", color: "text-blue-400" };
+    if (pct >= 0.6) return { score: "3", msg: "Passing! Most colleges will accept this 404.", color: "text-yellow-400" };
+    if (pct >= 0.4) return { score: "2", msg: "Not quite. Maybe study the 404 curriculum.", color: "text-orange-400" };
+    return { score: "1", msg: "This page scored better than you.", color: "text-red-400" };
+  };
+
+  const choiceLabels = ['A', 'B', 'C', 'D'];
+
+  return (
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 overflow-hidden relative">
+      {/* CSS for floating animation */}
+      <style>{`
+        @keyframes floatUp {
+          0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+          10% { opacity: 0.3; }
+          90% { opacity: 0.3; }
+          100% { transform: translateY(-10vh) rotate(360deg); opacity: 0; }
+        }
+        .floating-symbol { animation: floatUp linear infinite; }
+      `}</style>
+
+      {/* Floating background symbols */}
+      {SYMBOLS.map((s, i) => <FloatingSymbol key={i} symbol={s} />)}
+
+      {/* Subtle grid pattern */}
+      <div className="absolute inset-0 opacity-[0.03]" style={{
+        backgroundImage: 'linear-gradient(rgba(148,163,184,1) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,1) 1px, transparent 1px)',
+        backgroundSize: '40px 40px'
+      }} />
 
       <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="relative z-10 max-w-lg w-full"
+        initial={{ opacity: 0, y: 20, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="relative z-10 max-w-md w-full"
       >
-        {/* The "exam paper" card */}
-        <div className="bg-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden">
+        {/* Main card */}
+        <div className="bg-slate-800/90 backdrop-blur-xl border border-slate-700/60 rounded-2xl shadow-2xl shadow-black/40 overflow-hidden">
           
-          {/* Header — like an exam header */}
-          <div className="bg-slate-700/50 px-6 py-4 border-b border-slate-600/50">
+          {/* Exam header */}
+          <div className="bg-gradient-to-r from-slate-700/80 to-slate-700/40 px-5 py-3.5 border-b border-slate-600/40">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Brain className="w-5 h-5 text-blue-400" />
-                <span className="text-sm font-semibold text-slate-300 tracking-wide uppercase">Apex Scholar</span>
+                <div className="w-7 h-7 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                  <Brain className="w-4 h-4 text-blue-400" />
+                </div>
+                <div>
+                  <span className="text-xs font-bold text-slate-300 tracking-wider uppercase block leading-tight">Apex Scholar</span>
+                  <span className="text-[10px] text-slate-500">Advanced Placement 404 Exam</span>
+                </div>
               </div>
-              <span className="text-xs text-slate-500 font-mono">EXAM: 404-NOT-FOUND</span>
+              <div className="text-right">
+                <span className="text-[10px] text-slate-500 font-mono block">EXAM CODE</span>
+                <span className="text-xs text-slate-400 font-mono font-bold">404-NF</span>
+              </div>
             </div>
-            <div className="mt-2 flex items-center justify-between">
-              <span className="text-xs text-slate-500">Section II: Free Response (Navigation)</span>
-              <span className="text-xs text-slate-500">Time: ∞ minutes</span>
-            </div>
-          </div>
-
-          {/* Score — bubble sheet style */}
-          <div className="px-6 pt-4 flex items-center gap-2">
-            <span className="text-xs text-slate-500 mr-1">SCORE:</span>
-            {bubbleScore.map((filled, i) => (
-              <motion.div
-                key={i}
-                className={`w-5 h-5 rounded-full border-2 flex items-center justify-center text-[9px] font-bold transition-all duration-300 ${
-                  filled
-                    ? 'bg-red-500/80 border-red-400 text-white'
-                    : 'border-slate-600 text-slate-600'
-                }`}
-                animate={filled ? { scale: [1, 1.3, 1] } : {}}
-                transition={{ duration: 0.3 }}
-              >
-                {filled ? '✗' : String.fromCharCode(65 + i)}
-              </motion.div>
-            ))}
-            {score > 5 && (
-              <span className="text-xs text-red-400 ml-2">+{score - 5} more wrong</span>
-            )}
           </div>
 
           {/* Big 404 */}
-          <div className="px-6 pt-6 pb-2 text-center">
+          <div className="pt-6 pb-3 text-center relative">
+            <motion.h1
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.1, type: "spring", stiffness: 200 }}
+              className="text-7xl sm:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-b from-slate-200 via-slate-400 to-slate-700 leading-none select-none tracking-tight"
+            >
+              404
+            </motion.h1>
             <motion.div
-              key={shakeKey}
-              animate={shakeKey > 0 ? { x: [0, -8, 8, -5, 5, 0] } : {}}
-              transition={{ duration: 0.4 }}
-            >
-              <h1 className="text-8xl sm:text-9xl font-black text-transparent bg-clip-text bg-gradient-to-b from-slate-300 to-slate-600 leading-none select-none">
-                404
-              </h1>
-            </motion.div>
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
-              className="text-slate-400 mt-2 text-sm"
             >
-              This page scored a 1 on the AP exam.
-            </motion.p>
+              <p className="text-slate-500 text-xs mt-1.5 font-medium">
+                Page not found — but here's a pop quiz
+              </p>
+              {location.pathname !== '/' && (
+                <p className="text-slate-600 text-[10px] mt-1 font-mono truncate px-8">
+                  {location.pathname}
+                </p>
+              )}
+            </motion.div>
           </div>
 
-          {/* Question card */}
-          <div className="px-6 py-4">
-            <div className="bg-slate-900/60 rounded-xl p-4 border border-slate-700/40">
-              <div className="flex items-start gap-3">
-                <span className="text-2xl flex-shrink-0 mt-0.5">{qa.icon}</span>
-                <div className="min-w-0">
-                  <p className="text-slate-200 text-sm font-medium leading-relaxed">{qa.question}</p>
-                  <AnimatePresence mode="wait">
-                    {showAnswer ? (
-                      <motion.p
-                        key="answer"
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="text-blue-400 text-sm mt-2 italic"
-                      >
-                        {qa.answer}
-                      </motion.p>
-                    ) : (
-                      <motion.button
-                        key="reveal"
-                        onClick={handleReveal}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        className="mt-2 inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-400 transition-colors group"
-                      >
-                        <Sparkles className="w-3 h-3 group-hover:text-blue-400" />
-                        Reveal Answer
-                      </motion.button>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </div>
-            </div>
-
-            {showAnswer && (
-              <motion.button
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                onClick={nextQuestion}
-                className="mt-3 w-full flex items-center justify-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+          <AnimatePresence mode="wait">
+            {!gameOver ? (
+              <motion.div
+                key={`q-${qIndex}`}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.25 }}
+                className="px-5 pb-5"
               >
-                <RotateCcw className="w-3 h-3" />
-                Next wrong answer
-              </motion.button>
-            )}
-          </div>
+                {/* Progress bar */}
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="flex-1 h-1 bg-slate-700/60 rounded-full overflow-hidden">
+                    <motion.div
+                      className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"
+                      initial={{ width: `${((qIndex) / totalQuestions) * 100}%` }}
+                      animate={{ width: `${((qIndex + (answered ? 1 : 0)) / totalQuestions) * 100}%` }}
+                      transition={{ duration: 0.3 }}
+                    />
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-mono whitespace-nowrap">{questionNum}/{totalQuestions}</span>
+                </div>
 
-          {/* Action buttons */}
-          <div className="px-6 pb-6 flex gap-3">
+                {/* Question */}
+                <div className="mb-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-lg">{currentQuestion.icon}</span>
+                    <span className="text-[10px] font-bold text-blue-400/80 uppercase tracking-wider">{currentQuestion.subject}</span>
+                  </div>
+                  <p className="text-slate-200 text-sm font-medium leading-relaxed">{currentQuestion.question}</p>
+                </div>
+
+                {/* Choices */}
+                <div className="space-y-2">
+                  {currentQuestion.choices.map((choice, i) => {
+                    const isCorrect = i === currentQuestion.correct;
+                    const isSelected = i === selected;
+                    let style = 'border-slate-700/50 bg-slate-900/40 hover:bg-slate-700/40 hover:border-slate-600/60 text-slate-300';
+                    let labelStyle = 'bg-slate-700/60 text-slate-400';
+
+                    if (answered) {
+                      if (isCorrect) {
+                        style = 'border-green-500/50 bg-green-500/10 text-green-300';
+                        labelStyle = 'bg-green-500/30 text-green-300';
+                      } else if (isSelected && !isCorrect) {
+                        style = 'border-red-500/50 bg-red-500/10 text-red-300';
+                        labelStyle = 'bg-red-500/30 text-red-300';
+                      } else {
+                        style = 'border-slate-700/30 bg-slate-900/20 text-slate-500';
+                        labelStyle = 'bg-slate-700/30 text-slate-600';
+                      }
+                    }
+
+                    return (
+                      <motion.button
+                        key={i}
+                        onClick={() => handleSelect(i)}
+                        disabled={answered}
+                        whileHover={!answered ? { scale: 1.01 } : {}}
+                        whileTap={!answered ? { scale: 0.99 } : {}}
+                        className={`w-full flex items-center gap-3 p-2.5 rounded-lg border transition-all duration-200 text-left ${style} ${!answered ? 'cursor-pointer' : 'cursor-default'}`}
+                      >
+                        <span className={`w-6 h-6 rounded-md flex items-center justify-center text-[11px] font-bold flex-shrink-0 transition-all duration-200 ${labelStyle}`}>
+                          {answered && isCorrect ? <CheckCircle2 className="w-3.5 h-3.5" /> :
+                           answered && isSelected && !isCorrect ? <XCircle className="w-3.5 h-3.5" /> :
+                           choiceLabels[i]}
+                        </span>
+                        <span className="text-xs leading-relaxed">{choice}</span>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+
+                {/* Next button */}
+                <AnimatePresence>
+                  {answered && (
+                    <motion.button
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      onClick={handleNext}
+                      className="mt-3 w-full py-2 px-4 bg-blue-600/90 hover:bg-blue-500 rounded-lg text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                    >
+                      {questionNum >= totalQuestions ? 'See Results' : 'Next Question'}
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </motion.button>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            ) : (
+              /* Game over / results */
+              <motion.div
+                key="results"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="px-5 pb-5"
+              >
+                {(() => {
+                  const result = getScoreMessage();
+                  return (
+                    <div className="text-center py-4">
+                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/30 flex items-center justify-center mx-auto mb-3">
+                        <Trophy className="w-8 h-8 text-blue-400" />
+                      </div>
+                      <div className="mb-1">
+                        <span className="text-xs text-slate-500 uppercase tracking-wider font-bold">Your AP 404 Score</span>
+                      </div>
+                      <div className={`text-5xl font-black ${result.color} mb-2`}>{result.score}</div>
+                      <p className="text-slate-400 text-sm mb-1">{correctCount}/{totalQuestions} correct</p>
+                      <p className="text-slate-500 text-xs italic px-4">{result.msg}</p>
+
+                      {/* Score bubbles */}
+                      <div className="flex justify-center gap-1.5 mt-4 mb-4">
+                        {Array.from({ length: totalQuestions }).map((_, i) => (
+                          <div key={i} className={`w-7 h-7 rounded-full border-2 flex items-center justify-center text-[10px] font-bold ${
+                            i < correctCount
+                              ? 'bg-green-500/20 border-green-500/50 text-green-400'
+                              : 'bg-red-500/20 border-red-500/50 text-red-400'
+                          }`}>
+                            {i < correctCount ? '✓' : '✗'}
+                          </div>
+                        ))}
+                      </div>
+
+                      <button
+                        onClick={handleRestart}
+                        className="text-xs text-slate-500 hover:text-blue-400 transition-colors inline-flex items-center gap-1"
+                      >
+                        <Sparkles className="w-3 h-3" />
+                        Retake exam
+                      </button>
+                    </div>
+                  );
+                })()}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Navigation buttons */}
+          <div className="px-5 pb-5 flex gap-2.5">
             <motion.button
               whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              whileTap={{ scale: 0.97 }}
               onClick={() => navigate(-1)}
-              className="flex-1 py-2.5 px-4 bg-slate-700/50 hover:bg-slate-700 border border-slate-600/50 rounded-lg text-slate-300 text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+              className="flex-1 py-2.5 px-3 bg-slate-700/40 hover:bg-slate-700/70 border border-slate-600/40 rounded-xl text-slate-400 hover:text-slate-200 text-xs font-medium flex items-center justify-center gap-1.5 transition-all"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-3.5 h-3.5" />
               Go Back
             </motion.button>
             <motion.button
               whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => navigate('/')}
-              className="flex-1 py-2.5 px-4 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 rounded-lg text-white text-sm font-medium flex items-center justify-center gap-2 transition-colors shadow-lg shadow-blue-500/20"
+              whileTap={{ scale: 0.97 }}
+              onClick={() => navigate('/AITutors')}
+              className="flex-1 py-2.5 px-3 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 rounded-xl text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-lg shadow-blue-600/20"
             >
-              <Home className="w-4 h-4" />
-              Study Instead
+              <Home className="w-3.5 h-3.5" />
+              Back to Studying
             </motion.button>
           </div>
         </div>
 
-        {/* Bottom text */}
-        <p className="text-center text-slate-600 text-xs mt-4">
-          Pro tip: There's no AP exam for finding missing pages.
+        {/* Footer */}
+        <p className="text-center text-slate-700 text-[10px] mt-3 font-medium">
+          There is no AP exam for finding missing pages. Yet.
         </p>
       </motion.div>
     </div>

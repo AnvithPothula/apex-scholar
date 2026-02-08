@@ -1,6 +1,6 @@
 /* eslint-disable import/first */
 import React, { useEffect, Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route, Outlet } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Layout } from './components/Layout.jsx';
@@ -49,6 +49,7 @@ function MainApp() {
     <Suspense fallback={<div className="p-6 text-slate-300">Loading…</div>}>
       <Routes>
         <Route element={<Layout><Suspense fallback={<div className="p-6 text-slate-300">Loading…</div>}><Outlet /></Suspense></Layout>}>
+          <Route index element={<Navigate to={createPageUrl("AITutors")} replace />} />
           <Route path={createPageUrl("AITutors")} element={<AITutors />} />
           <Route path={createPageUrl("AITutors", ":subject")} element={<AITutors />} />
           <Route path={createPageUrl("SmartScheduler")} element={<SmartScheduler />} />
