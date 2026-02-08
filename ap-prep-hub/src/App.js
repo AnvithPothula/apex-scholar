@@ -1,6 +1,6 @@
 /* eslint-disable import/first */
 import React, { useEffect, Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Outlet } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Layout } from './components/Layout.jsx';
@@ -18,6 +18,8 @@ const Settings = lazy(() => import('./pages/Settings'));
 const Flashcards = lazy(() => import('./pages/Flashcards'));
 // eslint-disable-next-line import/first
 const Solver = lazy(() => import('./pages/Solver'));
+// eslint-disable-next-line import/first
+const NotFound = lazy(() => import('./pages/NotFound'));
 import { createPageUrl } from './utils/helpers';
 import { initializeBackgroundSync } from './services/backgroundSync';
 
@@ -44,9 +46,9 @@ function App() {
 // Main App with Layout
 function MainApp() {
   return (
-    <Layout>
-      <Suspense fallback={<div className="p-6 text-slate-300">Loading…</div>}>
-        <Routes>
+    <Suspense fallback={<div className="p-6 text-slate-300">Loading…</div>}>
+      <Routes>
+        <Route element={<Layout><Suspense fallback={<div className="p-6 text-slate-300">Loading…</div>}><Outlet /></Suspense></Layout>}>
           <Route path={createPageUrl("AITutors")} element={<AITutors />} />
           <Route path={createPageUrl("AITutors", ":subject")} element={<AITutors />} />
           <Route path={createPageUrl("SmartScheduler")} element={<SmartScheduler />} />
@@ -54,10 +56,11 @@ function MainApp() {
           <Route path={createPageUrl("Flashcards")} element={<Flashcards />} />
           <Route path={createPageUrl("Solver")} element={<Solver />} />
           <Route path={createPageUrl("Settings")} element={<Settings />} />
-          <Route path="*" element={<Navigate to={createPageUrl("AITutors")} replace />} />
-        </Routes>
-      </Suspense>
-    </Layout>
+        </Route>
+        {/* 404 renders full-screen, outside the Layout */}
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </Suspense>
   );
 }
 
