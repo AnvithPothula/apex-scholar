@@ -124,6 +124,8 @@ class GeminiService {
     this._workingModelSupportsMM = false;
     this._lastPuterFailureAt = 0; // for backoff on repeated failures
     this._rateLimitUntil = 0; // Timestamp until which we should not make requests
+    this._puterAuthBroken = false; // Track if Puter auth is in a broken/stuck state
+    this._puterAuthResetCount = 0; // How many times we've reset Puter auth this session
 
     // Request deduplication cache
     this._requestCache = new Map(); // hash -> {promise, timestamp}
@@ -132,6 +134,19 @@ class GeminiService {
 
     // Start cache cleanup interval
     this._startCacheCleanup();
+
+    // Check for stuck Puter auth state on load and clean it up
+    this._cleanupStuckPuterAuth();
+
+    // Also clean up when the page becomes visible again (e.g. after returning
+    // from a Puter auth popup that showed "Forbidden" on Safari/iOS)
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          this._cleanupStuckPuterAuth();
+        }
+      });
+    }
   }
 
   /**
@@ -596,10 +611,182 @@ class GeminiService {
     // If none worked, leave null and let caller fallback to Google
     throw new Error('No Puter models responded');
   }
-  // Safe access to Puter SDK in browser
+  /**
+   * Detect if Puter SDK auth is in a stuck state (e.g. auth popup showed
+   * "Forbidden" on Safari/iOS and never completed, leaving isPromptOpen=true
+   * with no auth token). This causes the "Continue" button to become
+   * unclickable and the user can only "Cancel", breaking AI entirely.
+   */
+  _isPuterAuthStuck() {
+    try {
+      if (typeof window === 'undefined' || !window.puter) return false;
+      const puter = window.puter;
+      // The SDK sets puterAuthState.isPromptOpen = true when the auth dialog
+      // is shown, but never resets it if the popup fails with "Forbidden"
+      const authState = puter.puterAuthState;
+      if (authState && authState.isPromptOpen === true && !puter.authToken) {
+        return true;
+      }
+      // Also check if a <puter-dialog> element exists in the DOM but auth
+      // was never completed (stale dialog from a failed attempt)
+      if (!puter.authToken && document.querySelector && document.querySelector('puter-dialog')) {
+        return true;
+      }
+    } catch (_) { /* ignore */ }
+    return false;
+  }
+
+  /**
+   * Reset Puter SDK auth state when it's stuck. This clears the broken
+   * dialog, resets internal state, and removes stale localStorage tokens
+   * so the next AI call can either re-trigger auth cleanly or fall back
+   * to Google API without hanging.
+   */
+  _resetPuterAuth() {
+    try {
+      if (typeof window === 'undefined' || !window.puter) return;
+      const puter = window.puter;
+
+      // 1. Reset the in-memory auth state that prevents new auth dialogs
+      if (puter.puterAuthState) {
+        puter.puterAuthState.isPromptOpen = false;
+        puter.puterAuthState.authGranted = null;
+        if (puter.puterAuthState.resolver) {
+          // Reject any pending auth promise so callers don't hang forever
+          try { puter.puterAuthState.resolver.reject?.(new Error('Auth reset due to stuck state')); } catch (_) {}
+        }
+        puter.puterAuthState.resolver = null;
+      }
+
+      // 2. Remove stale <puter-dialog> elements from the DOM
+      if (document.querySelectorAll) {
+        document.querySelectorAll('puter-dialog').forEach(el => {
+          try { el.remove(); } catch (_) {}
+        });
+      }
+
+      // 3. Clear stale app ID but keep the auth token in localStorage
+      //    so the user doesn't lose their Puter session on next page load.
+      //    Only the in-memory stuck state needs resetting here.
+      try {
+        localStorage.removeItem('puter.app.id');
+      } catch (_) {}
+
+      // 4. Use the SDK's built-in reset if available
+      if (typeof puter.resetAuthToken === 'function') {
+        try { puter.resetAuthToken(); } catch (_) {}
+      } else {
+        puter.authToken = null;
+      }
+
+      this._puterAuthResetCount++;
+      console.warn('[AI] Reset stuck Puter auth state (reset #' + this._puterAuthResetCount + ')');
+    } catch (e) {
+      console.warn('[AI] Error resetting Puter auth:', e);
+    }
+  }
+
+  /**
+   * Check if a Puter error is auth-related (Forbidden, user cancelled,
+   * auth window closed, etc.). If so, clean up the stuck state immediately
+   * so subsequent calls fall through to Google instead of hanging.
+   */
+  _handlePuterAuthError(error) {
+    const msg = String(error?.message || error || '').toLowerCase();
+    const isAuthError = (
+      msg.includes('forbidden') ||
+      msg.includes('user cancelled') ||
+      msg.includes('auth') ||
+      msg.includes('authentication') ||
+      msg.includes('auth_window_closed') ||
+      msg.includes('not logged in') ||
+      msg.includes('login required')
+    );
+    if (isAuthError || this._isPuterAuthStuck()) {
+      console.warn('[AI] Puter auth error detected, cleaning up:', msg);
+      this._resetPuterAuth();
+    }
+  }
+
+  /**
+   * Check for and clean up stuck Puter auth state. Called on construction,
+   * on page visibility change (returning from failed popup), and before
+   * each Puter API call.
+   */
+  _cleanupStuckPuterAuth() {
+    if (this._isPuterAuthStuck()) {
+      console.warn('[AI] Detected stuck Puter auth state, resetting...');
+      this._resetPuterAuth();
+      // After resetting multiple times in one session, mark Puter as broken
+      // so we skip it entirely and go straight to Google fallback
+      if (this._puterAuthResetCount >= 3) {
+        this._puterAuthBroken = true;
+        console.warn('[AI] Puter auth has been reset too many times, marking as broken for this session');
+      }
+    }
+  }
+
+  // Safe access to Puter SDK in browser.
+  // IMPORTANT: Only returns the Puter SDK if the user is ALREADY authenticated.
+  // This prevents Puter from showing its auth popup/dialog (which requires users
+  // to create a Puter account, do CAPTCHAs, etc.). Unauthenticated users go
+  // straight to the Google Gemini API fallback — completely seamless, no popups.
   getPuter() {
     try {
+      // If Puter auth has repeatedly failed this session, skip it entirely
+      if (this._puterAuthBroken) {
+        if (this.debug) console.debug('[AI] Skipping Puter (auth marked broken for this session)');
+        return null;
+      }
+
       if (typeof window !== 'undefined' && window.puter && window.puter.ai && typeof window.puter.ai.chat === 'function') {
+        // Before returning, check if auth is stuck and clean it up
+        if (this._isPuterAuthStuck()) {
+          console.warn('[AI] Puter auth stuck at getPuter() call, resetting...');
+          this._resetPuterAuth();
+          if (this._puterAuthResetCount >= 3) {
+            this._puterAuthBroken = true;
+            return null;
+          }
+        }
+
+        // KEY CHECK: Only use Puter if the user is already authenticated.
+        // If they're NOT authenticated, calling puter.ai.chat() would trigger
+        // the Puter auth popup (account creation, CAPTCHA, etc.), which is
+        // confusing and disruptive. Instead, return null so the caller falls
+        // through to the Google API — no popup, no extra steps.
+        let hasAuth = !!(window.puter.authToken || window.puter.auth?.isSignedIn?.());
+
+        // Fallback: the SDK may not have restored the token to memory yet
+        // (e.g. right after page load). Check localStorage for a persisted
+        // Puter token and, if found, nudge the SDK so it picks it up.
+        if (!hasAuth) {
+          try {
+            const lsToken = localStorage.getItem('puter.auth.token');
+            if (lsToken && lsToken.length > 10) {
+              // Restore the token to the SDK so puter.ai calls include it
+              if (typeof window.puter.setAuthToken === 'function') {
+                window.puter.setAuthToken(lsToken);
+              } else {
+                window.puter.authToken = lsToken;
+              }
+              if (window.puter.auth && typeof window.puter.auth.setAuthToken === 'function') {
+                window.puter.auth.setAuthToken(lsToken);
+              }
+              hasAuth = true;
+              if (this.debug) console.debug('[AI] Restored Puter auth token from localStorage');
+            }
+          } catch (_) { /* localStorage blocked */ }
+        }
+
+        if (!hasAuth) {
+          if (this.debug) console.debug('[AI] Puter SDK loaded but user not authenticated — skipping to avoid auth popup');
+          return null;
+        }
+
+        // Mark as permanently authenticated so PuterAuthPrompt never shows
+        try { localStorage.setItem('apex.puter.authenticated', 'true'); } catch (_) {}
+
         return window.puter;
       }
     } catch (_) { /* ignore */ }
@@ -656,6 +843,8 @@ class GeminiService {
       if (isRateLimitError(e)) {
         this._handleRateLimit(e, 'Puter generateContent');
       }
+      // Check if this is a Puter auth error (Forbidden, cancelled, etc.)
+      this._handlePuterAuthError(e);
       
       if (this.debug) console.warn('[AI] Puter.generateContent failed, falling back to Google', { error: String(e), ms: Date.now() - t0 });
       this._lastPuterFailureAt = Date.now();
@@ -805,6 +994,8 @@ class GeminiService {
       if (isRateLimitError(e)) {
         this._handleRateLimit(e, 'Puter generateWithImages');
       }
+      // Check if this is a Puter auth error (Forbidden, cancelled, etc.)
+      this._handlePuterAuthError(e);
       if (this.debug) console.warn('[AI] Puter.generateWithImages failed, falling back to Google', { error: String(e), ms: Date.now() - t0 });
       this._lastPuterFailureAt = Date.now();
       return await this._googleGenerateWithImages(prompt, imageArg, options);
@@ -996,6 +1187,8 @@ class GeminiService {
       return responseText;
     } catch (e) {
       console.warn('[AI] Puter.generateFromPayload failed, falling back to Google', { error: String(e), ms: Date.now() - t0 });
+      // Check if this is a Puter auth error (Forbidden, cancelled, etc.)
+      this._handlePuterAuthError(e);
       const previousFailureTime = this._lastPuterFailureAt;
       this._lastPuterFailureAt = Date.now();
 

@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { createPageUrl, cn } from '../utils/helpers';
 import emailService from '../services/emailService';
 import ApexScholarLogo from './ui/ApexScholarLogo';
+import PuterAuthPrompt from './auth/PuterAuthPrompt';
 
 export function Layout({ children }) {
     const location = useLocation();
@@ -241,6 +242,9 @@ export function Layout({ children }) {
                     </div>
                 </div>
             )}
+
+            {/* Puter AI auth prompt — shown once after login if not yet connected */}
+            <PuterAuthPrompt />
         </div>
     );
 }

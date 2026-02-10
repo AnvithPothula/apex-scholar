@@ -11,12 +11,12 @@ import {
 
 class SchoologyCalendarService {
   constructor() {
-    // Use a more reliable CORS proxy that supports localhost development
+    // Primary: our own Netlify serverless function (first-party, no CORS issues)
+    // Fallback: public proxies in case the function is unavailable
     this.corsProxies = [
+      '/.netlify/functions/cors-proxy?url=',
       'https://corsproxy.io/?',
-      'https://cors-anywhere.herokuapp.com/',
       'https://api.allorigins.win/raw?url=',
-      'https://proxy.cors.sh/'
     ];
     this.currentProxyIndex = 0;
   }

@@ -16,6 +16,38 @@
     />
     <!-- Puter.js for free Gemini API access -->
     <script src="https://js.puter.com/v2/"></script>
+    <!-- Eagerly restore Puter auth token so the SDK never shows its own popup -->
+    <script>
+      (function() {
+        try {
+          var p = window.puter;
+          if (!p) return;
+
+          // 1. Restore persisted auth token to SDK memory
+          var t = localStorage.getItem('puter.auth.token');
+          if (t && t.length > 10) {
+            if (typeof p.setAuthToken === 'function') {
+              p.setAuthToken(t);
+            } else {
+              p.authToken = t;
+            }
+          }
+
+          // 2. Override the SDK's built-in auth popup so it NEVER shows.
+          //    The SDK calls puter.ui.authenticateWithPuter() in 21+ places
+          //    whenever authToken is missing.  We replace it with a rejected
+          //    promise, which makes those code-paths cleanly fail and fall
+          //    through to our Google API fallback.  Our own custom prompt
+          //    uses puter.auth.signIn() which is a completely separate path.
+          if (p.ui && typeof p.ui.authenticateWithPuter === 'function') {
+            p.ui._originalAuthenticateWithPuter = p.ui.authenticateWithPuter;
+            p.ui.authenticateWithPuter = function() {
+              return Promise.reject(new Error('Auth suppressed by Apex Scholar'));
+            };
+          }
+        } catch(e) {}
+      })();
+    </script>
     <title data-filename="pages/CodeViewer" data-linenumber="172" data-visual-selector-id="pages/CodeViewer172">Apex Scholar</title>
   </head>
   <body data-filename="pages/CodeViewer" data-linenumber="174" data-visual-selector-id="pages/CodeViewer174">

@@ -25,25 +25,49 @@ export const AuthProvider = ({ children }) => {
         let redirectChecked = false;
         let lastAuthUser = undefined; // undefined = not yet fired
 
-        // Safety timeout - never stay in loading state forever
+        // Detect whether we're returning from a signInWithRedirect flow.
+        // The flag is set in signInWithGoogle() right before calling
+        // signInWithRedirect and cleared here once the result is processed.
+        const isReturningFromRedirect = (() => {
+            try { return sessionStorage.getItem('apex.auth.pendingRedirect') === 'true'; }
+            catch { return false; }
+        })();
+
+        if (isReturningFromRedirect) {
+            console.log('🔄 Detected pending redirect — will wait for auth result');
+        }
+
+        // Safety timeout - never stay in loading state forever.
+        // Give redirect flows extra time because the result can arrive late.
         const safetyTimeout = setTimeout(() => {
             if (!redirectChecked) {
                 console.warn("⚠️ Auth initialization timeout - forcing loading complete");
                 redirectChecked = true;
+                try { sessionStorage.removeItem('apex.auth.pendingRedirect'); } catch {}
                 if (lastAuthUser === null || lastAuthUser === undefined) {
                     setUser(null);
                     setLoading(false);
                 }
             }
-        }, 10000);
+        }, isReturningFromRedirect ? 15000 : 10000);
 
         // Check for redirect result on app load (from signInWithRedirect flow)
         const handleRedirectResult = async () => {
+            let gotRedirectUser = false;
             try {
                 console.log("🔍 Checking for redirect result...");
                 const result = await getRedirectResult(auth);
-                if (result) {
+                if (result && result.user) {
+                    gotRedirectUser = true;
                     console.log("✅ Redirect sign-in successful, user:", result.user?.email);
+                } else if (isReturningFromRedirect) {
+                    // We expected a redirect result but got null.  This happens
+                    // when third-party cookies are blocked (Safari ITP, Chrome
+                    // Privacy Sandbox) and the authDomain is cross-origin.
+                    // onAuthStateChanged may still fire with the user — give it
+                    // a couple of seconds before we give up.
+                    console.warn("⚠️ Expected redirect result but got null — waiting for auth state...");
+                    await new Promise(r => setTimeout(r, 2000));
                 } else {
                     console.log("ℹ️ No redirect result (normal if not returning from redirect)");
                 }
@@ -51,8 +75,13 @@ export const AuthProvider = ({ children }) => {
                 console.error("❌ Redirect result error:", error.code, error.message);
             } finally {
                 redirectChecked = true;
-                // If onAuthStateChanged already fired with null, now finalize loading
-                if (lastAuthUser === null) {
+                try { sessionStorage.removeItem('apex.auth.pendingRedirect'); } catch {}
+
+                // If getRedirectResult returned a user, onAuthStateChanged WILL
+                // fire with that user imminently — do NOT set loading=false here
+                // or we'll briefly flash the login page.  Let onAuthStateChanged
+                // handle it.
+                if (lastAuthUser === null && !gotRedirectUser) {
                     setLoading(false);
                 }
             }
@@ -170,6 +199,9 @@ export const AuthProvider = ({ children }) => {
                 // browser extensions interfering, cross-origin storage errors, etc.
                 console.log("🔄 Popup failed, falling back to redirect...", popupError.code || popupError.message);
                 try {
+                    // Set a flag so the page that loads after the redirect
+                    // knows to wait for the auth result before giving up.
+                    try { sessionStorage.setItem('apex.auth.pendingRedirect', 'true'); } catch {}
                     await signInWithRedirect(auth, provider);
                     return null; // Page will redirect
                 } catch (redirectError) {
