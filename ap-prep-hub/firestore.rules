@@ -65,6 +65,12 @@ service cloud.firestore {
         allow read, write: if request.auth != null;
         allow create: if request.auth != null;
       }
+
+      // MCQ responses within conversations
+      match /mcqResponses/{responseId} {
+        allow read, write: if request.auth != null;
+        allow create: if request.auth != null;
+      }
     }
 
     // Flashcard decks at root level - accessible by owner
@@ -93,6 +99,46 @@ service cloud.firestore {
 
     // User progress at root level - accessible by owner
     match /userProgress/{progressId} {
+      allow read, write: if request.auth != null &&
+                           request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null &&
+                      request.auth.uid == request.resource.data.userId;
+    }
+
+    // Practice tests at root level - accessible by owner
+    match /practiceTests/{testId} {
+      allow read, write: if request.auth != null &&
+                           request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null &&
+                      request.auth.uid == request.resource.data.userId;
+    }
+
+    // Test progress at root level - accessible by owner
+    match /testProgress/{progressId} {
+      allow read, write: if request.auth != null &&
+                           request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null &&
+                      request.auth.uid == request.resource.data.userId;
+    }
+
+    // Study sessions at root level - accessible by owner
+    match /studySessions/{sessionId} {
+      allow read, write: if request.auth != null &&
+                           request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null &&
+                      request.auth.uid == request.resource.data.userId;
+    }
+
+    // Diagnostic results at root level - accessible by owner
+    match /diagnosticResults/{resultId} {
+      allow read, write: if request.auth != null &&
+                           request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null &&
+                      request.auth.uid == request.resource.data.userId;
+    }
+
+    // User achievements at root level - accessible by owner
+    match /userAchievements/{achievementId} {
       allow read, write: if request.auth != null &&
                            request.auth.uid == resource.data.userId;
       allow create: if request.auth != null &&

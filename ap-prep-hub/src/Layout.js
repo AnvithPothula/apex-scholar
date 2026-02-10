@@ -69,7 +69,7 @@ export default function Layout({ children, currentPageName }) {
         <div data-filename="pages/ViewCode" data-linenumber="2321" data-visual-selector-id="pages/ViewCode2321" className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
           <div data-filename="pages/ViewCode" data-linenumber="2322" data-visual-selector-id="pages/ViewCode2322" className="flex items-center justify-between h-16">
             {/* Logo */}
-            <Link to="/dashboard" className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
+            <Link to="/AITutors" className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
               <div className="w-10 h-10 flex items-center justify-center">
                 <ApexScholarLogo 
                   size="lg" 

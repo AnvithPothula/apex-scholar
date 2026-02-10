@@ -513,7 +513,7 @@ class GeminiService {
   // Try a list of candidate models on Puter with a tiny prompt; cache the first that works
   async ensureWorkingModel(opts = {}) {
     const multimodal = !!opts.multimodal;
-    const probeMs = typeof opts.probeMs === 'number' ? opts.probeMs : 3000; // slightly less aggressive
+    const probeMs = typeof opts.probeMs === 'number' ? opts.probeMs : 8000; // generous probe timeout
     // Basic backoff to avoid hammering Puter when it's down
     if (this._lastPuterFailureAt && Date.now() - this._lastPuterFailureAt < 15000) {
       throw new Error('Puter temporarily unavailable (backoff)');
@@ -831,7 +831,7 @@ class GeminiService {
       }
       const puterOpts = model ? { model, stream: false } : { stream: false };
       if (this.debug) console.debug('[AI] Puter.generateContent start', { model: model || 'default', hasImage: false });
-      const resp = await withTimeout(puter.ai.chat(prompt, puterOpts), Math.min(options.timeoutMs || 8000, 12000), 'Puter request timed out');
+      const resp = await withTimeout(puter.ai.chat(prompt, puterOpts), options.timeoutMs || 45000, 'Puter request timed out');
       if (this.debug) console.debug('[AI] Puter.generateContent success', { model, ms: Date.now() - t0, respType: typeof resp });
       if (resp && resp.message && typeof resp.message.content === 'string') return resp.message.content;
       if (typeof resp === 'string') return resp;
@@ -852,9 +852,9 @@ class GeminiService {
       try {
         const puter = this.getPuter();
         if (puter && !options.model && (!this._lastPuterFailureAt || Date.now() - this._lastPuterFailureAt > 15000)) {
-          const retryModel = await this.ensureWorkingModel({ multimodal: false, probeMs: 3000 });
+          const retryModel = await this.ensureWorkingModel({ multimodal: false, probeMs: 8000 });
           const tR = Date.now();
-          const resp = await withTimeout(puter.ai.chat(prompt, { model: retryModel || undefined, stream: false }), 5000, 'Puter retry timed out');
+          const resp = await withTimeout(puter.ai.chat(prompt, { model: retryModel || undefined, stream: false }), 30000, 'Puter retry timed out');
           if (this.debug) console.debug('[AI] Puter.generateContent retry success', { model: retryModel, ms: Date.now() - tR });
           if (resp && resp.message && typeof resp.message.content === 'string') return resp.message.content;
           if (typeof resp === 'string') return resp;
@@ -875,6 +875,10 @@ class GeminiService {
    * Google API fallback with proper rate limit handling
    */
   async _googleFallback(prompt, options = {}) {
+    // Bail early if no Google API keys are configured at all
+    if (apiKeyManager.getTotalKeys() === 0) {
+      throw new Error('No Google API keys configured. AI requires Puter authentication or REACT_APP_GEMINI_API_KEY env vars.');
+    }
     // Check if all API keys are rate limited
     const keyStatus = apiKeyManager.getKeyStatus();
     const allFailed = keyStatus.every(k => k.isFailed);
@@ -970,7 +974,7 @@ class GeminiService {
       const p = imageArg
         ? puter.ai.chat(prompt, imageArg, puterOpts)
         : puter.ai.chat(prompt, puterOpts);
-      const resp = await withTimeout(p, Math.min(options.timeoutMs || 9000, 12000), 'Puter image request timed out');
+      const resp = await withTimeout(p, options.timeoutMs || 45000, 'Puter image request timed out');
       if (this.debug) console.debug('[AI] Puter.generateWithImages success', { model, ms: Date.now() - t0, respType: typeof resp });
       
       let responseText = null;
@@ -1004,6 +1008,10 @@ class GeminiService {
 
   // Internal helper to call Google for image generation with rate limit handling
   async _googleGenerateWithImages(prompt, imageArg, options = {}) {
+    // Bail early if no Google API keys are configured at all
+    if (apiKeyManager.getTotalKeys() === 0) {
+      throw new Error('No Google API keys configured. Image analysis requires Puter authentication or REACT_APP_GEMINI_API_KEY env vars.');
+    }
     // Check if all API keys are rate limited
     const keyStatus = apiKeyManager.getKeyStatus();
     const allFailed = keyStatus.every(k => k.isFailed);
@@ -1124,6 +1132,9 @@ class GeminiService {
     // If we have only data: URLs for images, skip Puter and go straight to Google (Puter expects http(s) URLs for images)
     const hasOnlyDataUrls = imageParts.length > 0 && imageParts.every(u => typeof u === 'string' && u.startsWith('data:'));
     if (hasOnlyDataUrls) {
+      if (apiKeyManager.getTotalKeys() === 0) {
+        throw new Error('No Google API keys configured. Image analysis requires REACT_APP_GEMINI_API_KEY env vars.');
+      }
       if (this.debug) console.warn('[AI] Skipping Puter for data URL images in payload; using Google fallback');
       const apiUrl = apiKeyManager.getCurrentUrl();
       const normalized = this._normalizePayloadForGoogle(payload);
@@ -1163,7 +1174,7 @@ class GeminiService {
         ? puter.ai.chat(promptForPuter, selectedImage, puterOpts)
         : puter.ai.chat(promptForPuter, puterOpts);
       console.log('[AI] Waiting for Puter response...');
-      const timeoutMs = Math.min(payload?.timeoutMs || 15000, 30000); // Allow up to 30s for complex prompts
+      const timeoutMs = payload?.timeoutMs || 60000; // Allow up to 60s for complex prompts
       const resp = await withTimeout(p, timeoutMs, 'Puter payload request timed out');
       console.log('[AI] Puter.generateFromPayload success', { model, ms: Date.now() - t0, respType: typeof resp });
       
@@ -1198,7 +1209,7 @@ class GeminiService {
         const timeSinceLastFailure = previousFailureTime ? (Date.now() - previousFailureTime) : Infinity;
         if (puter && !payload?.generationConfig?.model && timeSinceLastFailure > 15000) {
           console.log('[AI] Attempting Puter retry with model discovery...');
-          const retryModel = await this.ensureWorkingModel({ multimodal: imageParts.length > 0, probeMs: 3000 });
+          const retryModel = await this.ensureWorkingModel({ multimodal: imageParts.length > 0, probeMs: 8000 });
           const tR = Date.now();
           let promptForPuter = prompt;
           if (promptForPuter.length > 12000) {
@@ -1209,7 +1220,7 @@ class GeminiService {
           const p2 = imageParts.length > 0
             ? puter.ai.chat(promptForPuter, imageParts[0], { model: retryModel || undefined, stream: false })
             : puter.ai.chat(promptForPuter, { model: retryModel || undefined, stream: false });
-          const resp2 = await withTimeout(p2, 5000, 'Puter payload retry timed out');
+          const resp2 = await withTimeout(p2, 30000, 'Puter payload retry timed out');
           console.log('[AI] Puter.generateFromPayload retry success', { model: retryModel, ms: Date.now() - tR });
           if (resp2 && resp2.message && typeof resp2.message.content === 'string') return resp2.message.content;
           if (typeof resp2 === 'string') return resp2;
@@ -1220,6 +1231,9 @@ class GeminiService {
       }
 
       // Fallback to Google
+      if (apiKeyManager.getTotalKeys() === 0) {
+        throw new Error('No Google API keys configured. AI requires Puter authentication or REACT_APP_GEMINI_API_KEY env vars.');
+      }
       console.log('[AI] Using Google Gemini API fallback...');
       const apiUrl = apiKeyManager.getCurrentUrl();
       console.log('[AI] Google API URL:', apiUrl.replace(/key=.*/, 'key=***'));
@@ -1273,7 +1287,7 @@ class GeminiService {
         throw new Error('Puter.js is not available');
       }
       const t0 = Date.now();
-  const resp = await withTimeout(puter.ai.chat(testPrompt, { model, stream: false }), 9000, 'Puter diagnostics timed out');
+  const resp = await withTimeout(puter.ai.chat(testPrompt, { model, stream: false }), 20000, 'Puter diagnostics timed out');
       const text = (resp && resp.message && typeof resp.message.content === 'string') ? resp.message.content : (typeof resp === 'string' ? resp : resp?.text || '');
       result.ok = !!text;
       result.provider = 'puter';

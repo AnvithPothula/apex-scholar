@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore } from "firebase/firestore";
 
 // For signInWithRedirect to work on custom domains, authDomain MUST be the
 // current hostname at runtime (where Netlify proxies /__/* to firebaseapp.com).
@@ -50,7 +50,9 @@ try {
     console.log("✅ Firebase Auth initialized successfully");
   }
 
-  db = getFirestore(app);
+  db = initializeFirestore(app, {
+    experimentalAutoDetectLongPolling: true,  // Helps Safari / restricted networks
+  });
   if (process.env.NODE_ENV === 'development') {
     console.log("✅ Firestore initialized successfully");
   }

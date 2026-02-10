@@ -32,9 +32,12 @@ class APIKeyManager {
       console.log(`🔑 APIKeyManager: Loaded ${this.apiKeys.length} API key(s) for rotation`);
     }
 
-    // Validate we have at least one key
+    // Validate we have at least one key — in production this is expected
+    // when Puter is the primary AI provider, so only warn (not error).
     if (this.apiKeys.length === 0) {
-      console.error('❌ No valid API keys found! Please configure REACT_APP_GEMINI_API_KEY environment variables.');
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('⚠️ No Google API keys found. AI will use Puter; configure REACT_APP_GEMINI_API_KEY for fallback.');
+      }
     }
   }
 

@@ -1579,14 +1579,10 @@ Please check your internet connection and try again. In the meantime:
         />
       )}
       
-      {/* Conversation Sidebar - Hidden on mobile by default */}
+      {/* Conversation Sidebar - Hidden on mobile by default, always visible on desktop */}
       {selectedSubject && (
-        <motion.div
-          initial={{ x: -300, opacity: 0 }}
-          animate={{ x: showMobileSidebar ? 0 : -300, opacity: showMobileSidebar ? 1 : 0 }}
-          transition={{ duration: 0.3 }}
-          className={`fixed md:relative z-50 md:z-auto w-72 sm:w-80 h-full bg-slate-800/95 md:bg-slate-800/90 backdrop-blur-xl border-r border-slate-700 flex flex-col md:translate-x-0 ${showMobileSidebar ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
-          style={{ display: 'flex' }}
+        <div
+          className={`fixed md:relative z-50 md:z-auto w-72 sm:w-80 h-full bg-slate-800/95 md:bg-slate-800/90 backdrop-blur-xl border-r border-slate-700 flex flex-col transition-transform duration-300 ease-in-out md:translate-x-0 md:opacity-100 ${showMobileSidebar ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0 md:translate-x-0 md:opacity-100'}`}
         >
           {/* Sidebar Header */}
           <div className="p-3 sm:p-4 border-b border-slate-700">
@@ -1749,7 +1745,7 @@ Please check your internet connection and try again. In the meantime:
               </motion.div>
             ))}
           </div>
-        </motion.div>
+        </div>
       )}
 
       {/* Main Chat Area */}
@@ -1782,7 +1778,7 @@ Please check your internet connection and try again. In the meantime:
                       console.log('Back button clicked, cleaning up empty conversation if needed...');
                       await cleanupEmptyConversation(activeConversationId, conversations.length);
                     }
-                    navigate('/dashboard');
+                    navigate('/AITutors');
                   }}
                   className="text-slate-300 hover:text-slate-100 hidden sm:flex"
                 >
@@ -1816,7 +1812,7 @@ Please check your internet connection and try again. In the meantime:
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => navigate('/dashboard')}
+                  onClick={() => navigate('/AITutors')}
                   className="text-slate-300 hover:text-slate-100 sm:hidden p-2"
                 >
                   <ChevronLeft className="w-5 h-5" />
