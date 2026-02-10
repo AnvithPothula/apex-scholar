@@ -1230,7 +1230,7 @@ Note: Your response must adhere to these guidelines without exception. Also, you
             threshold: "BLOCK_MEDIUM_AND_ABOVE"
           }
         ],
-        timeoutMs: 30000 // 30 second timeout for complex prompts
+        timeoutMs: 60000 // 60 second timeout for Claude/GPT complex prompts
       };
       console.log("Calling enhanced Gemini API with curriculum focus and file analysis...", {
         messagePartsCount: messageParts.length,

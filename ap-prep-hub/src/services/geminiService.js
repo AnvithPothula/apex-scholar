@@ -10,6 +10,34 @@ const withTimeout = (promise, ms, errMsg = 'Timed out') => {
 };
 
 /**
+ * Extract text from a Puter AI response.
+ * Different models return different formats:
+ *  - OpenAI / Gemini: resp.message.content is a string
+ *  - Claude / Anthropic: resp.message.content is an array [{type:"text", text:"..."}]
+ *  - Some models: resp is a plain string
+ *  - Some models: resp.text is a string
+ * This helper normalizes all of these to a single string.
+ */
+const extractPuterText = (resp) => {
+  if (!resp) return null;
+  // Direct string
+  if (typeof resp === 'string') return resp;
+  // resp.text shortcut
+  if (typeof resp.text === 'string') return resp.text;
+  // resp.message.content cases
+  const content = resp?.message?.content;
+  if (typeof content === 'string') return content;
+  // Claude-style array: [{type:"text", text:"..."}, ...]
+  if (Array.isArray(content)) {
+    const parts = content
+      .map(p => (typeof p === 'string') ? p : (p?.text ?? ''))
+      .filter(Boolean);
+    return parts.length > 0 ? parts.join('') : null;
+  }
+  return null;
+};
+
+/**
  * Custom error class for rate limit situations
  */
 class RateLimitError extends Error {
@@ -115,10 +143,10 @@ const isRateLimitError = (error) => {
 
 class GeminiService {
   constructor() {
-    // Default model selection (can be overridden by env or runtime discovery)
+    // Default model selection — prefer Claude Sonnet 4 for education quality
     this.modelName = (process.env.REACT_APP_GEMINI_MODEL && process.env.REACT_APP_GEMINI_MODEL.trim() !== '')
       ? process.env.REACT_APP_GEMINI_MODEL.trim()
-      : 'google/gemini-2.0-flash-lite-001';
+      : 'claude-sonnet-4';
     this.debug = (process.env.REACT_APP_AI_DEBUG || '').toLowerCase() !== 'false';
     this._workingModel = null;
     this._workingModelSupportsMM = false;
@@ -392,22 +420,20 @@ class GeminiService {
       return { valid: false, reason: 'Empty response' };
     }
 
-    // Check for common hallucination/confusion patterns
-    const hallucinations = [
-      /I('m| am) (an AI|a language model|unable to|not able to)/i,
-      /I (don't|cannot|can't) (have access|see|view|process) (the|your|any) (image|file|upload)/i,
-      /please (provide|share|upload|send) (the|your|an)/i,
-      /I('d| would) be happy to help.*but/i,
-      /As an AI/i,
-      /I apologize.*I (cannot|can't|don't)/i,
-      /Could you (please )?(provide|share|clarify)/i,
-    ];
-
-    // Only flag as hallucination if asking for something already provided
+    // Only flag as hallucination when an image/file was provided but the AI
+    // claims it cannot see or access it.  Keep patterns narrow to avoid
+    // false-positives with Claude/GPT which naturally use phrases like
+    // "I apologize" or "As an AI" in otherwise valid answers.
     if (context.hasImage || context.hasFile) {
-      for (const pattern of hallucinations) {
+      const cannotSeePatterns = [
+        /I (don't|cannot|can't) (have access to|see|view|process|read|open) (the|your|any|this) (image|file|upload|photo|picture|attachment|document)/i,
+        /please (provide|share|upload|send|attach) (the|your|an) (image|file|photo|picture|document)/i,
+        /no (image|file|attachment|photo|picture) (was |has been )?(provided|uploaded|shared|attached|included|found)/i,
+        /I('m| am) unable to (view|see|access|read|open|process) (the |any )?(image|file|attachment|upload)/i,
+      ];
+      for (const pattern of cannotSeePatterns) {
         if (pattern.test(text)) {
-          return { valid: false, reason: 'AI is asking for already-provided content', pattern: pattern.source };
+          return { valid: false, reason: 'AI claims it cannot see provided content', pattern: pattern.source };
         }
       }
     }
@@ -521,13 +547,13 @@ class GeminiService {
 
     // Check localStorage cache first
     try {
-      const cacheKey = multimodal ? 'gemini_mm_model' : 'gemini_text_model';
+      const cacheKey = multimodal ? 'apex.ai.mm_model' : 'apex.ai.text_model';
       const cached = localStorage.getItem(cacheKey);
       if (cached) {
         const { model, timestamp} = JSON.parse(cached);
         const age = Date.now() - timestamp;
-        // Cache valid for 1 hour
-        if (age < 3600000) {
+        // Cache valid for 30 minutes — re-discover periodically for best model
+        if (age < 1800000) {
           this._workingModel = model;
           this._workingModelSupportsMM = multimodal;
           if (this.debug) console.debug('[AI] Using cached working model', { model, age });
@@ -543,20 +569,26 @@ class GeminiService {
       return this._workingModel;
     }
     const envModel = (process.env.REACT_APP_GEMINI_MODEL || '').trim();
-    // Prefer image-capable models when multimodal is requested
-    // Keep candidate list short to avoid long probe chains
+    // Best free Puter models for education — ordered by quality/speed balance
+    // Multimodal candidates (support image analysis)
     const mmCandidates = [
       envModel || null,
-      'google/gemini-2.5-flash',
-      'google/gemini-2.5-flash-image-preview:free',
-      'google/gemini-flash-1.5-8b',
-      'google/gemini-flash-1.5'
+      'claude-sonnet-4',           // Best for education + vision
+      'gpt-4.1',                   // Excellent vision model
+      'gpt-4o',                    // Strong multimodal
+      'google/gemini-2.5-flash',   // Fast + good vision
+      'claude-haiku-4-5',          // Fast vision fallback
+      'gpt-4.1-mini',             // Lightweight vision
     ].filter(Boolean);
+    // Text-only candidates (fast, high-quality reasoning)
     const textCandidates = [
       envModel || null,
-      'google/gemini-2.0-flash-lite-001',
-      'google/gemini-2.0-flash-001',
-      'google/gemini-2.0-flash-exp:free'
+      'claude-sonnet-4',           // Best reasoning for tutoring
+      'gpt-4.1',                   // Excellent quality
+      'google/gemini-2.5-flash',   // Fast + reliable
+      'claude-haiku-4-5',          // Very fast
+      'gpt-4.1-mini',             // Fast fallback
+      'google/gemini-2.0-flash',   // Reliable fallback
     ].filter(Boolean);
     const candidates = Array.from(new Set(multimodal ? mmCandidates : textCandidates));
 
@@ -567,7 +599,7 @@ class GeminiService {
     try {
       const t0 = Date.now();
       const resp = await withTimeout(puter.ai.chat('PING', { stream: false }), probeMs, 'Puter default probe timed out');
-      const text = (resp && resp.message && typeof resp.message.content === 'string') ? resp.message.content : (typeof resp === 'string' ? resp : resp?.text || '');
+      const text = extractPuterText(resp) || '';
       if (text) {
         this._workingModel = null; // indicates using server default is fine
         this._workingModelSupportsMM = multimodal; // unknown, but assume fine for text-only; will re-probe for MM when needed
@@ -583,7 +615,7 @@ class GeminiService {
       try {
         const t0 = Date.now();
         const resp = await withTimeout(puter.ai.chat('PING', { model: m, stream: false }), probeMs, 'Puter probe timed out');
-        const text = (resp && resp.message && typeof resp.message.content === 'string') ? resp.message.content : (typeof resp === 'string' ? resp : resp?.text || '');
+        const text = extractPuterText(resp) || '';
         if (text) {
           this._workingModel = m;
           this._workingModelSupportsMM = multimodal;
@@ -591,7 +623,7 @@ class GeminiService {
 
           // Cache the successful model to localStorage
           try {
-            const cacheKey = multimodal ? 'gemini_mm_model' : 'gemini_text_model';
+            const cacheKey = multimodal ? 'apex.ai.mm_model' : 'apex.ai.text_model';
             localStorage.setItem(cacheKey, JSON.stringify({
               model: m,
               timestamp: Date.now()
@@ -833,10 +865,8 @@ class GeminiService {
       if (this.debug) console.debug('[AI] Puter.generateContent start', { model: model || 'default', hasImage: false });
       const resp = await withTimeout(puter.ai.chat(prompt, puterOpts), options.timeoutMs || 45000, 'Puter request timed out');
       if (this.debug) console.debug('[AI] Puter.generateContent success', { model, ms: Date.now() - t0, respType: typeof resp });
-      if (resp && resp.message && typeof resp.message.content === 'string') return resp.message.content;
-      if (typeof resp === 'string') return resp;
-      // Some models may return an object with text
-      if (resp && typeof resp.text === 'string') return resp.text;
+      const text = extractPuterText(resp);
+      if (text) return text;
       throw new Error('Unexpected response from Puter.ai.chat');
     } catch (e) {
       // Check if Puter returned a rate limit error
@@ -847,18 +877,19 @@ class GeminiService {
       this._handlePuterAuthError(e);
       
       if (this.debug) console.warn('[AI] Puter.generateContent failed, falling back to Google', { error: String(e), ms: Date.now() - t0 });
+      const previousFailureAt = this._lastPuterFailureAt;
       this._lastPuterFailureAt = Date.now();
       // One quick retry with a discovered model if we didn't have one yet
       try {
         const puter = this.getPuter();
-        if (puter && !options.model && (!this._lastPuterFailureAt || Date.now() - this._lastPuterFailureAt > 15000)) {
+        const timeSinceLastFailure = previousFailureAt ? (Date.now() - previousFailureAt) : Infinity;
+        if (puter && !options.model && timeSinceLastFailure > 15000) {
           const retryModel = await this.ensureWorkingModel({ multimodal: false, probeMs: 8000 });
           const tR = Date.now();
           const resp = await withTimeout(puter.ai.chat(prompt, { model: retryModel || undefined, stream: false }), 30000, 'Puter retry timed out');
           if (this.debug) console.debug('[AI] Puter.generateContent retry success', { model: retryModel, ms: Date.now() - tR });
-          if (resp && resp.message && typeof resp.message.content === 'string') return resp.message.content;
-          if (typeof resp === 'string') return resp;
-          if (resp && typeof resp.text === 'string') return resp.text;
+          const retryText = extractPuterText(resp);
+          if (retryText) return retryText;
         }
       } catch (er) {
         if (this.debug) console.warn('[AI] Puter.generateContent retry failed', String(er));
@@ -922,7 +953,9 @@ class GeminiService {
           throw new Error(`Google fallback failed: ${retryRes.status} ${retryText}`);
         }
         const retryData = await retryRes.json();
-        return retryData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const retryText = retryData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        if (!retryText) throw new Error('Empty response from Google fallback retry');
+        return retryText;
       }
       
       throw new Error(`Google fallback failed: ${res.status} ${t}`);
@@ -958,11 +991,7 @@ class GeminiService {
         imageArg = img; // assume URL
       }
     }
-    // If we only have a data: URL, skip Puter and go straight to Google (Puter expects an http(s) URL)
-    if (typeof imageArg === 'string' && imageArg.startsWith('data:')) {
-      if (this.debug) console.warn('[AI] Skipping Puter for data URL image; using Google fallback');
-      return await this._googleGenerateWithImages(prompt, imageArg, options);
-    }
+    // Puter.ai.chat() accepts both HTTP URLs and data: URLs for images\n    // so we always try Puter first for the best free model experience
     try {
       const puter = this.getPuter();
       if (!puter) {
@@ -977,10 +1006,7 @@ class GeminiService {
       const resp = await withTimeout(p, options.timeoutMs || 45000, 'Puter image request timed out');
       if (this.debug) console.debug('[AI] Puter.generateWithImages success', { model, ms: Date.now() - t0, respType: typeof resp });
       
-      let responseText = null;
-      if (resp && resp.message && typeof resp.message.content === 'string') responseText = resp.message.content;
-      else if (typeof resp === 'string') responseText = resp;
-      else if (resp && typeof resp.text === 'string') responseText = resp.text;
+      const responseText = extractPuterText(resp);
       
       if (!responseText) {
         throw new Error('Unexpected response from Puter.ai.chat (images)');
@@ -1033,7 +1059,7 @@ class GeminiService {
     }
     const body = {
       contents: [{ role: 'user', parts }],
-      generationConfig: { temperature: options.temperature ?? 0.2, maxOutputTokens: options.maxTokens ?? 1000 }
+      generationConfig: { temperature: options.temperature ?? 0.2, maxOutputTokens: options.maxTokens ?? 4000 }
     };
     const t1 = Date.now();
     const res = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -1057,14 +1083,18 @@ class GeminiService {
           throw new Error(`Google image fallback failed: ${retryRes.status}`);
         }
         const retryData = await retryRes.json();
-        return retryData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const retryImgText = retryData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        if (!retryImgText) throw new Error('Empty response from Google image fallback retry');
+        return retryImgText;
       }
       
       throw new Error(`Google image fallback failed: ${res.status} ${t}`);
     }
     const data = await res.json();
     if (this.debug) console.debug('[AI] Google.generateWithImages success', { ms: Date.now() - t1 });
-    return data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (!text) throw new Error('Empty response from Google image fallback');
+    return text;
   }
 
   /**
@@ -1129,27 +1159,7 @@ class GeminiService {
       promptLength: prompt.length,
       model: model || 'default'
     });
-    // If we have only data: URLs for images, skip Puter and go straight to Google (Puter expects http(s) URLs for images)
-    const hasOnlyDataUrls = imageParts.length > 0 && imageParts.every(u => typeof u === 'string' && u.startsWith('data:'));
-    if (hasOnlyDataUrls) {
-      if (apiKeyManager.getTotalKeys() === 0) {
-        throw new Error('No Google API keys configured. Image analysis requires REACT_APP_GEMINI_API_KEY env vars.');
-      }
-      if (this.debug) console.warn('[AI] Skipping Puter for data URL images in payload; using Google fallback');
-      const apiUrl = apiKeyManager.getCurrentUrl();
-      const normalized = this._normalizePayloadForGoogle(payload);
-      const t1 = Date.now();
-      const res = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(normalized) });
-      if (!res.ok) {
-        const t = await res.text().catch(() => '');
-        throw new Error(`Google payload fallback failed: ${res.status} ${t}`);
-      }
-      const data = await res.json();
-      if (this.debug) console.debug('[AI] Google.generateFromPayload success', { ms: Date.now() - t1 });
-      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      if (!text) throw new Error('Empty response from Google payload fallback');
-      return text;
-    }
+    // Puter.ai.chat() accepts data: URLs, so always try Puter first for free model access
     try {
       console.log('[AI] Attempting Puter request...');
       const puter = this.getPuter();
@@ -1178,10 +1188,7 @@ class GeminiService {
       const resp = await withTimeout(p, timeoutMs, 'Puter payload request timed out');
       console.log('[AI] Puter.generateFromPayload success', { model, ms: Date.now() - t0, respType: typeof resp });
       
-      let responseText = null;
-      if (resp && resp.message && typeof resp.message.content === 'string') responseText = resp.message.content;
-      else if (typeof resp === 'string') responseText = resp;
-      else if (resp && typeof resp.text === 'string') responseText = resp.text;
+      const responseText = extractPuterText(resp);
       
       if (!responseText) {
         throw new Error('Unexpected response from Puter.ai.chat (payload)');
@@ -1222,9 +1229,8 @@ class GeminiService {
             : puter.ai.chat(promptForPuter, { model: retryModel || undefined, stream: false });
           const resp2 = await withTimeout(p2, 30000, 'Puter payload retry timed out');
           console.log('[AI] Puter.generateFromPayload retry success', { model: retryModel, ms: Date.now() - tR });
-          if (resp2 && resp2.message && typeof resp2.message.content === 'string') return resp2.message.content;
-          if (typeof resp2 === 'string') return resp2;
-          if (resp2 && typeof resp2.text === 'string') return resp2.text;
+          const retryText = extractPuterText(resp2);
+          if (retryText) return retryText;
         }
       } catch (er) {
         console.warn('[AI] Puter.generateFromPayload retry failed', String(er));
@@ -1261,18 +1267,17 @@ class GeminiService {
   }
 
   /**
-   * Discover a supported model for generateContent using ListModels
-   * Preference order: env-provided -> gemini-2.5-flash -> gemini-2.0-flash -> any 'flash' with generateContent -> gemini-flash-latest
+   * Discover a supported model for generateContent
+   * Preference: Claude Sonnet 4 > GPT-4.1 > Gemini 2.5 Flash
    */
   async discoverSupportedModel() {
-    // With Puter, we can select from known free models; prefer fast Flash
     const candidates = Array.from(new Set([
       process.env.REACT_APP_GEMINI_MODEL,
-      'google/gemini-2.0-flash-lite-001',
+      'claude-sonnet-4',
+      'gpt-4.1',
       'google/gemini-2.5-flash',
-      'google/gemini-flash-1.5-8b'
+      'claude-haiku-4-5'
     ].filter(Boolean)));
-    // In absence of programmatic listing, return first candidate
     return candidates[0];
   }
 
@@ -1288,7 +1293,7 @@ class GeminiService {
       }
       const t0 = Date.now();
   const resp = await withTimeout(puter.ai.chat(testPrompt, { model, stream: false }), 20000, 'Puter diagnostics timed out');
-      const text = (resp && resp.message && typeof resp.message.content === 'string') ? resp.message.content : (typeof resp === 'string' ? resp : resp?.text || '');
+      const text = extractPuterText(resp) || '';
       result.ok = !!text;
       result.provider = 'puter';
       result.latencyMs = Date.now() - t0;
