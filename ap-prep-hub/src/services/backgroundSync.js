@@ -12,11 +12,12 @@ class BackgroundSyncManager {
   constructor() {
     this.isInitialized = false;
     this.activeUsers = new Set();
-    this.setupAuthListener();
+    this._unsubAuth = null;
   }
 
   /**
    * Initialize the background sync manager
+   * Call this explicitly — no side effects on import.
    */
   initialize() {
     if (this.isInitialized) return;
@@ -24,22 +25,20 @@ class BackgroundSyncManager {
     console.log('🔄 Initializing Background Sync Manager');
     this.isInitialized = true;
 
-    // Start sync for any authenticated user
-    if (auth.currentUser) {
-      this.startSyncForUser(auth.currentUser.uid);
-    }
+    this.setupAuthListener();
   }
 
   /**
    * Setup authentication listener to manage user sessions
    */
   setupAuthListener() {
-    onAuthStateChanged(auth, (user) => {
+    // Clean up previous listener if any
+    if (this._unsubAuth) this._unsubAuth();
+
+    this._unsubAuth = onAuthStateChanged(auth, (user) => {
       if (user) {
-        // User signed in, start background sync
         this.startSyncForUser(user.uid);
       } else {
-        // User signed out, stop all sync processes
         this.stopAllSync();
       }
     });
@@ -62,8 +61,8 @@ class BackgroundSyncManager {
       // Add to active users
       this.activeUsers.add(userId);
 
-      // Start auto-sync with 1-minute interval for real-time updates
-      assignmentSync.startAutoSync(userId, 1);
+      // Auto-sync every 30 minutes (balances freshness vs. Netlify request quotas)
+      assignmentSync.startAutoSync(userId, 30);
 
       // Perform initial sync if needed
       this.performInitialSyncIfNeeded(userId);
@@ -113,7 +112,7 @@ class BackgroundSyncManager {
   }
 
   /**
-   * Stop all sync processes
+   * Stop all sync processes and clean up listeners
    */
   stopAllSync() {
     console.log('⏹️ Stopping all background sync processes');
@@ -123,6 +122,12 @@ class BackgroundSyncManager {
     }
     
     this.activeUsers.clear();
+
+    if (this._unsubAuth) {
+      this._unsubAuth();
+      this._unsubAuth = null;
+    }
+    this.isInitialized = false;
   }
 
   /**

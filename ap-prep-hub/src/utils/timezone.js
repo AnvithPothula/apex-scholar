@@ -168,30 +168,35 @@ export const getCurrentTimeInUserTimezone = () => {
   const timezone = getUserTimezone();
   
   try {
-    // Get current time in user's timezone
     const now = new Date();
-    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
     
-    // Get timezone offset for user's timezone
+    // Use Intl.DateTimeFormat to extract date/time components in the target timezone
     const formatter = new Intl.DateTimeFormat('en-US', {
       timeZone: timezone,
-      timeZoneName: 'longOffset'
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
     });
     
     const parts = formatter.formatToParts(now);
-    const offsetPart = parts.find(part => part.type === 'timeZoneName');
+    const get = (type) => parseInt(parts.find(p => p.type === type)?.value || '0', 10);
     
-    if (offsetPart) {
-      // Parse offset (e.g., "GMT-5" or "GMT+2")
-      const offsetMatch = offsetPart.value.match(/GMT([+-])(\d+)/);
-      if (offsetMatch) {
-        const sign = offsetMatch[1] === '+' ? 1 : -1;
-        const hours = parseInt(offsetMatch[2]);
-        const offset = sign * hours * 60; // Convert to minutes
-        
-        return new Date(utc + (offset * 60000));
-      }
-    }
+    // Build a Date object whose local getHours()/getMinutes()/getDate() match
+    // the wall-clock time in the target timezone
+    const tzDate = new Date(
+      get('year'),
+      get('month') - 1,
+      get('day'),
+      get('hour'),
+      get('minute'),
+      get('second')
+    );
+    
+    return tzDate;
   } catch (error) {
     console.warn('Error getting time in user timezone:', error);
   }

@@ -49,7 +49,7 @@ export default function SmartScheduler() {
   const [blackoutOverrides, setBlackoutOverrides] = useState([]);
   const [overdueTasksDialog, setOverdueTasksDialog] = useState({ show: false, tasks: [] });
   const [newAssignmentsAvailable, setNewAssignmentsAvailable] = useState(false);
-  const [lastKnownTaskCount, setLastKnownTaskCount] = useState(0);
+  const lastKnownTaskCountRef = useRef(0);
   const [userPreferences, setUserPreferences] = useState({
     preferredStudyTimes: ['morning', 'evening'],
     maxStudyHoursPerDay: 8, // Increased from 4 to 8 hours
@@ -369,6 +369,7 @@ export default function SmartScheduler() {
   const deletingTaskRef = useRef(null);
   // Add ref for tracking isGenerating state without causing re-renders
   const isGeneratingRef = useRef(false);
+  const failedAutoTriggerRef = useRef(false);
   // Add ref for schedule regeneration function
   const scheduleRegenerateRef = useRef(null);
 
@@ -470,6 +471,7 @@ export default function SmartScheduler() {
 
   // Process overdue task action
   const processOverdueTaskAction = useCallback(async (task, action, newDeadline = null) => {
+    if (!user) return;
     try {
       if (action === 'delete') {
         await deleteDoc(doc(db, "users", user.uid, "tasks", task.id));
@@ -532,21 +534,22 @@ export default function SmartScheduler() {
   // Reset auto-trigger flag when tasks change significantly, but only if no schedule exists
   useEffect(() => {
     // Only reset auto-trigger if we don't have an existing schedule
-    // This prevents background sync from triggering unwanted schedule regeneration
+    // AND we haven't already failed an auto-trigger (prevents infinite loop)
     const hasExistingSchedule = Array.isArray(aiSchedule) && aiSchedule.length > 0;
-    if (!hasExistingSchedule) {
+    if (!hasExistingSchedule && !failedAutoTriggerRef.current) {
       setHasAutoTriggered(false);
     }
 
     // Track when new assignments are available but schedule is preserved
-    if (hasExistingSchedule && tasks.length > lastKnownTaskCount && lastKnownTaskCount > 0) {
+    const lastCount = lastKnownTaskCountRef.current;
+    if (hasExistingSchedule && tasks.length > lastCount && lastCount > 0) {
       setNewAssignmentsAvailable(true);
-      debugLog(`📬 New assignments detected: ${tasks.length - lastKnownTaskCount} new tasks`);
+      debugLog(`📬 New assignments detected: ${tasks.length - lastCount} new tasks`);
     }
     
-    // Update the last known task count
-    setLastKnownTaskCount(tasks.length);
-  }, [tasks.length, user?.uid, aiSchedule, lastKnownTaskCount]);
+    // Update the last known task count (ref — no re-render)
+    lastKnownTaskCountRef.current = tasks.length;
+  }, [tasks.length, user?.uid, aiSchedule]);
 
   const generateIntelligentSchedule = useCallback(async (isAutoTrigger = false) => {
     if (tasks.length === 0) {
@@ -818,9 +821,16 @@ export default function SmartScheduler() {
     } catch (error) {
       console.error("Error generating schedule:", error);
       console.error("Error stack:", error.stack);
-      alert("Error generating schedule. Please try again.");
-      // Ensure aiSchedule remains an array even on error
-      setAiSchedule([]);
+      if (isAutoTrigger) {
+        // Mark that auto-trigger failed so we don't retry in a loop
+        failedAutoTriggerRef.current = true;
+      } else {
+        alert("Error generating schedule. Please try again.");
+      }
+      // Only reset schedule if we don't already have one (preserve existing on error)
+      if (!Array.isArray(aiSchedule) || aiSchedule.length === 0) {
+        setAiSchedule([]);
+      }
     } finally {
       updateIsGenerating(false);
     }
@@ -837,7 +847,7 @@ export default function SmartScheduler() {
     // AND if we don't already have an existing schedule (to prevent overwriting user's schedule)
     const hasExistingSchedule = Array.isArray(aiSchedule) && aiSchedule.length > 0;
     
-    if (tasks.length > 0 && userPreferences && !isGenerating && !showBlackoutDialog && !isModalOpen && !hasAutoTriggered && !hasExistingSchedule) {
+    if (tasks.length > 0 && userPreferences && !isGenerating && !showBlackoutDialog && !isModalOpen && !hasAutoTriggered && !hasExistingSchedule && !failedAutoTriggerRef.current) {
       debugLog("🔄 Auto-triggering schedule generation (no existing schedule found)");
       setHasAutoTriggered(true);
       const timer = setTimeout(() => {
@@ -1039,7 +1049,7 @@ export default function SmartScheduler() {
           ) : (
             <ScrollArea className="flex-1 min-h-0">
               <div className="space-y-3 sm:space-y-4">
-                {Array.from({ length: 7 }, (_, dayIndex) => {
+                {Array.from({ length: 14 }, (_, dayIndex) => {
                   const date = new Date();
                   date.setDate(date.getDate() + dayIndex);
                   

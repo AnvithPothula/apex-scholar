@@ -541,7 +541,7 @@ class IntelligentScheduler {
           date: reviewDate,
           sessionNumber: index + 1,
           reviewType: index === 0 ? 'initial-review' : 'spaced-review',
-          estimatedDuration: Math.round((task.timeRequired || 1) * 0.3), // 30% of original time for review
+          estimatedDuration: Math.max(0.25, Math.round((task.timeRequired || 1) * 0.3 * 10) / 10), // 30% of original time, min 15 min
           priority: retentionAnalysis.priority
         });
       }
@@ -970,25 +970,26 @@ class IntelligentScheduler {
     
     debugLog(`🕐 Current time in ${userTimezone}: ${formatDateTimeInUserTimezone(now)}`);
     
-    // Time window boundaries
-    let startHour = 7;  // Default start
-    let endHour = 23;   // Default end
+    // Time window boundaries — respect user's study time preferences
+    let startHour = this.userPreferences.studyStartTime || 7;
+    let endHour = this.userPreferences.studyEndTime || 23;
     
+    let adjustedStartMinute = 0;
     if (isToday) {
-      // For today, start from current time (rounded to next 15 minutes) but not before 7 AM
+      // For today, start from current time (rounded to next 15 minutes) but not before study start
       const currentHour = now.getHours();
       const currentMinute = now.getMinutes();
-      
-      if (currentHour >= 7) {
+      if (currentHour >= startHour) {
         startHour = currentHour;
         // Round up to next 15-minute interval
-        const roundedMinutes = Math.ceil(currentMinute / 15) * 15;
-        if (roundedMinutes >= 60) {
+        adjustedStartMinute = Math.ceil(currentMinute / 15) * 15;
+        if (adjustedStartMinute >= 60) {
           startHour += 1;
+          adjustedStartMinute = 0; // Reset for the new hour
         }
       }
       
-      debugLog(`🕐 Today's scheduling: starting from ${startHour}:${currentMinute >= 45 ? '00' : String(Math.ceil(currentMinute / 15) * 15).padStart(2, '0')} (current time in ${userTimezone}: ${formatDateTimeInUserTimezone(now, { hour: '2-digit', minute: '2-digit' })})`);
+      debugLog(`🕐 Today's scheduling: starting from ${startHour}:${String(adjustedStartMinute).padStart(2, '0')} (current time in ${userTimezone}: ${formatDateTimeInUserTimezone(now, { hour: '2-digit', minute: '2-digit' })})`)
     }
 
     // Check if task deadline allows for this timing
@@ -1005,7 +1006,7 @@ class IntelligentScheduler {
       if (!isNaN(deadline.getTime())) {
         const deadlineHour = deadline.getHours();
         
-        if (isToday && deadline.getDate() === now.getDate()) {
+        if (isToday && format(deadline, 'yyyy-MM-dd') === todayDateStr) {
           // Task is due today - make sure we don't schedule past the deadline
           endHour = Math.min(endHour, deadlineHour);
           debugLog(`⏰ Task due today at ${formatDateTimeInUserTimezone(deadline, { hour: '2-digit', minute: '2-digit' })}, adjusting end time to ${endHour}:00`);
@@ -1014,7 +1015,7 @@ class IntelligentScheduler {
     }    
     // Try every 15 minutes from start time
     for (let hour = startHour; hour < endHour; hour++) {
-      const startMinute = (hour === startHour && isToday) ? Math.ceil(now.getMinutes() / 15) * 15 : 0;
+      const startMinute = (hour === startHour && isToday) ? (adjustedStartMinute || 0) : 0;
       
       for (let minute = startMinute; minute < 60; minute += 15) {
         // ENHANCED: Create date in local timezone consistently
@@ -1024,8 +1025,8 @@ class IntelligentScheduler {
         const slotEnd = new Date(slotStart);
         slotEnd.setMinutes(slotEnd.getMinutes() + durationMinutes);
         
-        // Check if slot goes past end time
-        if (slotEnd.getHours() >= endHour || (slotEnd.getHours() === endHour && slotEnd.getMinutes() > 0)) {
+        // Check if slot goes past end time (ending exactly at endHour:00 is valid)
+        if (slotEnd.getHours() > endHour || (slotEnd.getHours() === endHour && slotEnd.getMinutes() > 0)) {
           continue;
         }
         
@@ -1075,7 +1076,22 @@ class IntelligentScheduler {
       return false;
     }
     
-    for (const blackout of dayBlackouts) {
+    // Filter out blackouts that have approved overrides
+    const effectiveBlackouts = dayBlackouts.filter(blackout => {
+      if (!this.temporaryBlackoutOverrides || this.temporaryBlackoutOverrides.length === 0) return true;
+      const blackoutRange = typeof blackout === 'string' ? blackout : (blackout.range || `${blackout.start || blackout.startTime}-${blackout.end || blackout.endTime}`);
+      const blackoutName = blackout.name || blackoutRange;
+      return !this.temporaryBlackoutOverrides.some(override =>
+        (override.range === blackoutRange) || (override.name === blackoutName)
+      );
+    });
+    
+    if (effectiveBlackouts.length === 0) {
+      debugLog(`✅ All blackouts overridden for this slot`);
+      return false;
+    }
+    
+    for (const blackout of effectiveBlackouts) {
       let blackoutStart, blackoutEnd;
       
       if (typeof blackout === 'string') {
@@ -1608,23 +1624,59 @@ class IntelligentScheduler {
     debugLog(`   Sessions needed: ${optimalSessionPlan.totalSessions}`);
     debugLog(`   Time preference: peak hours ${timePreference.preferred.join(', ')}`);
     
+    // Filter allocation to only days before the task's deadline
+    const filteredAllocation = this.filterAllocationByDeadline(task, allocation);
+    
     // Strategy 1: High cognitive load tasks during peak hours
     if (cognitiveLoad > 0.7) {
-      return this.allocateHighCognitiveLoadTask(task, allocation, allocatedTasks, optimalSessionPlan);
+      return this.allocateHighCognitiveLoadTask(task, filteredAllocation, allocatedTasks, optimalSessionPlan);
     }
     
     // Strategy 2: Test preparation with spaced repetition
     if (task.type === 'test') {
-      return this.allocateTestPrepWithSpacedRepetition(task, allocation, allocatedTasks);
+      return this.allocateTestPrepWithSpacedRepetition(task, filteredAllocation, allocatedTasks);
     }
     
     // Strategy 3: Long-form work (projects, essays) in deep work blocks
     if (task.type === 'project' || task.type === 'essay') {
-      return this.allocateDeepWorkTask(task, allocation, allocatedTasks, optimalSessionPlan);
+      return this.allocateDeepWorkTask(task, filteredAllocation, allocatedTasks, optimalSessionPlan);
     }
     
     // Strategy 4: Regular homework with optimal session distribution
-    return this.allocateRegularTaskOptimally(task, allocation, allocatedTasks, optimalSessionPlan);
+    return this.allocateRegularTaskOptimally(task, filteredAllocation, allocatedTasks, optimalSessionPlan);
+  }
+
+  /**
+   * Filter allocation days to only include dates before the task's deadline.
+   * Falls back to full allocation if no deadline or no days remain after filtering.
+   */
+  filterAllocationByDeadline(task, allocation) {
+    const taskDeadline = task.deadline || task.dueDate;
+    if (!taskDeadline) return allocation;
+    
+    let deadline;
+    if (taskDeadline.toDate && typeof taskDeadline.toDate === 'function') {
+      deadline = taskDeadline.toDate();
+    } else {
+      deadline = new Date(taskDeadline);
+    }
+    
+    if (isNaN(deadline.getTime())) return allocation;
+    
+    const deadlineDateStr = format(startOfDay(deadline), 'yyyy-MM-dd');
+    
+    const filtered = {};
+    for (const [dateKey, dayData] of Object.entries(allocation)) {
+      if (dateKey <= deadlineDateStr) {
+        filtered[dateKey] = dayData;
+      }
+    }
+    
+    // If filtering removes all days, fall back to full allocation
+    // (the task is overdue, but we should still try to schedule it)
+    if (Object.keys(filtered).length === 0) return allocation;
+    
+    return filtered;
   }
 
   /**
@@ -2104,13 +2156,13 @@ class IntelligentScheduler {
    */
   calculateDailyCognitiveCapacity(date) {
     const dayOfWeek = date.getDay();
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    const isWeekendDay = dayOfWeek === 0 || dayOfWeek === 6;
     
     // Base capacity adjusted for day type
     let baseCapacity = this.userPreferences.maxStudyHoursPerDay;
     
     // Weekend adjustment (typically lower cognitive capacity due to relaxation)
-    if (isWeekend && this.userPreferences.weekendStudy) {
+    if (isWeekendDay && this.userPreferences.weekendStudy) {
       baseCapacity *= 0.8;
     }
     
@@ -2259,20 +2311,23 @@ class IntelligentScheduler {
     
     debugLog(`🧠 Task cognitive load: ${cognitiveLoad.toFixed(2)}, preferred hours: [${preferredTimeSlots.join(', ')}]`);
     
-    // Time window boundaries
-    let startHour = 7;
-    let endHour = 21; // Extended evening hours
+    // Time window boundaries — respect user's study time preferences
+    let startHour = this.userPreferences.studyStartTime || 7;
+    let endHour = this.userPreferences.studyEndTime || 21;
+    
+    let adjustedCogStartMinute = 0;
     
     if (isToday) {
       const currentHour = now.getHours();
       const currentMinute = now.getMinutes();
       
-      if (currentHour >= 7) {
+      if (currentHour >= startHour) {
         startHour = currentHour;
         // Round up to next 15-minute interval
-        const roundedMinutes = Math.ceil(currentMinute / 15) * 15;
-        if (roundedMinutes >= 60) {
+        adjustedCogStartMinute = Math.ceil(currentMinute / 15) * 15;
+        if (adjustedCogStartMinute >= 60) {
           startHour += 1;
+          adjustedCogStartMinute = 0; // Reset for the new hour
         }
       }
     }
@@ -2281,7 +2336,7 @@ class IntelligentScheduler {
     const candidateSlots = [];
     
     for (let hour = startHour; hour < endHour; hour++) {
-      const startMinute = (hour === startHour && isToday) ? Math.ceil(now.getMinutes() / 15) * 15 : 0;
+      const startMinute = (hour === startHour && isToday) ? adjustedCogStartMinute : 0;
       
       for (let minute = startMinute; minute < 60; minute += 15) {
         const slotStart = new Date(date);
@@ -2292,14 +2347,14 @@ class IntelligentScheduler {
         
         // Ensure end time is also aligned to 5-minute increments for cleaner display
         const endMinutes = slotEnd.getMinutes();
-        const alignedEndMinutes = Math.round(endMinutes / 5) * 5;
+        const alignedEndMinutes = Math.min(55, Math.round(endMinutes / 5) * 5);
         slotEnd.setMinutes(alignedEndMinutes);
         
         // Recalculate actual duration based on aligned times
         const actualDuration = Math.round((slotEnd - slotStart) / (1000 * 60));
         
-        // Check if slot goes past end time
-        if (slotEnd.getHours() >= endHour || (slotEnd.getHours() === endHour && slotEnd.getMinutes() > 0)) {
+        // Check if slot goes past end time (ending exactly at endHour:00 is valid)
+        if (slotEnd.getHours() > endHour || (slotEnd.getHours() === endHour && slotEnd.getMinutes() > 0)) {
           continue;
         }
         
@@ -2571,7 +2626,7 @@ class IntelligentScheduler {
         return day;
       }
       
-      const bestTotalTime = allocation[best].reduce((sum, t) => sum + (t.allocatedTime || 0), 0);
+      const bestTotalTime = (allocation[best]?.tasks || allocation[best] || []).reduce((sum, t) => sum + (t.allocatedTime || 0), 0);
       const isBetter = totalTime < bestTotalTime;
       debugLog(`   Comparing ${day} (${totalTime.toFixed(2)}h) vs ${best} (${bestTotalTime.toFixed(2)}h): ${isBetter ? day : best} is better`);
       return isBetter ? day : best;

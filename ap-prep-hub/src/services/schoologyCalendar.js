@@ -12,13 +12,17 @@ import {
 class SchoologyCalendarService {
   constructor() {
     // Primary: our own Netlify serverless function (first-party, no CORS issues)
-    // Fallback: public proxies in case the function is unavailable
+    // Fallback: public proxy in case the function is unavailable
     this.corsProxies = [
       '/.netlify/functions/cors-proxy?url=',
       'https://corsproxy.io/?',
-      'https://api.allorigins.win/raw?url=',
     ];
     this.currentProxyIndex = 0;
+
+    // In-memory cache to avoid redundant Netlify requests
+    // { url: string, data: string, fetchedAt: number }
+    this._cache = null;
+    this._cacheTTL = 15 * 60 * 1000; // 15 minutes
   }
 
   /**
@@ -26,7 +30,9 @@ class SchoologyCalendarService {
    */
   parseICalData(icalData) {
   const assignments = [];
-  const lines = icalData.split('\n').map(line => line.trim());
+  // RFC 5545: Unfold long lines (continuation lines start with space/tab)
+  const unfoldedData = icalData.replace(/\r?\n[ \t]/g, '');
+  const lines = unfoldedData.split('\n').map(line => line.trim());
     
     
     
@@ -345,6 +351,12 @@ class SchoologyCalendarService {
       dueDate = new Date(event.endDate);
       dueDateSource = 'end date from calendar';
       
+      // RFC 5545: date-only DTEND is exclusive — subtract 1 day to get the actual due date
+      if (event.rawEndDate && !event.rawEndDate.includes('T')) {
+        dueDate.setDate(dueDate.getDate() - 1);
+        dueDateSource = 'end date from calendar (adjusted for exclusive DTEND)';
+      }
+      
       // If it's a date-only event (midnight), set to 11:59 PM in user's timezone
       if (dueDate.getHours() === 0 && dueDate.getMinutes() === 0 && dueDate.getSeconds() === 0) {
         dueDate.setHours(23, 59, 59, 999);
@@ -411,6 +423,15 @@ class SchoologyCalendarService {
    * Fetch and parse Schoology calendar feed with multiple CORS proxy fallbacks
    */
   async fetchCalendarFeed(calendarUrl) {
+    // Return cached data if still fresh (avoids redundant Netlify requests)
+    if (
+      this._cache &&
+      this._cache.url === calendarUrl &&
+      Date.now() - this._cache.fetchedAt < this._cacheTTL
+    ) {
+      return this.parseICalData(this._cache.data);
+    }
+
     const maxRetries = this.corsProxies.length;
     let lastError = null;
 
@@ -444,8 +465,14 @@ class SchoologyCalendarService {
           throw new Error('Empty calendar data received');
         }
 
+        // Cache the successful response
+        this._cache = { url: calendarUrl, data: icalData, fetchedAt: Date.now() };
+
         // Validate that we received iCal data
         if (!icalData.includes('BEGIN:VCALENDAR')) {
+          // Log what we actually got for diagnostics
+          const preview = icalData.substring(0, 200).replace(/\s+/g, ' ');
+          console.warn(`[Calendar] Proxy returned non-iCal content (first 200 chars): ${preview}`);
           throw new Error('Invalid iCal format: Missing VCALENDAR header');
         }
 

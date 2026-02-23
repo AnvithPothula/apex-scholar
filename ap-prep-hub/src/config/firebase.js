@@ -57,23 +57,6 @@ try {
     console.log("✅ Firestore initialized successfully");
   }
 
-    // Add connection monitoring
-  const monitorConnection = () => {
-    // Simple connection test
-    setTimeout(async () => {
-      try {
-        // Try a simple auth state check - accessing currentUser
-        if (auth.currentUser !== undefined) {
-          // Connection is working
-        }
-      } catch (error) {
-        console.warn("⚠️ Firebase connection check failed:", error.message);
-      }
-    }, 2000);
-  };
-
-  monitorConnection();
-
 } catch (error) {
   console.error("❌ Failed to initialize Firebase:", error.message);
 

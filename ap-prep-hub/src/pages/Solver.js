@@ -7,7 +7,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { AP_SUBJECTS } from '../constants/subjects';
 import geminiService, { RateLimitError } from '../services/geminiService';
 import dataService from '../services/dataService';
-import { InlineMath } from 'react-katex';
+import MarkdownRenderer from '../components/MarkdownRenderer';
+import ModelSelector, { getDefaultModel, saveSelectedModel } from '../components/ui/ModelSelector';
 import 'katex/dist/katex.min.css';
 
 const SolverPage = () => {
@@ -19,98 +20,7 @@ const SolverPage = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [solution, setSolution] = useState(null);
   const [analysisHistory, setAnalysisHistory] = useState([]);
-
-  // Component to render text with LaTeX support
-  // Uses span wrappers to avoid DOM nesting issues with BlockMath
-  const MathText = ({ children }) => {
-    if (!children) return null;
-
-    const text = typeof children === 'string' ? children : String(children);
-
-    // Check if text contains any LaTeX delimiters
-    if (!text.includes('$')) {
-      return <span>{text}</span>;
-    }
-
-    // Split text by LaTeX delimiters - handle both $...$ and $$...$$
-    const parts = [];
-    let lastIndex = 0;
-
-    // Process the text character by character to properly handle nested cases
-    let i = 0;
-    while (i < text.length) {
-      if (text[i] === '$') {
-        // Check for block math $$
-        if (text[i + 1] === '$') {
-          // Find closing $$
-          const closeIdx = text.indexOf('$$', i + 2);
-          if (closeIdx !== -1) {
-            // Add text before this math
-            if (i > lastIndex) {
-              parts.push({ type: 'text', content: text.slice(lastIndex, i) });
-            }
-            // Add block math
-            parts.push({ type: 'block', content: text.slice(i + 2, closeIdx) });
-            i = closeIdx + 2;
-            lastIndex = i;
-            continue;
-          }
-        } else {
-          // Check for inline math $
-          const closeIdx = text.indexOf('$', i + 1);
-          // Make sure it's on the same line (no newlines between)
-          if (closeIdx !== -1 && !text.slice(i + 1, closeIdx).includes('\n')) {
-            // Add text before this math
-            if (i > lastIndex) {
-              parts.push({ type: 'text', content: text.slice(lastIndex, i) });
-            }
-            // Add inline math
-            parts.push({ type: 'inline', content: text.slice(i + 1, closeIdx) });
-            i = closeIdx + 1;
-            lastIndex = i;
-            continue;
-          }
-        }
-      }
-      i++;
-    }
-
-    // Add remaining text
-    if (lastIndex < text.length) {
-      parts.push({ type: 'text', content: text.slice(lastIndex) });
-    }
-
-    // If no parts were found, return plain text
-    if (parts.length === 0) {
-      return <span>{text}</span>;
-    }
-
-    return (
-      <span>
-        {parts.map((part, index) => {
-          if (part.type === 'block') {
-            try {
-              return (
-                <span key={index} className="block my-2 text-center">
-                  <InlineMath math={part.content.trim()} />
-                </span>
-              );
-            } catch (error) {
-              return <span key={index} className="text-red-400 font-mono text-sm">[Math: {part.content}]</span>;
-            }
-          } else if (part.type === 'inline') {
-            try {
-              return <InlineMath key={index} math={part.content} />;
-            } catch (error) {
-              return <span key={index} className="text-red-400 font-mono text-sm">[Math: {part.content}]</span>;
-            }
-          } else {
-            return <span key={index}>{part.content}</span>;
-          }
-        })}
-      </span>
-    );
-  };
+  const [selectedModel, setSelectedModel] = useState(getDefaultModel);
 
   const loadSolverHistory = useCallback(async () => {
     try {
@@ -325,6 +235,10 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
         }
       }
 
+      // Ensure parsed solution has required display fields
+      if (!parsedSolution.question) parsedSolution.question = questionText || 'Problem from uploaded image';
+      if (!parsedSolution.subject) parsedSolution.subject = subjectName || 'General';
+
       setSolution(parsedSolution);
 
       // Update local history immediately (don't wait for Firebase)
@@ -473,6 +387,12 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
             for detailed explanations and personalized learning insights.</span>
             <span className="sm:hidden">Upload a photo or type your question for AI-powered solutions.</span>
           </p>
+          <div className="mt-3 flex justify-center">
+            <ModelSelector
+              value={selectedModel}
+              onChange={(m) => { setSelectedModel(m); saveSelectedModel(m); }}
+            />
+          </div>
         </motion.div>
 
         {/* AI Features */}
@@ -657,7 +577,7 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
                       {solution.difficulty}
                     </Badge>
                   </div>
-                  <p className="text-slate-300 font-medium"><MathText>{solution.question}</MathText></p>
+                  <p className="text-slate-300 font-medium"><MarkdownRenderer content={solution.question} /></p>
                   <p className="text-sm text-slate-400 mt-2">
                     <Clock className="w-4 h-4 inline mr-1" />
                     Estimated time: {solution.timeToSolve}
@@ -681,8 +601,8 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
                         </div>
                         <div className="flex-1">
                           <h4 className="font-semibold text-slate-200 mb-2">{step.title}</h4>
-                          <p className="text-slate-300 mb-2"><MathText>{step.content}</MathText></p>
-                          <p className="text-sm text-slate-400"><MathText>{step.explanation}</MathText></p>
+                          <div className="text-slate-300 mb-2"><MarkdownRenderer content={step.content} /></div>
+                          <div className="text-sm text-slate-400"><MarkdownRenderer content={step.explanation} /></div>
                         </div>
                       </div>
                     </motion.div>
@@ -695,7 +615,7 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
                     <CheckCircle className="w-5 h-5 text-green-400" />
                     <h3 className="text-lg font-semibold text-slate-200">Final Answer</h3>
                   </div>
-                  <p className="text-green-300 font-mono text-lg"><MathText>{solution.finalAnswer}</MathText></p>
+                  <p className="text-green-300 font-mono text-lg"><MarkdownRenderer content={solution.finalAnswer} /></p>
                 </div>
 
                 {/* Key Concepts */}

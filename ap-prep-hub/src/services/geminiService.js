@@ -150,6 +150,9 @@ class GeminiService {
     this.debug = (process.env.REACT_APP_AI_DEBUG || '').toLowerCase() !== 'false';
     this._workingModel = null;
     this._workingModelSupportsMM = false;
+    // User-selected model (from ModelSelector UI) — takes priority over everything
+    this._userModel = null;
+    try { this._userModel = localStorage.getItem('apex.ai.userModel') || null; } catch {}
     this._lastPuterFailureAt = 0; // for backoff on repeated failures
     this._rateLimitUntil = 0; // Timestamp until which we should not make requests
     this._puterAuthBroken = false; // Track if Puter auth is in a broken/stuck state
@@ -201,10 +204,12 @@ class GeminiService {
   }
 
   /**
-   * Handle rate limit error - set backoff and throw user-friendly error
+   * Handle rate limit error - set backoff and throw user-friendly error.
+   * With 11 API keys this should rarely trigger — it's the last resort
+   * after all keys have been tried.
    */
   _handleRateLimit(error, context = '') {
-    const retryAfter = 60; // Default 60 seconds
+    const retryAfter = 30; // 30 seconds — shorter because 11 keys absorb most load
     this._rateLimitUntil = Date.now() + (retryAfter * 1000);
     
     console.error(`[AI] Rate limit hit${context ? ` during ${context}` : ''}:`, error.message);
@@ -595,6 +600,14 @@ class GeminiService {
     const puter = this.getPuter();
     if (!puter) throw new Error('Puter.js is not available');
 
+    // Helper: detect CORS / network-level failures that will affect ALL models
+    const isCorsOrNetworkError = (e) => {
+      const s = String(e);
+      return s.includes('access control') || s.includes('XMLHttpRequest') ||
+             s.includes('NetworkError') || s.includes('Failed to fetch') ||
+             s.includes('Load failed') || s.includes('CORS');
+    };
+
     // Try default (no model specified) first to discover a server-side default
     try {
       const t0 = Date.now();
@@ -609,6 +622,10 @@ class GeminiService {
     } catch (e) {
       if (this.debug) console.warn('[AI] ensureWorkingModel default probe failed', String(e));
       this._lastPuterFailureAt = Date.now();
+      // If CORS/network error, no point trying individual models — they'll all fail
+      if (isCorsOrNetworkError(e)) {
+        throw new Error('Puter API blocked by CORS/network — skipping all candidates');
+      }
     }
 
     for (const m of candidates) {
@@ -638,6 +655,10 @@ class GeminiService {
       } catch (e) {
         if (this.debug) console.warn('[AI] ensureWorkingModel candidate failed', { model: m, error: String(e) });
         this._lastPuterFailureAt = Date.now();
+        // If CORS/network error, bail — all subsequent candidates will fail too
+        if (isCorsOrNetworkError(e)) {
+          throw new Error(`Puter API blocked by CORS/network (detected at ${m})`);
+        }
       }
     }
     // If none worked, leave null and let caller fallback to Google
@@ -758,11 +779,33 @@ class GeminiService {
     }
   }
 
+  /**
+   * Set the user-selected model (from the ModelSelector UI).
+   * Takes priority over auto-discovered models.
+   */
+  setUserModel(modelValue) {
+    this._userModel = modelValue || null;
+    try { localStorage.setItem('apex.ai.userModel', modelValue || ''); } catch {}
+    if (this.debug) console.debug('[AI] User model set to:', modelValue);
+  }
+
+  /** Get the currently selected user model */
+  getUserModel() {
+    return this._userModel;
+  }
+
+  /** Resolve effective model: user choice > working model > env default */
+  _resolveModel(optionsModel) {
+    return optionsModel || this._userModel || this._workingModel || this.modelName;
+  }
+
   // Safe access to Puter SDK in browser.
   // IMPORTANT: Only returns the Puter SDK if the user is ALREADY authenticated.
   // This prevents Puter from showing its auth popup/dialog (which requires users
   // to create a Puter account, do CAPTCHAs, etc.). Unauthenticated users go
   // straight to the Google Gemini API fallback — completely seamless, no popups.
+  // Also returns null immediately if the Puter SDK was blocked by a network filter
+  // (e.g. Lightspeed Filter on school networks which redirects to about:blank).
   getPuter() {
     try {
       // If Puter auth has repeatedly failed this session, skip it entirely
@@ -826,7 +869,7 @@ class GeminiService {
   }
 
   async generateContent(prompt, options = {}) {
-    let model = options.model || this._workingModel || this.modelName;
+    let model = this._resolveModel(options.model);
     const t0 = Date.now();
 
     // Check cache for duplicate requests
@@ -922,7 +965,7 @@ class GeminiService {
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       generationConfig: {
         temperature: options.temperature ?? 0.3,
-        maxOutputTokens: options.maxTokens ?? 4000
+        maxOutputTokens: options.maxTokens ?? 2048
       }
     };
     const t1 = Date.now();
@@ -933,29 +976,46 @@ class GeminiService {
       
       // Check for rate limit response (429 or quota errors)
       if (res.status === 429 || t.toLowerCase().includes('quota') || t.toLowerCase().includes('rate')) {
-        apiKeyManager.markCurrentKeyFailed(300); // Mark failed for 5 minutes
+        // Mark this key with a short cooldown (90s) so it recovers quickly.
+        // With 11 keys we can rotate through them and circle back.
+        apiKeyManager.markCurrentKeyFailed(90);
         
-        // Try rotating to another key
-        const rotated = apiKeyManager.rotateToNextKey();
-        if (!rotated) {
-          // All keys are exhausted
-          this._handleRateLimit(new Error(`Rate limited: ${res.status}`), 'Google API');
-        }
-        
-        // Retry with new key (one retry only)
-        const retryUrl = apiKeyManager.getCurrentUrl();
-        const retryRes = await fetch(retryUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-        if (!retryRes.ok) {
-          const retryText = await retryRes.text().catch(() => '');
-          if (retryRes.status === 429) {
-            this._handleRateLimit(new Error('All API keys rate limited'), 'Google retry');
+        // Try up to 3 more keys before giving up — with 11 keys, one 429
+        // shouldn't kill the whole service.
+        const maxRetries = Math.min(3, apiKeyManager.getTotalKeys() - 1);
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+          const rotated = apiKeyManager.rotateToNextKey();
+          if (!rotated) break; // all keys exhausted
+          
+          try {
+            const retryUrl = apiKeyManager.getCurrentUrl();
+            const retryRes = await fetch(retryUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            if (retryRes.ok) {
+              const retryData = await retryRes.json();
+              const retryText = retryData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+              if (retryText) {
+                if (this.debug) console.debug(`[AI] Google retry #${attempt + 1} succeeded with key ${apiKeyManager.getCurrentKeyIndex() + 1}`);
+                return retryText;
+              }
+            } else if (retryRes.status === 429) {
+              // This key is also rate limited — mark it with a short cooldown and try next
+              apiKeyManager.markCurrentKeyFailed(90);
+              if (this.debug) console.debug(`[AI] Google retry #${attempt + 1} also 429, trying next key...`);
+              continue;
+            } else {
+              // Non-rate-limit error — don't retry, just throw
+              const errText = await retryRes.text().catch(() => '');
+              throw new Error(`Google fallback failed: ${retryRes.status} ${errText}`);
+            }
+          } catch (retryErr) {
+            if (retryErr instanceof RateLimitError) throw retryErr;
+            if (attempt === maxRetries - 1) throw retryErr;
+            // Otherwise try next key
           }
-          throw new Error(`Google fallback failed: ${retryRes.status} ${retryText}`);
         }
-        const retryData = await retryRes.json();
-        const retryText = retryData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        if (!retryText) throw new Error('Empty response from Google fallback retry');
-        return retryText;
+        
+        // All retries exhausted — global lockout as last resort
+        this._handleRateLimit(new Error('All attempted API keys rate limited'), 'Google API');
       }
       
       throw new Error(`Google fallback failed: ${res.status} ${t}`);
@@ -977,7 +1037,7 @@ class GeminiService {
       );
     }
 
-    let model = options.model || this._workingModel || this.modelName;
+    let model = this._resolveModel(options.model);
     const t0 = Date.now();
     // If an image is provided, pass the first as a data URL to Puter
     let imageArg = undefined;
@@ -1059,7 +1119,7 @@ class GeminiService {
     }
     const body = {
       contents: [{ role: 'user', parts }],
-      generationConfig: { temperature: options.temperature ?? 0.2, maxOutputTokens: options.maxTokens ?? 4000 }
+      generationConfig: { temperature: options.temperature ?? 0.2, maxOutputTokens: options.maxTokens ?? 2048 }
     };
     const t1 = Date.now();
     const res = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -1068,24 +1128,33 @@ class GeminiService {
       
       // Check for rate limit
       if (res.status === 429 || t.toLowerCase().includes('quota') || t.toLowerCase().includes('rate')) {
-        apiKeyManager.markCurrentKeyFailed(300);
-        const rotated = apiKeyManager.rotateToNextKey();
-        if (!rotated) {
-          this._handleRateLimit(new Error(`Rate limited on image request: ${res.status}`), 'Google image API');
-        }
-        // One retry with new key
-        const retryUrl = apiKeyManager.getCurrentUrl();
-        const retryRes = await fetch(retryUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-        if (!retryRes.ok) {
-          if (retryRes.status === 429) {
-            this._handleRateLimit(new Error('All keys rate limited for images'), 'Google image retry');
+        apiKeyManager.markCurrentKeyFailed(90);
+        
+        // Try up to 3 more keys before giving up
+        const maxRetries = Math.min(3, apiKeyManager.getTotalKeys() - 1);
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+          const rotated = apiKeyManager.rotateToNextKey();
+          if (!rotated) break;
+          
+          try {
+            const retryUrl = apiKeyManager.getCurrentUrl();
+            const retryRes = await fetch(retryUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            if (retryRes.ok) {
+              const retryData = await retryRes.json();
+              const retryImgText = retryData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+              if (retryImgText) return retryImgText;
+            } else if (retryRes.status === 429) {
+              apiKeyManager.markCurrentKeyFailed(90);
+              continue;
+            } else {
+              throw new Error(`Google image fallback failed: ${retryRes.status}`);
+            }
+          } catch (retryErr) {
+            if (retryErr instanceof RateLimitError) throw retryErr;
+            if (attempt === maxRetries - 1) throw retryErr;
           }
-          throw new Error(`Google image fallback failed: ${retryRes.status}`);
         }
-        const retryData = await retryRes.json();
-        const retryImgText = retryData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        if (!retryImgText) throw new Error('Empty response from Google image fallback retry');
-        return retryImgText;
+        this._handleRateLimit(new Error('All attempted keys rate limited for images'), 'Google image API');
       }
       
       throw new Error(`Google image fallback failed: ${res.status} ${t}`);
@@ -1151,7 +1220,7 @@ class GeminiService {
       }
       prompt += `5. Provide substantive, helpful content immediately.\n`;
     }
-    let model = (payload?.generationConfig?.model) || this._workingModel || this.modelName;
+    let model = this._resolveModel(payload?.generationConfig?.model);
     const t0 = Date.now();
 
     console.log('[AI] Payload info:', {
@@ -1251,7 +1320,7 @@ class GeminiService {
         const t = await res.text().catch(() => '');
         console.error('[AI] Google API error:', res.status, t);
         // Try rotating to next key on failure
-        apiKeyManager.markCurrentKeyFailed();
+        apiKeyManager.markCurrentKeyFailed(90);
         throw new Error(`Google payload fallback failed: ${res.status} ${t}`);
       }
       const data = await res.json();
@@ -1355,23 +1424,11 @@ class GeminiService {
 
   // Specialized methods for different features
   async generateFlashcards(subject, topic, count = 20, difficulty = 'medium') {
-    const prompt = `Generate exactly ${count} flashcards for ${subject} - ${topic}.
+    const prompt = `Generate ${count} ${difficulty} flashcards for ${subject} — ${topic}.
+Output ONLY a JSON array. Each object: {"question":"...","answer":"..."}. Use $LaTeX$ for math.
+[{"question":"...","answer":"..."}]`;
 
-Difficulty: ${difficulty}
-
-RULES (FOLLOW EXACTLY):
-1. Output ONLY a JSON array - no text before or after
-2. Each object has exactly two fields: "question" and "answer"
-3. Use LaTeX: $x^2$ for inline, $$\\frac{a}{b}$$ for block math
-4. Make questions specific and answers comprehensive
-5. Start with [ and end with ]
-
-Output format:
-[{"question":"...","answer":"..."},{"question":"...","answer":"..."}]
-
-Generate ${count} flashcards now:`;
-
-    const response = await this.generateContent(prompt, { temperature: 0.7, maxTokens: Math.max(count * 200, 2000) });
+    const response = await this.generateContent(prompt, { temperature: 0.7, maxTokens: Math.max(count * 150, 1500) });
 
     // Use robust JSON extraction
     const result = this._extractJSON(response, true);
@@ -1396,34 +1453,17 @@ Generate ${count} flashcards now:`;
   async solveProblem(problemText, subject = '', imageData = null) {
     const isHumanities = /(history|government|politics|english|literature|world|u\s*s\s*history)/i.test(subject || '');
     
-    const prompt = `Solve this ${subject || 'AP'} problem completely.
-
+    const prompt = `Solve this ${subject || 'AP'} problem. ${isHumanities ? '' : 'Use $LaTeX$ for math.'}
 Problem: ${problemText}
 
-${isHumanities ? '' : 'Use LaTeX: $x^2$ inline, $$\\frac{a}{b}$$ for block math.\n'}
-RULES:
-1. Output ONLY valid JSON - no markdown, no code fences, no extra text
-2. Solve the problem completely - do not ask for clarification
-3. Be thorough in explanations
-
-Required JSON structure:
-{
-  "problemType": "type of problem",
-  "steps": [{"step": 1, "title": "Step Name", "content": "what was done", "explanation": "why"}],
-  "finalAnswer": "the complete final answer",
-  "concepts": ["concept1", "concept2"],
-  "commonMistakes": ["mistake1"],
-  "difficulty": "Easy|Medium|Hard",
-  "timeToSolve": "X-Y minutes"
-}
-
-Solve now:`;
+Output ONLY JSON:
+{"problemType":"...","steps":[{"step":1,"title":"...","content":"...","explanation":"..."}],"finalAnswer":"...","concepts":["..."],"commonMistakes":["..."],"difficulty":"Easy|Medium|Hard","timeToSolve":"X-Y minutes"}`;
 
     let response;
     if (imageData) {
-      response = await this.generateWithImages(prompt, [imageData], { temperature: 0.3, maxTokens: 3000 });
+      response = await this.generateWithImages(prompt, [imageData], { temperature: 0.3, maxTokens: 2048 });
     } else {
-      response = await this.generateContent(prompt, { temperature: 0.3, maxTokens: 3000 });
+      response = await this.generateContent(prompt, { temperature: 0.3, maxTokens: 2048 });
     }
     
     // Try to extract JSON, but return raw text if it fails (caller can handle it)
@@ -1441,23 +1481,11 @@ Solve now:`;
   }
 
   async generateDiagnosticQuestions(subject, topic, difficulty = 'medium', count = 10) {
-    const prompt = `Generate exactly ${count} multiple-choice questions for ${subject} - ${topic}.
+    const prompt = `Generate ${count} ${difficulty} MCQs for ${subject} — ${topic}.
+Output ONLY a JSON array. Each object: {"question":"...","choices":["A","B","C","D"],"correctAnswer":0,"explanations":["...","...","...","..."],"concept":"..."}
+correctAnswer is the index (0-3) of the correct choice. Exactly 4 choices and 4 explanations per question.`;
 
-Difficulty: ${difficulty}
-
-RULES (FOLLOW EXACTLY):
-1. Output ONLY a JSON array - no text before or after
-2. Each question has: question, choices (4 strings), correctAnswer (0-3), explanations (4 strings), concept
-3. Exactly 4 choices per question
-4. correctAnswer is the index (0, 1, 2, or 3) of the correct choice
-5. Start with [ and end with ]
-
-Format:
-[{"question":"...","choices":["A","B","C","D"],"correctAnswer":0,"explanations":["...","...","...","..."],"concept":"..."}]
-
-Generate ${count} questions now:`;
-
-    const response = await this.generateContent(prompt, { temperature: 0.6, maxTokens: Math.max(count * 400, 3000) });
+    const response = await this.generateContent(prompt, { temperature: 0.6, maxTokens: Math.max(count * 300, 2000) });
     
     const result = this._extractJSON(response, true);
     
@@ -1491,29 +1519,12 @@ Generate ${count} questions now:`;
   }
 
   async analyzeStudentProgress(subjects, activities, weakAreas = []) {
-    const prompt = `Analyze student progress and provide recommendations.
+    const prompt = `Analyze student progress. Subjects: ${subjects.join(', ')}. Activities: ${JSON.stringify(activities).substring(0, 800)}. Weak areas: ${weakAreas.join(', ') || 'None'}.
 
-Subjects: ${subjects.join(', ')}
-Activities: ${JSON.stringify(activities).substring(0, 1000)}
-Weak areas: ${weakAreas.join(', ') || 'None identified'}
+Output ONLY JSON:
+{"overallProgress":"...","strengths":["..."],"weaknesses":["..."],"recommendations":["..."],"nextSteps":["..."],"timeAllocation":"..."}`;
 
-RULES:
-1. Output ONLY valid JSON - no markdown, no code fences
-2. Be specific and actionable in recommendations
-
-Required JSON format:
-{
-  "overallProgress": "assessment string",
-  "strengths": ["strength1", "strength2"],
-  "weaknesses": ["weakness1", "weakness2"],
-  "recommendations": ["rec1", "rec2"],
-  "nextSteps": ["step1", "step2"],
-  "timeAllocation": "allocation advice"
-}
-
-Analyze now:`;
-
-    const response = await this.generateContent(prompt, { temperature: 0.5, maxTokens: 1500 });
+    const response = await this.generateContent(prompt, { temperature: 0.5, maxTokens: 1000 });
     
     const result = this._extractJSON(response, false);
     

@@ -89,17 +89,27 @@ import {
 
             // Handle overnight blackouts (e.g., 22:00-07:00)
             if (endHour < startHour) {
-              const nextDayBlackoutEnd = setMinutes(setHours(new Date(currentSlotStart), endHour), endMin);
-              nextDayBlackoutEnd.setDate(nextDayBlackoutEnd.getDate() + 1);
+              // Split into two same-day periods:
+              //   Evening portion: startHour:startMin to 23:59 (today)
+              //   Morning portion: 00:00 to endHour:endMin (today)
+              const midnightToday = setMinutes(setHours(new Date(currentSlotStart), 23), 59);
+              const morningEnd = setMinutes(setHours(new Date(currentSlotStart), endHour), endMin);
               
-              if ((currentSlotStart >= blackoutStart || currentSlotStart < nextDayBlackoutEnd) &&
-                  (proposedEnd > blackoutStart || proposedEnd <= nextDayBlackoutEnd)) {
+              const inEveningBlackout = currentSlotStart >= blackoutStart && currentSlotStart <= midnightToday;
+              const inMorningBlackout = currentSlotStart < morningEnd;
+              
+              if (inEveningBlackout || inMorningBlackout) {
                 conflicts.push({
                   blackoutName,
                   timeRange: `${startStr}-${endStr}`,
                   day: dayOfWeek
                 });
-                currentSlotStart = this.roundToNearest15(addMinutes(nextDayBlackoutEnd, 15));
+                if (inMorningBlackout) {
+                  currentSlotStart = this.roundToNearest15(addMinutes(morningEnd, 15));
+                } else {
+                  // Evening blackout — no more valid slots today
+                  currentSlotStart = null;
+                }
                 isConflict = true;
                 break;
               }

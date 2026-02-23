@@ -8,7 +8,7 @@ import { getDifficultyColor } from '../../utils/helpers';
 export function TaskCard({ task, onEdit, onDelete, onComplete }) {
   // Fix: Better date handling for both Firestore timestamps and regular dates
   const getTaskDate = () => {
-    if (!task.deadline) return new Date();
+    if (!task.deadline) return null;
     if (typeof task.deadline.toDate === 'function') {
       return task.deadline.toDate();
     }
@@ -16,7 +16,7 @@ export function TaskCard({ task, onEdit, onDelete, onComplete }) {
   };
   
   const taskDate = getTaskDate();
-  const isOverdue = isPast(taskDate) && !task.is_completed;
+  const isOverdue = taskDate && isPast(taskDate) && !task.is_completed;
   
   return (
     <motion.div 
@@ -53,7 +53,7 @@ export function TaskCard({ task, onEdit, onDelete, onComplete }) {
             <div className={`text-xs sm:text-sm font-medium ${
               isOverdue ? 'text-red-400' : task.is_completed ? 'text-green-400' : 'text-slate-300'
             }`}>
-              {task.is_completed ? 'Completed' : `Due: ${formatDistanceToNow(taskDate, { addSuffix: true })}`}
+              {task.is_completed ? 'Completed' : taskDate ? `Due: ${formatDistanceToNow(taskDate, { addSuffix: true })}` : 'No deadline'}
             </div>
             {task.description && (
               <p className="text-xs text-slate-400 line-clamp-2">{task.description}</p>

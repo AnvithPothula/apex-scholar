@@ -1,5 +1,5 @@
 // Simple test to verify scheduling logic fixes
-import { IntelligentScheduler } from './intelligentScheduler.js';
+import IntelligentScheduler from './intelligentScheduler.js';
 import SchedulingEngine from '../components/scheduler/SchedulingEngine.jsx';
 
 // Test data

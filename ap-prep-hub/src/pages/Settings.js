@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth, AVATAR_GRADIENTS } from '../contexts/AuthContext';
 import { getAvailableSubjects, getCurriculumData } from '../constants/comprehensiveCurriculum';
 import { setUserTimezonePreference } from '../utils/timezone';
 import BlackoutScheduleManager from '../components/settings/BlackoutScheduleManager';
@@ -13,7 +13,7 @@ import HelpTooltip from '../components/ui/HelpTooltip';
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 
 const Settings = () => {
-  const { user } = useAuth();
+  const { user, updateUserProfile } = useAuth();
   
   // Define default study preferences
   const getDefaultStudyPreferences = () => ({
@@ -58,6 +58,9 @@ const Settings = () => {
   };
 
   const [userSubjects, setUserSubjects] = useState([]);
+  const [displayName, setDisplayName] = useState('');
+  const [showGradientPicker, setShowGradientPicker] = useState(false);
+  const gradientPickerRef = useRef(null);
   const [studyPreferences, setStudyPreferences] = useState(getDefaultStudyPreferences());
   const [blackoutDates, setBlackoutDates] = useState(() => getDefaultBlackoutSchedule()); // Initialize with empty schedule
   const [isLoading, setIsLoading] = useState(true);
@@ -84,6 +87,7 @@ const Settings = () => {
         const data = userDocSnap.data();
         const defaultPrefs = getDefaultStudyPreferences();
         setUserSubjects(data.subjects || []);
+        setDisplayName(data.displayName || data.fullName || '');
         // Merge user data with defaults to ensure all fields have values
         const mergedPrefs = { ...defaultPrefs, ...data.studyPreferences };
         setStudyPreferences(mergedPrefs);
@@ -96,6 +100,7 @@ const Settings = () => {
         const emptySchedule = getDefaultBlackoutSchedule();
         const defaultPrefs = getDefaultStudyPreferences();
         setUserSubjects([]);
+        setDisplayName('');
         setStudyPreferences(defaultPrefs);
         setBlackoutDates(emptySchedule);
         
@@ -246,6 +251,50 @@ const Settings = () => {
     );
   };
 
+  const handleNameSave = async () => {
+    if (!user?.uid) return;
+    const trimmed = displayName.trim();
+    if (trimmed === (user?.displayName || user?.fullName || '')) return;
+    try {
+      await updateUserProfile({ displayName: trimmed });
+      setMessage('Name updated!');
+      setTimeout(() => setMessage(''), 2000);
+    } catch (e) {
+      console.error('Failed to save name:', e);
+      setMessage('Error: Could not save your name.');
+      setTimeout(() => setMessage(''), 5000);
+    }
+  };
+
+  const handleGradientSelect = async (gradient) => {
+    if (!user?.uid || gradient === user?.avatarGradient) {
+      setShowGradientPicker(false);
+      return;
+    }
+    try {
+      await updateUserProfile({ avatarGradient: gradient });
+      setShowGradientPicker(false);
+      setMessage('Avatar color updated!');
+      setTimeout(() => setMessage(''), 2000);
+    } catch (e) {
+      console.error('Failed to save gradient:', e);
+      setMessage('Error: Could not save your avatar color.');
+      setTimeout(() => setMessage(''), 5000);
+    }
+  };
+
+  // Close gradient picker when clicking outside
+  useEffect(() => {
+    if (!showGradientPicker) return;
+    const handleClickOutside = (e) => {
+      if (gradientPickerRef.current && !gradientPickerRef.current.contains(e.target)) {
+        setShowGradientPicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showGradientPicker]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -282,6 +331,68 @@ const Settings = () => {
         )}
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
+          {/* Profile Section */}
+          <Card className="bg-slate-800/60 border-slate-700 md:col-span-2 overflow-visible relative z-10">
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="text-slate-100 text-lg sm:text-xl">Profile</CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 sm:p-6 pt-0 overflow-visible">
+              <div className="flex items-center gap-4">
+                <div className="relative" ref={gradientPickerRef}>
+                  <button
+                    type="button"
+                    onClick={() => setShowGradientPicker(prev => !prev)}
+                    className="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-xl shrink-0 ring-2 ring-slate-600 hover:ring-blue-500 transition-all cursor-pointer group"
+                    style={{ background: user?.avatarGradient || 'linear-gradient(135deg, #3b82f6, #8b5cf6)' }}
+                    title="Click to change avatar color"
+                  >
+                    {(displayName?.[0] || user?.email?.[0] || 'U').toUpperCase()}
+                    <span className="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                    </span>
+                  </button>
+                  {showGradientPicker && (
+                    <div className="absolute top-full left-0 mt-2 p-3 bg-slate-700 border border-slate-600 rounded-xl shadow-xl z-50 w-52">
+                      <p className="text-xs text-slate-300 mb-2 font-medium">Choose avatar color</p>
+                      <div className="grid grid-cols-4 gap-2">
+                        {AVATAR_GRADIENTS.map((gradient, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => handleGradientSelect(gradient)}
+                            className={`w-10 h-10 rounded-full transition-all hover:scale-110 ${
+                              gradient === (user?.avatarGradient || AVATAR_GRADIENTS[0])
+                                ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-700'
+                                : 'ring-1 ring-slate-500 hover:ring-slate-400'
+                            }`}
+                            style={{ background: gradient }}
+                            title={`Gradient ${i + 1}`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <label htmlFor="displayName" className="text-sm font-medium text-slate-300 mb-1 block">
+                    Display Name
+                  </label>
+                  <Input
+                    id="displayName"
+                    type="text"
+                    placeholder="Enter your name"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    onBlur={handleNameSave}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.target.blur(); } }}
+                    className="w-full max-w-sm"
+                  />
+                  <p className="text-xs text-slate-400 mt-1">Your tutor will address you by this name</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card className="bg-slate-800/60 border-slate-700">
             <CardHeader className="p-4 sm:p-6">
               <CardTitle className="text-slate-100 text-lg sm:text-xl">Your AP Subjects</CardTitle>

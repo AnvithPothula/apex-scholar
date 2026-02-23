@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Brain, Calendar, Settings, LogOut, Award, Shield, X, MessageSquare, Send, FileQuestion, Zap, Calculator } from 'lucide-react';
+import { Brain, Calendar, Settings, LogOut, Award, Shield, X, MessageSquare, Send, FileQuestion, Zap, Calculator, Star, Code2 } from 'lucide-react';
 import { Button, Avatar, AvatarFallback, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from './ui/UIComponents';
 import { useAuth } from '../contexts/AuthContext';
 import { createPageUrl, cn } from '../utils/helpers';
-import emailService from '../services/emailService';
 import ApexScholarLogo from './ui/ApexScholarLogo';
 import PuterAuthPrompt from './auth/PuterAuthPrompt';
+import ReviewModal from './ReviewModal';
+import DeveloperSettings, { isAdmin } from './DeveloperSettings';
 
 export function Layout({ children }) {
     const location = useLocation();
@@ -15,6 +16,8 @@ export function Layout({ children }) {
     const [showCreditsModal, setShowCreditsModal] = useState(false);
     const [showPrivacyModal, setShowPrivacyModal] = useState(false);
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+    const [showReviewModal, setShowReviewModal] = useState(false);
+    const [showDevSettings, setShowDevSettings] = useState(false);
     const isActiveTab = (pageName) => location.pathname.startsWith(createPageUrl(pageName));
 
     return (
@@ -98,8 +101,11 @@ export function Layout({ children }) {
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" className="flex items-center space-x-1 sm:space-x-2 p-0.5 sm:p-1 rounded-full hover:bg-slate-800 transition-all duration-200">
                                         <Avatar className="w-7 h-7 sm:w-8 sm:h-8 ring-2 ring-slate-600">
-                                            <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-500 text-white font-semibold text-sm">
-                                                {user?.displayName?.[0] || user?.email?.[0] || 'U'}
+                                            <AvatarFallback
+                                                className="text-white font-semibold text-sm"
+                                                style={{ background: user?.avatarGradient || 'linear-gradient(135deg, #3b82f6, #8b5cf6)' }}
+                                            >
+                                                {(user?.displayName?.[0] || user?.fullName?.[0] || user?.email?.[0] || 'U').toUpperCase()}
                                             </AvatarFallback>
                                         </Avatar>
                                     </Button>
@@ -117,6 +123,14 @@ export function Layout({ children }) {
                                     <DropdownMenuItem onSelect={() => setShowPrivacyModal(true)} className="flex items-center text-slate-200 hover:bg-slate-700 hover:text-slate-100">
                                         <Shield size={14} className="mr-2"/>Privacy Policy
                                     </DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => setShowReviewModal(true)} className="flex items-center text-slate-200 hover:bg-slate-700 hover:text-slate-100">
+                                        <Star size={14} className="mr-2"/>Rate Us
+                                    </DropdownMenuItem>
+                                    {isAdmin(user?.uid) && (
+                                        <DropdownMenuItem onSelect={() => setShowDevSettings(true)} className="flex items-center text-purple-300 hover:bg-slate-700 hover:text-purple-200">
+                                            <Code2 size={14} className="mr-2"/>Developer Settings
+                                        </DropdownMenuItem>
+                                    )}
                                     <DropdownMenuSeparator className="bg-slate-700" />
                                     <DropdownMenuItem onSelect={logout} className="flex items-center text-red-400 hover:text-red-300 hover:bg-slate-700">
                                         <LogOut size={14} className="mr-2"/>Log Out
@@ -186,61 +200,101 @@ export function Layout({ children }) {
                             <div>
                                 <h3 className="text-lg font-semibold text-blue-400 mb-2">Information We Collect</h3>
                                 <p className="text-sm leading-relaxed">
-                                    We collect information you provide directly to us, such as when you create an account, use our services, or contact us. This may include your name, email address, study preferences, and academic progress data.
+                                    We collect information you provide directly to us when you create an account and use our services. This includes:
                                 </p>
+                                <ul className="text-sm space-y-1 mt-2">
+                                    <li>• <strong>Account information:</strong> Name and email address via Google Sign-In</li>
+                                    <li>• <strong>Study data:</strong> Subject selections, study preferences, blackout schedules, and academic progress</li>
+                                    <li>• <strong>Conversation history:</strong> Messages exchanged with AI tutors to maintain session context</li>
+                                    <li>• <strong>Test results:</strong> Practice test scores and performance analytics</li>
+                                    <li>• <strong>User-generated content:</strong> Flashcards, uploaded files, and feedback submissions</li>
+                                </ul>
                             </div>
                             
                             <div>
                                 <h3 className="text-lg font-semibold text-blue-400 mb-2">How We Use Your Information</h3>
                                 <ul className="text-sm space-y-1">
-                                    <li>• Provide and improve our AI tutoring services</li>
-                                    <li>• Personalize your learning experience</li>
-                                    <li>• Generate study schedules and recommendations</li>
-                                    <li>• Communicate with you about your account</li>
-                                    <li>• Ensure the security of our platform</li>
+                                    <li>• Provide and improve our AI tutoring, practice tests, and study tools</li>
+                                    <li>• Personalize your learning experience and generate study schedules</li>
+                                    <li>• Track your progress across subjects and exams</li>
+                                    <li>• Process AI requests through our AI service providers</li>
+                                    <li>• Ensure the security and reliability of our platform</li>
                                 </ul>
+                            </div>
+                            
+                            <div>
+                                <h3 className="text-lg font-semibold text-blue-400 mb-2">Third-Party Services</h3>
+                                <p className="text-sm leading-relaxed mb-2">
+                                    Apex Scholar integrates with the following third-party services, each with their own privacy policies:
+                                </p>
+                                <ul className="text-sm space-y-1">
+                                    <li>• <strong>Firebase (Google):</strong> Authentication, database storage, and hosting</li>
+                                    <li>• <strong>Puter.js:</strong> Free AI model access (Claude, GPT-4, Gemini) — messages are processed through Puter's servers</li>
+                                    <li>• <strong>Google Gemini API:</strong> Fallback AI service for generating tutoring responses</li>
+                                    <li>• <strong>Netlify:</strong> Website hosting and serverless functions</li>
+                                </ul>
+                                <p className="text-sm leading-relaxed mt-2">
+                                    We encourage you to review their respective privacy practices.
+                                </p>
                             </div>
                             
                             <div>
                                 <h3 className="text-lg font-semibold text-blue-400 mb-2">Data Security</h3>
                                 <p className="text-sm leading-relaxed">
-                                    We implement appropriate technical and organizational measures to protect your personal information against unauthorized access, alteration, disclosure, or destruction.
+                                    We implement appropriate technical measures to protect your personal information, including encrypted connections (HTTPS), Firebase security rules, and API key rotation. Your data is stored securely in Google Cloud infrastructure via Firebase.
                                 </p>
                             </div>
                             
                             <div>
-                                <h3 className="text-lg font-semibold text-blue-400 mb-2">Third-Party Services</h3>
+                                <h3 className="text-lg font-semibold text-blue-400 mb-2">Data Retention</h3>
                                 <p className="text-sm leading-relaxed">
-                                    We may use third-party services (like Firebase for authentication) that have their own privacy policies. We encourage you to review their privacy practices.
+                                    Your data is retained for as long as your account is active. Conversation histories and study data persist to support your ongoing learning. You may request deletion of your data at any time.
                                 </p>
                             </div>
                             
                             <div>
                                 <h3 className="text-lg font-semibold text-blue-400 mb-2">Your Rights</h3>
                                 <ul className="text-sm space-y-1">
-                                    <li>• Access your personal information</li>
-                                    <li>• Correct inaccurate data</li>
-                                    <li>• Delete your account and data</li>
-                                    <li>• Export your data</li>
-                                    <li>• Opt out of marketing communications</li>
+                                    <li>• Access and review your personal information</li>
+                                    <li>• Correct inaccurate data through Settings</li>
+                                    <li>• Request deletion of your account and all associated data</li>
+                                    <li>• Export your study data and progress</li>
+                                    <li>• Disconnect third-party services (Puter, Schoology)</li>
                                 </ul>
+                            </div>
+                            
+                            <div>
+                                <h3 className="text-lg font-semibold text-blue-400 mb-2">Children's Privacy</h3>
+                                <p className="text-sm leading-relaxed">
+                                    Apex Scholar is designed for high school students preparing for AP exams. We do not knowingly collect personal information from children under 13 without parental consent.
+                                </p>
                             </div>
                             
                             <div>
                                 <h3 className="text-lg font-semibold text-blue-400 mb-2">Contact Us</h3>
                                 <p className="text-sm leading-relaxed">
-                                    If you have any questions about this Privacy Policy, please contact us through the Feedback button.
+                                    If you have any questions about this Privacy Policy or wish to exercise your data rights, please contact us through the Feedback button in the menu.
                                 </p>
                             </div>
                             
                             <div className="pt-4 border-t border-slate-600">
                                 <p className="text-xs text-slate-400">
-                                    Last updated: 2/2/2026
+                                    Last updated: 2/22/26
                                 </p>
                             </div>
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Review Modal */}
+            {showReviewModal && (
+                <ReviewModal onClose={() => setShowReviewModal(false)} />
+            )}
+
+            {/* Developer Settings Modal */}
+            {showDevSettings && (
+                <DeveloperSettings onClose={() => setShowDevSettings(false)} />
             )}
 
             {/* Puter AI auth prompt — shown once after login if not yet connected */}
@@ -277,6 +331,7 @@ function FeedbackModal({ user, onClose }) {
         setSubmitStatus('Sending...');
 
         try {
+            const { default: emailService } = await import('../services/emailService');
             const result = await emailService.sendFeedback(
                 { feedbackType, title, message },
                 user

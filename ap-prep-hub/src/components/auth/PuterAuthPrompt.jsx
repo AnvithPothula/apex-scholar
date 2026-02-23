@@ -52,13 +52,52 @@ export default function PuterAuthPrompt() {
 
   // Decide whether to show the prompt
   useEffect(() => {
-    // Small delay so the page renders first and Puter SDK initialises
+    // Check at 4s, then poll every 2s up to 12s for the SDK to arrive.
+    // This handles both fast connections (~200ms) and very slow ones.
+    // On a blocked network, __puterBlocked is set within 0-10s by
+    // the loader in index.html (onerror, onload check, fetch probe, timeout).
+    let attempts = 0;
+    const maxAttempts = 5; // 4s + (5 * 2s) = 14s max wait
+
+    function tryShow() {
+      if (isPuterAuthenticated()) return true;   // already good, stop
+      if (wasRecentlySkipped()) return true;     // user said "skip", stop
+
+      // Check if the SDK is actually available (live check, no flag dependency)
+      const sdkAvailable = typeof window !== 'undefined'
+        && window.puter
+        && window.puter.ai
+        && typeof window.puter.ai.chat === 'function';
+
+      if (sdkAvailable) {
+        // SDK is loaded — show the auth prompt
+        visibleRef.current = true;
+        setVisible(true);
+        return true; // stop polling
+      }
+
+      // SDK not yet available — keep waiting
+      attempts++;
+
+      // After max attempts, show the prompt anyway so the user can try
+      if (attempts >= maxAttempts) {
+        visibleRef.current = true;
+        setVisible(true);
+        return true;
+      }
+      return false;
+    }
+
+    // First check at 4s
     const timer = setTimeout(() => {
-      if (isPuterAuthenticated()) return;   // already good
-      if (wasRecentlySkipped()) return;     // user said "skip" recently
-      visibleRef.current = true;
-      setVisible(true);
-    }, 1500);
+      if (tryShow()) return;
+      // If inconclusive, poll every 2s for the SDK to arrive
+      const interval = setInterval(() => {
+        if (tryShow()) clearInterval(interval);
+      }, 2000);
+      // Safety: clear interval after maxAttempts * 2s even if tryShow didn't stop it
+      setTimeout(() => clearInterval(interval), maxAttempts * 2000 + 100);
+    }, 4000);
     return () => clearTimeout(timer);
   }, []);
 
@@ -114,7 +153,15 @@ export default function PuterAuthPrompt() {
       setAuthState('success');
       setTimeout(() => setVisible(false), 1200);
     } catch (err) {
-      const msg = String(err?.message || err || '');
+      // Safely extract a human-readable error string (avoid [object Object])
+      let msg = '';
+      if (err instanceof Error) {
+        msg = err.message || '';
+      } else if (typeof err === 'string') {
+        msg = err;
+      } else {
+        try { msg = JSON.stringify(err); } catch { msg = ''; }
+      }
       // "User cancelled" is not a real error — they just closed the popup
       if (msg.toLowerCase().includes('cancel') || msg.toLowerCase().includes('closed')) {
         setAuthState('idle');

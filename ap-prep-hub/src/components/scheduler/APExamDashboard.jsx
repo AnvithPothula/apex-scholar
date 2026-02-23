@@ -32,12 +32,6 @@ const APExamDashboard = () => {
           const userData = userDocSnap.data();
           const subjects = userData.subjects || [];
           
-          console.log('APExamDashboard Debug:', {
-            userData,
-            subjects,
-            subjectsLength: subjects.length
-          });
-          
           setUserSubjects(subjects);
           
           const exams = getUpcomingExamsSync(subjects);

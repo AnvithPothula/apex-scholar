@@ -115,12 +115,10 @@ export const getCurrentYearExamDates = () => {
   // If we're past May (month 4), use next year's dates
   const targetYear = today.getMonth() >= 5 ? currentYear + 1 : currentYear;
   
-  console.log('📅 getCurrentYearExamDates:', {
-    today: today.toISOString().split('T')[0],
-    currentYear,
-    targetYear,
-    currentMonth: today.getMonth()
-  });
+  // For 2025, use the static verified College Board dates
+  if (targetYear === 2025) {
+    return AP_EXAM_DATES_2025;
+  }
   
   // Calculate the first Monday in May for the target year
   const firstOfMay = new Date(targetYear, 4, 1); // May 1st
@@ -151,9 +149,12 @@ export const getCurrentYearExamDates = () => {
   const week2Thursday = new Date(firstMonday); week2Thursday.setDate(week1Monday.getDate() + 10);
   const week2Friday = new Date(firstMonday); week2Friday.setDate(week1Monday.getDate() + 11);
   
-  // Format date helper
+  // Format date helper — use local date parts to avoid UTC day-shift issues
   const formatDate = (date) => {
-    return date.toISOString().split('T')[0];
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
   };
   
   // Dynamic exam schedule following AP College Board pattern
@@ -200,7 +201,7 @@ export const getCurrentYearExamDates = () => {
     "AP Precalculus": { date: formatDate(week2Tuesday), time: "12:00 PM" },
     "AP Spanish Literature and Culture": { date: formatDate(week1Wednesday), time: "12:00 PM" },
     "AP U.S. Government and Politics": { date: formatDate(week1Monday), time: "12:00 PM" },
-    "AP Comparative Government and Politics": { date: formatDate(week1Tuesday), time: "12:00 PM" },
+    "AP Government and Politics: Comparative": { date: formatDate(week1Tuesday), time: "12:00 PM" },
     "AP African American Studies": { date: formatDate(week1Wednesday), time: "12:00 PM" }
   };
   
@@ -235,9 +236,8 @@ export const getReviewSchedule = async (subject, examDate) => {
     } else {
       // Create schedule based on actual curriculum units
       units.forEach((unit, index) => {
-        // Start reviewing in reverse order (last unit first for review)
-        const reviewIndex = units.length - 1 - index;
-        const weeksBeforeExam = (reviewIndex + 1) * 2; // 2 weeks per unit review
+        // Review earlier units first (chronologically), recent units closer to exam
+        const weeksBeforeExam = (units.length - index) * 2; // 2 weeks per unit review
         const reviewDate = new Date(exam);
         reviewDate.setDate(exam.getDate() - (weeksBeforeExam * 7));
         
@@ -343,15 +343,8 @@ export const getUpcomingExamsSync = (userSubjects = []) => {
   // Convert user subject keys to exam names and filter
   const userExamNames = userSubjects.map(subjectKey => SUBJECT_KEY_TO_EXAM_NAME[subjectKey]).filter(Boolean);
   
-  console.log('🔍 Debug exam mapping:', {
-    userSubjects,
-    userExamNames,
-    availableExams: Object.keys(currentExamDates)
-  });
-  
   // Only show exams if user has subjects selected AND we can map them to exam names
   if (userSubjects.length === 0 || userExamNames.length === 0) {
-    console.log('❌ No subjects selected or no mappings found');
     return [];
   }
   
@@ -359,7 +352,10 @@ export const getUpcomingExamsSync = (userSubjects = []) => {
     .filter(([examName]) => userExamNames.includes(examName))
     .map(([examName, examInfo]) => {
       const examDate = new Date(examInfo.date);
-      const daysUntilExam = Math.ceil((examDate - today) / (1000 * 60 * 60 * 24));
+      // Fix: parse as local midnight to avoid UTC day-shift for US timezones
+      const [ey, em, ed] = examInfo.date.split('-').map(Number);
+      const examDateLocal = new Date(ey, em - 1, ed);
+      const daysUntilExam = Math.ceil((examDateLocal - today) / (1000 * 60 * 60 * 24));
       
       // Simple review schedule without async curriculum lookup
       const reviewSchedule = [
@@ -383,7 +379,7 @@ export const getUpcomingExamsSync = (userSubjects = []) => {
       return {
         subject: examName,
         ...examInfo,
-        examDate,
+        examDate: examDateLocal,
         daysUntilExam,
         reviewSchedule
       };
@@ -398,7 +394,8 @@ export const getUpcomingExamsSync = (userSubjects = []) => {
  * @returns {Object} Exam info with timezone-aware time display
  */
 export const getExamWithTimezone = (examName) => {
-  const examInfo = AP_EXAM_DATES_2025[examName];
+  const currentExamDates = getCurrentYearExamDates();
+  const examInfo = currentExamDates[examName];
   if (!examInfo) return null;
   
   const timezoneDisplay = getTimezoneDisplayString();
@@ -415,10 +412,11 @@ export const getExamWithTimezone = (examName) => {
  * @returns {Object} All exam dates with timezone information
  */
 export const getAllExamsWithTimezone = () => {
+  const currentExamDates = getCurrentYearExamDates();
   const timezoneDisplay = getTimezoneDisplayString();
   const examsWithTimezone = {};
   
-  Object.entries(AP_EXAM_DATES_2025).forEach(([examName, examInfo]) => {
+  Object.entries(currentExamDates).forEach(([examName, examInfo]) => {
     examsWithTimezone[examName] = {
       ...examInfo,
       timeWithTimezone: `${examInfo.time} ${timezoneDisplay}`,
@@ -429,4 +427,5 @@ export const getAllExamsWithTimezone = () => {
   return examsWithTimezone;
 };
 
-export default AP_EXAM_DATES_2025;
+// Default export uses dynamic year resolution
+export default getCurrentYearExamDates();

@@ -2,6 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Button, Input, Textarea } from '../ui/UIComponents';
 
+// Format a Date as a local datetime-local string (avoids UTC shift from toISOString)
+const toLocalDateTimeString = (d) => {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
 export function TaskModal({ task, onClose, onSave, isOpen }) {
   const [formData, setFormData] = useState({
     name: '',
@@ -10,7 +16,7 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
     difficulty: 'Medium',
     estimated_time: 30,
     pages: 0,
-    deadline: new Date().toISOString().slice(0, 16),
+    deadline: toLocalDateTimeString(new Date()),
     description: ''
   });
 
@@ -20,14 +26,12 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
       let deadlineValue;
       if (task.deadline) {
         if (typeof task.deadline.toDate === 'function') {
-          // Firestore timestamp
-          deadlineValue = task.deadline.toDate().toISOString().slice(0, 16);
+          deadlineValue = toLocalDateTimeString(task.deadline.toDate());
         } else {
-          // Regular date
-          deadlineValue = new Date(task.deadline).toISOString().slice(0, 16);
+          deadlineValue = toLocalDateTimeString(new Date(task.deadline));
         }
       } else {
-        deadlineValue = new Date().toISOString().slice(0, 16);
+        deadlineValue = toLocalDateTimeString(new Date());
       }
 
       setFormData({
@@ -50,7 +54,7 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
         difficulty: 'Medium',
         estimated_time: 30,
         pages: 0,
-        deadline: new Date().toISOString().slice(0, 16),
+        deadline: toLocalDateTimeString(new Date()),
         description: '',
         priority: 'medium'
       });
@@ -217,7 +221,7 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
         <div className="p-4 sm:p-6 border-t border-slate-700 bg-slate-800/60">
           <div className="flex gap-3">
             <Button 
-              type="submit" 
+              type="button" 
               onClick={handleSubmit}
               className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 h-10 sm:h-11 text-sm"
             >

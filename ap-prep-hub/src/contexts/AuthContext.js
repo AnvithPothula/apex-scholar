@@ -14,6 +14,27 @@ import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import { auth, db } from '../config/firebase';
 import { getFirebaseErrorMessage } from '../utils/firebaseErrorMessages';
 
+const AVATAR_GRADIENTS = [
+  'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+  'linear-gradient(135deg, #10b981, #14b8a6)',
+  'linear-gradient(135deg, #f97316, #ef4444)',
+  'linear-gradient(135deg, #ec4899, #f43f5e)',
+  'linear-gradient(135deg, #8b5cf6, #6366f1)',
+  'linear-gradient(135deg, #06b6d4, #3b82f6)',
+  'linear-gradient(135deg, #f59e0b, #f97316)',
+  'linear-gradient(135deg, #d946ef, #8b5cf6)',
+  'linear-gradient(135deg, #14b8a6, #06b6d4)',
+  'linear-gradient(135deg, #f43f5e, #ec4899)',
+  'linear-gradient(135deg, #6366f1, #2563eb)',
+  'linear-gradient(135deg, #84cc16, #22c55e)',
+];
+
+export { AVATAR_GRADIENTS };
+
+export function generateAvatarGradient() {
+  return AVATAR_GRADIENTS[Math.floor(Math.random() * AVATAR_GRADIENTS.length)];
+}
+
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
@@ -113,17 +134,29 @@ export const AuthProvider = ({ children }) => {
                         const userDocSnap = await getDoc(userDocRef);
                         
                         if (userDocSnap.exists()) {
-
-                            setUser(prev => ({ ...prev, ...userDocSnap.data() }));
+                            const userData = userDocSnap.data();
+                            setUser(prev => ({ ...prev, ...userData }));
+                            // Backfill avatarGradient for existing users who don't have one
+                            if (!userData.avatarGradient) {
+                                const gradient = generateAvatarGradient();
+                                try {
+                                    await updateDoc(userDocRef, { avatarGradient: gradient });
+                                    setUser(prev => ({ ...prev, avatarGradient: gradient }));
+                                } catch (e) {
+                                    console.error('Failed to backfill avatar gradient:', e);
+                                }
+                            }
                         } else {
-
+                            const gradient = generateAvatarGradient();
                             // Create user document asynchronously
                             await setDoc(userDocRef, {
                                 fullName: displayName,
                                 email: firebaseUser.email,
                                 chatbotContext: 'I am a visual learner and prefer examples.',
                                 theme: 'light',
+                                avatarGradient: gradient,
                             });
+                            setUser(prev => ({ ...prev, avatarGradient: gradient }));
 
                         }
                     } catch (error) {
@@ -220,11 +253,14 @@ export const AuthProvider = ({ children }) => {
         try {
 
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            const gradient = generateAvatarGradient();
             await setDoc(doc(db, "users", userCredential.user.uid), {
                 fullName,
                 email,
+                displayName: fullName,
                 chatbotContext: 'I am a visual learner and prefer examples.',
                 theme: 'light',
+                avatarGradient: gradient,
             });
 
             return userCredential;

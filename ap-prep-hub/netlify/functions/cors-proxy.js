@@ -63,12 +63,30 @@ exports.handler = async (event) => {
       method: 'GET',
       headers: {
         Accept: 'text/calendar, application/calendar, text/plain, */*',
-        'User-Agent': 'Apex Scholar Calendar Sync/1.0',
+        // Use a browser-like UA — some school servers block bot-like agents
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
       },
       redirect: 'follow',
     });
 
     const body = await resp.text();
+
+    // If upstream returned a non-2xx status, relay it as an error so the
+    // client doesn't silently parse an HTML error page as iCal data.
+    if (!resp.ok) {
+      console.error(
+        `CORS proxy: upstream returned ${resp.status} for ${parsed.hostname}`
+      );
+      return {
+        statusCode: 502,
+        headers,
+        body: JSON.stringify({
+          error: `Upstream returned HTTP ${resp.status}`,
+          preview: body.substring(0, 300),
+        }),
+      };
+    }
 
     return {
       statusCode: resp.status,

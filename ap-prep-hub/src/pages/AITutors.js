@@ -48,6 +48,7 @@ import { cedSearch } from '../services/cedSearch';
 import { extractPdfTextFromBase64 } from '../services/pdfUtils';
 import SubjectSelector from '../components/tutors/SubjectSelector.jsx';
 import MarkdownRenderer from '../components/MarkdownRenderer.jsx';
+import ModelSelector, { getDefaultModel, saveSelectedModel } from '../components/ui/ModelSelector.jsx';
 import { subjects } from '../constants/subjects';
 import { getCurriculumData } from '../constants/comprehensiveCurriculum';
 import { 
@@ -83,6 +84,7 @@ const AITutors = () => {
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [selectedMode, setSelectedMode] = useState('Explain'); // 'Explain' | 'Practice MCQ' | 'Walkthrough' | 'Summarize Attachment'
   const [checkMySteps, setCheckMySteps] = useState(false);
+  const [selectedModel, setSelectedModel] = useState(getDefaultModel);
   const [showCalculator, setShowCalculator] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [isSwitchingSubjects, setIsSwitchingSubjects] = useState(false);
@@ -328,19 +330,31 @@ const AITutors = () => {
 
   // Initialize conversations when user or subject changes
   useEffect(() => {
+    let unsubscribe = null;
     if (user && selectedSubject) {
-      loadConversations(user.uid, selectedSubject);
+      loadConversations(user.uid, selectedSubject).then(unsub => {
+        unsubscribe = unsub;
+      });
     }
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, [user, selectedSubject, loadConversations]);
 
   // Load messages when active conversation changes
   useEffect(() => {
     let unsubscribe = null;
+    let cancelled = false;
     
     if (activeConversationId) {
       console.log('Loading messages for conversation:', activeConversationId);
       loadConversationMessages(activeConversationId).then(unsub => {
-        unsubscribe = unsub;
+        if (cancelled) {
+          // Effect already cleaned up — tear down the new listener immediately
+          if (unsub) unsub();
+        } else {
+          unsubscribe = unsub;
+        }
       });
     } else {
       // Clear messages when no conversation is active
@@ -349,6 +363,7 @@ const AITutors = () => {
     
     // Cleanup function
     return () => {
+      cancelled = true;
       if (unsubscribe) {
         unsubscribe();
       }
@@ -376,15 +391,14 @@ const AITutors = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Debug effect to track state changes
+  // Debug effect to track state changes (excludes currentMessage to avoid keystroke spam)
   useEffect(() => {
     console.log('Current state:', {
       selectedSubject,
       messageCount: messages.length,
-      currentMessage,
       isTyping
     });
-  }, [selectedSubject, messages, currentMessage, isTyping]);
+  }, [selectedSubject, messages, isTyping]);
 
   // Auto scroll to bottom of messages
   const scrollToBottom = () => {
@@ -393,7 +407,7 @@ const AITutors = () => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, isTyping]);
 
   // Close conversation menu when clicking elsewhere
   useEffect(() => {
@@ -617,16 +631,23 @@ const AITutors = () => {
       }
     } finally {
       // Clear the flag after subject switching is complete
-      const timer = setTimeout(() => setIsSwitchingSubjects(false), 1000);
-      return () => clearTimeout(timer);
+      setTimeout(() => setIsSwitchingSubjects(false), 1000);
     }
   }, [user, loadConversations, activeConversationId, conversations.length, cleanupEmptyConversation]);
 
-  // Handle URL subject parameter
+  // Handle URL subject parameter — sync selectedSubject with the route
   useEffect(() => {
     if (urlSubject && urlSubject !== selectedSubject) {
       console.log('URL subject detected:', urlSubject);
       handleSubjectSelect(urlSubject);
+    } else if (!urlSubject && selectedSubject) {
+      // Navigated back to /AITutors (no subject in URL) — show subject selector
+      setSelectedSubject(null);
+      setActiveConversationId(null);
+      setMessages([]);
+      setConversations([]);
+      setCurrentMessage('');
+      setUploadedFiles([]);
     }
   }, [urlSubject, selectedSubject, handleSubjectSelect]);
 
@@ -699,6 +720,10 @@ const AITutors = () => {
       };
       if (sanitizedFiles && sanitizedFiles.length > 0) {
         messageData.files = sanitizedFiles;
+      }
+      // Persist suggestions for welcome messages so they survive page reload
+      if (Array.isArray(message.suggestions) && message.suggestions.length > 0) {
+        messageData.suggestions = message.suggestions;
       }
       
       console.log('Saving message to Firebase...', { conversationId, messageId: messageData.id });
@@ -969,26 +994,41 @@ const AITutors = () => {
     const { mode = 'Explain', checkMySteps = false } = opts;
     
     // Build conversation history for context (last 6 messages for optimal performance)
+    // IMPORTANT: Only include images from the LATEST message to save tokens.
+    // Older images are replaced with text descriptions.
     const hasFiles = Array.isArray(uploadedFiles) && uploadedFiles.length > 0;
-    const conversationHistory = messages.slice(-6).map(msg => {
+    const conversationHistory = messages.slice(-6).map((msg, idx, arr) => {
       const sanitizedContent = msg.type === 'user' ? sanitizeUserInput(msg.content) : msg.content;
-      const parts = [{ text: sanitizedContent }];
+      // Truncate older assistant responses to save input tokens
+      const isOldMessage = idx < arr.length - 2;
+      const truncatedContent = isOldMessage && msg.type === 'ai' && sanitizedContent.length > 500
+        ? sanitizedContent.substring(0, 500) + '... [truncated for brevity]'
+        : sanitizedContent;
+      const parts = [{ text: truncatedContent }];
       
-      // Add file content to conversation history if present
+      // Only include inline image data for the most recent user message.
+      // For older messages, include a text reference instead to save tokens.
+      const isLatestUserMsg = idx === arr.length - 1 && msg.type === 'user';
       if (msg.files) {
         msg.files.forEach(file => {
           if (file.category === 'image' && file.data) {
-            parts.push({
-              inline_data: {
-                mime_type: file.mimeType || file.type || 'image/png',
-                data: file.data
-              }
-            });
-            parts.push({ text: `[Image: ${file.name}]` });
+            if (isLatestUserMsg) {
+              parts.push({
+                inline_data: {
+                  mime_type: file.mimeType || file.type || 'image/png',
+                  data: file.data
+                }
+              });
+              parts.push({ text: `[Image: ${file.name}]` });
+            } else {
+              parts.push({ text: `[Previously uploaded image: ${file.name}]` });
+            }
           } else if (file.category === 'text' && file.content) {
-            parts.push({ text: `[File: ${file.name}]\n${file.content}` });
+            // Truncate old text file content
+            const content = isOldMessage ? file.content.substring(0, 500) + '...' : file.content;
+            parts.push({ text: `[File: ${file.name}]\n${content}` });
           } else if (file.category === 'document') {
-            parts.push({ text: `[Document: ${file.name} - Please analyze in context of AP ${subjectName}]` });
+            parts.push({ text: `[Document: ${file.name}]` });
           }
         });
       }
@@ -1001,29 +1041,9 @@ const AITutors = () => {
 
   // Get comprehensive curriculum information for deep subject knowledge
     const curriculumContext = curriculumData ? `
-COMPREHENSIVE CURRICULUM MASTERY:
-Course: ${curriculumData.name}
-Description: ${curriculumData.description || 'Rigorous AP-level academic preparation'}
-
-COMPLETE UNIT BREAKDOWN:
-${curriculumData.units?.map((unit, i) => `
-Unit ${i + 1}: ${unit.name}
-  - Weight: ${unit.weight || 'Significant portion'}
-  - Key Topics: ${unit.topics?.join(', ') || 'Core concepts'}
-  - Essential Knowledge: ${unit.essentialKnowledge?.join('; ') || 'Fundamental principles'}
-  - Skills: ${unit.skills?.join(', ') || 'Critical analysis and application'}
-`).join('') || 'Multiple comprehensive units covering all AP standards'}
-
-EXAM STRUCTURE:
-${curriculumData.examFormat ? `
-- Duration: ${curriculumData.examFormat.duration}
-- Sections: ${curriculumData.examFormat.sections?.map(s => 
-  `${s.name} (${s.questions} questions, ${s.time}, ${s.weight})`
-).join('; ') || 'Multiple choice and free response sections'}
-` : 'Comprehensive AP examination with multiple choice and free response components'}
-
-STUDY STRATEGIES:
-${curriculumData.studyTips?.join('\n- ') || 'Active learning, practice problems, conceptual understanding'}
+CURRICULUM: ${curriculumData.name}
+${curriculumData.units?.map((unit, i) => `Unit ${i + 1}: ${unit.name} (${unit.weight || '~equal'}) — ${unit.topics?.slice(0, 5).join(', ') || 'Core concepts'}`).join('\n') || 'Multiple units covering all AP standards'}
+${curriculumData.examFormat ? `EXAM: ${curriculumData.examFormat.duration} — ${curriculumData.examFormat.sections?.map(s => `${s.name}: ${s.questions}q, ${s.weight}`).join('; ') || 'MC + FRQ'}` : ''}
 ` : 'AP-level curriculum with comprehensive academic standards';
 
     // Subject suggestion for boundary messaging
@@ -1092,8 +1112,9 @@ ${citations.map(c => `- Page ${c.page}: ${c.snippet}`).join('\n')}
 `
     : '';
 
-  // Enhanced system prompt with strict anti-hallucination guidance
-  const systemPrompt = `You are an expert AP ${subjectName} tutor with deep mastery of the official College Board curriculum and advanced multimodal analysis capabilities. You ONLY answer questions related to ${subjectName}.
+  // Enhanced system prompt — compact to reduce per-call token usage
+  const studentName = user?.displayName || user?.fullName || '';
+  const systemPrompt = `You are an expert AP ${subjectName} tutor. You ONLY answer questions related to ${subjectName}. Your goal: help the student score a 5.${studentName ? `\nThe student's name is ${studentName}. Address them by name occasionally.` : ''}
 
 ${curriculumContext}
 
@@ -1101,57 +1122,19 @@ ${modeDirective}
 ${critiqueDirective}
 ${citationsBlock}
 
-MULTIMODAL ANALYSIS CAPABILITIES:
-When analyzing uploaded files:
-- **Images**: Identify diagrams, charts, graphs, equations, lab setups, or problem screenshots and explain them in the context of AP ${subjectName}
-- **Documents**: Extract key concepts and relate them directly to course content and exam preparation
-- **Text Files**: Analyze notes, practice problems, or study materials and provide targeted feedback
-- **Connection to Curriculum**: Always connect file content to specific units and learning objectives
+ATTACHMENTS: ${hasFiles ? 'Files attached — analyze them first, describe contents, then answer.' : 'None.'}
+- Only reference files if attached. Never ask user to upload unless they request it.
 
-ATTACHMENT CONTEXT: ${hasFiles ? 'Files are attached for the current user request.' : 'No files are attached for the current user request.'}
+FORMATTING:
+- Markdown: **bold**, *italics*, ## headers, bullet lists
+- LaTeX: $inline$ or $$display$$ for ALL math (e.g. $x^2 + y^2 = r^2$, $$\\frac{d}{dx}[f(x)]$$)
+- Keep responses under 400 words unless asked for more
+- No preambles ("Understood", "I'm ready", etc.)
 
-ATTACHMENT POLICY:
-- Do NOT mention or describe any files, images, or PDFs unless they are explicitly attached in THIS conversation.
-- If no files are attached, answer based on the user's text only. Do NOT ask the user to upload files unless they specifically request file-based analysis.
-- If files are attached, you MUST analyze them first and describe what they show before anything else. Never claim you cannot view attachments when they exist.
+If asked about a non-${subjectName} topic: "${boundaryLine}"
+If ambiguous: give a brief best-effort answer, then ask one clarifying question.
 
-CRITICAL FORMATTING REQUIREMENTS:
-1. **Use Markdown**: Bold with **text**, italics with *text*, headers with ## Header
-2. **LaTeX Math**: Use LaTeX for ALL mathematical expressions: $inline$ or $$display$$
-  - Examples: $x^2 + y^2 = r^2$, $$\\frac{d}{dx}[f(x)] = f'(x)$$, $\\Delta H = H_{products} - H_{reactants}$
-3. **Concise Responses**: Keep responses under 400 words unless specifically asked for more detail
-4. **Subject Boundaries**:
-  - Use the boundary line ONLY if the user's request is clearly about a different AP subject (not a general skill or an attachment/file-analysis request).
-  - If asked about topics outside ${subjectName}, respond exactly as: "${boundaryLine}"
-  - If the question overlaps multiple AP subjects but includes AP ${subjectName} content, answer ONLY the AP ${subjectName}-relevant parts and ignore the rest.
-
-RESPONSE STRUCTURE:
-- **Direct Analysis**: Address the question/file content immediately
-- **Key Concepts**: 2-3 essential points with proper formatting
-- **Practical Application**: How this applies to AP ${subjectName}
-- **Brief Follow-up**: One engaging question to continue learning
-
-SUBJECT EXPERTISE FOR ${subjectName}:
-- You have complete mastery of all ${curriculumData?.units?.length || 'course'} units
-- You understand the specific AP ${subjectName} exam format and expectations
-- You can explain concepts at the appropriate academic level
-- You connect topics to the broader curriculum framework
-- You provide exam-relevant examples and applications
-
-MARKDOWN EXAMPLES:
-- Use **bold** for emphasis, *italics* for terms
-- Use ## for section headers, ### for subsections
-- Use $LaTeX$ for any mathematical content
-- Use > for important quotes or key principles
-- Use - for bullet points, 1. for numbered lists
-
-STYLE AND SAFETY:
-- Answer immediately. Avoid preambles like "Understood" or "I'm ready".
-- Stay strictly within ${subjectName} content.
-- If the question is ambiguous, ask one brief clarifying question after giving a concise best-effort answer.
-- Keep responses focused and well-formatted.
-
-Note: Your response must adhere to these guidelines without exception. Also, your entire purpose is for the user to get a 5 on the AP ${subjectName} test!`;
+RESPONSE STRUCTURE: Direct analysis → 2-3 key concepts → AP application → One follow-up question.`;
 
     try {
   // API request with resilient Gemini service (handles retries, rotation, and discovery)
@@ -1824,11 +1807,10 @@ Please check your internet connection and try again. In the meantime:
 
         {/* Diagnostics output removed */}
 
-      {/* Chat Area */}
-      <div className="flex-1 overflow-y-auto scroll-touch">
-        <div className="max-w-4xl mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
-          {/* Mode Selector */}
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-2" role="group" aria-label="Tutor modes">
+      {/* Mode Selector — sticky bar */}
+      <div className="bg-slate-800/90 backdrop-blur-xl border-b border-slate-700/50 z-10">
+        <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 py-2">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2" role="group" aria-label="Tutor modes">
             {['Explain','Practice MCQ','Walkthrough','Summarize Attachment'].map((m) => (
               <Button
                 key={m}
@@ -1848,6 +1830,12 @@ Please check your internet connection and try again. In the meantime:
               <span className="sm:hidden">Check</span>
             </label>
           </div>
+        </div>
+      </div>
+
+      {/* Chat Area */}
+      <div className="flex-1 overflow-y-auto scroll-touch">
+        <div className="max-w-4xl mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
           {/* Welcome Message */}
           {messages.length === 1 && messages[0].suggestions && (
             <motion.div
@@ -2075,7 +2063,7 @@ Please check your internet connection and try again. In the meantime:
             </div>
           )}
           
-          <div className="flex gap-4 items-end">
+          <div className="flex gap-2 sm:gap-3 items-end">
             <div className="flex-1">
               <Input
                 ref={inputRef}
@@ -2088,7 +2076,12 @@ Please check your internet connection and try again. In the meantime:
               />
             </div>
             
-            <div className="flex gap-1.5 sm:gap-2 flex-shrink-0">
+            <div className="flex gap-1.5 sm:gap-2 items-center flex-shrink-0">
+              <ModelSelector
+                value={selectedModel}
+                onChange={(m) => { setSelectedModel(m); saveSelectedModel(m); }}
+                compact
+              />
               <Button
                 variant="ghost" 
                 size="sm"

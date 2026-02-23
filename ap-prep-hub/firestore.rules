@@ -151,6 +151,15 @@ service cloud.firestore {
       allow write: if false; // Only admins can write (implement admin check if needed)
     }
 
+    // Reviews - any authenticated user can create; admins can read/delete
+    match /reviews/{reviewId} {
+      allow create: if request.auth != null &&
+                      request.auth.uid == request.resource.data.userId;
+      allow read, delete: if request.auth != null &&
+                      (request.auth.uid == 'b0eUycwZDHcmrkoeSEiD69QSbK32' ||
+                       request.auth.uid == 'A0yRGP86ZTahByzS0ALYeKAXOn52');
+    }
+
     // Deny all other access by default
     match /{document=**} {
       allow read, write: if false;

@@ -12,6 +12,7 @@ import LaTeXRenderer from '../components/LaTeXRenderer';
 import apiKeyManager from '../services/APIKeyManager';
 import apiManager from '../services/apiManager';
 import geminiService, { RateLimitError } from '../services/geminiService';
+import ModelSelector, { getDefaultModel, saveSelectedModel } from '../components/ui/ModelSelector';
 
 // Helper function to format time in seconds to MM:SS format
 const formatTimeFromSeconds = (seconds) => {
@@ -787,6 +788,7 @@ const PracticeTests = () => {
   const [tutorQuestion, setTutorQuestion] = useState('');
   const [tutorResponse, setTutorResponse] = useState('');
   const [generationProgress, setGenerationProgress] = useState({ generated: 0, total: 0 });
+  const [selectedModel, setSelectedModel] = useState(getDefaultModel);
   
   // Subject name mapping for backward compatibility
   const getCanonicalSubjectName = (subjectName) => {
@@ -899,40 +901,6 @@ const PracticeTests = () => {
   }, []);
 
   // Safe renderer for breakdown objects - handles both old and new safe formats
-  // NUCLEAR OPTION: Global object interceptor to prevent ANY part_* object from being rendered
-  useEffect(() => {
-    const originalConsoleError = console.error;
-    console.error = (...args) => {
-      const errorMessage = args.join(' ');
-      if (errorMessage.includes('Objects are not valid as a React child') && 
-          errorMessage.includes('part_a, part_b, part_c, part_d')) {
-        console.log('🚨 INTERCEPTED: React object rendering error - attempting to find source...');
-        console.trace('Error trace:');
-        
-        // Try to find any part_* objects in testResults
-        if (testResults) {
-          console.log('🔍 DEBUGGING: Current testResults state:', testResults);
-          const findPartObjects = (obj, path = '') => {
-            if (!obj || typeof obj !== 'object') return;
-            if (Array.isArray(obj)) {
-              obj.forEach((item, i) => findPartObjects(item, `${path}[${i}]`));
-              return;
-            }
-            Object.entries(obj).forEach(([key, value]) => {
-              const currentPath = path ? `${path}.${key}` : key;
-              findPartObjects(value, currentPath);
-            });
-          };
-          findPartObjects(testResults, 'testResults');
-        }
-      }
-      originalConsoleError.apply(console, args);
-    };
-    
-    return () => {
-      console.error = originalConsoleError;
-    };
-  }, [testResults]);
 
   // NUCLEAR SCAN: Force scan and clean testResults before any rendering
   const forceCleanTestResults = useCallback((results) => {
@@ -1685,6 +1653,22 @@ Format as JSON:
       setCurrentView('results');
     } catch (error) {
       console.error('Error calculating results:', error);
+      // Build fallback results so we don't end up on a blank screen
+      const totalQ = questions.length || 1;
+      const answeredCount = Object.keys(userAnswers).length;
+      const fallbackResults = {
+        totalQuestions: totalQ,
+        correctAnswers: 0,
+        percentage: 0,
+        apScore: 1,
+        timeSpent: getTimeSpent() || 0,
+        breakdown: {},
+        scoreBreakdown: {},
+        questionResults: [],
+        error: `Scoring failed: ${error.message}. Your answers were saved.`,
+      };
+      const cleaned = emergencyCleanResults(fallbackResults);
+      setTestResults(cleaned);
       setCurrentView('results');
     }
   }, [user, selectedSubject, selectedSection, selectedSubSection, questions, userAnswers, calculateResults, getTimeSpent, sanitizeResultsData, emergencyCleanResults]);
@@ -1700,7 +1684,7 @@ Format as JSON:
       timerRef.current = setInterval(() => {
         setTimeRemaining(prev => {
           if (prev <= 1) {
-            handleTimeUp();
+            clearInterval(timerRef.current);
             return 0;
           }
           return prev - 1;
@@ -1711,7 +1695,14 @@ Format as JSON:
     }
 
     return () => clearInterval(timerRef.current);
-  }, [testStarted, testPaused, timeRemaining, handleTimeUp]);
+  }, [testStarted, testPaused, timeRemaining > 0]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Separate effect for time-up detection (avoids side effects inside state updater)
+  useEffect(() => {
+    if (testStarted && !testPaused && timeRemaining === 0) {
+      handleTimeUp();
+    }
+  }, [timeRemaining, testStarted, testPaused, handleTimeUp]);
 
   // Auto-save functionality
   useEffect(() => {
@@ -1746,7 +1737,9 @@ Format as JSON:
             lastSaved: serverTimestamp()
           });
 
-          await addDoc(collection(db, 'testProgress'), progressData);
+          // Use setDoc with deterministic ID to upsert instead of creating a new doc every 30s
+          const progressRef = doc(db, 'testProgress', `${user.uid}_inprogress`);
+          await setDoc(progressRef, progressData);
         } catch (error) {
           console.error('Error saving progress:', error);
         }
@@ -2603,6 +2596,7 @@ Format as JSON:
     switch (subject) {
       case 'AP U.S. History':
         return generateAPUSHFullTest(difficulty, selectedUnits);
+      case 'AP World History: Modern':
       case 'AP World History':
         return generateWorldHistoryFullTest(difficulty, selectedUnits);
       case 'AP European History':
@@ -2611,6 +2605,8 @@ Format as JSON:
         return generateBiologyFullTest(difficulty, selectedUnits);
       case 'AP Chemistry':
         return generateChemistryFullTest(difficulty, selectedUnits);
+      case 'AP Physics 1: Algebra-Based':
+      case 'AP Physics 2: Algebra-Based':
       case 'AP Physics 1':
       case 'AP Physics 2':
       case 'AP Physics C: Mechanics':
@@ -2626,6 +2622,7 @@ Format as JSON:
       case 'AP English Literature and Composition':
         return generateEnglishLiteratureFullTest(difficulty, selectedUnits);
       case 'AP U.S. Government and Politics':
+      case 'AP Government and Politics: Comparative':
       case 'AP Comparative Government and Politics':
         return generateGovernmentFullTest(subject, difficulty, selectedUnits);
       case 'AP Human Geography':
@@ -2823,32 +2820,13 @@ Format as JSON:
       .replace(/\r\n/g, '\n') // Normalize line endings
       .replace(/\r/g, '\n');
     
-    // Fix common LaTeX rendering issues
+    // Fix common LaTeX rendering issues — ONLY for commands that won't collide
+    // with English words. Greek letters (alpha, beta, delta, pi, etc.) are NOT
+    // replaced here because they corrupt science text like "alpha particles".
+    // They are fixed post-parse in fixLaTeXInQuestions on $ delimited text only.
     cleanedText = cleanedText
       .replace(/rac\{/g, '\\frac{') // Fix missing backslash in fractions
-      .replace(/\bsin\(/g, '\\sin(') // Fix trig functions
-      .replace(/\bcos\(/g, '\\cos(')
-      .replace(/\btan\(/g, '\\tan(')
-      .replace(/\bln\(/g, '\\ln(')
-      .replace(/\blog\(/g, '\\log(')
-      .replace(/\blim_/g, '\\lim_') // Fix limits
-      .replace(/\bint\s/g, '\\int ') // Fix integrals
-      .replace(/\bsum_/g, '\\sum_') // Fix summations
-      .replace(/\bsqrt\{/g, '\\sqrt{') // Fix square roots
-      .replace(/\bpi\b/g, '\\pi') // Fix pi
-      .replace(/\btheta\b/g, '\\theta') // Fix theta
-      .replace(/\balpha\b/g, '\\alpha') // Fix alpha
-      .replace(/\bbeta\b/g, '\\beta') // Fix beta
-      .replace(/\binfty\b/g, '\\infty') // Fix infinity
-      .replace(/\bcdot\b/g, '\\cdot') // Fix multiplication
-      .replace(/\btimes\b/g, '\\times') // Fix times
-      .replace(/\bdiv\b/g, '\\div') // Fix division
-      .replace(/\bpm\b/g, '\\pm') // Fix plus-minus
-      .replace(/\bleq\b/g, '\\leq') // Fix less than or equal
-      .replace(/\bgeq\b/g, '\\geq') // Fix greater than or equal
-      .replace(/\bneq\b/g, '\\neq') // Fix not equal
-      .replace(/\brightarrow\b/g, '\\rightarrow') // Fix arrows
-      .replace(/\bleftarrow\b/g, '\\leftarrow');
+      .replace(/\bsqrt\{/g, '\\sqrt{'); // Fix square roots
     
   // IMPORTANT: Do not apply fixLaTeXInText to raw JSON text; it can corrupt JSON escapes like \n
   // We'll clean LaTeX fields AFTER parsing, on individual question fields.
@@ -3466,11 +3444,13 @@ Format as JSON:
   };
 
   // Helper function to fix LaTeX in text
+  // Only applies Greek-letter / symbol replacements INSIDE $...$ delimiters
+  // to avoid corrupting plain English like "alpha particles" or "beta decay"
   const fixLaTeXInText = (text) => {
     if (typeof text !== 'string') return text;
     
-    return text
-      // Fix malformed fractions - handle all patterns
+    // Phase 1: Fix malformed fraction/function stuttering (safe on all text)
+    let result = text
       .replace(/\\f\\f\\f\\frac/g, '\\frac')
       .replace(/\\f\\f\\frac/g, '\\frac')
       .replace(/\f\f\f\\frac/g, '\\frac')
@@ -3480,15 +3460,9 @@ Format as JSON:
       .replace(/\\\\\\\\frac/g, '\\frac')
       .replace(/\\\\\\frac/g, '\\frac')
       .replace(/\\\\frac/g, '\\frac')
-      // Fix any remaining f sequences before LaTeX commands
       .replace(/f+\\(frac|sqrt|sin|cos|tan|lim|int|sum)/g, '\\$1')
-      
-  // NOTE: Removed aggressive 'n'->'\n' newline heuristics to avoid corrupting words like 'to'/'or' or producing 'excerpt.nb)' artifacts
-      
-      // Fix double/triple backslashes
       .replace(/\\\\\\\\/g, '\\\\')
       .replace(/\\\\\\/g, '\\\\')
-      // Fix malformed common functions
       .replace(/\\l\\l\\lim/g, '\\lim')
       .replace(/\\l\\lim/g, '\\lim')
       .replace(/\\s\\s\\sin/g, '\\sin')
@@ -3497,58 +3471,53 @@ Format as JSON:
       .replace(/\\c\\cos/g, '\\cos')
       .replace(/\\t\\t\\tan/g, '\\tan')
       .replace(/\\t\\tan/g, '\\tan')
-      // Fix sqrt issues
       .replace(/\\s\\sqrt/g, '\\sqrt')
       .replace(/\\sq\\sqrt/g, '\\sqrt')
-      // Fix missing backslashes for common functions
-      .replace(/\brac\{/g, '\\frac{')
-      .replace(/\bsin\(/g, '\\sin(')
-      .replace(/\bcos\(/g, '\\cos(')
-      .replace(/\btan\(/g, '\\tan(')
-      .replace(/\bln\(/g, '\\ln(')
-      .replace(/\blog\(/g, '\\log(')
-      .replace(/\blim_/g, '\\lim_')
-      .replace(/\bint\s/g, '\\int ')
-      .replace(/\bsum_/g, '\\sum_')
-      .replace(/\bsqrt\{/g, '\\sqrt{')
-      // Fix Greek letters
-      .replace(/\bpi\b/g, '\\pi')
-      .replace(/\btheta\b/g, '\\theta')
-      .replace(/\balpha\b/g, '\\alpha')
-      .replace(/\bbeta\b/g, '\\beta')
-      .replace(/\bgamma\b/g, '\\gamma')
-      .replace(/\bdelta\b/g, '\\delta')
-      .replace(/\blambda\b/g, '\\lambda')
-      .replace(/\bmu\b/g, '\\mu')
-      .replace(/\bsigma\b/g, '\\sigma')
-      .replace(/\bomega\b/g, '\\omega')
-      // Fix mathematical symbols
-      .replace(/\binfty\b/g, '\\infty')
-      .replace(/\bcdot\b/g, '\\cdot')
-      .replace(/\btimes\b/g, '\\times')
-      .replace(/\bdiv\b/g, '\\div')
-      .replace(/\bpm\b/g, '\\pm')
-      .replace(/\bleq\b/g, '\\leq')
-      .replace(/\bgeq\b/g, '\\geq')
-      .replace(/\bneq\b/g, '\\neq')
-  .replace(/\brightarrow\b/g, '\\rightarrow')
-  .replace(/\bleftarrow\b/g, '\\leftarrow')
-  // Removed replacement of plain English 'to' with \\to to prevent 'to'/'or' collapsing issues
-      // Fix derivatives and integrals
-      .replace(/\bpartial\b/g, '\\partial')
-      .replace(/\bnabla\b/g, '\\nabla')
-      // Fix invalid escape sequences that break JSON
-      .replace(/\\i([^n])/g, 'i$1')  // Remove invalid \i escape unless it's \in
-      .replace(/\\([^\\nrt"'/bfnuUxacdgilmnpstv{}])/g, '$1') // Remove other invalid backslash escapes
-      // Clean up any remaining malformed patterns
-      .replace(/\\+([a-zA-Z]+)/g, (match, command) => {
-        // Only keep valid LaTeX commands with single backslash
-        const validCommands = ['frac', 'sqrt', 'sin', 'cos', 'tan', 'ln', 'log', 'lim', 'int', 'sum', 
-                              'pi', 'theta', 'alpha', 'beta', 'gamma', 'delta', 'lambda', 'mu', 'sigma', 'omega',
-                              'infty', 'cdot', 'times', 'div', 'pm', 'leq', 'geq', 'neq', 'rightarrow', 'leftarrow',
-                              'to', 'partial', 'nabla', 'text', 'mathbf', 'mathrm', 'mathit'];
-        return validCommands.includes(command) ? '\\' + command : command;
-      });
+      .replace(/\brac\{/g, '\\frac{');
+
+    // Phase 2: Fix LaTeX ONLY inside $...$ delimiters
+    // Split text by $ delimiters, process only the math segments
+    const parts = result.split(/(\$\$?[^$]*\$\$?)/g);
+    result = parts.map(part => {
+      // Only process segments that are inside $...$ or $$...$$
+      if (part.startsWith('$') && part.endsWith('$')) {
+        return part
+          .replace(/\bsin\(/g, '\\sin(')
+          .replace(/\bcos\(/g, '\\cos(')
+          .replace(/\btan\(/g, '\\tan(')
+          .replace(/\bln\(/g, '\\ln(')
+          .replace(/\blog\(/g, '\\log(')
+          .replace(/\blim_/g, '\\lim_')
+          .replace(/\bint\s/g, '\\int ')
+          .replace(/\bsum_/g, '\\sum_')
+          .replace(/\bsqrt\{/g, '\\sqrt{')
+          .replace(/\bpi\b/g, '\\pi')
+          .replace(/\btheta\b/g, '\\theta')
+          .replace(/\balpha\b/g, '\\alpha')
+          .replace(/\bbeta\b/g, '\\beta')
+          .replace(/\bgamma\b/g, '\\gamma')
+          .replace(/\bdelta\b/g, '\\delta')
+          .replace(/\blambda\b/g, '\\lambda')
+          .replace(/\bmu\b/g, '\\mu')
+          .replace(/\bsigma\b/g, '\\sigma')
+          .replace(/\bomega\b/g, '\\omega')
+          .replace(/\binfty\b/g, '\\infty')
+          .replace(/\bcdot\b/g, '\\cdot')
+          .replace(/\btimes\b/g, '\\times')
+          .replace(/\bdiv\b/g, '\\div')
+          .replace(/\bpm\b/g, '\\pm')
+          .replace(/\bleq\b/g, '\\leq')
+          .replace(/\bgeq\b/g, '\\geq')
+          .replace(/\bneq\b/g, '\\neq')
+          .replace(/\brightarrow\b/g, '\\rightarrow')
+          .replace(/\bleftarrow\b/g, '\\leftarrow')
+          .replace(/\bpartial\b/g, '\\partial')
+          .replace(/\bnabla\b/g, '\\nabla');
+      }
+      return part;
+    }).join('');
+    
+    return result;
   };
 
   // Helper function to check for duplicate questions
@@ -3642,6 +3611,7 @@ No specific units selected - generate questions that cover all units and topics 
     
     // Add subject-specific context for better questions
     switch(subject) {
+      case 'AP U.S. History':
       case 'AP US History':
         if (selectedUnits && selectedUnits.length > 0) {
           subjectContext = `Focus exclusively on these selected units: ${selectedUnits.join(', ')}. Draw all questions from content within these specific units only. Include diverse perspectives, causation, comparison, and change over time within the selected unit scope.${unitContext}`;
@@ -3649,6 +3619,7 @@ No specific units selected - generate questions that cover all units and topics 
           subjectContext = `Focus on periods: Colonial Era, Revolution, Early Republic, Antebellum, Civil War, Reconstruction, Gilded Age, Progressive Era, WWI, 1920s, Depression, WWII, Cold War, Modern America. Include diverse perspectives, causation, comparison, and change over time.${unitContext}`;
         }
         break;
+      case 'AP World History: Modern':
       case 'AP World History':
         if (selectedUnits && selectedUnits.length > 0) {
           subjectContext = `Focus exclusively on these selected units: ${selectedUnits.join(', ')}. Draw all questions from content within these specific units only. Emphasize global processes, cross-cultural interactions, technology, trade, social structures, and political systems within the selected unit scope.${unitContext}`;
@@ -3665,6 +3636,7 @@ No specific units selected - generate questions that cover all units and topics 
         break;
       case 'AP Government':
       case 'AP U.S. Government and Politics':
+      case 'AP Government and Politics: Comparative':
       case 'AP Comparative Government and Politics':
         if (selectedUnits && selectedUnits.length > 0) {
           subjectContext = `Focus exclusively on these selected units: ${selectedUnits.join(', ')}. Draw all questions from content within these specific units only.${unitContext}`;
@@ -3713,6 +3685,8 @@ IMPORTANT: Use proper LaTeX formatting with $ delimiters for chemical and mathem
 ${unitContext}`;
         }
         break;
+      case 'AP Physics 1: Algebra-Based':
+      case 'AP Physics 2: Algebra-Based':
       case 'AP Physics 1':
       case 'AP Physics 2':
       case 'AP Physics C: Mechanics':
@@ -3795,9 +3769,11 @@ ${unitContext}`;
           subjectContext = `Focus on: Java programming, object-oriented design, algorithms, data structures. Use realistic programming scenarios and debugging challenges.${unitContext}`;
         }
         break;
+      case 'AP English Literature and Composition':
       case 'AP English Literature':
         subjectContext = `Focus on: Poetry analysis, prose fiction, drama. Include works from diverse time periods and cultures. Emphasize literary devices, themes, and critical analysis.${unitContext}`;
         break;
+      case 'AP English Language and Composition':
       case 'AP English Language':
         subjectContext = `Focus on: Rhetorical analysis, argument construction, synthesis. Use contemporary and historical texts on social, political, and cultural issues.${unitContext}`;
         break;
@@ -4533,11 +4509,11 @@ Generate ${numQuestions} questions now:`;
     console.log('🔍 Sending prompt to AI:', prompt.substring(0, 200) + '...');
 
     // Adjust token limits based on question type complexity
-    let maxTokens = 4000; // Default for MCQ and SAQ
+    let maxTokens = 2500; // Default for MCQ and SAQ
     if (section === 'dbq') {
-      maxTokens = 12000; // Increased for DBQ with 7 documents and full content
+      maxTokens = 8000; // DBQ with documents
     } else if (section === 'leq') {
-      maxTokens = 3000; // Moderate for LEQ
+      maxTokens = 2000; // LEQ
     }
 
     try {
@@ -4798,13 +4774,29 @@ Generate ${numQuestions} questions now:`;
           }
           return isValid;
         }
-      }).map((q, index) => ({
-        ...q,
-        id: startId + index, // Ensure sequential IDs
-        // Normalize correctAnswer field - AI might use different field names
-        correctAnswer: typeof q.correctAnswer === 'number' ? q.correctAnswer : 
-                      typeof q.correct_answer === 'number' ? q.correct_answer : 0
-      }));
+      }).map((q, index) => {
+        // Convert letter answers (A/B/C/D) to numeric indices
+        const letterToIndex = { 'A': 0, 'B': 1, 'C': 2, 'D': 3, 'E': 4 };
+        let correctAnswer;
+        if (typeof q.correctAnswer === 'number') {
+          correctAnswer = q.correctAnswer;
+        } else if (typeof q.correct_answer === 'number') {
+          correctAnswer = q.correct_answer;
+        } else if (typeof q.correctAnswer === 'string' && letterToIndex[q.correctAnswer.toUpperCase()] !== undefined) {
+          correctAnswer = letterToIndex[q.correctAnswer.toUpperCase()];
+        } else if (typeof q.correct_answer === 'string' && letterToIndex[String(q.correct_answer).toUpperCase()] !== undefined) {
+          correctAnswer = letterToIndex[String(q.correct_answer).toUpperCase()];
+        } else {
+          // Last resort: check which option is marked correct
+          const correctIdx = (q.options || []).findIndex(opt => opt && opt.correct === true);
+          correctAnswer = correctIdx >= 0 ? correctIdx : 0;
+        }
+        return {
+          ...q,
+          id: startId + index,
+          correctAnswer,
+        };
+      });
       
       console.log(`Batch validation: ${validQuestions.length} valid questions from ${questionArray.length} generated`);
       
@@ -4922,8 +4914,11 @@ Provide a clear, educational response that helps the student understand why ${co
   };
 
   const resetTest = () => {
+    setCurrentView('setup');
     setSelectedSubject('');
     setSelectedSection('');
+    setSelectedSubSection('');
+    setSelectedUnits([]);
   // Difficulty setting removed
     setCustomTime('');
     setUseDefaultTime(true);
@@ -5058,9 +5053,11 @@ Provide a clear, educational response that helps the student understand why ${co
                              test.section === 'leq' ? 'Long Essay Question' :
                              'Full Test'}
                           </Badge>
-                          <Badge variant="outline">
-                            {test.difficulty}
-                          </Badge>
+                          {test.difficulty && (
+                            <Badge variant="outline">
+                              {test.difficulty}
+                            </Badge>
+                          )}
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                           <div>
@@ -5126,6 +5123,12 @@ Provide a clear, educational response that helps the student understand why ${co
               Generate personalized AP practice tests with AI-powered questions, real-time feedback, 
               and comprehensive score analysis. Prepare like never before!
             </p>
+            <div className="mt-3 flex justify-center">
+              <ModelSelector
+                value={selectedModel}
+                onChange={(m) => { setSelectedModel(m); saveSelectedModel(m); }}
+              />
+            </div>
           </motion.div>
 
           {/* Test Configuration */}
@@ -6580,7 +6583,7 @@ Provide a clear, educational response that helps the student understand why ${co
                             ) : (
                               <Button
                                 variant="ghost"
-                                onClick={() => setAskingTutor(question.id)}
+                                onClick={() => { setTutorResponse(''); setTutorQuestion(''); setAskingTutor(question.id); }}
                                 size="sm"
                                 className="text-blue-400 hover:text-blue-300"
                               >

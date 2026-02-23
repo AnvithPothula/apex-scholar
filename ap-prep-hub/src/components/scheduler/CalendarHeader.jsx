@@ -1,5 +1,5 @@
 import React from "react";
-import { Button } from "@/components/ui/button";
+import { Button } from "../ui/UIComponents";
 import { ChevronLeft, ChevronRight, Calendar, Grid, List, Clock } from "lucide-react";
 import { format, addDays, addWeeks, addMonths, subDays, subWeeks, subMonths } from "date-fns";
 

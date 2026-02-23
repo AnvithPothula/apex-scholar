@@ -7,7 +7,8 @@ import { useNavigate } from 'react-router-dom';
 import { AP_SUBJECTS } from '../constants/subjects';
 import geminiService, { RateLimitError } from '../services/geminiService';
 import dataService from '../services/dataService';
-import { renderWithLaTeX } from '../components/LaTeX';
+import MarkdownRenderer from '../components/MarkdownRenderer';
+import ModelSelector, { getDefaultModel, saveSelectedModel } from '../components/ui/ModelSelector';
 
 // Custom Dropdown Component
 const CustomDropdown = ({ options, value, onChange, placeholder, className = "" }) => {
@@ -81,32 +82,9 @@ const FlashcardsPage = () => {
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
   const [studySession, setStudySession] = useState(null);
+  const [selectedModel, setSelectedModel] = useState(getDefaultModel);
 
-  // Mock user collections (in real app, this would come from backend)
-  const [userCollections, setUserCollections] = useState([
-    {
-      id: 'latex-demo',
-      title: 'LaTeX Math Examples',
-      subject: 'Mathematics',
-      cardCount: 3,
-      cards: [
-        {
-          question: 'What is the quadratic formula?',
-          answer: 'The quadratic formula is: $$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$'
-        },
-        {
-          question: 'What is the derivative of $x^n$?',
-          answer: 'The derivative of $x^n$ is $\\frac{d}{dx}x^n = nx^{n-1}$'
-        },
-        {
-          question: 'Express the area of a circle using LaTeX',
-          answer: 'The area of a circle with radius $r$ is: $$A = \\pi r^2$$'
-        }
-      ],
-      difficulty: 'Easy',
-      description: 'Example flashcards demonstrating LaTeX math rendering'
-    }
-  ]);
+  const [userCollections, setUserCollections] = useState([]);
 
   // Load user's flashcard decks
   const loadUserFlashcards = useCallback(async () => {
@@ -208,11 +186,9 @@ const FlashcardsPage = () => {
       }));
     } else {
       // End of deck - count last card and finish study session
-      setStudySession(prev => {
-        const updated = { ...prev, cardsStudied: prev.cardsStudied + 1 };
-        finishStudySession(updated);
-        return updated;
-      });
+      const finalSession = { ...studySession, cardsStudied: studySession.cardsStudied + 1 };
+      setStudySession(finalSession);
+      finishStudySession(finalSession);
     }
   };
 
@@ -468,8 +444,8 @@ const FlashcardsPage = () => {
               </h2>
               <div className="text-sm sm:text-base md:text-lg text-slate-100 leading-relaxed">
                 {showAnswer 
-                  ? renderWithLaTeX(studyingDeck.cards[currentCardIndex]?.answer || 'No answer available')
-                  : renderWithLaTeX(studyingDeck.cards[currentCardIndex]?.question || 'No question available')
+                  ? <MarkdownRenderer content={studyingDeck.cards[currentCardIndex]?.answer || 'No answer available'} />
+                  : <MarkdownRenderer content={studyingDeck.cards[currentCardIndex]?.question || 'No question available'} />
                 }
               </div>
               {!showAnswer && (
@@ -545,6 +521,12 @@ const FlashcardsPage = () => {
             Create personalized flashcard decks with AI assistance and study smarter with 
             spaced repetition algorithms that adapt to your learning pace.
           </p>
+          <div className="mt-3 flex justify-center">
+            <ModelSelector
+              value={selectedModel}
+              onChange={(m) => { setSelectedModel(m); saveSelectedModel(m); }}
+            />
+          </div>
         </motion.div>
 
         {/* Search Bar */}
