@@ -8,6 +8,7 @@ import BlackoutScheduleManager from '../components/settings/BlackoutScheduleMana
 import { SchoologyIntegration } from '../components/settings/SchoologyIntegration';
 import { Button, Card, CardHeader, CardTitle, CardContent, Input } from '../components/ui/UIComponents';
 import CustomDropdown from '../components/ui/CustomDropdown';
+import MultiSelectDropdown from '../components/ui/MultiSelectDropdown';
 import HelpTooltip from '../components/ui/HelpTooltip';
 
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
@@ -62,6 +63,12 @@ const Settings = () => {
   const [showGradientPicker, setShowGradientPicker] = useState(false);
   const gradientPickerRef = useRef(null);
   const [studyPreferences, setStudyPreferences] = useState(getDefaultStudyPreferences());
+  const [aiPersonalization, setAiPersonalization] = useState({
+    style: 'balanced',    // professional, friendly, casual, encouraging, direct, balanced
+    useEmoji: false,
+    useHeaders: true,
+    customInstructions: ''
+  });
   const [blackoutDates, setBlackoutDates] = useState(() => getDefaultBlackoutSchedule()); // Initialize with empty schedule
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState('');
@@ -92,6 +99,9 @@ const Settings = () => {
         const mergedPrefs = { ...defaultPrefs, ...data.studyPreferences };
         setStudyPreferences(mergedPrefs);
         setBlackoutDates(data.blackoutDates || getDefaultBlackoutSchedule());
+        if (data.aiPersonalization) {
+          setAiPersonalization(prev => ({ ...prev, ...data.aiPersonalization }));
+        }
         
         // Set user's timezone preference
         setUserTimezonePreference(mergedPrefs.timezone || 'America/Chicago');
@@ -184,6 +194,12 @@ const Settings = () => {
         subjects: userSubjects || [],
         studyPreferences: validatedStudyPreferences,
         blackoutDates: validatedBlackoutDates,
+        aiPersonalization: {
+          style: aiPersonalization.style || 'balanced',
+          useEmoji: !!aiPersonalization.useEmoji,
+          useHeaders: aiPersonalization.useHeaders !== false,
+          customInstructions: (aiPersonalization.customInstructions || '').substring(0, 500)
+        },
         settingsLastUpdated: new Date().toISOString()
       }, { merge: true });
       
@@ -198,7 +214,7 @@ const Settings = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [user?.uid, studyPreferences, blackoutDates, userSubjects]);
+  }, [user?.uid, studyPreferences, blackoutDates, userSubjects, aiPersonalization]);
 
   // Auto-save when settings change (debounced)
   useEffect(() => {
@@ -221,7 +237,7 @@ const Settings = () => {
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [userSubjects, studyPreferences, blackoutDates, isInitialized, isLoading, handleSaveSettings]);
+  }, [userSubjects, studyPreferences, blackoutDates, aiPersonalization, isInitialized, isLoading, handleSaveSettings]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -242,13 +258,6 @@ const Settings = () => {
       setMessage('Study preferences reverted to defaults and will be saved automatically.');
       setTimeout(() => setMessage(''), 3000);
     }
-  };
-
-  const handleSubjectChange = (e) => {
-    const { value } = e.target;
-    setUserSubjects(prev =>
-      prev.includes(value) ? prev.filter(s => s !== value) : [...prev, value]
-    );
   };
 
   const handleNameSave = async () => {
@@ -393,31 +402,103 @@ const Settings = () => {
             </CardContent>
           </Card>
 
+          {/* AI Personalization */}
+          <Card className="bg-slate-800/60 border-slate-700 md:col-span-2">
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="text-slate-100 text-lg sm:text-xl">
+                AI Tutor Personalization
+                <span className="text-xs font-normal text-slate-400 block mt-1">
+                  Customize how your AI tutor communicates with you
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 sm:p-6 pt-0">
+              <div className="space-y-5">
+                {/* Response Style */}
+                <div>
+                  <label className="text-sm font-medium text-slate-300 mb-2 block">Response Style</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {[
+                      { value: 'balanced', label: 'Balanced', desc: 'Clear and adaptive' },
+                      { value: 'professional', label: 'Professional', desc: 'Formal and precise' },
+                      { value: 'friendly', label: 'Friendly', desc: 'Warm and conversational' },
+                      { value: 'casual', label: 'Casual', desc: 'Relaxed and chill' },
+                      { value: 'encouraging', label: 'Encouraging', desc: 'Supportive and motivating' },
+                      { value: 'direct', label: 'Direct', desc: 'Concise, no fluff' },
+                    ].map(({ value, label, desc }) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setAiPersonalization(prev => ({ ...prev, style: value }))}
+                        className={`text-left p-3 rounded-lg border transition-all ${
+                          aiPersonalization.style === value
+                            ? 'border-blue-500 bg-blue-500/10 ring-1 ring-blue-500'
+                            : 'border-slate-600 bg-slate-700/30 hover:border-slate-500'
+                        }`}
+                      >
+                        <span className={`block text-sm font-medium ${aiPersonalization.style === value ? 'text-blue-300' : 'text-slate-200'}`}>{label}</span>
+                        <span className="block text-xs text-slate-400 mt-0.5">{desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Formatting Toggles */}
+                <div className="flex flex-wrap gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={aiPersonalization.useEmoji}
+                      onChange={(e) => setAiPersonalization(prev => ({ ...prev, useEmoji: e.target.checked }))}
+                      className="h-4 w-4 text-blue-500 bg-slate-700 border-slate-600 rounded focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-slate-300">Use emoji in responses</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={aiPersonalization.useHeaders !== false}
+                      onChange={(e) => setAiPersonalization(prev => ({ ...prev, useHeaders: e.target.checked }))}
+                      className="h-4 w-4 text-blue-500 bg-slate-700 border-slate-600 rounded focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-slate-300">Use headers & lists for structure</span>
+                  </label>
+                </div>
+
+                {/* Custom Instructions */}
+                <div>
+                  <label htmlFor="customInstructions" className="text-sm font-medium text-slate-300 mb-2 block">
+                    Custom Instructions <span className="text-slate-500 font-normal">(optional)</span>
+                  </label>
+                  <textarea
+                    id="customInstructions"
+                    placeholder="e.g., I'm a visual learner. Explain things with analogies. Focus on exam-style practice."
+                    value={aiPersonalization.customInstructions}
+                    onChange={(e) => setAiPersonalization(prev => ({ ...prev, customInstructions: e.target.value.substring(0, 500) }))}
+                    rows={3}
+                    maxLength={500}
+                    className="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">{aiPersonalization.customInstructions.length}/500 characters</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card className="bg-slate-800/60 border-slate-700">
             <CardHeader className="p-4 sm:p-6">
               <CardTitle className="text-slate-100 text-lg sm:text-xl">Your AP Subjects</CardTitle>
             </CardHeader>
             <CardContent className="p-4 sm:p-6 pt-0">
-              <div className="grid grid-cols-1 gap-3 sm:gap-4">
-                {availableSubjects.map(subjectKey => {
-                  const curriculumData = getCurriculumData(subjectKey);
-                  return (
-                    <div key={subjectKey} className="flex items-center p-2 rounded-lg hover:bg-slate-700/30 transition-colors">
-                      <input
-                        type="checkbox"
-                        id={subjectKey}
-                        value={subjectKey}
-                        checked={userSubjects.includes(subjectKey)}
-                        onChange={handleSubjectChange}
-                        className="h-4 w-4 text-blue-500 bg-slate-700 border-slate-600 rounded focus:ring-blue-500 focus:ring-2 flex-shrink-0"
-                      />
-                      <label htmlFor={subjectKey} className="ml-3 block text-sm text-slate-300 cursor-pointer flex-1">
-                        {curriculumData?.name || subjectKey}
-                      </label>
-                    </div>
-                  );
-                })}
-              </div>
+              <MultiSelectDropdown
+                options={availableSubjects.map(subjectKey => ({
+                  value: subjectKey,
+                  label: getCurriculumData(subjectKey)?.name || subjectKey
+                }))}
+                selected={userSubjects}
+                onChange={setUserSubjects}
+                placeholder="Search and select your AP subjects..."
+              />
             </CardContent>
           </Card>
 

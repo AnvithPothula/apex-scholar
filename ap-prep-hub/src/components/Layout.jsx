@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { createPageUrl, cn } from '../utils/helpers';
 import ApexScholarLogo from './ui/ApexScholarLogo';
 import PuterAuthPrompt from './auth/PuterAuthPrompt';
+import OnboardingWalkthrough from './OnboardingWalkthrough';
 import ReviewModal from './ReviewModal';
 import DeveloperSettings, { isAdmin } from './DeveloperSettings';
 
@@ -299,6 +300,9 @@ export function Layout({ children }) {
 
             {/* Puter AI auth prompt — shown once after login if not yet connected */}
             <PuterAuthPrompt />
+
+            {/* Onboarding walkthrough — shown once for new users */}
+            <OnboardingWalkthrough />
         </div>
     );
 }

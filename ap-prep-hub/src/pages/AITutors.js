@@ -941,15 +941,28 @@ const AITutors = () => {
       // If MCQ mode and response is JSON, render as MCQ card
       if (selectedMode === 'Practice MCQ') {
         try {
-          const jsonMatch = response.match(/\{[\s\S]*\}$/);
-          if (jsonMatch) {
-            const mcq = JSON.parse(jsonMatch[0]);
-            if (mcq && Array.isArray(mcq.choices)) {
+          // Strip markdown code fences (```json ... ```)
+          let cleaned = response.replace(/```(?:json)?\s*([\s\S]*?)```/g, '$1').trim();
+          // Try to extract JSON object — find the outermost { ... }
+          const firstBrace = cleaned.indexOf('{');
+          const lastBrace = cleaned.lastIndexOf('}');
+          if (firstBrace !== -1 && lastBrace > firstBrace) {
+            const jsonStr = cleaned.substring(firstBrace, lastBrace + 1);
+            const mcq = JSON.parse(jsonStr);
+            if (mcq && mcq.question && Array.isArray(mcq.choices) && mcq.choices.length >= 2) {
               aiMessage.responseType = 'mcq';
               aiMessage.mcq = mcq;
+              // Replace content with just the question text (hide raw JSON from display)
+              aiMessage.content = mcq.question;
             }
           }
-        } catch (_) { /* ignore JSON parse issues */ }
+        } catch (_) {
+          // JSON parse failed — strip any JSON-looking blocks so user doesn't see raw JSON
+          aiMessage.content = response
+            .replace(/```(?:json)?\s*[\s\S]*?```/g, '')
+            .replace(/\{[\s\S]*"question"[\s\S]*"choices"[\s\S]*\}/g, '')
+            .trim() || 'I generated a practice question but had trouble formatting it. Please try again!';
+        }
       }
       
       console.log('Adding AI response:', aiMessage);
@@ -1114,7 +1127,24 @@ ${citations.map(c => `- Page ${c.page}: ${c.snippet}`).join('\n')}
 
   // Enhanced system prompt — compact to reduce per-call token usage
   const studentName = user?.displayName || user?.fullName || '';
+  const personalization = user?.aiPersonalization || {};
+  const styleMap = {
+    professional: 'Use formal, precise academic language.',
+    friendly: 'Be warm, conversational, and approachable.',
+    casual: 'Be relaxed and chill — like a friend who\'s good at the subject.',
+    encouraging: 'Be supportive and motivating. Celebrate progress.',
+    direct: 'Be concise. No filler. Get straight to the point.',
+    balanced: ''
+  };
+  const personalDirective = [
+    styleMap[personalization.style] || '',
+    personalization.useEmoji ? 'Use emoji occasionally to make responses engaging.' : 'Do NOT use emoji.',
+    personalization.useHeaders === false ? 'Avoid headers and bullet lists — use flowing prose instead.' : '',
+    personalization.customInstructions ? `STUDENT INSTRUCTIONS: ${personalization.customInstructions}` : ''
+  ].filter(Boolean).join('\n');
+
   const systemPrompt = `You are an expert AP ${subjectName} tutor. You ONLY answer questions related to ${subjectName}. Your goal: help the student score a 5.${studentName ? `\nThe student's name is ${studentName}. Address them by name occasionally.` : ''}
+${personalDirective ? `\n${personalDirective}` : ''}
 
 ${curriculumContext}
 
@@ -1127,7 +1157,9 @@ ATTACHMENTS: ${hasFiles ? 'Files attached — analyze them first, describe conte
 
 FORMATTING:
 - Markdown: **bold**, *italics*, ## headers, bullet lists
-- LaTeX: $inline$ or $$display$$ for ALL math (e.g. $x^2 + y^2 = r^2$, $$\\frac{d}{dx}[f(x)]$$)
+- LaTeX: ALWAYS wrap math in delimiters — $inline$ or $$display$$. Examples: $\\leftrightharpoons$, $\\int_a^b f(x)\\,dx$, $$\\frac{d}{dx}[f(x)]$$
+- Never write bare LaTeX commands without $ delimiters
+- Tables: Use proper Markdown table syntax with | and --- when presenting data
 - Keep responses under 400 words unless asked for more
 - No preambles ("Understood", "I'm ready", etc.)
 

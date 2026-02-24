@@ -562,14 +562,14 @@ const FlashcardsPage = () => {
                 className="flex-1 sm:flex-none bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-sm"
               >
                 <Plus className="w-4 h-4 mr-1 sm:mr-2" />
-                <span className="hidden sm:inline">Create </span>Manual
+                <span className="hidden sm:inline">Create Manual</span>
               </Button>
               <Button
                 onClick={() => setShowCreateForm(true)}
                 className="flex-1 sm:flex-none bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-sm"
               >
                 <Sparkles className="w-4 h-4 mr-1 sm:mr-2" />
-                <span className="hidden sm:inline">Create with </span>AI
+                <span className="hidden sm:inline">Create with AI</span>
               </Button>
             </div>
           </div>

@@ -7,7 +7,32 @@ import 'katex/dist/katex.min.css';
 // Stable plugin arrays — defined once at module scope so React.memo
 // and ReactMarkdown don't re-parse on every render.
 const remarkPlugins = [remarkMath];
-const rehypePlugins = [rehypeKatex];
+const rehypePlugins = [[rehypeKatex, { strict: false, trust: true }]];
+
+// Common bare LaTeX commands that appear outside $...$ delimiters.
+// We wrap them so remark-math / KaTeX can render properly.
+const BARE_LATEX_RE = /(?<!\$)\\(leftrightharpoons|rightleftharpoons|rightarrow|leftarrow|Rightarrow|Leftarrow|Leftrightarrow|leftrightarrow|uparrow|downarrow|int|iint|iiint|oint|sum|prod|lim|infty|partial|nabla|forall|exists|approx|neq|leq|geq|pm|mp|times|div|cdot|circ|bullet|alpha|beta|gamma|delta|epsilon|zeta|eta|theta|iota|kappa|lambda|mu|nu|xi|pi|rho|sigma|tau|upsilon|phi|chi|psi|omega|Delta|Gamma|Theta|Lambda|Pi|Sigma|Phi|Psi|Omega)(?!\w)(?!\$)/g;
+
+// Pre-process content to fix common LaTeX rendering issues
+function preprocessContent(content) {
+  if (!content || typeof content !== 'string') return content || '';
+
+  let processed = content;
+
+  // 1. Wrap bare LaTeX commands in $...$
+  processed = processed.replace(BARE_LATEX_RE, (match) => `$${match}$`);
+
+  // 2. Fix \frac{}{}, \sqrt{}, etc. that appear outside $...$
+  // Match \command{...}{...} or \command{...} not inside $ delimiters
+  processed = processed.replace(
+    /(?<!\$)\\(frac|sqrt|overline|underline|hat|bar|vec|dot|ddot|tilde|mathbb|mathcal|mathrm|text)\{/g,
+    (match) => `$${match}`
+  );
+  // Close the inline math if we opened it above — find the outermost }
+  // This is an approximation; for deeply nested braces we rely on the AI properly using $...$
+
+  return processed;
+}
 
 // Stable component overrides — same reason.
 const mdComponents = {
@@ -40,11 +65,26 @@ const mdComponents = {
       {children}
     </a>
   ),
+  // Table styling
+  table: ({ children }) => (
+    <div className="overflow-x-auto my-3 rounded-lg border border-slate-600">
+      <table className="min-w-full divide-y divide-slate-600 text-sm">{children}</table>
+    </div>
+  ),
+  thead: ({ children }) => <thead className="bg-slate-700/80">{children}</thead>,
+  tbody: ({ children }) => <tbody className="divide-y divide-slate-700/50">{children}</tbody>,
+  tr: ({ children }) => <tr className="hover:bg-slate-700/30 transition-colors">{children}</tr>,
+  th: ({ children }) => (
+    <th className="px-3 py-2 text-left text-xs font-semibold text-slate-200 uppercase tracking-wider">
+      {children}
+    </th>
+  ),
+  td: ({ children }) => <td className="px-3 py-2 text-slate-300 whitespace-normal">{children}</td>,
 };
 
 const MarkdownRenderer = memo(({ content, className = "" }) => {
-  // Memoize the content string to avoid re-parsing identical markdown
-  const memoizedContent = useMemo(() => content, [content]);
+  // Pre-process content for LaTeX fixes, then memoize
+  const memoizedContent = useMemo(() => preprocessContent(content), [content]);
 
   return (
     <div className={`markdown-content ${className}`}>

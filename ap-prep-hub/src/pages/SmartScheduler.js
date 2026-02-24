@@ -528,7 +528,7 @@ export default function SmartScheduler() {
       console.error("Error processing overdue task:", error);
       alert("Failed to update task. Please try again.");
     }
-  }, [user?.uid]);
+  }, [user]);
 
   // Generate intelligent schedule function
   // Reset auto-trigger flag when tasks change significantly, but only if no schedule exists

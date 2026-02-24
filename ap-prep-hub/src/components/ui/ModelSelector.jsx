@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { ChevronDown, Cpu, Sparkles, Zap, Crown } from 'lucide-react';
+import { ChevronDown, Cpu, Sparkles, Zap, Crown, LogIn } from 'lucide-react';
 import geminiService from '../../services/geminiService';
 
 /**
@@ -54,6 +54,19 @@ export default function ModelSelector({ value, onChange, compact = false, classN
     }, 1000);
     return () => { cancelled = true; clearInterval(iv); };
   }, []);
+
+  // Re-check Puter availability when auth completes
+  useEffect(() => {
+    const handleAuthComplete = () => {
+      setHasPuter(true);
+      // If current model is Gemini fallback, switch to the best Puter model
+      if (value === 'gemini-2.0-flash' && onChange) {
+        onChange('claude-sonnet-4');
+      }
+    };
+    window.addEventListener('apex:puterAuthComplete', handleAuthComplete);
+    return () => window.removeEventListener('apex:puterAuthComplete', handleAuthComplete);
+  }, [value, onChange]);
 
   // Close on outside click
   useEffect(() => {
@@ -123,10 +136,26 @@ export default function ModelSelector({ value, onChange, compact = false, classN
             })}
           </ul>
           {!hasPuter && (
-            <div className="px-3 py-2 border-t border-slate-700 bg-slate-800/50">
+            <div className="px-3 py-2.5 border-t border-slate-700 bg-slate-800/50 space-y-2">
               <p className="text-xs text-amber-400/80">
                 Connect Puter for 7+ free AI models including Claude & GPT-4
               </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  // Trigger Puter auth by clearing the skip flag and dispatching a custom event
+                  try {
+                    localStorage.removeItem('apex.puter.skipped');
+                    localStorage.removeItem('apex.puter.skippedAt');
+                  } catch {}
+                  window.dispatchEvent(new CustomEvent('apex:requestPuterAuth'));
+                }}
+                className="w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 rounded-lg text-xs text-blue-300 font-medium transition-colors"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                Connect Puter Account
+              </button>
             </div>
           )}
         </div>
@@ -139,9 +168,19 @@ export default function ModelSelector({ value, onChange, compact = false, classN
 export function getDefaultModel() {
   try {
     const saved = localStorage.getItem('apex.ai.userModel');
-    if (saved) return saved;
+    if (saved) {
+      // If saved model is a Puter model but Puter isn't available, fall back to Gemini
+      const isPuterModel = PUTER_MODELS.some(m => m.value === saved);
+      if (isPuterModel) {
+        const hasPuter = !!(geminiService.getPuter() || (window.puter && window.puter.ai));
+        if (!hasPuter) return 'gemini-2.0-flash';
+      }
+      return saved;
+    }
   } catch {}
-  return 'claude-sonnet-4';
+  // Default: check if Puter is available
+  const hasPuter = !!(geminiService.getPuter() || (window.puter && window.puter.ai));
+  return hasPuter ? 'claude-sonnet-4' : 'gemini-2.0-flash';
 }
 
 /** Utility: persist selected model */

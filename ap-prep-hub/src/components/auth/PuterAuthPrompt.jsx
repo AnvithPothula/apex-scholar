@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { X, Sparkles, Shield, Clock, ArrowRight, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
+import { Sparkles, Shield, Clock, ArrowRight, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
 
 /**
  * PuterAuthPrompt — shown after Firebase login if the user hasn't
@@ -101,6 +101,19 @@ export default function PuterAuthPrompt() {
     return () => clearTimeout(timer);
   }, []);
 
+  // Listen for manual re-open requests (e.g. from ModelSelector "Connect Puter" button)
+  useEffect(() => {
+    const handleRequest = () => {
+      if (isPuterAuthenticated()) return;
+      visibleRef.current = true;
+      setAuthState('idle');
+      setErrorMsg('');
+      setVisible(true);
+    };
+    window.addEventListener('apex:requestPuterAuth', handleRequest);
+    return () => window.removeEventListener('apex:requestPuterAuth', handleRequest);
+  }, []);
+
   // Poll for auth becoming valid while the prompt is visible (handles
   // edge case where the SDK completes auth in the background, e.g. via
   // a different tab or the SDK's own popup).
@@ -151,7 +164,9 @@ export default function PuterAuthPrompt() {
       // Set our permanent flag so the prompt never shows again
       try { localStorage.setItem(AUTH_KEY, 'true'); } catch {}
       setAuthState('success');
-      setTimeout(() => setVisible(false), 1200);
+      // Reload model selector defaults after Puter becomes available
+      window.dispatchEvent(new CustomEvent('apex:puterAuthComplete'));
+      setTimeout(() => setVisible(false), 1500);
     } catch (err) {
       // Safely extract a human-readable error string (avoid [object Object])
       let msg = '';
@@ -189,8 +204,7 @@ export default function PuterAuthPrompt() {
       <div className="bg-slate-800 rounded-2xl max-w-lg w-full border border-slate-700 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border-b border-slate-700 px-6 py-5">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3">
               <div className="p-2 rounded-xl bg-blue-500/20">
                 <Sparkles className="w-6 h-6 text-blue-400" />
               </div>
@@ -199,12 +213,6 @@ export default function PuterAuthPrompt() {
                 <p className="text-sm text-slate-400 mt-0.5">One-time setup — takes about 30 seconds</p>
               </div>
             </div>
-            {authState === 'idle' && (
-              <button onClick={handleSkip} className="text-slate-500 hover:text-slate-300 transition-colors p-1">
-                <X className="w-5 h-5" />
-              </button>
-            )}
-          </div>
         </div>
 
         {/* Body */}
@@ -236,6 +244,7 @@ export default function PuterAuthPrompt() {
                   <strong>Please note:</strong> A new tab will open to complete the setup. 
                   It may take a moment to load — <strong>do not close the tab</strong> while it's working. 
                   If you're asked to create a Puter account, it's free and quick.
+                  <br /><span className="text-amber-300/70 text-xs mt-1 block">Puter sign-in is per-device — you may need to connect again on other devices.</span>
                 </div>
               </div>
 

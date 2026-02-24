@@ -773,6 +773,8 @@ const PracticeTests = () => {
   const [selectedUnits, setSelectedUnits] = useState([]);
   const [customTime, setCustomTime] = useState('');
   const [useDefaultTime, setUseDefaultTime] = useState(true);
+  const [useDefaultQuestionCount, setUseDefaultQuestionCount] = useState(true);
+  const [customQuestionCount, setCustomQuestionCount] = useState('');
   const [questions, setQuestions] = useState([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedDBQDocument, setSelectedDBQDocument] = useState(null);
@@ -1655,7 +1657,6 @@ Format as JSON:
       console.error('Error calculating results:', error);
       // Build fallback results so we don't end up on a blank screen
       const totalQ = questions.length || 1;
-      const answeredCount = Object.keys(userAnswers).length;
       const fallbackResults = {
         totalQuestions: totalQ,
         correctAnswers: 0,
@@ -1901,7 +1902,13 @@ Format as JSON:
       let timeLimit = sectionConfig.time;
       let actualSection = selectedSection;
       
-      setGenerationProgress({ generated: 0, total: questionsCount });
+      // Apply custom question count if set
+      if (!useDefaultQuestionCount && customQuestionCount) {
+        const custom = parseInt(customQuestionCount);
+        if (custom > 0 && custom <= 100) {
+          questionsCount = custom;
+        }
+      }
       
       if (selectedSection === 'frq') {
         if (sectionConfig.subSections && selectedSubSection) {
@@ -1948,6 +1955,15 @@ Format as JSON:
           actualSection = 'frq';
         }
       }
+      
+      // Re-apply custom question count after subsection logic (which may override questionsCount)
+      if (!useDefaultQuestionCount && customQuestionCount) {
+        const custom = parseInt(customQuestionCount);
+        if (custom > 0 && custom <= 100) {
+          questionsCount = custom;
+        }
+      }
+      setGenerationProgress({ generated: 0, total: questionsCount });
       
       // Generate test questions using AI
   console.log('Generating test with:', { subject: selectedSubject, section: actualSection, count: questionsCount, units: selectedUnits });
@@ -5369,6 +5385,66 @@ Provide a clear, educational response that helps the student understand why ${co
                               placeholder="Minutes"
                               value={customTime}
                               onChange={(e) => setCustomTime(e.target.value)}
+                              className="w-24 text-right"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* Question Count Configuration */}
+                  {selectedSection && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.25 }}
+                    >
+                      <label className="block text-sm font-medium text-slate-300 mb-3">
+                        Number of Questions
+                      </label>
+                      <div className="space-y-3">
+                        <div
+                          onClick={() => setUseDefaultQuestionCount(true)}
+                          className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                            useDefaultQuestionCount
+                              ? 'border-green-500 bg-green-500/10'
+                              : 'border-slate-600 hover:border-slate-500 bg-slate-700/50'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-200">Official AP Count</span>
+                            <span className="text-green-400 font-medium">
+                              {(() => {
+                                const config = currentConfig;
+                                const section = config.sections.find(s => s.id === selectedSection);
+                                if (selectedSection === 'frq' && selectedSubSection && section?.subSections) {
+                                  const subSection = section.subSections.find(sub => sub.id === selectedSubSection);
+                                  return `${subSection?.questions || section?.questions || 0} questions`;
+                                }
+                                return `${section?.questions || 0} questions`;
+                              })()}
+                            </span>
+                          </div>
+                        </div>
+                        <div
+                          onClick={() => setUseDefaultQuestionCount(false)}
+                          className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                            !useDefaultQuestionCount
+                              ? 'border-blue-500 bg-blue-500/10'
+                              : 'border-slate-600 hover:border-slate-500 bg-slate-700/50'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-200">Custom Count</span>
+                            <Input
+                              type="number"
+                              placeholder="1-100"
+                              min="1"
+                              max="100"
+                              value={customQuestionCount}
+                              onChange={(e) => setCustomQuestionCount(e.target.value)}
                               className="w-24 text-right"
                               onClick={(e) => e.stopPropagation()}
                             />
