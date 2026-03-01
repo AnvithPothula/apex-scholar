@@ -47,9 +47,9 @@ export function FileUpload({ onFileUpload, onFileRemove, uploadedFiles = [] }) {
   };
 
   const getFileIcon = (fileType) => {
-    if (fileType.includes('pdf')) return <FileText className="w-4 h-4" />;
-    if (fileType.includes('image')) return <Image className="w-4 h-4" />;
-    return <File className="w-4 h-4" />;
+    if (fileType.includes('pdf')) return <FileText strokeWidth={1.5} className="w-4 h-4" />;
+    if (fileType.includes('image')) return <Image strokeWidth={1.5} className="w-4 h-4" />;
+    return <File strokeWidth={1.5} className="w-4 h-4" />;
   };
 
   const formatFileSize = (bytes) => {
@@ -73,45 +73,45 @@ export function FileUpload({ onFileUpload, onFileRemove, uploadedFiles = [] }) {
       <Button
         type="button"
         variant="outline"
-        className="gap-2 bg-white/70 dark:bg-slate-800/70 hover:bg-white dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600"
+        className="gap-2 bg-base-850 hover:bg-base-800 text-content-primary border-border-strong"
         onClick={() => fileInputRef.current?.click()}
       >
-        <Upload className="w-4 h-4" /> Add File
+        <Upload strokeWidth={1.5} className="w-4 h-4" /> Add File
       </Button>
 
       {/* Error Message */}
       {uploadError && (
-  <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-400/30 rounded-lg">
-          <AlertCircle className="w-4 h-4 text-red-500" />
-          <p className="text-sm text-red-600">{uploadError}</p>
+  <div className="flex items-center gap-2 p-3 bg-error-900/20 border border-error-500/30 rounded-sm">
+          <AlertCircle strokeWidth={1.5} className="w-4 h-4 text-error-500" />
+          <p className="text-sm text-error-400">{uploadError}</p>
         </div>
       )}
 
   {/* Uploaded Files List */}
       {uploadedFiles.length > 0 && (
         <div className="space-y-2">
-          <h4 className="text-sm font-medium text-slate-700">Uploaded Files:</h4>
+          <h4 className="text-sm font-medium text-content-primary">Uploaded Files:</h4>
           {uploadedFiles.map((file, index) => (
             <div
               key={`file-${index}-${file.name}-${file.size}`}
-              className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700"
+              className="flex items-center justify-between p-3 bg-base-850 rounded-sm border border-border"
             >
               <div className="flex items-center gap-3">
-                <div className="text-slate-500">
+                <div className="text-content-muted">
                   {getFileIcon(file.type)}
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{file.name}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">{formatFileSize(file.size)}</p>
+                  <p className="text-sm font-medium text-content-primary">{file.name}</p>
+                  <p className="text-xs text-content-muted">{formatFileSize(file.size)}</p>
                 </div>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => onFileRemove(index)}
-                className="h-8 w-8 text-slate-500 dark:text-slate-400 hover:text-red-500"
+                className="h-8 w-8 text-content-muted hover:text-error-500"
               >
-                <X className="w-4 h-4" />
+                <X strokeWidth={1.5} className="w-4 h-4" />
               </Button>
             </div>
           ))}

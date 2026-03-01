@@ -91,7 +91,7 @@ function FloatingSymbol({ symbol }) {
   }), []);
 
   return (
-    <div className="floating-symbol absolute text-slate-700/20 font-mono pointer-events-none select-none" style={style}>
+    <div className="floating-symbol absolute text-base-800/20 font-mono pointer-events-none select-none" style={style}>
       {symbol}
     </div>
   );
@@ -147,17 +147,17 @@ export default function NotFound() {
 
   const getScoreMessage = () => {
     const pct = correctCount / totalQuestions;
-    if (pct === 1) return { score: "5", msg: "Perfect score! Too bad this page still doesn't exist.", color: "text-green-400" };
-    if (pct >= 0.8) return { score: "4", msg: "Impressive! You clearly study too much.", color: "text-blue-400" };
-    if (pct >= 0.6) return { score: "3", msg: "Passing! Most colleges will accept this 404.", color: "text-yellow-400" };
-    if (pct >= 0.4) return { score: "2", msg: "Not quite. Maybe study the 404 curriculum.", color: "text-orange-400" };
-    return { score: "1", msg: "This page scored better than you.", color: "text-red-400" };
+    if (pct === 1) return { score: "5", msg: "Perfect score! Too bad this page still doesn't exist.", color: "text-success-400" };
+    if (pct >= 0.8) return { score: "4", msg: "Impressive! You clearly study too much.", color: "text-primary-400" };
+    if (pct >= 0.6) return { score: "3", msg: "Passing! Most colleges will accept this 404.", color: "text-warning-400" };
+    if (pct >= 0.4) return { score: "2", msg: "Not quite. Maybe study the 404 curriculum.", color: "text-accent-400" };
+    return { score: "1", msg: "This page scored better than you.", color: "text-error-400" };
   };
 
   const choiceLabels = ['A', 'B', 'C', 'D'];
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 overflow-hidden relative">
+    <div className="min-h-screen bg-base-900 flex items-center justify-center p-4 overflow-hidden relative">
       {/* CSS for floating animation */}
       <style>{`
         @keyframes floatUp {
@@ -174,7 +174,6 @@ export default function NotFound() {
 
       {/* Subtle grid pattern */}
       <div className="absolute inset-0 opacity-[0.03]" style={{
-        backgroundImage: 'linear-gradient(rgba(148,163,184,1) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,1) 1px, transparent 1px)',
         backgroundSize: '40px 40px'
       }} />
 
@@ -185,23 +184,23 @@ export default function NotFound() {
         className="relative z-10 max-w-md w-full"
       >
         {/* Main card */}
-        <div className="bg-slate-800/90 backdrop-blur-xl border border-slate-700/60 rounded-2xl shadow-2xl shadow-black/40 overflow-hidden">
+        <div className="bg-base-850 border border-border rounded-md shadow-floating overflow-hidden">
           
           {/* Exam header */}
-          <div className="bg-gradient-to-r from-slate-700/80 to-slate-700/40 px-5 py-3.5 border-b border-slate-600/40">
+          <div className="bg-base-800 px-5 py-3.5 border-b border-border-strong">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                  <Brain className="w-4 h-4 text-blue-400" />
+                <div className="w-7 h-7 rounded-lg bg-primary-900 flex items-center justify-center">
+                  <Brain className="w-4 h-4 text-primary-400" strokeWidth={1.5} />
                 </div>
                 <div>
-                  <span className="text-xs font-bold text-slate-300 tracking-wider uppercase block leading-tight">Apex Scholar</span>
-                  <span className="text-[10px] text-slate-500">Advanced Placement 404 Exam</span>
+                  <span className="text-xs font-bold text-content-secondary tracking-wider uppercase block leading-tight">Apex Scholar</span>
+                  <span className="text-[10px] text-content-muted">Advanced Placement 404 Exam</span>
                 </div>
               </div>
               <div className="text-right">
-                <span className="text-[10px] text-slate-500 font-mono block">EXAM CODE</span>
-                <span className="text-xs text-slate-400 font-mono font-bold">404-NF</span>
+                <span className="text-[10px] text-content-muted font-mono block">EXAM CODE</span>
+                <span className="text-xs text-content-muted font-mono font-bold">404-NF</span>
               </div>
             </div>
           </div>
@@ -212,7 +211,7 @@ export default function NotFound() {
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ delay: 0.1, type: "spring", stiffness: 200 }}
-              className="text-7xl sm:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-b from-slate-200 via-slate-400 to-slate-700 leading-none select-none tracking-tight"
+              className="text-7xl sm:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-b from-content-primary via-content-muted to-base-800 leading-none select-none tracking-tight"
             >
               404
             </motion.h1>
@@ -221,11 +220,11 @@ export default function NotFound() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
             >
-              <p className="text-slate-500 text-xs mt-1.5 font-medium">
+              <p className="text-content-muted text-xs mt-1.5 font-medium">
                 Page not found — but here's a pop quiz
               </p>
               {location.pathname !== '/' && (
-                <p className="text-slate-600 text-[10px] mt-1 font-mono truncate px-8">
+                <p className="text-content-muted text-[10px] mt-1 font-mono truncate px-8">
                   {location.pathname}
                 </p>
               )}
@@ -244,24 +243,24 @@ export default function NotFound() {
               >
                 {/* Progress bar */}
                 <div className="flex items-center gap-2 mb-3">
-                  <div className="flex-1 h-1 bg-slate-700/60 rounded-full overflow-hidden">
+                  <div className="flex-1 h-1 bg-base-800 rounded-full overflow-hidden">
                     <motion.div
-                      className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"
+                      className="h-full bg-primary-500 rounded-full"
                       initial={{ width: `${((qIndex) / totalQuestions) * 100}%` }}
                       animate={{ width: `${((qIndex + (answered ? 1 : 0)) / totalQuestions) * 100}%` }}
                       transition={{ duration: 0.3 }}
                     />
                   </div>
-                  <span className="text-[10px] text-slate-500 font-mono whitespace-nowrap">{questionNum}/{totalQuestions}</span>
+                  <span className="text-[10px] text-content-muted font-mono whitespace-nowrap">{questionNum}/{totalQuestions}</span>
                 </div>
 
                 {/* Question */}
                 <div className="mb-3">
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-lg">{currentQuestion.icon}</span>
-                    <span className="text-[10px] font-bold text-blue-400/80 uppercase tracking-wider">{currentQuestion.subject}</span>
+                    <span className="text-[10px] font-bold text-primary-400/80 uppercase tracking-wider">{currentQuestion.subject}</span>
                   </div>
-                  <p className="text-slate-200 text-sm font-medium leading-relaxed">{currentQuestion.question}</p>
+                  <p className="text-content-primary text-sm font-medium leading-relaxed">{currentQuestion.question}</p>
                 </div>
 
                 {/* Choices */}
@@ -269,19 +268,19 @@ export default function NotFound() {
                   {currentQuestion.choices.map((choice, i) => {
                     const isCorrect = i === currentQuestion.correct;
                     const isSelected = i === selected;
-                    let style = 'border-slate-700/50 bg-slate-900/40 hover:bg-slate-700/40 hover:border-slate-600/60 text-slate-300';
-                    let labelStyle = 'bg-slate-700/60 text-slate-400';
+                    let style = 'border-border bg-base-900/40 hover:bg-base-800/40 hover:border-border-strong text-content-secondary';
+                    let labelStyle = 'bg-base-800 text-content-muted';
 
                     if (answered) {
                       if (isCorrect) {
-                        style = 'border-green-500/50 bg-green-500/10 text-green-300';
-                        labelStyle = 'bg-green-500/30 text-green-300';
+                        style = 'border-success-500/50 bg-success-500/10 text-success-300';
+                        labelStyle = 'bg-success-500/30 text-success-300';
                       } else if (isSelected && !isCorrect) {
-                        style = 'border-red-500/50 bg-red-500/10 text-red-300';
-                        labelStyle = 'bg-red-500/30 text-red-300';
+                        style = 'border-error-500/50 bg-error-500/10 text-error-300';
+                        labelStyle = 'bg-error-500/30 text-error-300';
                       } else {
-                        style = 'border-slate-700/30 bg-slate-900/20 text-slate-500';
-                        labelStyle = 'bg-slate-700/30 text-slate-600';
+                        style = 'border-border/30 bg-base-900/20 text-content-muted';
+                        labelStyle = 'bg-base-800/30 text-content-muted';
                       }
                     }
 
@@ -312,10 +311,10 @@ export default function NotFound() {
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       onClick={handleNext}
-                      className="mt-3 w-full py-2 px-4 bg-blue-600/90 hover:bg-blue-500 rounded-lg text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                      className="mt-3 w-full py-2 px-4 bg-primary-500 hover:bg-primary-600 rounded-lg text-base-950 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
                     >
                       {questionNum >= totalQuestions ? 'See Results' : 'Next Question'}
-                      <ChevronRight className="w-3.5 h-3.5" />
+                      <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.5} />
                     </motion.button>
                   )}
                 </AnimatePresence>
@@ -332,23 +331,23 @@ export default function NotFound() {
                   const result = getScoreMessage();
                   return (
                     <div className="text-center py-4">
-                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/30 flex items-center justify-center mx-auto mb-3">
-                        <Trophy className="w-8 h-8 text-blue-400" />
+                      <div className="w-16 h-16 rounded-md bg-primary-900 border border-primary-500/30 flex items-center justify-center mx-auto mb-3">
+                        <Trophy className="w-8 h-8 text-primary-400" strokeWidth={1.5} />
                       </div>
                       <div className="mb-1">
-                        <span className="text-xs text-slate-500 uppercase tracking-wider font-bold">Your AP 404 Score</span>
+                        <span className="text-xs text-content-muted uppercase tracking-wider font-bold">Your AP 404 Score</span>
                       </div>
                       <div className={`text-5xl font-black ${result.color} mb-2`}>{result.score}</div>
-                      <p className="text-slate-400 text-sm mb-1">{correctCount}/{totalQuestions} correct</p>
-                      <p className="text-slate-500 text-xs italic px-4">{result.msg}</p>
+                      <p className="text-content-muted text-sm mb-1">{correctCount}/{totalQuestions} correct</p>
+                      <p className="text-content-muted text-xs italic px-4">{result.msg}</p>
 
                       {/* Score bubbles */}
                       <div className="flex justify-center gap-1.5 mt-4 mb-4">
                         {Array.from({ length: totalQuestions }).map((_, i) => (
                           <div key={i} className={`w-7 h-7 rounded-full border-2 flex items-center justify-center text-[10px] font-bold ${
                             i < correctCount
-                              ? 'bg-green-500/20 border-green-500/50 text-green-400'
-                              : 'bg-red-500/20 border-red-500/50 text-red-400'
+                              ? 'bg-success-500/20 border-success-500/50 text-success-400'
+                              : 'bg-error-500/20 border-error-500/50 text-error-400'
                           }`}>
                             {i < correctCount ? '✓' : '✗'}
                           </div>
@@ -357,9 +356,9 @@ export default function NotFound() {
 
                       <button
                         onClick={handleRestart}
-                        className="text-xs text-slate-500 hover:text-blue-400 transition-colors inline-flex items-center gap-1"
+                        className="text-xs text-content-muted hover:text-primary-400 transition-colors inline-flex items-center gap-1"
                       >
-                        <Sparkles className="w-3 h-3" />
+                        <Sparkles className="w-3 h-3" strokeWidth={1.5} />
                         Retake exam
                       </button>
                     </div>
@@ -375,25 +374,25 @@ export default function NotFound() {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.97 }}
               onClick={() => navigate(-1)}
-              className="flex-1 py-2.5 px-3 bg-slate-700/40 hover:bg-slate-700/70 border border-slate-600/40 rounded-xl text-slate-400 hover:text-slate-200 text-xs font-medium flex items-center justify-center gap-1.5 transition-all"
+              className="flex-1 py-2.5 px-3 bg-base-800/40 hover:bg-base-800/70 border border-border-strong rounded-sm text-content-muted hover:text-content-primary text-xs font-medium flex items-center justify-center gap-1.5 transition-all"
             >
-              <ArrowLeft className="w-3.5 h-3.5" />
+              <ArrowLeft className="w-3.5 h-3.5" strokeWidth={1.5} />
               Go Back
             </motion.button>
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.97 }}
               onClick={() => navigate('/AITutors')}
-              className="flex-1 py-2.5 px-3 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 rounded-xl text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-lg shadow-blue-600/20"
+              className="flex-1 py-2.5 px-3 bg-primary-500 hover:bg-primary-600 rounded-sm text-base-950 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-raised"
             >
-              <Home className="w-3.5 h-3.5" />
+              <Home className="w-3.5 h-3.5" strokeWidth={1.5} />
               Back to Studying
             </motion.button>
           </div>
         </div>
 
         {/* Footer */}
-        <p className="text-center text-slate-700 text-[10px] mt-3 font-medium">
+        <p className="text-center text-content-muted text-[10px] mt-3 font-medium">
           There is no AP exam for finding missing pages. Yet.
         </p>
       </motion.div>

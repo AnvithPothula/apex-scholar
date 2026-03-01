@@ -2,7 +2,214 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom utilities */
+/* ============================================================
+   APEX SCHOLAR DESIGN SYSTEM
+   All colors defined as CSS variables for scalable theming.
+   Tailwind config maps to these via var(--color-*).
+   ============================================================ */
+
+@layer base {
+  :root {
+    /* ---- Base / Backgrounds ---- */
+    --color-base-950: #0c0f14;
+    --color-base-900: #131720;
+    --color-base-850: #1a1f2e;
+    --color-base-800: #212738;
+    --color-base-750: #2a3146;
+
+    /* ---- Borders ---- */
+    --color-border: #2a3146;
+    --color-border-subtle: #1e2436;
+    --color-border-strong: #3a4262;
+
+    /* ---- Text ---- */
+    --color-text-primary: #e8ecf4;
+    --color-text-secondary: #9ba3b8;
+    --color-text-muted: #7c86a7;
+    --color-text-disabled: #4a5268;
+
+    /* ---- Primary Accent: Teal ---- */
+    --color-primary-400: #2dd4bf;
+    --color-primary-500: #14b8a6;
+    --color-primary-600: #0d9488;
+    --color-primary-700: #0f766e;
+    --color-primary-900: #0a3d38;
+    --color-primary-950: #06201d;
+
+    /* ---- Secondary Accent: Amber ---- */
+    --color-accent-400: #fbbf24;
+    --color-accent-500: #f59e0b;
+    --color-accent-900: #451a03;
+
+    /* ---- Semantic: Success ---- */
+    --color-success-400: #4ade80;
+    --color-success-500: #22c55e;
+    --color-success-900: #052e16;
+
+    /* ---- Semantic: Warning ---- */
+    --color-warning-400: #facc15;
+    --color-warning-500: #eab308;
+    --color-warning-900: #422006;
+
+    /* ---- Semantic: Error ---- */
+    --color-error-400: #f87171;
+    --color-error-500: #ef4444;
+    --color-error-900: #450a0a;
+
+    /* ---- Semantic: Info ---- */
+    --color-info-400: #60a5fa;
+    --color-info-500: #3b82f6;
+    --color-info-900: #172554;
+
+    /* ---- Interactive States ---- */
+    --color-hover-overlay: rgba(255, 255, 255, 0.04);
+    --color-active-overlay: rgba(255, 255, 255, 0.06);
+    --color-focus-ring: rgba(45, 212, 191, 0.4);
+
+    /* ---- Shadows ---- */
+    --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-raised: 0 4px 12px rgba(0, 0, 0, 0.4);
+    --shadow-floating: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  }
+
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-base-950);
+    color: var(--color-text-primary);
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+  }
+}
+
+/* ============================================================
+   COMPONENT UTILITY CLASSES
+   Reusable patterns to reduce repetition across components.
+   ============================================================ */
+
+@layer components {
+  /* Surface levels */
+  .surface-base { background-color: var(--color-base-950); }
+  .surface-primary { background-color: var(--color-base-900); }
+  .surface-raised { background-color: var(--color-base-850); border: 1px solid var(--color-border); }
+  .surface-elevated { background-color: var(--color-base-800); }
+
+  /* Cards */
+  .card-default {
+    @apply bg-base-850 border border-border rounded-md shadow-subtle;
+  }
+  .card-interactive {
+    @apply bg-base-850 border border-border rounded-md shadow-subtle transition-shadow duration-200 hover:shadow-raised;
+  }
+
+  /* Inputs */
+  .input-default {
+    @apply w-full rounded-sm border border-border-strong bg-base-800 px-3 py-2.5
+           text-body-sm text-content-primary placeholder:text-content-muted
+           focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 focus:outline-none
+           disabled:opacity-50 disabled:cursor-not-allowed
+           transition-colors duration-200;
+  }
+
+  /* Modals */
+  .modal-backdrop {
+    @apply fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4;
+  }
+  .modal-panel {
+    @apply bg-base-850 border border-border rounded-md shadow-floating;
+  }
+
+  /* Page layout */
+  .page-container {
+    @apply max-w-screen-xl mx-auto px-4 md:px-6 lg:px-8 py-6 md:py-8;
+  }
+  .page-header {
+    @apply mb-6 md:mb-8;
+  }
+  .page-title {
+    @apply font-display text-h1 text-content-primary;
+  }
+  .page-subtitle {
+    @apply font-body text-body text-content-secondary mt-1;
+  }
+
+  /* Navigation tabs */
+  .nav-tab {
+    @apply px-3 py-2 text-body-sm font-medium transition-colors duration-200;
+  }
+  .nav-tab-active {
+    @apply px-3 py-2 text-body-sm font-medium text-primary-400 border-b-2 border-primary-500;
+  }
+  .nav-tab-inactive {
+    @apply px-3 py-2 text-body-sm font-medium text-content-muted hover:text-content-primary transition-colors duration-200;
+  }
+
+  /* Empty states */
+  .empty-state {
+    @apply relative flex flex-col items-center justify-center text-center py-16 px-6 overflow-hidden;
+  }
+  .empty-state-pattern {
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(var(--color-border) 1px, transparent 1px);
+    background-size: 24px 24px;
+    opacity: 0.4;
+    mask-image: radial-gradient(ellipse at center, black 30%, transparent 70%);
+    -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 70%);
+    pointer-events: none;
+  }
+
+  /* Chart styles */
+  .chart-track {
+    @apply bg-base-800 rounded-full;
+  }
+  .chart-bar {
+    @apply bg-primary-500 rounded-full;
+  }
+  .chart-label {
+    @apply text-caption text-content-muted;
+  }
+  .chart-tooltip {
+    @apply bg-base-800 border border-border rounded-sm shadow-raised px-2 py-1 text-caption text-content-primary;
+  }
+}
+
+/* ============================================================
+   MOBILE-FIRST RESPONSIVE UTILITIES
+   ============================================================ */
+
+@layer utilities {
+  /* Safe area insets for notched devices */
+  .safe-top { padding-top: env(safe-area-inset-top); }
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+  .safe-left { padding-left: env(safe-area-inset-left); }
+  .safe-right { padding-right: env(safe-area-inset-right); }
+
+  /* Touch-friendly tap targets (minimum 44px) */
+  .touch-target { min-height: 44px; min-width: 44px; }
+
+  /* Prevent text selection on touch */
+  .no-select {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  /* Smooth momentum scrolling on iOS */
+  .scroll-touch { -webkit-overflow-scrolling: touch; }
+
+  /* Hide on specific breakpoints */
+  .hide-mobile { @apply hidden sm:block; }
+  .hide-tablet { @apply hidden md:block; }
+  .show-mobile-only { @apply block sm:hidden; }
+}
+
+/* ============================================================
+   GLOBAL STYLES
+   ============================================================ */
+
+/* Line clamp utility */
 .line-clamp-2 {
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -10,171 +217,53 @@
   overflow: hidden;
 }
 
-/* Mobile-first responsive utilities */
-@layer utilities {
-  /* Safe area insets for notched devices */
-  .safe-top {
-    padding-top: env(safe-area-inset-top);
-  }
-  .safe-bottom {
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-  .safe-left {
-    padding-left: env(safe-area-inset-left);
-  }
-  .safe-right {
-    padding-right: env(safe-area-inset-right);
-  }
-  
-  /* Touch-friendly tap targets (minimum 44px) */
-  .touch-target {
-    min-height: 44px;
-    min-width: 44px;
-  }
-  
-  /* Prevent text selection on touch */
-  .no-select {
-    -webkit-user-select: none;
-    user-select: none;
-    -webkit-touch-callout: none;
-  }
-  
-  /* Smooth momentum scrolling on iOS */
-  .scroll-touch {
-    -webkit-overflow-scrolling: touch;
-  }
-  
-  /* Hide on specific breakpoints */
-  .hide-mobile {
-    @apply hidden sm:block;
-  }
-  .hide-tablet {
-    @apply hidden md:block;
-  }
-  .show-mobile-only {
-    @apply block sm:hidden;
-  }
-}
-
 /* Smooth scrolling */
 html {
   scroll-behavior: smooth;
-  /* Prevent horizontal scroll on mobile */
   overflow-x: hidden;
 }
 
 /* Mobile viewport height fix */
 body {
   min-height: 100vh;
-  min-height: 100dvh; /* Dynamic viewport height for mobile browsers */
+  min-height: 100dvh;
 }
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
 }
-
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: var(--color-base-900);
 }
-
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: var(--color-border);
   border-radius: 3px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: var(--color-border-strong);
 }
 
 /* Animation utilities */
 @keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
-
 .animate-fade-in-up {
   animation: fadeInUp 0.5s ease-out;
 }
 
-/* Focus styles */
+/* Focus ring */
 .focus-ring {
-  @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+  @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-base-900;
 }
 
-/* Gradient text */
-.gradient-text {
-  @apply bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent;
-}
-
-/* Card hover effects */
+/* Card hover */
 .card-hover {
-  @apply transition-all duration-200 hover:shadow-lg hover:-translate-y-1;
+  @apply transition-all duration-200 hover:shadow-raised hover:-translate-y-1;
 }
 
-/* Button animations */
+/* Button animation */
 .btn-animate {
   @apply transition-all duration-200 hover:scale-105 active:scale-95;
-}
-
-@layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --radius: 0.5rem;
-  }
-
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-  }
-}
-
-@layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
 }

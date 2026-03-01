@@ -52,53 +52,53 @@ export default function MultiSelectDropdown({ options = [], selected = [], onCha
       {/* Trigger / Tags */}
       <button
         type="button"
-        className={`w-full min-h-[44px] px-3 py-2 bg-slate-800/50 border rounded-lg text-left flex flex-wrap items-center gap-1.5 transition-all ${
-          open ? 'border-blue-500 ring-2 ring-blue-500/30' : 'border-slate-600 hover:border-slate-500'
+        className={`w-full min-h-[44px] px-3 py-2 bg-base-800 border rounded-lg text-left flex flex-wrap items-center gap-1.5 transition-all ${
+          open ? 'border-primary-500 ring-2 ring-primary-500/30' : 'border-border-strong hover:border-border'
         }`}
         onClick={() => { setOpen(o => !o); setTimeout(() => inputRef.current?.focus(), 50); }}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
         {selected.length === 0 ? (
-          <span className="text-slate-400 text-sm">{placeholder}</span>
+          <span className="text-content-muted text-sm">{placeholder}</span>
         ) : (
           selectedLabels.map((label, i) => (
             <span
               key={selected[i]}
-              className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-600/20 border border-blue-500/30 rounded-md text-xs text-blue-300"
+              className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary-900 border border-primary-700/30 rounded-md text-xs text-primary-400"
             >
               {label}
               <button
                 type="button"
                 onClick={(e) => remove(selected[i], e)}
-                className="hover:text-white transition-colors"
+                className="hover:text-content-primary transition-colors"
                 aria-label={`Remove ${label}`}
               >
-                <X className="w-3 h-3" />
+                <X className="w-3 h-3" strokeWidth={1.5} />
               </button>
             </span>
           ))
         )}
-        <ChevronDown className={`w-4 h-4 text-slate-400 ml-auto flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`w-4 h-4 text-content-muted ml-auto flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth={1.5} />
       </button>
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute z-50 w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl overflow-hidden">
+        <div className="absolute z-50 w-full mt-1 bg-base-800 border border-border rounded-lg shadow-floating overflow-hidden">
           {/* Search */}
-          <div className="p-2 border-b border-slate-700">
+          <div className="p-2 border-b border-border-subtle">
             <input
               ref={inputRef}
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search subjects..."
-              className="w-full px-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+              className="w-full px-2 py-1.5 bg-base-800 border border-border-strong rounded text-sm text-content-primary placeholder-content-muted focus:outline-none focus:border-primary-500"
             />
           </div>
           <ul className="max-h-52 overflow-y-auto py-1" role="listbox">
             {filtered.length === 0 ? (
-              <li className="px-3 py-2 text-sm text-slate-500">No matches</li>
+              <li className="px-3 py-2 text-sm text-content-muted">No matches</li>
             ) : (
               filtered.map((opt) => {
                 const isSelected = selected.includes(opt.value);
@@ -110,14 +110,14 @@ export default function MultiSelectDropdown({ options = [], selected = [], onCha
                     onClick={() => toggle(opt.value)}
                     className={`flex items-center gap-2 px-3 py-2 cursor-pointer text-sm transition-colors ${
                       isSelected
-                        ? 'bg-blue-600/15 text-blue-300'
-                        : 'text-slate-300 hover:bg-slate-700/60'
+                        ? 'bg-primary-900 text-primary-400'
+                        : 'text-content-secondary hover:bg-base-750'
                     }`}
                   >
                     <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${
-                      isSelected ? 'bg-blue-500 border-blue-500' : 'border-slate-500'
+                      isSelected ? 'bg-primary-500 border-primary-500' : 'border-content-muted'
                     }`}>
-                      {isSelected && <Check className="w-3 h-3 text-white" />}
+                      {isSelected && <Check className="w-3 h-3 text-base-950" strokeWidth={1.5} />}
                     </div>
                     <span>{opt.label}</span>
                   </li>
@@ -126,12 +126,12 @@ export default function MultiSelectDropdown({ options = [], selected = [], onCha
             )}
           </ul>
           {selected.length > 0 && (
-            <div className="px-3 py-2 border-t border-slate-700 flex justify-between items-center">
-              <span className="text-xs text-slate-400">{selected.length} selected</span>
+            <div className="px-3 py-2 border-t border-border-subtle flex justify-between items-center">
+              <span className="text-xs text-content-muted">{selected.length} selected</span>
               <button
                 type="button"
                 onClick={() => onChange([])}
-                className="text-xs text-red-400 hover:text-red-300 transition-colors"
+                className="text-xs text-error-400 hover:text-error-300 transition-colors"
               >
                 Clear all
               </button>

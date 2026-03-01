@@ -119,11 +119,11 @@ const SubjectSelector = ({ subjects, selectedSubject, onSelectSubject }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative overflow-hidden">
+    <div className="min-h-screen bg-base-950 relative overflow-hidden">
       {/* Animated Background Elements */}
       <div className="absolute inset-0">
         <motion.div
-          className="absolute top-20 left-20 w-72 h-72 bg-blue-600/10 rounded-full blur-3xl"
+          className="absolute top-20 left-20 w-72 h-72 bg-primary-600/10 rounded-full blur-3xl"
           animate={{
             x: [0, 100, 0],
             y: [0, -50, 0],
@@ -132,7 +132,7 @@ const SubjectSelector = ({ subjects, selectedSubject, onSelectSubject }) => {
           transition={{ duration: 20, repeat: Infinity }}
         />
         <motion.div
-          className="absolute bottom-20 right-20 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl"
+          className="absolute bottom-20 right-20 w-96 h-96 bg-primary-600/10 rounded-full blur-3xl"
           animate={{
             x: [0, -80, 0],
             y: [0, 30, 0],
@@ -152,13 +152,13 @@ const SubjectSelector = ({ subjects, selectedSubject, onSelectSubject }) => {
         >
           <div className="flex items-center justify-center gap-2 sm:gap-3 mb-4 sm:mb-6">
             <motion.div
-              className="p-2 sm:p-3 md:p-4 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl sm:rounded-2xl"
+              className="p-2 sm:p-3 md:p-4 bg-primary-500 rounded-sm"
               animate={{ rotate: [0, 10, -10, 0] }}
               transition={{ duration: 4, repeat: Infinity }}
             >
-              <Brain className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-white" />
+              <Brain strokeWidth={1.5} className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-base-950" />
             </motion.div>
-            <h1 className="text-2xl sm:text-4xl md:text-6xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent">
+            <h1 className="text-2xl sm:text-4xl md:text-6xl font-display font-bold text-primary-400">
               Apex Scholar
             </h1>
           </div>
@@ -167,7 +167,7 @@ const SubjectSelector = ({ subjects, selectedSubject, onSelectSubject }) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3, duration: 0.8 }}
-            className="text-sm sm:text-base md:text-xl text-slate-300 max-w-3xl mx-auto leading-relaxed px-2"
+            className="text-sm sm:text-base md:text-xl text-content-secondary max-w-3xl mx-auto leading-relaxed px-2"
           >
             <span className="hidden sm:inline">Unlock your full potential with AI-powered tutoring, intelligent scheduling, 
             and personalized study plans designed for AP success.</span>
@@ -183,21 +183,21 @@ const SubjectSelector = ({ subjects, selectedSubject, onSelectSubject }) => {
               className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mt-6 sm:mt-8 md:mt-12 max-w-4xl mx-auto"
             >
               {[
-                { icon: Trophy, label: "AP Subjects Available", value: "38+", color: "text-yellow-500" },
-                { icon: TrendingUp, label: "Study Tools", value: "Advanced", color: "text-green-500" },
-                { icon: Clock, label: "AI Response Time", value: "⚡ Instant", color: "text-blue-500" },
-                { icon: Target, label: "Personalized", value: "100%", color: "text-purple-500" }
+                { icon: Trophy, label: "AP Subjects Available", value: "38+", color: "text-warning-500" },
+                { icon: TrendingUp, label: "Study Tools", value: "Advanced", color: "text-success-500" },
+                { icon: Clock, label: "AI Response Time", value: "⚡ Instant", color: "text-primary-500" },
+                { icon: Target, label: "Personalized", value: "100%", color: "text-primary-500" }
               ].map((stat, index) => (
                 <motion.div
                   key={stat.label}
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.7 + index * 0.1, duration: 0.5 }}
-                  className="bg-slate-800/80 backdrop-blur-sm rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-6 border border-slate-700 shadow-lg"
+                  className="bg-base-850 rounded-md p-3 sm:p-4 md:p-6 border border-border shadow-raised"
                 >
                   <stat.icon className={`w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 ${stat.color} mx-auto mb-1 sm:mb-2`} />
-                  <div className="text-lg sm:text-xl md:text-2xl font-bold text-slate-200">{stat.value}</div>
-                  <div className="text-xs sm:text-sm text-slate-400 leading-tight">{stat.label}</div>
+                  <div className="text-lg sm:text-xl md:text-2xl font-bold text-content-primary">{stat.value}</div>
+                  <div className="text-xs sm:text-sm text-content-muted leading-tight">{stat.label}</div>
                 </motion.div>
               ))}
             </motion.div>
@@ -237,13 +237,13 @@ const SubjectSelector = ({ subjects, selectedSubject, onSelectSubject }) => {
                 transition={{ delay: 1.1, duration: 0.6 }}
                 className="mb-8"
               >
-                <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-100 mb-2 flex items-center gap-2 sm:gap-3">
-                  <div className="p-1.5 sm:p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg">
-                    <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-white" />
+                <h2 className="text-xl sm:text-2xl md:text-3xl font-display font-bold text-content-primary mb-2 flex items-center gap-2 sm:gap-3">
+                  <div className="p-1.5 sm:p-2 bg-primary-500 rounded-sm">
+                    <Sparkles strokeWidth={1.5} className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-base-950" />
                   </div>
                   Your AP Subjects
                 </h2>
-                <p className="text-sm md:text-base text-slate-400">
+                <p className="text-sm md:text-base text-content-muted">
                   Your personalized tutors are ready to help you succeed in these subjects.
                 </p>
               </motion.div>
@@ -277,13 +277,13 @@ const SubjectSelector = ({ subjects, selectedSubject, onSelectSubject }) => {
                   transition={{ delay: 1.2, duration: 0.6 }}
                   className="mb-8"
                 >
-                  <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-100 mb-2 flex items-center gap-2 sm:gap-3">
-                    <div className="p-1.5 sm:p-2 bg-gradient-to-br from-slate-600 to-slate-700 rounded-lg">
-                      <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-white" />
+                  <h2 className="text-xl sm:text-2xl md:text-3xl font-display font-bold text-content-primary mb-2 flex items-center gap-2 sm:gap-3">
+                    <div className="p-1.5 sm:p-2 bg-base-750 rounded-sm">
+                      <BookOpen strokeWidth={1.5} className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-content-primary" />
                     </div>
                     Explore More AP Subjects
                   </h2>
-                  <p className="text-sm md:text-base text-slate-400">
+                  <p className="text-sm md:text-base text-content-muted">
                     Discover additional AP courses to add to your study plan.
                   </p>
                 </motion.div>
@@ -317,23 +317,23 @@ const SubjectSelector = ({ subjects, selectedSubject, onSelectSubject }) => {
             transition={{ delay: 1.2, duration: 0.8 }}
             className="text-center mt-20"
           >
-            <Card className="max-w-4xl mx-auto bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 border-none text-white">
+            <Card className="max-w-4xl mx-auto bg-primary-500 border-none text-base-950">
               <CardContent className="p-6 sm:p-8 md:p-12">
                 <motion.div
                   animate={{ rotate: [0, 5, -5, 0] }}
                   transition={{ duration: 3, repeat: Infinity }}
                   className="inline-block mb-4 md:mb-6"
                 >
-                  <Lightbulb className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16" />
+                  <Lightbulb strokeWidth={1.5} className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16" />
                 </motion.div>
                 <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3 md:mb-4">Ready to Excel in Your AP Courses?</h2>
-                <p className="text-base sm:text-lg md:text-xl mb-6 md:mb-8 text-blue-100">
+                <p className="text-base sm:text-lg md:text-xl mb-6 md:mb-8 text-base-950/80">
                   Get personalized AI tutoring for all 39 AP subjects with our advanced study platform.
                 </p>
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="bg-white text-blue-600 px-8 py-4 rounded-2xl font-semibold text-lg shadow-xl hover:shadow-2xl transition-all duration-300"
+                  className="bg-base-950 text-primary-400 px-8 py-4 rounded-md font-semibold text-lg shadow-floating hover:shadow-floating transition-all duration-300"
                   onClick={() => navigate('/login')}
                 >
                   Join Thousands of Successful Students
@@ -362,16 +362,15 @@ const SubjectCard = React.forwardRef(({ subject, index, hoveredSubject, setHover
     onHoverEnd={() => setHoveredSubject(null)}
   >
     <Card
-      className={`cursor-pointer h-full bg-slate-800/90 backdrop-blur-sm border-2 transition-all duration-300 relative ${
-        hoveredSubject === subject.id ? 'border-slate-600 shadow-2xl shadow-blue-500/20' : 'border-slate-700'
-      } ${isUserSubject ? 'ring-2 ring-blue-500/30' : ''}`}
+      className={`cursor-pointer h-full bg-base-850 border-2 transition-all duration-300 relative rounded-md ${
+        hoveredSubject === subject.id ? 'border-border-strong shadow-floating' : 'border-border'
+      } ${isUserSubject ? 'ring-2 ring-primary-500/30' : ''}`}
       onClick={() => handleSubjectSelect(subject.id)}
-      glow={hoveredSubject === subject.id}
     >
       {/* User Subject Badge */}
       {isUserSubject && (
         <div className="absolute -top-2 -right-2 z-10">
-          <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs px-2 py-1 rounded-full font-semibold shadow-lg">
+          <div className="bg-primary-500 text-base-950 text-xs px-2 py-1 rounded-full font-semibold shadow-raised">
             Your Subject
           </div>
         </div>
@@ -381,31 +380,31 @@ const SubjectCard = React.forwardRef(({ subject, index, hoveredSubject, setHover
         {/* Subject Header */}
         <div className="p-6 pb-4">
           <div className="flex items-center justify-between mb-4">
-            <div className={`p-3 ${subject.color} rounded-xl shadow-lg`}>
-              <subject.icon className="w-6 h-6 text-white" />
+            <div className={`p-3 ${subject.color} rounded-sm shadow-raised`}>
+              <subject.icon strokeWidth={1.5} className="w-6 h-6 text-content-primary" />
             </div>
             {isUserSubject && (
-              <Sparkles className="w-5 h-5 text-blue-400" />
+              <Sparkles strokeWidth={1.5} className="w-5 h-5 text-primary-400" />
             )}
           </div>
           
-          <h3 className="text-xl font-bold text-slate-200 mb-2">{subject.name}</h3>
-          <p className="text-sm text-slate-400 mb-4">{subject.description}</p>
+          <h3 className="text-xl font-bold text-content-primary mb-2">{subject.name}</h3>
+          <p className="text-sm text-content-muted mb-4">{subject.description}</p>
           
           {/* Stats - Only show for non-logged-in users */}
           {!user && (
             <div className="grid grid-cols-2 gap-3 mb-4">
               <div className="text-center">
-                <div className="text-lg font-bold text-emerald-400">
+                <div className="text-lg font-bold text-success-400">
                   Advanced
                 </div>
-                <div className="text-xs text-slate-400">Course Level</div>
+                <div className="text-xs text-content-muted">Course Level</div>
               </div>
               <div className="text-center">
-                <div className="text-lg font-bold text-blue-400">
+                <div className="text-lg font-bold text-primary-400">
                   {subject.avgStudyTime}min
                 </div>
-                <div className="text-xs text-slate-400">Study Time</div>
+                <div className="text-xs text-content-muted">Study Time</div>
               </div>
             </div>
           )}
@@ -413,13 +412,13 @@ const SubjectCard = React.forwardRef(({ subject, index, hoveredSubject, setHover
           {/* Progress Bar - Only show for non-logged-in users */}
           {!user && (
             <div className="mb-4">
-              <div className="flex justify-between text-xs text-slate-400 mb-1">
+              <div className="flex justify-between text-xs text-content-muted mb-1">
                 <span>Avg Student Progress</span>
                 <span>{25 + (index % 60)}%</span>
               </div>
-              <div className="w-full bg-slate-700 rounded-full h-2">
+              <div className="w-full bg-base-800 rounded-full h-2">
                 <motion.div
-                  className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full"
+                  className="bg-primary-500 h-2 rounded-full"
                   initial={{ width: 0 }}
                   animate={{ width: `${25 + (index % 60)}%` }}
                   transition={{ delay: index * 0.1, duration: 1 }}
@@ -431,8 +430,8 @@ const SubjectCard = React.forwardRef(({ subject, index, hoveredSubject, setHover
           {/* Features */}
           <div className="space-y-2">
             {subject.features.slice(0, 2).map((feature, i) => (
-              <div key={i} className="flex items-center gap-2 text-xs text-slate-400">
-                <Sparkles className="w-3 h-3 text-purple-500" />
+              <div key={i} className="flex items-center gap-2 text-xs text-content-muted">
+                <Sparkles strokeWidth={1.5} className="w-3 h-3 text-primary-500" />
                 {feature}
               </div>
             ))}
@@ -525,95 +524,95 @@ function getSubjectIcon(subjectId) {
 }
 
 function getSubjectGradient(subject) {
-  // Keep light gradients for backgrounds
-  const gradients = [
-    'bg-gradient-to-br from-blue-50/80 to-indigo-100/80',
-    'bg-gradient-to-br from-emerald-50/80 to-teal-100/80',
-    'bg-gradient-to-br from-purple-50/80 to-pink-100/80',
-    'bg-gradient-to-br from-amber-50/80 to-orange-100/80',
-    'bg-gradient-to-br from-rose-50/80 to-red-100/80',
-    'bg-gradient-to-br from-cyan-50/80 to-blue-100/80'
+  // Subtle tinted backgrounds per category
+  const tints = [
+    'bg-primary-950',
+    'bg-success-900/40',
+    'bg-info-900/40',
+    'bg-warning-900/40',
+    'bg-error-900/40',
+    'bg-accent-900/40'
   ];
-  return gradients[subject.length % gradients.length];
+  return tints[subject.length % tints.length];
 }
 
 function getSubjectColor(subjectId) {
-  // Create thematic color mapping based on subject area - matching AITutors
+  // Solid color mapping by subject area
   const colorMap = {
-    // Sciences - GREEN
-    'biology': 'bg-gradient-to-br from-green-500 to-emerald-600',
-    'chemistry': 'bg-gradient-to-br from-green-600 to-green-700',
-    'physics': 'bg-gradient-to-br from-emerald-500 to-green-600',
-    'environmental': 'bg-gradient-to-br from-green-400 to-emerald-500',
-    'psychology': 'bg-gradient-to-br from-green-500 to-teal-600',
-    
-    // Math - RED
-    'calculus': 'bg-gradient-to-br from-red-500 to-red-600',
-    'statistics': 'bg-gradient-to-br from-red-600 to-red-700',
-    'precalculus': 'bg-gradient-to-br from-red-400 to-red-500',
-    
-    // Computer Science - GREEN (as it's often considered STEM/Science)
-    'computer': 'bg-gradient-to-br from-green-600 to-emerald-700',
-    'programming': 'bg-gradient-to-br from-emerald-600 to-green-700',
-    
-    // English & Literature - BLUE
-    'english': 'bg-gradient-to-br from-blue-500 to-blue-600',
-    'literature': 'bg-gradient-to-br from-blue-600 to-indigo-600',
-    'language': 'bg-gradient-to-br from-blue-400 to-blue-500',
-    'composition': 'bg-gradient-to-br from-blue-500 to-indigo-500',
-    'chinese': 'bg-gradient-to-br from-blue-500 to-blue-600',
-    'french': 'bg-gradient-to-br from-blue-400 to-blue-500',
-    'german': 'bg-gradient-to-br from-blue-600 to-indigo-600',
-    'italian': 'bg-gradient-to-br from-blue-500 to-blue-600',
-    'japanese': 'bg-gradient-to-br from-blue-400 to-indigo-500',
-    'spanish': 'bg-gradient-to-br from-blue-500 to-blue-600',
-    'latin': 'bg-gradient-to-br from-blue-600 to-indigo-600',
-    
-    // History & Social Sciences - ORANGE
-    'history': 'bg-gradient-to-br from-orange-500 to-orange-600',
-    'government': 'bg-gradient-to-br from-orange-600 to-orange-700',
-    'politics': 'bg-gradient-to-br from-orange-500 to-red-500',
-    'geography': 'bg-gradient-to-br from-orange-400 to-orange-500',
-    'humanGeography': 'bg-gradient-to-br from-orange-500 to-orange-600',
-    'worldHistory': 'bg-gradient-to-br from-orange-600 to-red-600',
-    'usHistory': 'bg-gradient-to-br from-orange-500 to-orange-600',
-    'europeanHistory': 'bg-gradient-to-br from-orange-500 to-orange-600',
-    
-    // Economics - ORANGE (Social Studies)
-    'economics': 'bg-gradient-to-br from-orange-500 to-orange-600',
-    'macroeconomics': 'bg-gradient-to-br from-orange-600 to-orange-700',
-    'microeconomics': 'bg-gradient-to-br from-orange-500 to-orange-600',
-    
-    // Arts - Keep creative colors (not in main 4 categories)
-    'art': 'bg-gradient-to-br from-purple-500 to-pink-600',
-    'studio': 'bg-gradient-to-br from-pink-500 to-purple-600',
-    'drawing': 'bg-gradient-to-br from-gray-500 to-slate-600',
-    'design': 'bg-gradient-to-br from-violet-500 to-purple-600',
-    'music': 'bg-gradient-to-br from-indigo-500 to-purple-600',
-    
+    // Sciences - Success (green)
+    'biology': 'bg-success-500',
+    'chemistry': 'bg-success-600',
+    'physics': 'bg-success-500',
+    'environmental': 'bg-success-400',
+    'psychology': 'bg-primary-600',
+
+    // Math - Error (red)
+    'calculus': 'bg-error-500',
+    'statistics': 'bg-error-600',
+    'precalculus': 'bg-error-400',
+
+    // Computer Science - Primary (teal)
+    'computer': 'bg-primary-600',
+    'programming': 'bg-primary-700',
+
+    // English & Literature - Info (blue)
+    'english': 'bg-info-500',
+    'literature': 'bg-info-600',
+    'language': 'bg-info-400',
+    'composition': 'bg-info-500',
+    'chinese': 'bg-info-500',
+    'french': 'bg-info-400',
+    'german': 'bg-info-600',
+    'italian': 'bg-info-500',
+    'japanese': 'bg-info-400',
+    'spanish': 'bg-info-500',
+    'latin': 'bg-info-600',
+
+    // History & Social Sciences - Accent (amber/orange)
+    'history': 'bg-accent-500',
+    'government': 'bg-accent-500',
+    'politics': 'bg-accent-500',
+    'geography': 'bg-accent-400',
+    'humanGeography': 'bg-accent-500',
+    'worldHistory': 'bg-accent-500',
+    'usHistory': 'bg-accent-500',
+    'europeanHistory': 'bg-accent-500',
+
+    // Economics - Warning (yellow-amber)
+    'economics': 'bg-warning-500',
+    'macroeconomics': 'bg-warning-500',
+    'microeconomics': 'bg-warning-500',
+
+    // Arts - Primary (teal)
+    'art': 'bg-primary-500',
+    'studio': 'bg-primary-600',
+    'drawing': 'bg-base-750',
+    'design': 'bg-primary-500',
+    'music': 'bg-primary-600',
+
     // Other
-    'research': 'bg-gradient-to-br from-slate-600 to-gray-700',
-    'seminar': 'bg-gradient-to-br from-blue-500 to-purple-600'
+    'research': 'bg-base-750',
+    'seminar': 'bg-primary-500'
   };
-  
+
   // Find matching color by checking if subject ID contains key terms
   const subjectLower = subjectId?.toLowerCase() || '';
-  
+
   for (const [key, color] of Object.entries(colorMap)) {
     if (subjectLower.includes(key.toLowerCase())) {
       return color;
     }
   }
-  
+
   // Specific overrides for exact matches
-  if (subjectLower.includes('ap physics 1')) return 'bg-gradient-to-br from-green-500 to-emerald-600';
-  if (subjectLower.includes('ap physics 2')) return 'bg-gradient-to-br from-emerald-500 to-green-600';
-  if (subjectLower.includes('mechanics')) return 'bg-gradient-to-br from-green-600 to-emerald-700';
-  if (subjectLower.includes('electricity') || subjectLower.includes('magnetism')) return 'bg-gradient-to-br from-green-500 to-green-700';
-  if (subjectLower.includes('comparative')) return 'bg-gradient-to-br from-orange-500 to-orange-600';
-  
+  if (subjectLower.includes('ap physics 1')) return 'bg-success-500';
+  if (subjectLower.includes('ap physics 2')) return 'bg-success-500';
+  if (subjectLower.includes('mechanics')) return 'bg-success-600';
+  if (subjectLower.includes('electricity') || subjectLower.includes('magnetism')) return 'bg-success-500';
+  if (subjectLower.includes('comparative')) return 'bg-accent-500';
+
   // Default fallback
-  return 'bg-gradient-to-br from-blue-500 to-purple-600';
+  return 'bg-primary-500';
 }
 
 export default SubjectSelector;

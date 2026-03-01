@@ -90,33 +90,33 @@ export function SchoologyCallback() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md bg-slate-800/60 border-slate-700">
+    <div className="min-h-screen bg-base-950 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md bg-base-850 border-border">
         <CardContent className="p-6 text-center">
           <div className="mb-6">
             {status === 'processing' && (
-              <Loader className="w-12 h-12 animate-spin text-blue-400 mx-auto" />
+              <Loader className="w-12 h-12 animate-spin text-primary-400 mx-auto" />
             )}
             {status === 'success' && (
-              <CheckCircle className="w-12 h-12 text-green-400 mx-auto" />
+              <CheckCircle className="w-12 h-12 text-success-400 mx-auto" />
             )}
             {status === 'error' && (
-              <XCircle className="w-12 h-12 text-red-400 mx-auto" />
+              <XCircle className="w-12 h-12 text-error-400 mx-auto" />
             )}
           </div>
 
-          <h2 className="text-xl font-semibold text-slate-100 mb-4">
+          <h2 className="text-xl font-semibold text-content-primary mb-4">
             {status === 'processing' && 'Connecting to Schoology'}
             {status === 'success' && 'Connection Successful!'}
             {status === 'error' && 'Connection Failed'}
           </h2>
 
-          <p className="text-slate-300 mb-6">
+          <p className="text-content-secondary mb-6">
             {message}
           </p>
 
           {status === 'success' && (
-            <div className="text-sm text-slate-400 mb-4">
+            <div className="text-sm text-content-muted mb-4">
               Redirecting to settings in a few seconds...
             </div>
           )}
@@ -125,18 +125,18 @@ export function SchoologyCallback() {
             <div className="space-y-3">
               <Button 
                 onClick={handleRetry}
-                className="w-full bg-blue-600 hover:bg-blue-700"
+                className="w-full bg-primary-500 hover:bg-primary-600 text-base-950"
               >
                 Return to Settings
               </Button>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-content-muted">
                 You can try connecting again from the Settings page.
               </p>
             </div>
           )}
 
           {status === 'processing' && (
-            <div className="text-sm text-slate-400">
+            <div className="text-sm text-content-muted">
               This may take a few moments...
             </div>
           )}

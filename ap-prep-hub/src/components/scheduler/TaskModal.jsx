@@ -95,7 +95,7 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
 
   return (
     <div 
-      className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4"
+      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-3 sm:p-4"
       onClick={(e) => {
         // Close modal when clicking on backdrop
         if (e.target === e.currentTarget) {
@@ -107,16 +107,16 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="bg-slate-800/95 backdrop-blur-xl rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col border border-slate-700 mx-auto"
+        className="bg-base-850 rounded-md shadow-floating w-full max-w-md max-h-[90vh] flex flex-col border border-border mx-auto"
       >
-        <div className="p-4 sm:p-6 border-b border-slate-700 bg-slate-800/60">
-          <h3 className="text-lg sm:text-xl font-semibold text-slate-100">{task ? 'Edit Task' : 'Create New Task'}</h3>
-          <p className="text-xs sm:text-sm text-slate-300 mt-1">Fill in the details below to {task ? 'update' : 'create'} your task</p>
+        <div className="p-4 sm:p-6 border-b border-border bg-base-850">
+          <h3 className="text-lg sm:text-xl font-semibold text-content-primary">{task ? 'Edit Task' : 'Create New Task'}</h3>
+          <p className="text-xs sm:text-sm text-content-secondary mt-1">Fill in the details below to {task ? 'update' : 'create'} your task</p>
         </div>
         
         <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-5 flex-1 overflow-y-auto">
           <div>
-            <label className="block text-sm font-medium mb-2 text-slate-200">Task Name</label>
+            <label className="block text-sm font-medium mb-2 text-content-primary">Task Name</label>
             <Input 
               value={formData.name} 
               onChange={(e) => setFormData({...formData, name: e.target.value})} 
@@ -125,7 +125,7 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-2 text-slate-200">Subject</label>
+            <label className="block text-sm font-medium mb-2 text-content-primary">Subject</label>
             <Input 
               value={formData.subject} 
               onChange={(e) => setFormData({...formData, subject: e.target.value})} 
@@ -135,11 +135,11 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
           </div>
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2 text-slate-200">Task Type</label>
+              <label className="block text-sm font-medium mb-2 text-content-primary">Task Type</label>
               <select 
                 value={formData.type} 
                 onChange={(e) => setFormData({...formData, type: e.target.value})}
-                className="flex h-10 w-full rounded-md border border-slate-600 bg-slate-800/90 backdrop-blur-sm px-3 py-2 text-sm text-slate-100 placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
+                className="flex h-10 w-full rounded-sm border border-border-strong bg-base-800 px-3 py-2 text-sm text-content-primary placeholder-content-muted focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all duration-200"
               >
                 <option value="homework">Homework</option>
                 <option value="test">Test Prep</option>
@@ -150,11 +150,11 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2 text-slate-200">Difficulty</label>
+              <label className="block text-sm font-medium mb-2 text-content-primary">Difficulty</label>
               <select 
                 value={formData.difficulty} 
                 onChange={(e) => setFormData({...formData, difficulty: e.target.value})}
-                className="flex h-10 w-full rounded-md border border-slate-600 bg-slate-800/90 backdrop-blur-sm px-3 py-2 text-sm text-slate-100 placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
+                className="flex h-10 w-full rounded-sm border border-border-strong bg-base-800 px-3 py-2 text-sm text-content-primary placeholder-content-muted focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all duration-200"
               >
                 <option value="Easy">Easy</option>
                 <option value="Medium">Medium</option>
@@ -164,7 +164,7 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
           </div>
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2 text-slate-200">
+              <label className="block text-sm font-medium mb-2 text-content-primary">
                 {formData.type === 'reading' ? 'Pages' : 'Time (min)'}
               </label>
               <Input 
@@ -184,11 +184,11 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2 text-slate-200">Priority</label>
+              <label className="block text-sm font-medium mb-2 text-content-primary">Priority</label>
               <select 
                 value={formData.priority || 'medium'} 
                 onChange={(e) => setFormData({...formData, priority: e.target.value})}
-                className="flex h-10 w-full rounded-md border border-slate-600 bg-slate-800/90 backdrop-blur-sm px-3 py-2 text-sm text-slate-100 placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
+                className="flex h-10 w-full rounded-sm border border-border-strong bg-base-800 px-3 py-2 text-sm text-content-primary placeholder-content-muted focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all duration-200"
               >
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
@@ -198,7 +198,7 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-2 text-slate-200">Deadline</label>
+            <label className="block text-sm font-medium mb-2 text-content-primary">Deadline</label>
             <Input 
               type="datetime-local" 
               value={formData.deadline} 
@@ -208,7 +208,7 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-2 text-slate-200">Description</label>
+            <label className="block text-sm font-medium mb-2 text-content-primary">Description</label>
             <Textarea 
               value={formData.description} 
               onChange={(e) => setFormData({...formData, description: e.target.value})} 
@@ -218,12 +218,12 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
             />
           </div>
         </form>
-        <div className="p-4 sm:p-6 border-t border-slate-700 bg-slate-800/60">
+        <div className="p-4 sm:p-6 border-t border-border bg-base-850">
           <div className="flex gap-3">
             <Button 
               type="button" 
               onClick={handleSubmit}
-              className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 h-10 sm:h-11 text-sm"
+              className="flex-1 bg-primary-500 hover:bg-primary-600 text-base-950 h-10 sm:h-11 text-sm"
             >
               {task ? 'Update Task' : 'Create Task'}
             </Button>

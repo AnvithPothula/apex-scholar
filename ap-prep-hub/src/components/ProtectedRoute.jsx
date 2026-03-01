@@ -8,10 +8,10 @@ export function ProtectedRoute({ children }) {
 
     if (loading) {
         return (
-            <div className="flex h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50">
+            <div className="flex h-screen items-center justify-center bg-base-950">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                    <p className="text-slate-600">Loading Application...</p>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
+                    <p className="text-content-muted">Loading Application...</p>
                 </div>
             </div>
         );
@@ -20,19 +20,19 @@ export function ProtectedRoute({ children }) {
     // Show connection error if there's one
     if (connectionError) {
         return (
-            <div className="flex h-screen items-center justify-center bg-gradient-to-br from-red-50 to-orange-50">
+            <div className="flex h-screen items-center justify-center bg-base-950">
                 <div className="text-center max-w-md mx-auto p-6">
-                    <div className="text-red-600 text-6xl mb-4">⚠️</div>
-                    <h2 className="text-xl font-semibold text-slate-800 mb-2">Connection Issue</h2>
-                    <p className="text-slate-600 mb-4">{connectionError}</p>
+                    <div className="text-error-500 text-6xl mb-4">⚠️</div>
+                    <h2 className="text-xl font-semibold text-content-primary mb-2">Connection Issue</h2>
+                    <p className="text-content-secondary mb-4">{connectionError}</p>
                     <div className="space-y-2">
-                        <button 
+                        <button
                             onClick={() => window.location.reload()}
-                            className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                            className="w-full bg-primary-500 text-base-950 px-4 py-2 rounded-sm hover:bg-primary-600 transition-colors"
                         >
                             Refresh Page
                         </button>
-                        <p className="text-sm text-slate-500">
+                        <p className="text-sm text-content-muted">
                             If the problem persists, check your internet connection and try again.
                         </p>
                     </div>

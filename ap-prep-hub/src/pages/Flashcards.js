@@ -25,12 +25,12 @@ const CustomDropdown = ({ options, value, onChange, placeholder, className = "" 
     <div className={`relative ${className}`}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-4 py-3 text-left text-slate-200 focus:border-blue-500 focus:outline-none transition-colors flex items-center justify-between"
+        className="w-full bg-base-800 border border-border-strong rounded-lg px-4 py-3 text-left text-content-primary focus:border-primary-500 focus:outline-none transition-colors flex items-center justify-between"
       >
-        <span className={selectedOption ? 'text-slate-200' : 'text-slate-400'}>
+        <span className={selectedOption ? 'text-content-primary' : 'text-content-muted'}>
           {selectedOption ? selectedOption.label : placeholder}
         </span>
-        <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} strokeWidth={1.5} />
       </button>
       
       <AnimatePresence>
@@ -39,13 +39,13 @@ const CustomDropdown = ({ options, value, onChange, placeholder, className = "" 
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="absolute z-50 w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+            className="absolute z-50 w-full mt-1 bg-base-850 border border-border-strong rounded-lg shadow-raised max-h-60 overflow-y-auto"
           >
             {options.map((option) => (
               <button
                 key={option.value}
                 onClick={() => handleSelect(option)}
-                className="w-full px-4 py-3 text-left text-slate-200 hover:bg-slate-700 transition-colors first:rounded-t-lg last:rounded-b-lg"
+                className="w-full px-4 py-3 text-left text-content-primary hover:bg-base-800 transition-colors first:rounded-t-lg last:rounded-b-lg"
               >
                 {option.label}
               </button>
@@ -407,14 +407,14 @@ const FlashcardsPage = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100">
+    <div className="min-h-screen bg-base-950 text-content-primary">
       {studyingDeck ? (
         // Study Interface
         <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
           <div className="flex items-center justify-between gap-3 mb-4 sm:mb-6 md:mb-8">
             <div className="min-w-0">
-              <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-100 truncate">{studyingDeck.title}</h1>
-              <p className="text-xs sm:text-sm text-slate-400">
+              <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-content-primary truncate">{studyingDeck.title}</h1>
+              <p className="text-xs sm:text-sm text-content-muted">
                 Card {currentCardIndex + 1} of {studyingDeck.cards.length}
               </p>
             </div>
@@ -423,15 +423,15 @@ const FlashcardsPage = () => {
               variant="outline"
               className="flex-shrink-0 text-xs sm:text-sm px-2 sm:px-4"
             >
-              <X className="w-4 h-4 sm:mr-2" />
+              <X className="w-4 h-4 sm:mr-2" strokeWidth={1.5} />
               <span className="hidden sm:inline">Exit Study</span>
             </Button>
           </div>
 
           <div className="mb-6">
-            <div className="w-full bg-slate-700 rounded-full h-2">
+            <div className="w-full bg-base-800 rounded-full h-2">
               <div 
-                className="bg-green-500 h-2 rounded-full transition-all duration-300" 
+                className="bg-primary-500 h-2 rounded-full transition-all duration-300" 
                 style={{ width: `${((currentCardIndex + 1) / studyingDeck.cards.length) * 100}%` }}
               ></div>
             </div>
@@ -439,10 +439,10 @@ const FlashcardsPage = () => {
 
           <Card className="p-4 sm:p-6 md:p-8 mb-4 sm:mb-6 min-h-[200px] sm:min-h-[280px] md:min-h-[300px] flex flex-col justify-center">
             <div className="text-center">
-              <h2 className="text-base sm:text-lg md:text-xl font-bold text-slate-200 mb-4 sm:mb-6">
+              <h2 className="text-base sm:text-lg md:text-xl font-bold text-content-primary mb-4 sm:mb-6">
                 {showAnswer ? 'Answer' : 'Question'}
               </h2>
-              <div className="text-sm sm:text-base md:text-lg text-slate-100 leading-relaxed">
+              <div className="text-sm sm:text-base md:text-lg text-content-primary leading-relaxed">
                 {showAnswer 
                   ? <MarkdownRenderer content={studyingDeck.cards[currentCardIndex]?.answer || 'No answer available'} />
                   : <MarkdownRenderer content={studyingDeck.cards[currentCardIndex]?.question || 'No question available'} />
@@ -451,7 +451,7 @@ const FlashcardsPage = () => {
               {!showAnswer && (
                 <Button
                   onClick={() => setShowAnswer(true)}
-                  className="mt-4 sm:mt-6 bg-blue-600 hover:bg-blue-700 text-sm sm:text-base"
+                  className="mt-4 sm:mt-6 bg-primary-500 hover:bg-primary-600 text-base-950 text-sm sm:text-base"
                 >
                   Show Answer
                 </Button>
@@ -461,22 +461,22 @@ const FlashcardsPage = () => {
 
           {showAnswer && (
             <div className="flex flex-col gap-4">
-              <div className="text-center text-slate-300 mb-4">
+              <div className="text-center text-content-secondary mb-4">
                 How well did you know this?
               </div>
               <div className="flex gap-4 justify-center">
                 <Button
                   onClick={() => handleCardAnswer(false)}
                   variant="outline"
-                  className="border-red-500 text-red-400 hover:bg-red-500/20"
+                  className="border-error-500 text-error-400 hover:bg-error-500/20"
                 >
                   Didn't Know
                 </Button>
                 <Button
                   onClick={() => handleCardAnswer(true)}
-                  className="bg-green-600 hover:bg-green-700"
+                  className="bg-primary-500 hover:bg-primary-600 text-base-950"
                 >
-                  <CheckCircle className="w-4 h-4 mr-2" />
+                  <CheckCircle className="w-4 h-4 mr-2" strokeWidth={1.5} />
                   Got It Right
                 </Button>
               </div>
@@ -510,14 +510,14 @@ const FlashcardsPage = () => {
           className="text-center mb-6 sm:mb-8 md:mb-12"
         >
           <div className="flex items-center justify-center gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4 md:mb-6">
-            <div className="p-2 sm:p-3 md:p-4 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl md:rounded-2xl shadow-lg">
-              <Zap className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-white" />
+            <div className="p-2 sm:p-3 md:p-4 bg-primary-500 rounded-md shadow-raised">
+              <Zap className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-base-950" strokeWidth={1.5} />
             </div>
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-content-primary font-display">
               AI Flashcards
             </h1>
           </div>
-          <p className="text-sm sm:text-base md:text-lg text-slate-300 max-w-3xl mx-auto px-2">
+          <p className="text-sm sm:text-base md:text-lg text-content-secondary max-w-3xl mx-auto px-2">
             Create personalized flashcard decks with AI assistance and study smarter with 
             spaced repetition algorithms that adapt to your learning pace.
           </p>
@@ -537,7 +537,7 @@ const FlashcardsPage = () => {
           className="mb-8"
         >
           <div className="relative max-w-2xl mx-auto">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-content-muted" strokeWidth={1.5} />
             <Input
               placeholder="Search your flashcard collections..."
               value={searchQuery}
@@ -555,20 +555,20 @@ const FlashcardsPage = () => {
           className="mb-12"
         >
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-3">
-            <h2 className="text-xl sm:text-2xl font-bold text-slate-100">My Flashcards</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-content-primary">My Flashcards</h2>
             <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
               <Button
                 onClick={() => setShowManualCreate(true)}
-                className="flex-1 sm:flex-none bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-sm"
+                className="flex-1 sm:flex-none bg-primary-500 hover:bg-primary-600 text-sm"
               >
-                <Plus className="w-4 h-4 mr-1 sm:mr-2" />
+                <Plus className="w-4 h-4 mr-1 sm:mr-2" strokeWidth={1.5} />
                 <span className="hidden sm:inline">Create Manual</span>
               </Button>
               <Button
                 onClick={() => setShowCreateForm(true)}
-                className="flex-1 sm:flex-none bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-sm"
+                className="flex-1 sm:flex-none bg-primary-500 hover:bg-primary-600 text-sm"
               >
-                <Sparkles className="w-4 h-4 mr-1 sm:mr-2" />
+                <Sparkles className="w-4 h-4 mr-1 sm:mr-2" strokeWidth={1.5} />
                 <span className="hidden sm:inline">Create with AI</span>
               </Button>
             </div>
@@ -583,10 +583,10 @@ const FlashcardsPage = () => {
               className="mb-6"
             >
               <Card className="p-6">
-                <h3 className="text-lg font-semibold text-slate-200 mb-4">Create AI Flashcards</h3>
+                <h3 className="text-lg font-semibold text-content-primary mb-4">Create AI Flashcards</h3>
                 <div className="grid md:grid-cols-2 gap-4 mb-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                    <label className="block text-sm font-medium text-content-secondary mb-2">
                       Subject
                     </label>
                     <CustomDropdown
@@ -597,7 +597,7 @@ const FlashcardsPage = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                    <label className="block text-sm font-medium text-content-secondary mb-2">
                       Topic
                     </label>
                     <Input
@@ -608,7 +608,7 @@ const FlashcardsPage = () => {
                   </div>
                 </div>
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-content-secondary mb-2">
                     Description (Optional)
                   </label>
                   <Input
@@ -616,7 +616,7 @@ const FlashcardsPage = () => {
                     value={createDescription}
                     onChange={(e) => setCreateDescription(e.target.value)}
                   />
-                  <p className="text-xs text-slate-400 mt-1">
+                  <p className="text-xs text-content-muted mt-1">
                     💡 LaTeX math is supported! Use $x^2$ for inline math or $$x + y = z$$ for block math
                   </p>
                 </div>
@@ -624,16 +624,16 @@ const FlashcardsPage = () => {
                   <Button
                     onClick={handleCreateCollection}
                     disabled={!createSubject || !createTopic || isGenerating}
-                    className="bg-green-600 hover:bg-green-700"
+                    className="bg-primary-500 hover:bg-primary-600 text-base-950"
                   >
                     {isGenerating ? (
                       <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                        <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin mr-2"></div>
                         Generating...
                       </>
                     ) : (
                       <>
-                        <Sparkles className="w-4 h-4 mr-2" />
+                        <Sparkles className="w-4 h-4 mr-2" strokeWidth={1.5} />
                         Generate Flashcards
                       </>
                     )}
@@ -658,10 +658,10 @@ const FlashcardsPage = () => {
               className="mb-6"
             >
               <Card className="p-6">
-                <h3 className="text-lg font-semibold text-slate-200 mb-4">Create Manual Flashcards</h3>
+                <h3 className="text-lg font-semibold text-content-primary mb-4">Create Manual Flashcards</h3>
                 <div className="grid md:grid-cols-2 gap-4 mb-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                    <label className="block text-sm font-medium text-content-secondary mb-2">
                       Deck Title
                     </label>
                     <Input
@@ -671,7 +671,7 @@ const FlashcardsPage = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                    <label className="block text-sm font-medium text-content-secondary mb-2">
                       Subject (Optional)
                     </label>
                     <CustomDropdown
@@ -683,7 +683,7 @@ const FlashcardsPage = () => {
                   </div>
                 </div>
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-content-secondary mb-2">
                     Description (Optional)
                   </label>
                   <Input
@@ -696,13 +696,13 @@ const FlashcardsPage = () => {
                 {/* Cards */}
                 <div className="space-y-4 mb-6">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-md font-medium text-slate-300">Cards</h4>
+                    <h4 className="text-md font-medium text-content-secondary">Cards</h4>
                     <Button
                       onClick={addCard}
                       variant="outline"
                       size="sm"
                     >
-                      <Plus className="w-4 h-4 mr-1" />
+                      <Plus className="w-4 h-4 mr-1" strokeWidth={1.5} />
                       Add Card
                     </Button>
                   </div>
@@ -712,24 +712,24 @@ const FlashcardsPage = () => {
                       key={index}
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="p-4 bg-slate-700/30 rounded-lg border border-slate-600"
+                      className="p-4 bg-base-800/30 rounded-lg border border-border-strong"
                     >
                       <div className="flex items-center justify-between mb-3">
-                        <span className="text-sm font-medium text-slate-300">Card {index + 1}</span>
+                        <span className="text-sm font-medium text-content-secondary">Card {index + 1}</span>
                         {manualCards.length > 1 && (
                           <Button
                             onClick={() => removeCard(index)}
                             variant="ghost"
                             size="sm"
-                            className="text-red-400 hover:text-red-300"
+                            className="text-error-400 hover:text-error-300"
                           >
-                            <X className="w-4 h-4" />
+                            <X className="w-4 h-4" strokeWidth={1.5} />
                           </Button>
                         )}
                       </div>
                       <div className="space-y-3">
                         <div>
-                          <label className="block text-xs font-medium text-slate-400 mb-1">
+                          <label className="block text-xs font-medium text-content-muted mb-1">
                             Question
                           </label>
                           <Input
@@ -739,14 +739,14 @@ const FlashcardsPage = () => {
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-slate-400 mb-1">
+                          <label className="block text-xs font-medium text-content-muted mb-1">
                             Answer
                           </label>
                           <textarea
                             placeholder="Enter the answer..."
                             value={card.answer}
                             onChange={(e) => updateCard(index, 'answer', e.target.value)}
-                            className="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-slate-200 placeholder-slate-400 focus:border-blue-500 focus:outline-none transition-colors resize-none"
+                            className="w-full bg-base-800 border border-border-strong rounded-lg px-3 py-2 text-content-primary placeholder-content-muted focus:border-primary-500 focus:outline-none transition-colors resize-none"
                             rows={3}
                           />
                         </div>
@@ -759,9 +759,9 @@ const FlashcardsPage = () => {
                   <Button
                     onClick={handleManualCreate}
                     disabled={!manualTitle || manualCards.some(card => !card.question || !card.answer)}
-                    className="bg-blue-600 hover:bg-blue-700"
+                    className="bg-primary-500 hover:bg-primary-600 text-base-950"
                   >
-                    <Save className="w-4 h-4 mr-2" />
+                    <Save className="w-4 h-4 mr-2" strokeWidth={1.5} />
                     Create Deck
                   </Button>
                   <Button
@@ -787,22 +787,22 @@ const FlashcardsPage = () => {
                     whileHover={{ scale: 1.02 }}
                     className="cursor-pointer"
                   >
-                    <Card className="p-6 h-full hover:bg-slate-800/50 transition-all duration-200 group">
+                    <Card className="p-6 h-full hover:bg-base-850/50 transition-all duration-200 group">
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
-                          <h3 className="text-lg font-bold text-slate-100 mb-2 group-hover:text-green-400 transition-colors">
+                          <h3 className="text-lg font-bold text-content-primary mb-2 group-hover:text-primary-400 transition-colors">
                             {collection.title}
                           </h3>
-                          <p className="text-sm text-slate-400 mb-3">
+                          <p className="text-sm text-content-muted mb-3">
                             {collection.description}
                           </p>
-                          <div className="flex items-center gap-4 text-xs text-slate-400 mb-4">
+                          <div className="flex items-center gap-4 text-xs text-content-muted mb-4">
                             <div className="flex items-center gap-1">
-                              <BookOpen className="w-3 h-3" />
+                              <BookOpen className="w-3 h-3" strokeWidth={1.5} />
                               <span>{collection.cardCount} cards</span>
                             </div>
                             <div className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
+                              <Clock className="w-3 h-3" strokeWidth={1.5} />
                               <span>{collection.lastStudied}</span>
                             </div>
                           </div>
@@ -814,26 +814,26 @@ const FlashcardsPage = () => {
                         <Button
                           size="sm"
                           onClick={() => handleStudyCollection(collection)}
-                          className="flex-1 bg-green-600 hover:bg-green-700"
+                          className="flex-1 bg-primary-500 hover:bg-primary-600 text-base-950"
                         >
-                          <Play className="w-4 h-4 mr-2" />
+                          <Play className="w-4 h-4 mr-2" strokeWidth={1.5} />
                           Study
                         </Button>
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => startEditingDeck(collection)}
-                          className="hover:bg-blue-500/20 hover:border-blue-500"
+                          className="hover:bg-primary-500/20 hover:border-primary-500"
                         >
-                          <Edit3 className="w-4 h-4" />
+                          <Edit3 className="w-4 h-4" strokeWidth={1.5} />
                         </Button>
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => deleteDeck(collection.id)}
-                          className="hover:bg-red-500/20 hover:border-red-500"
+                          className="hover:bg-error-500/20 hover:border-error-500"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-4 h-4" strokeWidth={1.5} />
                         </Button>
                       </div>
                     </Card>
@@ -842,26 +842,26 @@ const FlashcardsPage = () => {
               </div>
             ) : (
               <Card className="p-8 text-center">
-                <Zap className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                <h3 className="text-xl font-bold text-slate-300 mb-2">No flashcards yet</h3>
-                <p className="text-slate-400 mb-6">Create your first AI-powered flashcard collection to get started.</p>
+                <Zap className="w-16 h-16 text-content-muted mx-auto mb-4" strokeWidth={1.5} />
+                <h3 className="text-xl font-bold text-content-secondary mb-2">No flashcards yet</h3>
+                <p className="text-content-muted mb-6">Create your first AI-powered flashcard collection to get started.</p>
                 <Button
                   onClick={() => setShowCreateForm(true)}
-                  className="bg-green-600 hover:bg-green-700"
+                  className="bg-primary-500 hover:bg-primary-600 text-base-950"
                 >
-                  <Plus className="w-4 h-4 mr-2" />
+                  <Plus className="w-4 h-4 mr-2" strokeWidth={1.5} />
                   Create Flashcards
                 </Button>
               </Card>
             )
           ) : (
             <Card className="p-8 text-center">
-              <Zap className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-slate-300 mb-2">Sign up to create flashcards</h3>
-              <p className="text-slate-400 mb-6">Create a free account to build your own custom flashcard decks with AI assistance.</p>
+              <Zap className="w-16 h-16 text-content-muted mx-auto mb-4" strokeWidth={1.5} />
+              <h3 className="text-xl font-bold text-content-secondary mb-2">Sign up to create flashcards</h3>
+              <p className="text-content-muted mb-6">Create a free account to build your own custom flashcard decks with AI assistance.</p>
               <Button
                 onClick={() => navigate('/auth')}
-                className="bg-green-600 hover:bg-green-700"
+                className="bg-primary-500 hover:bg-primary-600 text-base-950"
               >
                 Create Account
               </Button>
@@ -873,46 +873,46 @@ const FlashcardsPage = () => {
 
       {/* Deck Editing Modal */}
       {editingDeck && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-slate-800 rounded-lg border border-slate-700 w-full max-w-2xl max-h-[80vh] overflow-y-auto"
+            className="bg-base-850 rounded-lg border border-border w-full max-w-2xl max-h-[80vh] overflow-y-auto"
           >
-            <div className="p-6 border-b border-slate-700">
-              <h3 className="text-lg font-semibold text-slate-100">Edit Deck</h3>
+            <div className="p-6 border-b border-border">
+              <h3 className="text-lg font-semibold text-content-primary">Edit Deck</h3>
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Title</label>
+                <label className="block text-sm font-medium text-content-secondary mb-2">Title</label>
                 <Input
                   value={editingDeck.title}
                   onChange={(e) => setEditingDeck(prev => ({ ...prev, title: e.target.value }))}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Description</label>
+                <label className="block text-sm font-medium text-content-secondary mb-2">Description</label>
                 <Input
                   value={editingDeck.description}
                   onChange={(e) => setEditingDeck(prev => ({ ...prev, description: e.target.value }))}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Cards</label>
+                <label className="block text-sm font-medium text-content-secondary mb-2">Cards</label>
                 <div className="space-y-3">
                   {editingDeck.cards.map((card, index) => (
-                    <div key={index} className="p-4 bg-slate-700/30 rounded-lg border border-slate-600">
+                    <div key={index} className="p-4 bg-base-800/30 rounded-lg border border-border-strong">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-slate-300">Card {index + 1}</span>
+                        <span className="text-sm font-medium text-content-secondary">Card {index + 1}</span>
                         <Button
                           onClick={() => startEditingCard(editingDeck.originalId, index)}
                           variant="ghost"
                           size="sm"
                         >
-                          <Edit3 className="w-4 h-4" />
+                          <Edit3 className="w-4 h-4" strokeWidth={1.5} />
                         </Button>
                       </div>
-                      <div className="text-sm text-slate-400">
+                      <div className="text-sm text-content-muted">
                         <div className="mb-1"><strong>Q:</strong> {card.question}</div>
                         <div><strong>A:</strong> {card.answer}</div>
                       </div>
@@ -921,9 +921,9 @@ const FlashcardsPage = () => {
                 </div>
               </div>
             </div>
-            <div className="p-6 border-t border-slate-700 flex gap-3">
-              <Button onClick={saveEditedDeck} className="bg-green-600 hover:bg-green-700">
-                <Save className="w-4 h-4 mr-2" />
+            <div className="p-6 border-t border-border flex gap-3">
+              <Button onClick={saveEditedDeck} className="bg-primary-500 hover:bg-primary-600 text-base-950">
+                <Save className="w-4 h-4 mr-2" strokeWidth={1.5} />
                 Save Changes
               </Button>
               <Button variant="outline" onClick={cancelEditingDeck}>
@@ -936,38 +936,38 @@ const FlashcardsPage = () => {
 
       {/* Card Editing Modal */}
       {editingCard && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-slate-800 rounded-lg border border-slate-700 w-full max-w-lg"
+            className="bg-base-850 rounded-lg border border-border w-full max-w-lg"
           >
-            <div className="p-6 border-b border-slate-700">
-              <h3 className="text-lg font-semibold text-slate-100">Edit Card</h3>
+            <div className="p-6 border-b border-border">
+              <h3 className="text-lg font-semibold text-content-primary">Edit Card</h3>
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Question</label>
+                <label className="block text-sm font-medium text-content-secondary mb-2">Question</label>
                 <textarea
                   value={editingCard.question}
                   onChange={(e) => setEditingCard(prev => ({ ...prev, question: e.target.value }))}
-                  className="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-slate-200 placeholder-slate-400 focus:border-blue-500 focus:outline-none transition-colors resize-none"
+                  className="w-full bg-base-800 border border-border-strong rounded-lg px-3 py-2 text-content-primary placeholder-content-muted focus:border-primary-500 focus:outline-none transition-colors resize-none"
                   rows={3}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Answer</label>
+                <label className="block text-sm font-medium text-content-secondary mb-2">Answer</label>
                 <textarea
                   value={editingCard.answer}
                   onChange={(e) => setEditingCard(prev => ({ ...prev, answer: e.target.value }))}
-                  className="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-slate-200 placeholder-slate-400 focus:border-blue-500 focus:outline-none transition-colors resize-none"
+                  className="w-full bg-base-800 border border-border-strong rounded-lg px-3 py-2 text-content-primary placeholder-content-muted focus:border-primary-500 focus:outline-none transition-colors resize-none"
                   rows={4}
                 />
               </div>
             </div>
-            <div className="p-6 border-t border-slate-700 flex gap-3">
-              <Button onClick={saveEditedCard} className="bg-green-600 hover:bg-green-700">
-                <Save className="w-4 h-4 mr-2" />
+            <div className="p-6 border-t border-border flex gap-3">
+              <Button onClick={saveEditedCard} className="bg-primary-500 hover:bg-primary-600 text-base-950">
+                <Save className="w-4 h-4 mr-2" strokeWidth={1.5} />
                 Save Card
               </Button>
               <Button variant="outline" onClick={cancelEditingCard}>

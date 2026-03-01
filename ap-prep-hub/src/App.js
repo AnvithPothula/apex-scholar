@@ -46,9 +46,9 @@ function App() {
 // Main App with Layout
 function MainApp() {
   return (
-    <Suspense fallback={<div className="p-6 text-slate-300">Loading…</div>}>
+    <Suspense fallback={<div className="p-6 text-content-secondary">Loading…</div>}>
       <Routes>
-        <Route element={<Layout><Suspense fallback={<div className="p-6 text-slate-300">Loading…</div>}><Outlet /></Suspense></Layout>}>
+        <Route element={<Layout><Suspense fallback={<div className="p-6 text-content-secondary">Loading…</div>}><Outlet /></Suspense></Layout>}>
           <Route index element={<Navigate to={createPageUrl("AITutors")} replace />} />
           <Route path={createPageUrl("AITutors")} element={<AITutors />} />
           <Route path={createPageUrl("AITutors", ":subject")} element={<AITutors />} />

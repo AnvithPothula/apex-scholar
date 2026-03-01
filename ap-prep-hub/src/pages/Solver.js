@@ -71,7 +71,7 @@ const SolverPage = () => {
     // Remove the data URL prefix (e.g., "data:image/jpeg;base64,")
     const base64String = imageDataUrl.split(',')[1];
     const mimeType = imageDataUrl.split(';')[0].split(':')[1];
-    
+
     return {
       data: base64String,
       mimeType: mimeType
@@ -86,14 +86,14 @@ const SolverPage = () => {
     }
 
     setIsAnalyzing(true);
-    
+
     try {
       let solutionText;
       const subjectName = selectedSubject ? AP_SUBJECTS[selectedSubject]?.name || selectedSubject : '';
-      
+
       // Sanitize user input to prevent prompt injection
       const sanitizedQuestion = geminiService.sanitizeInput(questionText, { maxLength: 5000 });
-      
+
       // Build the structured prompt for JSON output
       const buildSolverPrompt = (problem, hasImage) => `Solve this ${subjectName || 'math'} problem step by step.
 
@@ -214,7 +214,7 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
         return null;
       };
       let parsedSolution;
-      
+
       // Try geminiService's robust JSON parsing first
       const jsonResult = geminiService.parseJSON(solutionText, false);
       if (jsonResult.success && jsonResult.data) {
@@ -265,12 +265,12 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
 
     } catch (error) {
       console.error('Error analyzing problem:', error);
-      
+
       // Check for rate limit error
       if (error instanceof RateLimitError || error.isRateLimit ||
           (error.message && (error.message.includes('rate') || error.message.includes('quota') || error.message.includes('429')))) {
         const waitTime = error.retryAfter || 60;
-        alert(`⏳ AI service is temporarily unavailable due to high demand. Please wait ${waitTime} seconds and try again.`);
+        alert(`AI service is temporarily unavailable due to high demand. Please wait ${waitTime} seconds and try again.`);
       } else {
         alert('Failed to analyze the problem. Please try again.');
       }
@@ -366,7 +366,7 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100">
+    <div className="min-h-screen bg-base-950 text-content-primary">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
         {/* Header */}
         <motion.div
@@ -375,15 +375,15 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
           className="text-center mb-6 sm:mb-8 md:mb-12"
         >
           <div className="flex items-center justify-center gap-2 sm:gap-4 mb-3 sm:mb-6">
-            <div className="p-2 sm:p-3 md:p-4 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl sm:rounded-2xl shadow-lg">
-              <Calculator className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-white" />
+            <div className="p-2 sm:p-3 md:p-4 bg-primary-500 rounded-xl sm:rounded-2xl shadow-raised">
+              <Calculator className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-base-950" strokeWidth={1.5} />
             </div>
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-primary-400">
               AI Solver
             </h1>
           </div>
-          <p className="text-sm sm:text-base md:text-lg text-slate-300 max-w-3xl mx-auto px-2">
-            <span className="hidden sm:inline">Get instant step-by-step solutions for AP homework problems. Upload a photo or type your question 
+          <p className="text-sm sm:text-base md:text-lg text-content-secondary max-w-3xl mx-auto px-2">
+            <span className="hidden sm:inline">Get instant step-by-step solutions for AP homework problems. Upload a photo or type your question
             for detailed explanations and personalized learning insights.</span>
             <span className="sm:hidden">Upload a photo or type your question for AI-powered solutions.</span>
           </p>
@@ -402,32 +402,32 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
           transition={{ delay: 0.1 }}
           className="mb-8"
         >
-          <Card className="p-3 sm:p-4 md:p-6 bg-gradient-to-r from-blue-600/20 to-indigo-600/20 border-blue-500/30">
+          <Card className="p-3 sm:p-4 md:p-6 bg-primary-900 border-primary-500/30">
             <div className="grid grid-cols-3 gap-3 sm:gap-4 md:gap-6">
               <div className="text-center">
-                <div className="p-2 sm:p-3 bg-blue-500/20 rounded-lg w-fit mx-auto mb-2 sm:mb-3">
-                  <Camera className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-blue-400" />
+                <div className="p-2 sm:p-3 bg-primary-500/20 rounded-lg w-fit mx-auto mb-2 sm:mb-3">
+                  <Camera className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-primary-400" strokeWidth={1.5} />
                 </div>
-                <h3 className="font-semibold text-slate-200 mb-1 sm:mb-2 text-xs sm:text-sm md:text-base">Photo Recognition</h3>
-                <p className="text-xs text-slate-400 hidden sm:block">
+                <h3 className="font-semibold text-content-primary mb-1 sm:mb-2 text-xs sm:text-sm md:text-base">Photo Recognition</h3>
+                <p className="text-xs text-content-muted hidden sm:block">
                   Upload photos of handwritten or printed problems
                 </p>
               </div>
               <div className="text-center">
-                <div className="p-2 sm:p-3 bg-indigo-500/20 rounded-lg w-fit mx-auto mb-2 sm:mb-3">
-                  <Brain className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-indigo-400" />
+                <div className="p-2 sm:p-3 bg-primary-500/20 rounded-lg w-fit mx-auto mb-2 sm:mb-3">
+                  <Brain className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-primary-400" strokeWidth={1.5} />
                 </div>
-                <h3 className="font-semibold text-slate-200 mb-1 sm:mb-2 text-xs sm:text-sm md:text-base">Step-by-Step</h3>
-                <p className="text-xs text-slate-400 hidden sm:block">
+                <h3 className="font-semibold text-content-primary mb-1 sm:mb-2 text-xs sm:text-sm md:text-base">Step-by-Step</h3>
+                <p className="text-xs text-content-muted hidden sm:block">
                   Detailed explanations for every step of the solution
                 </p>
               </div>
               <div className="text-center">
-                <div className="p-2 sm:p-3 bg-purple-500/20 rounded-lg w-fit mx-auto mb-2 sm:mb-3">
-                  <Lightbulb className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-purple-400" />
+                <div className="p-2 sm:p-3 bg-primary-500/20 rounded-lg w-fit mx-auto mb-2 sm:mb-3">
+                  <Lightbulb className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-primary-400" strokeWidth={1.5} />
                 </div>
-                <h3 className="font-semibold text-slate-200 mb-1 sm:mb-2 text-xs sm:text-sm md:text-base">Learn More</h3>
-                <p className="text-xs text-slate-400 hidden sm:block">
+                <h3 className="font-semibold text-content-primary mb-1 sm:mb-2 text-xs sm:text-sm md:text-base">Learn More</h3>
+                <p className="text-xs text-content-muted hidden sm:block">
                   Understand concepts and identify knowledge gaps
                 </p>
               </div>
@@ -443,17 +443,17 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
             transition={{ delay: 0.2 }}
           >
             <Card className="p-3 sm:p-4 md:p-6 h-fit">
-              <h2 className="text-lg sm:text-xl font-bold text-slate-100 mb-4 sm:mb-6">Submit Your Problem</h2>
-              
+              <h2 className="text-lg sm:text-xl font-bold text-content-primary mb-4 sm:mb-6">Submit Your Problem</h2>
+
               {/* Upload Methods */}
               <div className="space-y-6">
                 {/* Image Upload */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-3">
+                  <label className="block text-sm font-medium text-content-secondary mb-3">
                     Upload Photo
                   </label>
                   <div
-                    className="border-2 border-dashed border-slate-600 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 transition-colors"
+                    className="border-2 border-dashed border-border-strong rounded-lg p-8 text-center cursor-pointer hover:border-primary-500 transition-colors"
                     onClick={triggerImageUpload}
                   >
                     {selectedImage ? (
@@ -464,13 +464,13 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
                           className="max-h-48 mx-auto rounded-lg"
                         />
                         <div className="flex items-center justify-center gap-4">
-                          <p className="text-sm text-slate-400">Click to change image</p>
+                          <p className="text-sm text-content-muted">Click to change image</p>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedImage(null);
                             }}
-                            className="text-sm text-red-400 hover:text-red-300 underline"
+                            className="text-sm text-error-400 hover:text-error-300 underline"
                           >
                             Remove image
                           </button>
@@ -478,10 +478,10 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
                       </div>
                     ) : (
                       <div className="space-y-4">
-                        <Camera className="w-12 h-12 text-slate-500 mx-auto" />
+                        <Camera className="w-12 h-12 text-content-muted mx-auto" strokeWidth={1.5} />
                         <div>
-                          <p className="text-slate-300 font-medium">Take a photo or upload image</p>
-                          <p className="text-sm text-slate-500">Supports handwritten and printed problems</p>
+                          <p className="text-content-secondary font-medium">Take a photo or upload image</p>
+                          <p className="text-sm text-content-muted">Supports handwritten and printed problems</p>
                         </div>
                       </div>
                     )}
@@ -497,7 +497,7 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
 
                 {/* Text Input */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-3">
+                  <label className="block text-sm font-medium text-content-secondary mb-3">
                     Or Type Your Question
                   </label>
                   <Textarea
@@ -511,7 +511,7 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
 
                 {/* Subject Selection */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-3">
+                  <label className="block text-sm font-medium text-content-secondary mb-3">
                     Subject (Optional)
                   </label>
                   <CustomDropdown
@@ -532,16 +532,16 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
                 <Button
                   onClick={handleSolve}
                   disabled={(!selectedImage && !questionText) || isAnalyzing}
-                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                  className="w-full bg-primary-500 hover:bg-primary-600"
                 >
                   {isAnalyzing ? (
                     <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                      <div className="w-4 h-4 border-2 border-base-950 border-t-transparent rounded-full animate-spin mr-2"></div>
                       Analyzing Problem...
                     </>
                   ) : (
                     <>
-                      <Brain className="w-4 h-4 mr-2" />
+                      <Brain className="w-4 h-4 mr-2" strokeWidth={1.5} />
                       Solve with AI
                     </>
                   )}
@@ -559,7 +559,7 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
             {solution ? (
               <Card className="p-6">
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-bold text-slate-100">Solution</h2>
+                  <h2 className="text-xl font-bold text-content-primary">Solution</h2>
                   <Button
                     variant="outline"
                     size="sm"
@@ -570,39 +570,39 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
                 </div>
 
                 {/* Problem Info */}
-                <div className="mb-6 p-4 bg-slate-800/50 rounded-lg">
+                <div className="mb-6 p-4 bg-base-850/50 rounded-lg">
                   <div className="flex items-center gap-2 mb-2">
                     <Badge variant="secondary">{solution.subject}</Badge>
                     <Badge variant={solution.difficulty === 'Hard' ? 'destructive' : 'default'}>
                       {solution.difficulty}
                     </Badge>
                   </div>
-                  <p className="text-slate-300 font-medium"><MarkdownRenderer content={solution.question} /></p>
-                  <p className="text-sm text-slate-400 mt-2">
-                    <Clock className="w-4 h-4 inline mr-1" />
+                  <p className="text-content-secondary font-medium"><MarkdownRenderer content={solution.question} /></p>
+                  <p className="text-sm text-content-muted mt-2">
+                    <Clock className="w-4 h-4 inline mr-1" strokeWidth={1.5} />
                     Estimated time: {solution.timeToSolve}
                   </p>
                 </div>
 
                 {/* Step-by-Step Solution */}
                 <div className="space-y-4 mb-6">
-                  <h3 className="text-lg font-semibold text-slate-200">Step-by-Step Solution</h3>
+                  <h3 className="text-lg font-semibold text-content-primary">Step-by-Step Solution</h3>
                   {solution.steps.map((step, index) => (
                     <motion.div
                       key={index}
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.1 }}
-                      className="p-4 bg-slate-800/30 rounded-lg border border-slate-700"
+                      className="p-4 bg-base-850/30 rounded-lg border border-border"
                     >
                       <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-sm font-bold">
+                        <div className="flex-shrink-0 w-8 h-8 bg-primary-500 rounded-full flex items-center justify-center text-sm font-bold text-base-950">
                           {step.step}
                         </div>
                         <div className="flex-1">
-                          <h4 className="font-semibold text-slate-200 mb-2">{step.title}</h4>
-                          <div className="text-slate-300 mb-2"><MarkdownRenderer content={step.content} /></div>
-                          <div className="text-sm text-slate-400"><MarkdownRenderer content={step.explanation} /></div>
+                          <h4 className="font-semibold text-content-primary mb-2">{step.title}</h4>
+                          <div className="text-content-secondary mb-2"><MarkdownRenderer content={step.content} /></div>
+                          <div className="text-sm text-content-muted"><MarkdownRenderer content={step.explanation} /></div>
                         </div>
                       </div>
                     </motion.div>
@@ -610,20 +610,20 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
                 </div>
 
                 {/* Final Answer */}
-                <div className="p-4 bg-gradient-to-r from-green-600/20 to-emerald-600/20 border border-green-500/30 rounded-lg mb-6">
+                <div className="p-4 bg-success-900/20 border border-success-500/30 rounded-lg mb-6">
                   <div className="flex items-center gap-2 mb-2">
-                    <CheckCircle className="w-5 h-5 text-green-400" />
-                    <h3 className="text-lg font-semibold text-slate-200">Final Answer</h3>
+                    <CheckCircle className="w-5 h-5 text-success-400" strokeWidth={1.5} />
+                    <h3 className="text-lg font-semibold text-content-primary">Final Answer</h3>
                   </div>
-                  <p className="text-green-300 font-mono text-lg"><MarkdownRenderer content={solution.finalAnswer} /></p>
+                  <p className="text-success-300 font-mono text-lg"><MarkdownRenderer content={solution.finalAnswer} /></p>
                 </div>
 
                 {/* Key Concepts */}
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-200 mb-3">Key Concepts</h3>
+                  <h3 className="text-lg font-semibold text-content-primary mb-3">Key Concepts</h3>
                   <div className="flex flex-wrap gap-2">
                     {solution.concepts.map((concept, index) => (
-                      <Badge key={index} variant="outline" className="text-blue-400 border-blue-400">
+                      <Badge key={index} variant="outline" className="text-primary-400 border-primary-400">
                         {concept}
                       </Badge>
                     ))}
@@ -632,10 +632,10 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
               </Card>
             ) : (
               <Card className="p-8 text-center h-fit">
-                <Calculator className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                <h3 className="text-xl font-bold text-slate-300 mb-2">Ready to solve your problem</h3>
-                <p className="text-slate-400">
-                  Upload an image or type your question to get started with AI-powered solutions.
+                <Calculator className="w-16 h-16 text-content-muted mx-auto mb-4" strokeWidth={1.5} />
+                <h3 className="text-xl font-bold text-content-secondary mb-2">Ask a question</h3>
+                <p className="text-content-muted">
+                  Type a problem or upload an image for step-by-step solutions
                 </p>
               </Card>
             )}
@@ -650,12 +650,12 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
             transition={{ delay: 0.4 }}
             className="mt-12"
           >
-            <h2 className="text-2xl font-bold text-slate-100 mb-6">Recent Solutions</h2>
+            <h2 className="text-2xl font-bold text-content-primary mb-6">Recent Solutions</h2>
             <div className="space-y-4">
               {analysisHistory.map((item) => (
-                <Card 
-                  key={item.id} 
-                  className="p-4 hover:bg-slate-800/50 cursor-pointer transition-all duration-200"
+                <Card
+                  key={item.id}
+                  className="p-4 hover:bg-base-850/50 cursor-pointer transition-all duration-200"
                   onClick={() => {
                     // Show the solution for this item
                     if (item.solution) {
@@ -667,12 +667,12 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <Badge variant="secondary" className="text-xs">{item.subject}</Badge>
-                        <span className="text-xs text-slate-400">{item.timestamp}</span>
-                        {item.solved && <CheckCircle className="w-4 h-4 text-green-400" />}
+                        <span className="text-xs text-content-muted">{item.timestamp}</span>
+                        {item.solved && <CheckCircle className="w-4 h-4 text-success-400" strokeWidth={1.5} />}
                       </div>
-                      <p className="text-slate-300 truncate">{item.question}</p>
+                      <p className="text-content-secondary truncate">{item.question}</p>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-slate-400" />
+                    <ChevronRight className="w-5 h-5 text-content-muted" strokeWidth={1.5} />
                   </div>
                 </Card>
               ))}
@@ -687,44 +687,44 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
           transition={{ delay: 0.5 }}
           className="mt-12"
         >
-          <Card className="p-8 bg-gradient-to-r from-blue-600/10 to-indigo-600/10 border-blue-500/30">
-            <h2 className="text-2xl font-bold text-slate-100 mb-6 text-center">
+          <Card className="p-8 bg-primary-900/10 border-primary-500/30">
+            <h2 className="text-2xl font-bold text-content-primary mb-6 text-center">
               How AI Solver Works
             </h2>
             <div className="grid md:grid-cols-4 gap-6">
               <div className="text-center">
-                <div className="p-4 bg-blue-500/20 rounded-full w-fit mx-auto mb-4">
-                  <ImageIcon className="w-8 h-8 text-blue-400" />
+                <div className="p-4 bg-primary-500/20 rounded-full w-fit mx-auto mb-4">
+                  <ImageIcon className="w-8 h-8 text-primary-400" strokeWidth={1.5} />
                 </div>
-                <h3 className="font-semibold text-slate-200 mb-2">1. Upload</h3>
-                <p className="text-sm text-slate-400">
+                <h3 className="font-semibold text-content-primary mb-2">1. Upload</h3>
+                <p className="text-sm text-content-muted">
                   Take a photo or type your AP problem
                 </p>
               </div>
               <div className="text-center">
-                <div className="p-4 bg-indigo-500/20 rounded-full w-fit mx-auto mb-4">
-                  <Brain className="w-8 h-8 text-indigo-400" />
+                <div className="p-4 bg-primary-500/20 rounded-full w-fit mx-auto mb-4">
+                  <Brain className="w-8 h-8 text-primary-400" strokeWidth={1.5} />
                 </div>
-                <h3 className="font-semibold text-slate-200 mb-2">2. Analyze</h3>
-                <p className="text-sm text-slate-400">
+                <h3 className="font-semibold text-content-primary mb-2">2. Analyze</h3>
+                <p className="text-sm text-content-muted">
                   AI recognizes and understands the problem
                 </p>
               </div>
               <div className="text-center">
-                <div className="p-4 bg-purple-500/20 rounded-full w-fit mx-auto mb-4">
-                  <FileText className="w-8 h-8 text-purple-400" />
+                <div className="p-4 bg-primary-500/20 rounded-full w-fit mx-auto mb-4">
+                  <FileText className="w-8 h-8 text-primary-400" strokeWidth={1.5} />
                 </div>
-                <h3 className="font-semibold text-slate-200 mb-2">3. Solve</h3>
-                <p className="text-sm text-slate-400">
+                <h3 className="font-semibold text-content-primary mb-2">3. Solve</h3>
+                <p className="text-sm text-content-muted">
                   Get detailed step-by-step solutions
                 </p>
               </div>
               <div className="text-center">
-                <div className="p-4 bg-pink-500/20 rounded-full w-fit mx-auto mb-4">
-                  <Lightbulb className="w-8 h-8 text-pink-400" />
+                <div className="p-4 bg-primary-500/20 rounded-full w-fit mx-auto mb-4">
+                  <Lightbulb className="w-8 h-8 text-primary-400" strokeWidth={1.5} />
                 </div>
-                <h3 className="font-semibold text-slate-200 mb-2">4. Learn</h3>
-                <p className="text-sm text-slate-400">
+                <h3 className="font-semibold text-content-primary mb-2">4. Learn</h3>
+                <p className="text-sm text-content-muted">
                   Understand concepts and improve skills
                 </p>
               </div>

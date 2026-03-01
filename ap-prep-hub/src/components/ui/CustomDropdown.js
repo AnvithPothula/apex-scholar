@@ -64,40 +64,40 @@ const CustomDropdown = ({
       <button
         type="button"
         className={`
-          w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-lg 
-          text-left focus:outline-none focus:ring-2 focus:ring-blue-500 
+          w-full px-4 py-3 bg-base-800 border border-border-strong rounded-lg
+          text-left focus:outline-none focus:ring-2 focus:ring-primary-500
           focus:border-transparent transition-all duration-200 flex justify-between items-center
-          ${disabled 
-            ? 'opacity-50 cursor-not-allowed bg-slate-700/30' 
-            : 'hover:bg-slate-700/50 cursor-pointer'
+          ${disabled
+            ? 'opacity-50 cursor-not-allowed bg-base-800/30'
+            : 'hover:bg-base-750 cursor-pointer'
           }
-          ${isOpen ? 'ring-2 ring-blue-500 border-transparent' : ''}
+          ${isOpen ? 'ring-2 ring-primary-500 border-transparent' : ''}
         `}
         onClick={handleToggle}
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
       >
-        <span className={selectedOption ? 'text-slate-200' : 'text-slate-400'}>
+        <span className={selectedOption ? 'text-content-primary' : 'text-content-muted'}>
           {selectedOption ? selectedOption.label : placeholder}
         </span>
         <svg
           className={`
-            w-5 h-5 transition-transform duration-200 text-slate-400
+            w-5 h-5 transition-transform duration-200 text-content-muted
             ${isOpen ? 'transform rotate-180' : ''}
           `}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
         >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
 
       {isOpen && !disabled && (
-        <div className="absolute z-50 w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+        <div className="absolute z-50 w-full mt-1 bg-base-800 border border-border rounded-lg shadow-floating max-h-60 overflow-y-auto">
           {options.length === 0 ? (
-            <div className="px-4 py-3 text-slate-400 text-sm">
+            <div className="px-4 py-3 text-content-muted text-sm">
               No options available
             </div>
           ) : (
@@ -106,10 +106,10 @@ const CustomDropdown = ({
                 key={option.value || index}
                 type="button"
                 className={`
-                  w-full px-4 py-3 text-left hover:bg-slate-700 focus:bg-slate-700 
-                  focus:outline-none transition-colors duration-150 text-slate-200
-                  ${selectedOption?.value === option.value ? 'bg-slate-700 text-blue-400' : ''}
-                  ${index === options.length - 1 ? '' : 'border-b border-slate-700'}
+                  w-full px-4 py-3 text-left hover:bg-base-750 focus:bg-base-750
+                  focus:outline-none transition-colors duration-150 text-content-primary
+                  ${selectedOption?.value === option.value ? 'bg-base-750 text-primary-400' : ''}
+                  ${index === options.length - 1 ? '' : 'border-b border-border-subtle'}
                 `}
                 onClick={() => handleSelect(option)}
                 role="option"

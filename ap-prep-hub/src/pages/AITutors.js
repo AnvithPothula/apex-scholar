@@ -654,8 +654,8 @@ const AITutors = () => {
   // Redirect to login if not authenticated
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
-        <div className="text-slate-300">Loading...</div>
+      <div className="min-h-screen bg-base-950 flex items-center justify-center">
+        <div className="text-content-secondary">Loading...</div>
       </div>
     );
   }
@@ -1491,41 +1491,41 @@ Please check your internet connection and try again. In the meantime:
     // Create thematic color mapping based on subject area
     const colorMap = {
       // Sciences - GREEN
-      'biology': 'from-green-500 to-emerald-600',
-      'chemistry': 'from-green-600 to-green-700',
-      'physics': 'from-emerald-500 to-green-600',
-      'environmental': 'from-green-400 to-emerald-500',
-      'psychology': 'from-green-500 to-teal-600',
+      'biology': 'from-success-500 to-emerald-600',
+      'chemistry': 'from-success-600 to-success-700',
+      'physics': 'from-emerald-500 to-success-600',
+      'environmental': 'from-success-400 to-emerald-500',
+      'psychology': 'from-success-500 to-teal-600',
       
       // Math - RED
-      'calculus': 'from-red-500 to-red-600',
-      'statistics': 'from-red-600 to-red-700',
-      'precalculus': 'from-red-400 to-red-500',
+      'calculus': 'from-error-500 to-error-600',
+      'statistics': 'from-error-600 to-error-700',
+      'precalculus': 'from-error-400 to-error-500',
       
       // Computer Science - GREEN (as it's often considered STEM/Science)
-      'computer': 'from-green-600 to-emerald-700',
-      'programming': 'from-emerald-600 to-green-700',
+      'computer': 'from-success-600 to-emerald-700',
+      'programming': 'from-emerald-600 to-success-700',
       
       // English & Literature - BLUE
-      'english': 'from-blue-500 to-blue-600',
-      'literature': 'from-blue-600 to-indigo-600',
-      'language': 'from-blue-400 to-blue-500',
-      'composition': 'from-blue-500 to-indigo-500',
-      'chinese': 'from-blue-500 to-blue-600',
-      'french': 'from-blue-400 to-blue-500',
-      'german': 'from-blue-600 to-indigo-600',
-      'italian': 'from-blue-500 to-blue-600',
-      'japanese': 'from-blue-400 to-indigo-500',
-      'spanish': 'from-blue-500 to-blue-600',
-      'latin': 'from-blue-600 to-indigo-600',
+      'english': 'from-primary-500 to-primary-600',
+      'literature': 'from-primary-600 to-primary-600',
+      'language': 'from-primary-400 to-primary-500',
+      'composition': 'from-primary-500 to-primary-500',
+      'chinese': 'from-primary-500 to-primary-600',
+      'french': 'from-primary-400 to-primary-500',
+      'german': 'from-primary-600 to-primary-600',
+      'italian': 'from-primary-500 to-primary-600',
+      'japanese': 'from-primary-400 to-primary-500',
+      'spanish': 'from-primary-500 to-primary-600',
+      'latin': 'from-primary-600 to-primary-600',
       
       // History & Social Sciences - ORANGE
       'history': 'from-orange-500 to-orange-600',
       'government': 'from-orange-600 to-orange-700',
-      'politics': 'from-orange-500 to-red-500',
+      'politics': 'from-orange-500 to-error-500',
       'geography': 'from-orange-400 to-orange-500',
       'humanGeography': 'from-orange-500 to-orange-600',
-      'worldHistory': 'from-orange-600 to-red-600',
+      'worldHistory': 'from-orange-600 to-error-600',
       'usHistory': 'from-orange-500 to-orange-600',
       'europeanHistory': 'from-orange-500 to-orange-600',
       
@@ -1535,15 +1535,15 @@ Please check your internet connection and try again. In the meantime:
       'microeconomics': 'from-orange-500 to-orange-600',
       
       // Arts - Keep creative colors (not in main 4 categories)
-      'art': 'from-purple-500 to-pink-600',
-      'studio': 'from-pink-500 to-purple-600',
-      'drawing': 'from-gray-500 to-slate-600',
-      'design': 'from-violet-500 to-purple-600',
-      'music': 'from-indigo-500 to-purple-600',
+      'art': 'from-primary-500 to-primary-600',
+      'studio': 'from-primary-500 to-primary-600',
+      'drawing': 'from-gray-500 to-gray-600',
+      'design': 'from-primary-500 to-primary-600',
+      'music': 'from-primary-500 to-primary-600',
       
       // Other
-      'research': 'from-slate-600 to-gray-700',
-      'seminar': 'from-blue-500 to-purple-600'
+      'research': 'from-gray-600 to-gray-700',
+      'seminar': 'from-primary-500 to-primary-600'
     };
     
     // Find matching color by checking if subject ID contains key terms
@@ -1556,20 +1556,20 @@ Please check your internet connection and try again. In the meantime:
     }
     
     // Specific overrides for exact matches
-    if (subjectLower.includes('ap physics 1')) return 'from-green-500 to-emerald-600';
-    if (subjectLower.includes('ap physics 2')) return 'from-emerald-500 to-green-600';
-    if (subjectLower.includes('mechanics')) return 'from-green-600 to-emerald-700';
-    if (subjectLower.includes('electricity') || subjectLower.includes('magnetism')) return 'from-green-500 to-green-700';
+    if (subjectLower.includes('ap physics 1')) return 'from-success-500 to-emerald-600';
+    if (subjectLower.includes('ap physics 2')) return 'from-emerald-500 to-success-600';
+    if (subjectLower.includes('mechanics')) return 'from-success-600 to-emerald-700';
+    if (subjectLower.includes('electricity') || subjectLower.includes('magnetism')) return 'from-success-500 to-success-700';
     if (subjectLower.includes('comparative')) return 'from-orange-500 to-orange-600';
     
     // Default fallback
-    return 'from-blue-500 to-purple-600';
+    return 'from-primary-500 to-primary-600';
   };
 
   // Early return for subject selection
   if (!selectedSubject) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <div className="min-h-screen bg-base-950">
         <SubjectSelector
           subjects={subjects}
           selectedSubject={selectedSubject}
@@ -1585,7 +1585,7 @@ Please check your internet connection and try again. In the meantime:
   const subjectSuggestions = getSubjectSuggestions(selectedSubject);
 
   return (
-    <div className="h-[calc(100vh-3.5rem)] sm:h-[calc(100vh-4rem)] flex bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative">
+    <div className="h-[calc(100vh-3.5rem)] sm:h-[calc(100vh-4rem)] flex bg-base-950 relative">
       {/* Mobile Sidebar Overlay */}
       {showMobileSidebar && (
         <div 
@@ -1597,21 +1597,21 @@ Please check your internet connection and try again. In the meantime:
       {/* Conversation Sidebar - Hidden on mobile by default, always visible on desktop */}
       {selectedSubject && (
         <div
-          className={`fixed md:relative z-50 md:z-auto w-72 sm:w-80 h-full bg-slate-800/95 md:bg-slate-800/90 backdrop-blur-xl border-r border-slate-700 flex flex-col transition-transform duration-300 ease-in-out md:translate-x-0 md:opacity-100 ${showMobileSidebar ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0 md:translate-x-0 md:opacity-100'}`}
+          className={`fixed md:relative z-50 md:z-auto w-72 sm:w-80 h-full bg-base-850 md:bg-base-850 border-r border-border flex flex-col transition-transform duration-300 ease-in-out md:translate-x-0 md:opacity-100 ${showMobileSidebar ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0 md:translate-x-0 md:opacity-100'}`}
         >
           {/* Sidebar Header */}
-          <div className="p-3 sm:p-4 border-b border-slate-700">
+          <div className="p-3 sm:p-4 border-b border-border">
             <div className="flex items-center justify-between">
-              <h3 className="text-base sm:text-lg font-semibold text-slate-200">Conversations</h3>
+              <h3 className="text-base sm:text-lg font-semibold text-content-primary">Conversations</h3>
               <div className="flex items-center gap-1">
                 {/* Close button for mobile */}
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowMobileSidebar(false)}
-                  className="text-slate-300 hover:text-slate-100 md:hidden"
+                  className="text-content-secondary hover:text-content-primary md:hidden"
                 >
-                  <X className="w-4 h-4" />
+                  <X strokeWidth={1.5} className="w-4 h-4" />
                 </Button>
                 <Button
                   variant="ghost"
@@ -1621,13 +1621,13 @@ Please check your internet connection and try again. In the meantime:
                     e.stopPropagation();
                     handleNewConversation();
                   }}
-                  className="text-slate-300 hover:text-slate-100"
+                  className="text-content-secondary hover:text-content-primary"
                 >
-                  <Plus className="w-4 h-4" />
+                  <Plus strokeWidth={1.5} className="w-4 h-4" />
                 </Button>
               </div>
             </div>
-            <p className="text-sm text-slate-400 mt-1">
+            <p className="text-sm text-content-muted mt-1">
               {getCurriculumData(selectedSubject)?.name || selectedSubject}
             </p>
           </div>
@@ -1641,8 +1641,8 @@ Please check your internet connection and try again. In the meantime:
                 animate={{ opacity: 1, y: 0 }}
                 className={`group relative p-3 rounded-lg cursor-pointer transition-all duration-200 ${
                   activeConversationId === conversation.id
-                    ? 'bg-blue-600/20 border border-blue-500/30'
-                    : 'bg-slate-700/50 hover:bg-slate-700/80'
+                    ? 'bg-primary-900 border border-primary-500/30'
+                    : 'bg-base-800 hover:bg-base-800'
                 }`}
                 onClick={() => {
                   if (!editingConversationId) {
@@ -1664,7 +1664,7 @@ Please check your internet connection and try again. In the meantime:
                               cancelEditingConversation();
                             }
                           }}
-                          className="text-sm bg-slate-600 border-slate-500 text-slate-200"
+                          className="text-sm bg-base-750 border-border-strong text-content-primary"
                           autoFocus
                         />
                         <div className="flex gap-1">
@@ -1675,9 +1675,9 @@ Please check your internet connection and try again. In the meantime:
                               e.stopPropagation();
                               handleRenameConversation(conversation.id, editingName);
                             }}
-                            className="h-6 px-2 text-green-400 hover:text-green-300"
+                            className="h-6 px-2 text-success-400 hover:text-success-400"
                           >
-                            <Check className="w-3 h-3" />
+                            <Check strokeWidth={1.5} className="w-3 h-3" />
                           </Button>
                           <Button
                             size="sm"
@@ -1686,21 +1686,21 @@ Please check your internet connection and try again. In the meantime:
                               e.stopPropagation();
                               cancelEditingConversation();
                             }}
-                            className="h-6 px-2 text-red-400 hover:text-red-300"
+                            className="h-6 px-2 text-error-400 hover:text-error-400"
                           >
-                            <X className="w-3 h-3" />
+                            <X strokeWidth={1.5} className="w-3 h-3" />
                           </Button>
                         </div>
                       </div>
                     ) : (
                       <>
-                        <h4 className="text-sm font-medium text-slate-200 truncate">
+                        <h4 className="text-sm font-medium text-content-primary truncate">
                           {conversation.name}
                         </h4>
-                        <p className="text-xs text-slate-400 mt-1 line-clamp-2">
+                        <p className="text-xs text-content-muted mt-1 line-clamp-2">
                           {conversation.lastMessage || 'New conversation'}
                         </p>
-                        <p className="text-xs text-slate-500 mt-1">
+                        <p className="text-xs text-content-muted mt-1">
                           {conversation.createdAt.toLocaleDateString()}
                         </p>
                       </>
@@ -1719,9 +1719,9 @@ Please check your internet connection and try again. In the meantime:
                             showConversationMenu === conversation.id ? null : conversation.id
                           );
                         }}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0 text-slate-400 hover:text-slate-200"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0 text-content-muted hover:text-content-primary"
                       >
-                        <MoreVertical className="w-3 h-3" />
+                        <MoreVertical strokeWidth={1.5} className="w-3 h-3" />
                       </Button>
 
                       {/* Dropdown Menu */}
@@ -1729,7 +1729,7 @@ Please check your internet connection and try again. In the meantime:
                         <motion.div
                           initial={{ opacity: 0, scale: 0.95 }}
                           animate={{ opacity: 1, scale: 1 }}
-                          className="absolute right-0 top-6 z-50 bg-slate-800 border border-slate-600 rounded-lg shadow-lg py-1 min-w-[120px]"
+                          className="absolute right-0 top-6 z-50 bg-base-850 border border-border-strong rounded-lg shadow-raised py-1 min-w-[120px]"
                           data-conversation-menu
                         >
                           <button
@@ -1737,9 +1737,9 @@ Please check your internet connection and try again. In the meantime:
                               e.stopPropagation();
                               startEditingConversation(conversation.id, conversation.name);
                             }}
-                            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
+                            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-content-primary hover:bg-base-800 transition-colors"
                           >
-                            <Edit3 className="w-3 h-3" />
+                            <Edit3 strokeWidth={1.5} className="w-3 h-3" />
                             Rename
                           </button>
                           <button
@@ -1747,9 +1747,9 @@ Please check your internet connection and try again. In the meantime:
                               e.stopPropagation();
                               confirmDeleteConversation(conversation.id);
                             }}
-                            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-400 hover:bg-slate-700 transition-colors"
+                            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-error-400 hover:bg-base-800 transition-colors"
                           >
-                            <Trash2 className="w-3 h-3" />
+                            <Trash2 strokeWidth={1.5} className="w-3 h-3" />
                             Delete
                           </button>
                         </motion.div>
@@ -1770,7 +1770,7 @@ Please check your internet connection and try again. In the meantime:
           initial={{ y: -50, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.6 }}
-          className="bg-slate-800/90 backdrop-blur-xl border-b border-slate-700 shadow-lg"
+          className="bg-base-850 border-b border-border shadow-raised"
         >
           <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4">
             <div className="flex items-center justify-between gap-2">
@@ -1780,9 +1780,9 @@ Please check your internet connection and try again. In the meantime:
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowMobileSidebar(true)}
-                  className="text-slate-300 hover:text-slate-100 md:hidden flex-shrink-0 p-2"
+                  className="text-content-secondary hover:text-content-primary md:hidden flex-shrink-0 p-2"
                 >
-                  <BookOpen className="w-5 h-5" />
+                  <BookOpen strokeWidth={1.5} className="w-5 h-5" />
                 </Button>
                 <Button
                   variant="ghost"
@@ -1795,23 +1795,23 @@ Please check your internet connection and try again. In the meantime:
                     }
                     navigate('/AITutors');
                   }}
-                  className="text-slate-300 hover:text-slate-100 hidden sm:flex"
+                  className="text-content-secondary hover:text-content-primary hidden sm:flex"
                 >
-                  <ChevronLeft className="w-4 h-4 mr-1 sm:mr-2" />
+                  <ChevronLeft strokeWidth={1.5} className="w-4 h-4 mr-1 sm:mr-2" />
                   <span className="hidden md:inline">Back to Subjects</span>
                   <span className="md:hidden">Back</span>
                 </Button>
                 
                 <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-                  <div className={`p-2 sm:p-3 bg-gradient-to-br ${subjectColor} rounded-lg sm:rounded-xl shadow-lg flex-shrink-0`}>
-                    <SubjectIcon className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
+                  <div className={`p-2 sm:p-3 bg-gradient-to-br ${subjectColor} rounded-lg sm:rounded-sm shadow-raised flex-shrink-0`}>
+                    <SubjectIcon className="w-4 h-4 sm:w-6 sm:h-6 text-content-primary" />
                   </div>
                   <div className="min-w-0">
-                    <h1 className="text-base sm:text-xl md:text-2xl font-bold text-slate-100 truncate">
+                    <h1 className="text-base sm:text-xl md:text-2xl font-bold font-display text-content-primary truncate">
                       {getCurriculumData(selectedSubject)?.name || selectedSubject}
                     </h1>
-                    <p className="text-xs sm:text-sm text-slate-300 flex items-center gap-1 sm:gap-2">
-                      <Bot className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-400 flex-shrink-0" />
+                    <p className="text-xs sm:text-sm text-content-secondary flex items-center gap-1 sm:gap-2">
+                      <Bot strokeWidth={1.5} className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-400 flex-shrink-0" />
                       <span className="hidden sm:inline">AI Tutor • Ready to help</span>
                       <span className="sm:hidden">AI Tutor</span>
                     </p>
@@ -1828,9 +1828,9 @@ Please check your internet connection and try again. In the meantime:
                   variant="ghost"
                   size="sm"
                   onClick={() => navigate('/AITutors')}
-                  className="text-slate-300 hover:text-slate-100 sm:hidden p-2"
+                  className="text-content-secondary hover:text-content-primary sm:hidden p-2"
                 >
-                  <ChevronLeft className="w-5 h-5" />
+                  <ChevronLeft strokeWidth={1.5} className="w-5 h-5" />
                 </Button>
               </div>
             </div>
@@ -1840,7 +1840,7 @@ Please check your internet connection and try again. In the meantime:
         {/* Diagnostics output removed */}
 
       {/* Mode Selector — sticky bar */}
-      <div className="bg-slate-800/90 backdrop-blur-xl border-b border-slate-700/50 z-10">
+      <div className="bg-base-850 border-b border-border z-10">
         <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 py-2">
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2" role="group" aria-label="Tutor modes">
             {['Explain','Practice MCQ','Walkthrough','Summarize Attachment'].map((m) => (
@@ -1850,13 +1850,13 @@ Please check your internet connection and try again. In the meantime:
                 size="sm"
                 aria-pressed={selectedMode === m}
                 onClick={() => setSelectedMode(m)}
-                className={`text-xs sm:text-sm px-2 sm:px-3 py-1.5 ${selectedMode === m ? 'bg-blue-700 text-white' : 'text-slate-300 hover:text-slate-100'}`}
+                className={`text-xs sm:text-sm px-2 sm:px-3 py-1.5 ${selectedMode === m ? 'bg-primary-900 text-primary-400' : 'text-content-secondary hover:text-content-primary'}`}
               >
                 <span className="hidden sm:inline">{m}</span>
                 <span className="sm:hidden">{m === 'Practice MCQ' ? 'MCQ' : m === 'Summarize Attachment' ? 'Summarize' : m}</span>
               </Button>
             ))}
-            <label className="ml-1 sm:ml-2 inline-flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-slate-300">
+            <label className="ml-1 sm:ml-2 inline-flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-content-secondary">
               <input type="checkbox" checked={checkMySteps} onChange={(e) => setCheckMySteps(e.target.checked)} className="w-3 h-3 sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">Check my steps</span>
               <span className="sm:hidden">Check</span>
@@ -1875,11 +1875,11 @@ Please check your internet connection and try again. In the meantime:
               animate={{ opacity: 1, y: 0 }}
               className="mb-8"
             >
-              <Card className="bg-gradient-to-br from-slate-800 to-slate-700 border-slate-600">
+              <Card className="bg-base-850 border-border-strong">
                 <CardContent className="p-6">
                   <div className="text-center mb-4">
-                    <Sparkles className="w-8 h-8 text-blue-400 mx-auto mb-2" />
-                    <h3 className="font-semibold text-slate-200">Quick Start Suggestions</h3>
+                    <Sparkles strokeWidth={1.5} className="w-8 h-8 text-primary-400 mx-auto mb-2" />
+                    <h3 className="font-semibold text-content-primary">Quick Start Suggestions</h3>
                   </div>
                   <div className="space-y-2">
                     {subjectSuggestions.map((suggestion, index) => (
@@ -1887,7 +1887,7 @@ Please check your internet connection and try again. In the meantime:
                         key={index}
                         variant="ghost"
                         onClick={() => handleSuggestionClick(suggestion)}
-                        className="text-left justify-start h-auto p-3 text-sm text-slate-300 hover:bg-slate-700 hover:text-slate-100 w-full"
+                        className="text-left justify-start h-auto p-3 text-sm text-content-secondary hover:bg-base-800 hover:text-content-primary w-full"
                       >
                         {suggestion}
                       </Button>
@@ -1912,15 +1912,15 @@ Please check your internet connection and try again. In the meantime:
                 <div className={`flex gap-3 max-w-4xl ${message.type === 'user' ? 'flex-row-reverse' : ''}`}>
                   {/* Avatar */}
                   <div className="flex-shrink-0">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                    <div className={`w-10 h-10 rounded-sm flex items-center justify-center ${
                       message.type === 'user' 
-                        ? 'bg-gradient-to-br from-blue-500 to-purple-600' 
+                        ? 'bg-primary-500' 
                         : 'bg-gradient-to-br from-emerald-500 to-teal-600'
                     }`}>
                       {message.type === 'user' ? (
-                        <User className="w-5 h-5 text-white" />
+                        <User strokeWidth={1.5} className="w-5 h-5 text-content-primary" />
                       ) : (
-                        <Bot className="w-5 h-5 text-white" />
+                        <Bot strokeWidth={1.5} className="w-5 h-5 text-content-primary" />
                       )}
                     </div>
                   </div>
@@ -1929,13 +1929,13 @@ Please check your internet connection and try again. In the meantime:
                   <div className="flex-1 max-w-2xl">
                     <Card className={`${
                       message.type === 'user'
-                        ? 'bg-gradient-to-br from-blue-500 to-purple-600 text-white border-none'
-                        : 'bg-slate-800/80 backdrop-blur-sm border border-slate-600/50'
+                        ? 'bg-primary-500 text-base-950 border-none'
+                        : 'bg-base-850 border border-border-strong'
                     }`}>
                       <CardContent className="p-4">
                         {message.type === 'user' ? (
                           <div>
-                            <p className="text-sm leading-relaxed whitespace-pre-wrap text-white">
+                            <p className="text-sm leading-relaxed whitespace-pre-wrap text-base-950">
                               {message.content}
                             </p>
                             
@@ -1943,14 +1943,14 @@ Please check your internet connection and try again. In the meantime:
                             {message.files && message.files.length > 0 && (
                               <div className="mt-3 space-y-2">
                                 {message.files.map((file, index) => (
-                                  <div key={index} className="flex items-center gap-2 p-2 bg-white/10 rounded-lg">
+                                  <div key={index} className="flex items-center gap-2 p-2 bg-base-850/50 rounded-lg">
                                     {file.category === 'image' ? (
-                                      <Image className="w-4 h-4 text-blue-200" />
+                                      <Image strokeWidth={1.5} className="w-4 h-4 text-primary-400" />
                                     ) : (
-                                      <FileText className="w-4 h-4 text-blue-200" />
+                                      <FileText strokeWidth={1.5} className="w-4 h-4 text-primary-400" />
                                     )}
-                                    <span className="text-xs text-blue-100">{file.name}</span>
-                                    <span className="text-xs text-blue-200">
+                                    <span className="text-xs text-primary-400">{file.name}</span>
+                                    <span className="text-xs text-primary-400">
                                       ({Math.round(file.size / 1024)}KB)
                                     </span>
                                   </div>
@@ -1981,14 +1981,14 @@ Please check your internet connection and try again. In the meantime:
                             <MarkdownRenderer 
                               content={message.content}
                               className={`text-sm leading-relaxed ${
-                                message.type === 'user' ? 'text-white' : 'text-slate-200'
+                                message.type === 'user' ? 'text-base-950' : 'text-content-primary'
                               }`}
                             />
                           )
                         )}
                         
                         <div className={`text-xs mt-2 ${
-                          message.type === 'user' ? 'text-blue-100' : 'text-slate-400'
+                          message.type === 'user' ? 'text-primary-400' : 'text-content-muted'
                         }`}>
                           {message.timestamp.toLocaleTimeString([], { 
                             hour: '2-digit', 
@@ -2012,14 +2012,14 @@ Please check your internet connection and try again. In the meantime:
                 exit={{ opacity: 0, y: -20 }}
                 className="flex gap-3"
               >
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
-                  <Bot className="w-5 h-5 text-white" />
+                <div className="w-10 h-10 rounded-sm bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+                  <Bot strokeWidth={1.5} className="w-5 h-5 text-content-primary" />
                 </div>
-                <Card className="bg-slate-800/80 backdrop-blur-sm border border-slate-600/50">
+                <Card className="bg-base-850 border border-border-strong">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-1">
-                      <Sparkles className="w-4 h-4 text-emerald-400 animate-pulse" />
-                      <span className="text-sm text-slate-300">AI Tutor is thinking...</span>
+                      <Sparkles strokeWidth={1.5} className="w-4 h-4 text-emerald-400 animate-pulse" />
+                      <span className="text-sm text-content-secondary">AI Tutor is thinking...</span>
                       <div className="flex gap-1 ml-2">
                         <motion.div
                           className="w-1.5 h-1.5 bg-emerald-500 rounded-full"
@@ -2053,17 +2053,17 @@ Please check your internet connection and try again. In the meantime:
         initial={{ y: 50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.6 }}
-        className="bg-slate-800/90 backdrop-blur-xl border-t border-slate-700 shadow-lg safe-bottom"
+        className="bg-base-850 border-t border-border shadow-raised safe-bottom"
       >
         <div className="max-w-4xl mx-auto p-3 sm:p-4 md:p-6">
           {/* Display uploaded files */}
           {uploadedFiles.length > 0 && (
-            <div className="mb-3 sm:mb-4 p-2 sm:p-3 bg-slate-700/50 rounded-lg border border-slate-600">
+            <div className="mb-3 sm:mb-4 p-2 sm:p-3 bg-base-800 rounded-lg border border-border-strong">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs sm:text-sm text-slate-300 font-medium">Attached:</span>
+                <span className="text-xs sm:text-sm text-content-secondary font-medium">Attached:</span>
                 <button
                   onClick={() => setUploadedFiles([])}
-                  className="text-xs text-slate-400 hover:text-slate-200"
+                  className="text-xs text-content-muted hover:text-content-primary"
                 >
                   Clear
                 </button>
@@ -2072,22 +2072,22 @@ Please check your internet connection and try again. In the meantime:
                 {uploadedFiles.map((file, index) => (
                   <div
                     key={file.id}
-                    className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-slate-600/50 rounded-lg border border-slate-500"
+                    className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-base-750 rounded-lg border border-border-strong"
                   >
                     {file.category === 'image' ? (
-                      <Image className="w-3 h-3 sm:w-4 sm:h-4 text-blue-400" />
+                      <Image strokeWidth={1.5} className="w-3 h-3 sm:w-4 sm:h-4 text-primary-400" />
                     ) : (
-                      <FileText className="w-3 h-3 sm:w-4 sm:h-4 text-green-400" />
+                      <FileText strokeWidth={1.5} className="w-3 h-3 sm:w-4 sm:h-4 text-success-400" />
                     )}
-                    <span className="text-xs sm:text-sm text-slate-200 truncate max-w-[100px] sm:max-w-none">{file.name}</span>
-                    <span className="text-xs text-slate-400 hidden sm:inline">
+                    <span className="text-xs sm:text-sm text-content-primary truncate max-w-[100px] sm:max-w-none">{file.name}</span>
+                    <span className="text-xs text-content-muted hidden sm:inline">
                       ({Math.round(file.size / 1024)}KB)
                     </span>
                     <button
                       onClick={() => handleFileRemove(file.id)}
-                      className="ml-1 sm:ml-2 text-slate-400 hover:text-red-400"
+                      className="ml-1 sm:ml-2 text-content-muted hover:text-error-400"
                     >
-                      <X className="w-3 h-3" />
+                      <X strokeWidth={1.5} className="w-3 h-3" />
                     </button>
                   </div>
                 ))}
@@ -2118,10 +2118,10 @@ Please check your internet connection and try again. In the meantime:
                 variant="ghost" 
                 size="sm"
                 onClick={handleFileSelect}
-                className="text-slate-300 hover:text-slate-100 p-2 sm:p-2.5"
+                className="text-content-secondary hover:text-content-primary p-2 sm:p-2.5"
                 title="Attach file"
               >
-                <Paperclip className="w-4 h-4 sm:w-5 sm:h-5" />
+                <Paperclip strokeWidth={1.5} className="w-4 h-4 sm:w-5 sm:h-5" />
               </Button>
               
               <Button
@@ -2132,19 +2132,18 @@ Please check your internet connection and try again. In the meantime:
                   handleSendMessage();
                 }}
                 disabled={(!currentMessage.trim() && uploadedFiles.length === 0) || isTyping}
-                className="px-3 sm:px-6 py-2 sm:py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                glow
+                className="px-3 sm:px-6 py-2 sm:py-2.5 bg-primary-500 hover:bg-primary-600"
               >
-                <Send className="w-4 h-4 sm:w-5 sm:h-5" />
+                <Send strokeWidth={1.5} className="w-4 h-4 sm:w-5 sm:h-5" />
               </Button>
             </div>
           </div>
           
-          <div className="hidden sm:flex items-center justify-between mt-3 sm:mt-4 text-xs text-slate-400">
+          <div className="hidden sm:flex items-center justify-between mt-3 sm:mt-4 text-xs text-content-muted">
             <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
               <span>Enter to send • Shift+Enter for new line</span>
               <span className="flex items-center gap-1">
-                <TrendingUp className="w-3 h-3" />
+                <TrendingUp strokeWidth={1.5} className="w-3 h-3" />
                 Powered by AI
               </span>
             </div>

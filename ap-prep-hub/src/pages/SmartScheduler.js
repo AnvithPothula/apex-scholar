@@ -872,45 +872,45 @@ export default function SmartScheduler() {
 
   if (!user) {
     return (
-      <div className="h-[calc(100vh-4rem)] flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800">
+      <div className="h-[calc(100vh-4rem)] flex items-center justify-center bg-base-950">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-white mb-4">Please Log In</h2>
-          <p className="text-slate-300">You need to be logged in to access the scheduler.</p>
+          <h2 className="text-2xl font-bold font-display text-content-primary mb-4">Please Log In</h2>
+          <p className="text-content-secondary">You need to be logged in to access the scheduler.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-[calc(100vh-3.5rem)] sm:h-[calc(100vh-4rem)] flex flex-col md:flex-row bg-gradient-to-br from-slate-900 to-slate-800">
+    <div className="h-[calc(100vh-3.5rem)] sm:h-[calc(100vh-4rem)] flex flex-col md:flex-row bg-base-950">
       {/* Mobile/Tablet optimized sidebar */}
-      <div className="w-full md:w-72 lg:w-80 border-r border-slate-700 flex flex-col bg-slate-800/80 backdrop-blur-sm order-2 md:order-1 max-h-[40vh] md:max-h-none">
-        <div className="p-4 sm:p-6 border-b border-slate-700 bg-slate-800/60">
+      <div className="w-full md:w-72 lg:w-80 border-r border-border flex flex-col bg-base-850 order-2 md:order-1 max-h-[40vh] md:max-h-none">
+        <div className="p-4 sm:p-6 border-b border-border bg-base-850">
           <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">Scheduler</h2>
-            <Button size="sm" onClick={handleCreateTask} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-xs sm:text-sm">
-              <Plus size={14} className="mr-1"/>
+            <h2 className="text-xl sm:text-2xl font-bold font-display text-primary-400">Scheduler</h2>
+            <Button size="sm" onClick={handleCreateTask} className="bg-primary-500 hover:bg-primary-600 text-xs sm:text-sm">
+              <Plus strokeWidth={1.5} size={14} className="mr-1"/>
               Task
             </Button>
           </div>
-          <p className="text-slate-300 text-xs sm:text-sm">Manage your AP study schedule and deadlines</p>
+          <p className="text-content-secondary text-xs sm:text-sm">Manage your AP study schedule and deadlines</p>
         </div>
         
         <div className="p-3 sm:p-4">
           {/* New assignments notification */}
           {newAssignmentsAvailable && (
-            <div className="mb-3 p-3 bg-blue-900/30 border border-blue-700 rounded-lg">
+            <div className="mb-3 p-3 bg-primary-900 border border-border rounded-lg">
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <svg className="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="h-5 w-5 text-primary-400" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                     </svg>
                   </div>
                   <div className="ml-3">
-                    <p className="text-sm text-blue-200">
+                    <p className="text-sm text-primary-400">
                       New assignments have been synced from Schoology! 
-                      <span className="block text-xs text-blue-400 mt-1">
+                      <span className="block text-xs text-primary-400 mt-1">
                         Click "Generate Smart Schedule" to include them in your schedule.
                       </span>
                     </p>
@@ -918,7 +918,7 @@ export default function SmartScheduler() {
                 </div>
                 <button
                   onClick={() => setNewAssignmentsAvailable(false)}
-                  className="flex-shrink-0 ml-3 text-blue-400 hover:text-blue-300"
+                  className="flex-shrink-0 ml-3 text-primary-400 hover:text-primary-400"
                 >
                   <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -929,11 +929,11 @@ export default function SmartScheduler() {
           )}
           
           <Button 
-            className="w-full mb-2 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-xs sm:text-sm py-2 sm:py-3" 
+            className="w-full mb-2 bg-primary-500 hover:bg-primary-600 text-xs sm:text-sm py-2 sm:py-3" 
             onClick={() => generateIntelligentSchedule(false)}
             disabled={isLoadingPreferences || !scheduler || isGenerating}
           >
-            <Brain size={14} className="mr-2"/>
+            <Brain strokeWidth={1.5} size={14} className="mr-2"/>
             <span className="truncate">
               {isLoadingPreferences ? 'Loading...' : isGenerating ? 'Generating...' : 'Generate Smart Schedule'}
             </span>
@@ -952,7 +952,7 @@ export default function SmartScheduler() {
               <Button 
                 size="sm" 
                 variant="outline" 
-                className="w-full text-xs text-red-400 border-red-400 hover:bg-red-400/10" 
+                className="w-full text-xs text-error-400 border-error-500 hover:bg-error-900" 
                 onClick={refreshSchedule}
               >
                 Refresh Schedule
@@ -979,16 +979,16 @@ export default function SmartScheduler() {
                 />
               ))}
               {tasks.length === 0 && (
-                <div className="text-center py-6 sm:py-8 text-slate-400">
-                  <Calendar size={40} className="sm:w-12 sm:h-12 mx-auto mb-2 opacity-50"/>
+                <div className="text-center py-6 sm:py-8 text-content-muted">
+                  <Calendar strokeWidth={1.5} size={40} className="sm:w-12 sm:h-12 mx-auto mb-2 opacity-50"/>
                   <p className="text-xs sm:text-sm font-medium">No AP tasks yet</p>
                   <p className="text-xs mb-3">Create tasks with deadlines to generate your smart schedule</p>
                   <Button 
                     size="sm" 
                     onClick={handleCreateTask}
-                    className="text-xs bg-blue-600 hover:bg-blue-700"
+                    className="text-xs bg-primary-500 hover:bg-primary-600"
                   >
-                    <Plus size={12} className="mr-1"/>
+                    <Plus strokeWidth={1.5} size={12} className="mr-1"/>
                     Add Your First Task
                   </Button>
                 </div>
@@ -999,12 +999,12 @@ export default function SmartScheduler() {
       </div>
 
       {/* Main schedule view - responsive */}
-      <div className="flex-1 bg-slate-900/50 backdrop-blur-sm order-1 md:order-2 min-h-0">
+      <div className="flex-1 bg-base-950 order-1 md:order-2 min-h-0">
         <div className="p-4 sm:p-6 h-full flex flex-col">
           <div className="flex items-center justify-between mb-4 sm:mb-6">
-            <h3 className="text-lg sm:text-xl font-semibold text-white">AI Study Schedule</h3>
+            <h3 className="text-lg sm:text-xl font-semibold font-display text-content-primary">AI Study Schedule</h3>
             {Array.isArray(aiSchedule) && aiSchedule.length > 0 && (
-              <span className="text-xs sm:text-sm text-slate-400">
+              <span className="text-xs sm:text-sm text-content-muted">
                 {aiSchedule.filter(item => !item.completed).length} sessions scheduled
               </span>
             )}
@@ -1013,34 +1013,34 @@ export default function SmartScheduler() {
           {isLoadingPreferences ? (
             <div className="flex items-center justify-center h-40 sm:h-64">
               <div className="text-center">
-                <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-blue-400 mx-auto mb-2"></div>
-                <p className="text-slate-400 text-sm">Loading your preferences...</p>
+                <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-primary-500 mx-auto mb-2"></div>
+                <p className="text-content-muted text-sm">Loading your preferences...</p>
               </div>
             </div>
           ) : !Array.isArray(aiSchedule) || aiSchedule.length === 0 ? (
             <div className="text-center py-12 sm:py-16">
-              <Brain size={48} className="sm:w-16 sm:h-16 mx-auto mb-4 text-slate-600"/>
-              <h4 className="text-base sm:text-lg font-medium text-slate-300 mb-2">No Schedule Generated Yet</h4>
+              <Brain strokeWidth={1.5} size={48} className="sm:w-16 sm:h-16 mx-auto mb-4 text-content-disabled"/>
+              <h4 className="text-base sm:text-lg font-medium text-content-secondary mb-2">No Schedule Generated Yet</h4>
               {tasks.length === 0 ? (
                 <div>
-                  <p className="text-slate-400 text-sm mb-4">Add your AP study tasks first, then generate your personalized schedule</p>
+                  <p className="text-content-muted text-sm mb-4">Add your AP study tasks first, then generate your personalized schedule</p>
                   <Button 
                     onClick={handleCreateTask}
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                    className="bg-primary-500 hover:bg-primary-600"
                   >
-                    <Plus size={16} className="mr-2"/>
+                    <Plus strokeWidth={1.5} size={16} className="mr-2"/>
                     Create Your First Task
                   </Button>
                 </div>
               ) : (
                 <div>
-                  <p className="text-slate-400 text-sm mb-4">You have {tasks.length} task{tasks.length !== 1 ? 's' : ''} ready to schedule</p>
+                  <p className="text-content-muted text-sm mb-4">You have {tasks.length} task{tasks.length !== 1 ? 's' : ''} ready to schedule</p>
                   <Button 
                     onClick={() => generateIntelligentSchedule(false)}
                     disabled={isLoadingPreferences || !scheduler}
-                    className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700"
+                    className="bg-primary-500 hover:bg-primary-600"
                   >
-                    <Brain size={16} className="mr-2"/>
+                    <Brain strokeWidth={1.5} size={16} className="mr-2"/>
                     Generate Smart Schedule
                   </Button>
                 </div>
@@ -1069,15 +1069,15 @@ export default function SmartScheduler() {
                   if (daySchedule.length === 0 && !showEmptyDays) return null;
 
                   return (
-                    <div key={dayIndex} className="bg-slate-800 rounded-lg p-3 sm:p-4">
-                      <h4 className="font-medium text-slate-200 mb-2 sm:mb-3 flex items-center text-sm sm:text-base">
-                        <Calendar size={14} className="sm:w-4 sm:h-4 mr-2"/>
+                    <div key={dayIndex} className="bg-base-850 rounded-lg p-3 sm:p-4">
+                      <h4 className="font-medium text-content-primary mb-2 sm:mb-3 flex items-center text-sm sm:text-base">
+                        <Calendar strokeWidth={1.5} size={14} className="sm:w-4 sm:h-4 mr-2"/>
                         {format(date, 'EEEE, MMM d')}
-                        <span className="ml-2 text-xs text-slate-400">({daySchedule.length} sessions)</span>
+                        <span className="ml-2 text-xs text-content-muted">({daySchedule.length} sessions)</span>
                       </h4>
                       
                       {daySchedule.length === 0 ? (
-                        <div className="text-center py-4 text-slate-500 text-sm">
+                        <div className="text-center py-4 text-content-muted text-sm">
                           No sessions scheduled for this day
                         </div>
                       ) : (
@@ -1107,14 +1107,14 @@ export default function SmartScheduler() {
                                 key={uniqueKey}
                                 className={`p-2 sm:p-3 rounded border-l-4 ${
                                   item.completed 
-                                    ? 'bg-green-900/20 border-green-500 opacity-60' 
-                                    : 'bg-slate-700 border-blue-500'
+                                    ? 'bg-success-900 border-success-500 opacity-60' 
+                                    : 'bg-base-800 border-primary-500'
                                 }`}
                               >
                                 <div className="flex items-center justify-between">
                                   <div className="flex-1 min-w-0">
-                                    <p className="font-medium text-slate-200 text-sm sm:text-base truncate">{item.task || item.taskName || 'Unnamed Task'}</p>
-                                    <p className="text-xs sm:text-sm text-slate-400">
+                                    <p className="font-medium text-content-primary text-sm sm:text-base truncate">{item.task || item.taskName || 'Unnamed Task'}</p>
+                                    <p className="text-xs sm:text-sm text-content-muted">
                                       {(() => {
                                         try {
                                           const start = item.startTime instanceof Date ? item.startTime : new Date(item.startTime);
@@ -1126,9 +1126,9 @@ export default function SmartScheduler() {
                                       })()}
                                       {item.duration && ` (${item.duration} min)`}
                                     </p>
-                                    {item.subject && <p className="text-xs text-blue-400 truncate">{item.subject}</p>}
+                                    {item.subject && <p className="text-xs text-primary-400 truncate">{item.subject}</p>}
                                     {item.blackoutOverride && (
-                                      <Badge variant="outline" className="text-xs text-orange-400 border-orange-400 mt-1">
+                                      <Badge variant="outline" className="text-xs text-warning-400 border-warning-400 mt-1">
                                         Override: {item.overriddenBlackout?.name || 'Unknown Blackout'}
                                       </Badge>
                                     )}
@@ -1151,11 +1151,11 @@ export default function SmartScheduler() {
       {/* Blackout Override Dialog */}
       {showBlackoutDialog && blackoutConflicts.length > 0 && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-slate-800 p-6 rounded-lg max-w-lg w-full mx-4 border border-slate-600 max-h-[80vh] overflow-y-auto">
-            <h3 className="text-xl font-bold text-slate-100 mb-4">
+          <div className="bg-base-850 p-6 rounded-lg max-w-lg w-full mx-4 border border-border-strong max-h-[80vh] overflow-y-auto">
+            <h3 className="text-xl font-bold text-content-primary mb-4">
               ⚠️ Schedule Conflicts Detected
             </h3>
-            <p className="text-slate-300 mb-4">
+            <p className="text-content-secondary mb-4">
               The following tasks have urgent deadlines that conflict with your blackout periods. 
               Would you like to override these blackouts just this once to fit in these urgent tasks?
             </p>
@@ -1165,29 +1165,29 @@ export default function SmartScheduler() {
                 if (!conflict) return null;
                 
                 return (
-                  <div key={index} className="p-4 bg-slate-700/50 rounded border border-slate-600">
-                    <h4 className="font-medium text-slate-200 mb-2">{conflict.taskName || 'Unknown Task'}</h4>
-                    <p className="text-sm text-slate-400 mb-2">
+                  <div key={index} className="p-4 bg-base-800 rounded border border-border-strong">
+                    <h4 className="font-medium text-content-primary mb-2">{conflict.taskName || 'Unknown Task'}</h4>
+                    <p className="text-sm text-content-muted mb-2">
                       Due: {conflict.deadline ? new Date(conflict.deadline).toLocaleString() : 'No deadline'}
                     </p>
                     
                     <div className="mb-3">
-                      <p className="text-sm text-orange-400 font-medium mb-1">Conflicting blackout periods:</p>
+                      <p className="text-sm text-warning-400 font-medium mb-1">Conflicting blackout periods:</p>
                       {conflict.conflictingBlackouts && conflict.conflictingBlackouts.length > 0 ? (
                         conflict.conflictingBlackouts.map((blackout, bIndex) => (
-                          <div key={bIndex} className="text-sm text-orange-300 ml-2 mb-1 p-2 bg-orange-900/20 rounded">
+                          <div key={bIndex} className="text-sm text-warning-400 ml-2 mb-1 p-2 bg-warning-900 rounded">
                             <span className="font-medium">• {blackout.blackoutName || blackout.name || 'Unknown Blackout'}</span>
                             <br />
-                            <span className="text-xs text-orange-400">
+                            <span className="text-xs text-warning-400">
                               {blackout.timeRange || blackout.range || 'No time range'} on {blackout.day || 'unknown day'}
                             </span>
                           </div>
                         ))
                       ) : (
-                        <div className="text-sm text-orange-300 ml-2 p-2 bg-orange-900/20 rounded">
+                        <div className="text-sm text-warning-400 ml-2 p-2 bg-warning-900 rounded">
                           <span className="font-medium">• {conflict.conflictingBlackout?.name || conflict.conflictingBlackout?.blackoutName || 'Unknown Blackout'}</span>
                           <br />
-                          <span className="text-xs text-orange-400">
+                          <span className="text-xs text-warning-400">
                             {conflict.conflictingBlackout?.timeRange || 'No time range'}
                           </span>
                         </div>
@@ -1198,7 +1198,7 @@ export default function SmartScheduler() {
                       <Button
                         size="sm"
                         onClick={() => handleBlackoutOverride(conflict, true)}
-                        className="bg-green-600 hover:bg-green-700 text-white"
+                        className="bg-success-500 hover:bg-success-500 text-base-950"
                       >
                         Override for This Task
                       </Button>
@@ -1206,7 +1206,7 @@ export default function SmartScheduler() {
                         size="sm"
                         variant="outline"
                         onClick={() => handleBlackoutOverride(conflict, false)}
-                        className="text-red-400 border-red-400 hover:bg-red-400/10"
+                        className="text-error-400 border-error-500 hover:bg-error-900"
                       >
                         Skip This Task
                       </Button>
@@ -1222,7 +1222,7 @@ export default function SmartScheduler() {
                   // Override all conflicts
                   blackoutConflicts.forEach(conflict => handleBlackoutOverride(conflict, true));
                 }}
-                className="flex-1 bg-green-600 hover:bg-green-700"
+                className="flex-1 bg-success-500 hover:bg-success-500"
                 disabled={blackoutConflicts.length === 0}
               >
                 Override All Conflicts ({blackoutConflicts.length})
@@ -1245,7 +1245,7 @@ export default function SmartScheduler() {
               <div className="flex gap-2 mt-4">
                 <Button
                   onClick={proceedWithSchedule}
-                  className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                  className="flex-1 bg-primary-500 hover:bg-primary-600"
                 >
                   Generate Schedule Now
                 </Button>
@@ -1268,11 +1268,11 @@ export default function SmartScheduler() {
       {/* Overdue Tasks Dialog */}
       {overdueTasksDialog.show && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-slate-800 p-6 rounded-lg max-w-lg w-full mx-4 border border-slate-600">
-            <h3 className="text-xl font-bold text-slate-100 mb-4">
+          <div className="bg-base-850 p-6 rounded-lg max-w-lg w-full mx-4 border border-border-strong">
+            <h3 className="text-xl font-bold text-content-primary mb-4">
               ⚠️ Overdue Tasks Detected
             </h3>
-            <p className="text-slate-300 mb-4">
+            <p className="text-content-secondary mb-4">
               You have {overdueTasksDialog.tasks.length} overdue task(s). Would you like to reschedule them or remove them from your list?
             </p>
             
@@ -1282,19 +1282,19 @@ export default function SmartScheduler() {
                 const daysOverdue = Math.ceil((new Date() - deadline) / (1000 * 60 * 60 * 24));
                 
                 return (
-                  <div key={task.id} className="p-3 bg-slate-700/50 rounded border border-slate-600">
-                    <h4 className="font-medium text-slate-200">{task.name}</h4>
-                    <p className="text-sm text-slate-400">
+                  <div key={task.id} className="p-3 bg-base-800 rounded border border-border-strong">
+                    <h4 className="font-medium text-content-primary">{task.name}</h4>
+                    <p className="text-sm text-content-muted">
                       Subject: {task.subject}
                     </p>
-                    <p className="text-sm text-red-400">
+                    <p className="text-sm text-error-400">
                       Overdue by {daysOverdue} day{daysOverdue !== 1 ? 's' : ''} (Due: {deadline.toLocaleDateString()})
                     </p>
                     
                     <div className="flex gap-2 mt-3">
                       <input
                         type="datetime-local"
-                        className="flex-1 h-8 rounded border border-slate-600 bg-slate-700 px-2 text-sm text-slate-100"
+                        className="flex-1 h-8 rounded border border-border-strong bg-base-800 px-2 text-sm text-content-primary"
                         min={new Date().toISOString().slice(0, 16)}
                         onChange={(e) => {
                           if (e.target.value) {
@@ -1318,7 +1318,7 @@ export default function SmartScheduler() {
                             }, 1000);
                           }
                         }}
-                        className="text-red-400 border-red-400 hover:bg-red-400/10"
+                        className="text-error-400 border-error-500 hover:bg-error-900"
                       >
                         Delete
                       </Button>
@@ -1335,7 +1335,7 @@ export default function SmartScheduler() {
                   // Retry schedule generation after handling overdue tasks
                   generateIntelligentSchedule(false);
                 }}
-                className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                className="flex-1 bg-primary-500 hover:bg-primary-600"
                 disabled={overdueTasksDialog.tasks.length > 0}
               >
                 Continue Scheduling

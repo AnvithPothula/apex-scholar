@@ -95,11 +95,11 @@ const ProgressPage = () => {
   };
 
   const getRankInfo = (totalPoints) => {
-    if (totalPoints >= 1000) return { rank: 'Master', icon: Crown, color: 'text-yellow-400', bgColor: 'bg-yellow-400/20' };
-    if (totalPoints >= 500) return { rank: 'Expert', icon: Medal, color: 'text-purple-400', bgColor: 'bg-purple-400/20' };
-    if (totalPoints >= 200) return { rank: 'Advanced', icon: Trophy, color: 'text-blue-400', bgColor: 'bg-blue-400/20' };
-    if (totalPoints >= 50) return { rank: 'Intermediate', icon: Award, color: 'text-green-400', bgColor: 'bg-green-400/20' };
-    return { rank: 'Beginner', icon: Star, color: 'text-slate-400', bgColor: 'bg-slate-400/20' };
+    if (totalPoints >= 1000) return { rank: 'Master', icon: Crown, color: 'text-warning-400', bgColor: 'bg-warning-400/20' };
+    if (totalPoints >= 500) return { rank: 'Expert', icon: Medal, color: 'text-primary-400', bgColor: 'bg-primary-400/20' };
+    if (totalPoints >= 200) return { rank: 'Advanced', icon: Trophy, color: 'text-primary-400', bgColor: 'bg-primary-400/20' };
+    if (totalPoints >= 50) return { rank: 'Intermediate', icon: Award, color: 'text-success-400', bgColor: 'bg-success-400/20' };
+    return { rank: 'Beginner', icon: Star, color: 'text-content-muted', bgColor: 'bg-base-750/20' };
   };
 
   const calculateTotalQuestions = (studySessions, flashcardDecks) => {
@@ -171,11 +171,11 @@ const ProgressPage = () => {
         : 0;
       
       const colors = [
-        'from-blue-600 to-blue-800',
-        'from-green-600 to-green-800',
-        'from-purple-600 to-purple-800',
-        'from-red-600 to-red-800',
-        'from-yellow-600 to-yellow-800'
+        'bg-primary-500',
+        'bg-success-500',
+        'bg-primary-500',
+        'bg-error-500',
+        'bg-warning-500'
       ];
 
       return {
@@ -315,19 +315,19 @@ const ProgressPage = () => {
     recommendations: []
   });
 
-  const StatCard = ({ title, value, change, icon: Icon, color = "text-blue-400" }) => (
+  const StatCard = ({ title, value, change, icon: Icon, color = "text-primary-400" }) => (
     <Card className="p-6">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-slate-400 mb-1">{title}</p>
-          <p className="text-2xl font-bold text-slate-100">{value}</p>
+          <p className="text-sm text-content-muted mb-1">{title}</p>
+          <p className="text-2xl font-bold text-content-primary">{value}</p>
           {change && (
-            <p className={`text-sm ${change.startsWith('+') ? 'text-green-400' : 'text-red-400'}`}>
+            <p className={`text-sm ${change.startsWith('+') ? 'text-success-400' : 'text-error-400'}`}>
               {change} from last month
             </p>
           )}
         </div>
-        <div className={`p-3 bg-slate-800 rounded-lg ${color}`}>
+        <div className={`p-3 bg-base-850 rounded-sm ${color}`}>
           <Icon className="w-6 h-6" />
         </div>
       </div>
@@ -336,24 +336,24 @@ const ProgressPage = () => {
 
   const ProgressChart = ({ data }) => (
     <Card className="p-6">
-      <h3 className="text-lg font-semibold text-slate-200 mb-4">Weekly Activity</h3>
+      <h3 className="text-lg font-semibold text-content-primary mb-4">Weekly Activity</h3>
       <div className="flex items-end justify-between h-32 gap-2">
         {data.map((day, index) => (
           <div key={index} className="flex flex-col items-center flex-1">
-            <div className="relative w-full bg-slate-700 rounded-t-lg overflow-hidden mb-2">
+            <div className="relative w-full bg-base-800 rounded-t-lg overflow-hidden mb-2">
               <motion.div
                 initial={{ height: 0 }}
                 animate={{ height: `${(day.questions / 30) * 100}%` }}
                 transition={{ delay: index * 0.1, duration: 0.5 }}
-                className="bg-gradient-to-t from-blue-600 to-blue-400 w-full"
+                className="bg-primary-500 w-full"
                 style={{ minHeight: '4px' }}
               />
             </div>
-            <span className="text-xs text-slate-400">{day.day}</span>
+            <span className="text-xs text-content-muted">{day.day}</span>
           </div>
         ))}
       </div>
-      <div className="mt-4 flex items-center justify-between text-sm text-slate-400">
+      <div className="mt-4 flex items-center justify-between text-sm text-content-muted">
         <span>Questions per day</span>
         <span>Max: 30</span>
       </div>
@@ -361,7 +361,7 @@ const ProgressPage = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100">
+    <div className="min-h-screen bg-base-950 text-content-primary">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
         {/* Header */}
         <motion.div
@@ -371,14 +371,14 @@ const ProgressPage = () => {
         >
           <div>
             <div className="flex items-center gap-2 sm:gap-3 md:gap-4 mb-2 sm:mb-4">
-              <div className="p-2 sm:p-3 md:p-4 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl md:rounded-2xl shadow-lg">
-                <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-white" />
+              <div className="p-2 sm:p-3 md:p-4 bg-primary-500 rounded-sm md:rounded-md shadow-raised">
+                <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-base-950" />
               </div>
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-content-primary font-display">
                 Progress Analytics
               </h1>
             </div>
-            <p className="text-sm sm:text-base md:text-lg text-slate-300">
+            <p className="text-sm sm:text-base md:text-lg text-content-secondary">
               Track your learning journey with detailed insights and achievements.
             </p>
           </div>
@@ -395,14 +395,14 @@ const ProgressPage = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="flex space-x-1 bg-slate-800 p-1 rounded-xl mb-8 w-fit mx-auto"
+          className="flex space-x-1 bg-base-850 p-1 rounded-xl mb-8 w-fit mx-auto"
         >
           <button
             onClick={() => setActiveTab('overview')}
             className={`px-6 py-2 rounded-lg font-medium transition-all ${
               activeTab === 'overview'
-                ? 'bg-slate-700 text-white shadow-sm'
-                : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+                ? 'bg-base-750 text-content-primary shadow-sm'
+                : 'text-content-secondary hover:text-content-primary hover:bg-base-800'
             }`}
           >
             Overview
@@ -411,8 +411,8 @@ const ProgressPage = () => {
             onClick={() => setActiveTab('achievements')}
             className={`px-6 py-2 rounded-lg font-medium transition-all ${
               activeTab === 'achievements'
-                ? 'bg-slate-700 text-white shadow-sm'
-                : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+                ? 'bg-base-750 text-content-primary shadow-sm'
+                : 'text-content-secondary hover:text-content-primary hover:bg-base-800'
             }`}
           >
             Achievements
@@ -422,8 +422,8 @@ const ProgressPage = () => {
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
             <div className="text-center">
-              <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-slate-400">Loading your progress data...</p>
+              <div className="w-16 h-16 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-content-muted">Loading your progress data...</p>
             </div>
           </div>
         ) : user && progressData ? (
@@ -437,7 +437,7 @@ const ProgressPage = () => {
                   transition={{ delay: 0.2 }}
                   className="mb-8"
                 >
-                  <Card className="p-6 bg-gradient-to-r from-blue-600/20 to-purple-600/20 border-blue-500/30">
+                  <Card className="p-6 bg-primary-900 border-primary-500/30">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <div className={`p-4 ${getRankInfo(progressData.overall.totalPoints).bgColor} rounded-2xl`}>
@@ -446,13 +446,13 @@ const ProgressPage = () => {
                           })}
                         </div>
                         <div>
-                          <h2 className="text-2xl font-bold text-slate-100">{getRankInfo(progressData.overall.totalPoints).rank}</h2>
-                          <p className="text-slate-400">Rank</p>
+                          <h2 className="text-2xl font-bold text-content-primary">{getRankInfo(progressData.overall.totalPoints).rank}</h2>
+                          <p className="text-content-muted">Rank</p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-3xl font-bold text-blue-400">{progressData.overall.totalPoints}</div>
-                        <p className="text-slate-400">Total Points</p>
+                        <div className="text-3xl font-bold text-primary-400">{progressData.overall.totalPoints}</div>
+                        <p className="text-content-muted">Total Points</p>
                       </div>
                     </div>
                   </Card>
@@ -467,7 +467,7 @@ const ProgressPage = () => {
                 >
                   {Object.entries(achievementsByCategory).map(([category, achievements]) => (
                     <div key={category}>
-                      <h2 className="text-2xl font-bold text-slate-100 mb-6">{category}</h2>
+                      <h2 className="text-2xl font-bold text-content-primary mb-6">{category}</h2>
                       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {achievements.map((achievement) => {
                           const isUnlocked = progressData.achievements.unlocked.includes(achievement.id);
@@ -487,17 +487,17 @@ const ProgressPage = () => {
                             >
                               <Card className={`p-6 transition-all hover:scale-105 ${
                                 isUnlocked
-                                  ? 'bg-gradient-to-r from-green-600/20 to-emerald-600/20 border-green-500/30 shadow-lg'
-                                  : 'bg-slate-800/50 border-slate-700 hover:border-slate-600'
+                                  ? 'bg-success-500/10 border-success-500/30 shadow-raised'
+                                  : 'bg-base-850/50 border-border hover:border-border-strong'
                               }`}>
                                 <div className="text-center">
                                   <div className={`text-5xl mb-4 ${isUnlocked ? 'opacity-100' : 'opacity-50'}`}>
                                     {achievement.icon}
                                   </div>
-                                  <h3 className={`text-lg font-bold mb-2 ${isUnlocked ? 'text-green-300' : 'text-slate-300'}`}>
+                                  <h3 className={`text-lg font-bold mb-2 ${isUnlocked ? 'text-success-300' : 'text-content-secondary'}`}>
                                     {achievement.title}
                                   </h3>
-                                  <p className="text-sm text-slate-400 mb-4">{achievement.description}</p>
+                                  <p className="text-sm text-content-muted mb-4">{achievement.description}</p>
                                   
                                   <div className="flex items-center justify-between mb-4">
                                     <Badge variant={isUnlocked ? 'default' : 'secondary'} className="text-xs">
@@ -505,8 +505,8 @@ const ProgressPage = () => {
                                     </Badge>
                                     {isUnlocked && (
                                       <div className="flex items-center gap-1">
-                                        <Trophy className="w-4 h-4 text-green-400" />
-                                        <span className="text-xs text-green-400 font-medium">Unlocked!</span>
+                                        <Trophy className="w-4 h-4 text-success-400" />
+                                        <span className="text-xs text-success-400 font-medium">Unlocked!</span>
                                       </div>
                                     )}
                                   </div>
@@ -514,7 +514,7 @@ const ProgressPage = () => {
                                   {/* Progress Bar */}
                                   {!isUnlocked && progress && (
                                     <div>
-                                      <div className="flex justify-between text-xs text-slate-400 mb-2">
+                                      <div className="flex justify-between text-xs text-content-muted mb-2">
                                         <span>Progress</span>
                                         <span>{progress.current} / {progress.target}</span>
                                       </div>
@@ -549,27 +549,27 @@ const ProgressPage = () => {
                 title="Study Streak"
                 value={`${progressData.overall.studyStreak} days`}
                 icon={Zap}
-                color="text-orange-400"
+                color="text-accent-400"
               />
               <StatCard
                 title="Total Study Time"
                 value={progressData.overall.totalStudyTime}
                 change={progressData.overall.improvement}
                 icon={Clock}
-                color="text-blue-400"
+                color="text-primary-400"
               />
               <StatCard
                 title="Questions Answered"
                 value={progressData.overall.questionsAnswered}
                 icon={Target}
-                color="text-green-400"
+                color="text-success-400"
               />
               <StatCard
                 title="Overall Accuracy"
                 value={`${progressData.overall.accuracy}%`}
                 change={progressData.overall.improvement}
                 icon={TrendingUp}
-                color="text-purple-400"
+                color="text-primary-400"
               />
             </motion.div>
 
@@ -591,25 +591,25 @@ const ProgressPage = () => {
                 transition={{ delay: 0.3 }}
               >
                 <Card className="p-6">
-                  <h3 className="text-lg font-semibold text-slate-200 mb-4">Performance Overview</h3>
+                  <h3 className="text-lg font-semibold text-content-primary mb-4">Performance Overview</h3>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-300">Current Rank</span>
-                      <Badge variant="default" className="bg-purple-600">
+                      <span className="text-content-secondary">Current Rank</span>
+                      <Badge variant="default" className="bg-primary-500">
                         {progressData.overall.rank}
                       </Badge>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-300">Questions Answered</span>
-                      <span className="text-slate-100">{progressData.overall.questionsAnswered}</span>
+                      <span className="text-content-secondary">Questions Answered</span>
+                      <span className="text-content-primary">{progressData.overall.questionsAnswered}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-300">Average Accuracy</span>
-                      <span className="text-green-400">{progressData.overall.accuracy}%</span>
+                      <span className="text-content-secondary">Average Accuracy</span>
+                      <span className="text-success-400">{progressData.overall.accuracy}%</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-300">Study Streak</span>
-                      <span className="text-orange-400">{progressData.overall.studyStreak} days</span>
+                      <span className="text-content-secondary">Study Streak</span>
+                      <span className="text-accent-400">{progressData.overall.studyStreak} days</span>
                     </div>
                   </div>
                 </Card>
@@ -623,14 +623,14 @@ const ProgressPage = () => {
               transition={{ delay: 0.4 }}
               className="mb-8"
             >
-              <h2 className="text-2xl font-bold text-slate-100 mb-6">Subject Progress</h2>
+              <h2 className="text-2xl font-bold text-content-primary mb-6">Subject Progress</h2>
               <div className="space-y-6">
                 {progressData.subjects.map((subject, index) => (
                   <Card key={index} className="p-6">
                     <div className="flex items-start justify-between mb-4">
                       <div>
-                        <h3 className="text-lg font-semibold text-slate-200 mb-2">{subject.name}</h3>
-                        <div className="flex items-center gap-4 text-sm text-slate-400">
+                        <h3 className="text-lg font-semibold text-content-primary mb-2">{subject.name}</h3>
+                        <div className="flex items-center gap-4 text-sm text-content-muted">
                           <span className="flex items-center gap-1">
                             <Clock className="w-4 h-4" />
                             {subject.timeSpent}
@@ -646,19 +646,19 @@ const ProgressPage = () => {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-2xl font-bold text-slate-100">{subject.progress}%</div>
-                        <div className="text-sm text-slate-400">Complete</div>
+                        <div className="text-2xl font-bold text-content-primary">{subject.progress}%</div>
+                        <div className="text-sm text-content-muted">Complete</div>
                       </div>
                     </div>
 
                     {/* Progress Bar */}
                     <div className="mb-4">
-                      <div className="w-full bg-slate-700 rounded-full h-3">
+                      <div className="w-full bg-base-800 rounded-full h-3">
                         <motion.div
                           initial={{ width: 0 }}
                           animate={{ width: `${subject.progress}%` }}
                           transition={{ delay: index * 0.1, duration: 0.8 }}
-                          className={`bg-gradient-to-r ${subject.color} h-3 rounded-full`}
+                          className={`${subject.color} h-3 rounded-full`}
                         />
                       </div>
                     </div>
@@ -666,13 +666,13 @@ const ProgressPage = () => {
                     <div className="grid md:grid-cols-2 gap-6">
                       {/* Strong Topics */}
                       <div>
-                        <h4 className="text-sm font-medium text-green-400 mb-2 flex items-center gap-1">
+                        <h4 className="text-sm font-medium text-success-400 mb-2 flex items-center gap-1">
                           <CheckCircle className="w-4 h-4" />
                           Strong Topics
                         </h4>
                         <div className="space-y-1">
                           {subject.strongTopics.map((topic, idx) => (
-                            <Badge key={idx} variant="outline" className="text-green-400 border-green-400">
+                            <Badge key={idx} variant="outline" className="text-success-400 border-success-400">
                               {topic}
                             </Badge>
                           ))}
@@ -681,13 +681,13 @@ const ProgressPage = () => {
 
                       {/* Weak Topics */}
                       <div>
-                        <h4 className="text-sm font-medium text-orange-400 mb-2 flex items-center gap-1">
+                        <h4 className="text-sm font-medium text-accent-400 mb-2 flex items-center gap-1">
                           <AlertCircle className="w-4 h-4" />
                           Needs Work
                         </h4>
                         <div className="space-y-1">
                           {subject.weakTopics.map((topic, idx) => (
-                            <Badge key={idx} variant="outline" className="text-orange-400 border-orange-400">
+                            <Badge key={idx} variant="outline" className="text-accent-400 border-accent-400">
                               {topic}
                             </Badge>
                           ))}
@@ -696,14 +696,14 @@ const ProgressPage = () => {
                     </div>
 
                     <div className="mt-4 flex items-center justify-between">
-                      <span className="text-sm text-slate-400">
+                      <span className="text-sm text-content-muted">
                         Last studied: {subject.lastStudied}
                       </span>
                       <div className="flex gap-2">
                         <Button size="sm" variant="outline">
                           View Details
                         </Button>
-                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+                        <Button size="sm" className="bg-primary-500 hover:bg-primary-600">
                           Continue Learning
                         </Button>
                       </div>
@@ -720,27 +720,27 @@ const ProgressPage = () => {
               transition={{ delay: 0.5 }}
               className="mb-8"
             >
-              <h2 className="text-2xl font-bold text-slate-100 mb-6">Recent Achievements</h2>
+              <h2 className="text-2xl font-bold text-content-primary mb-6">Recent Achievements</h2>
               <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {progressData.achievements.displayList.map((achievement) => (
-                  <Card key={achievement.id} className={`p-6 ${achievement.earned ? 'border-yellow-500/50 bg-yellow-500/10' : 'border-slate-700'}`}>
+                  <Card key={achievement.id} className={`p-6 ${achievement.earned ? 'border-warning-500/50 bg-warning-500/10' : 'border-border'}`}>
                     <div className="text-center">
                       <div className="text-4xl mb-3">{achievement.icon}</div>
-                      <h3 className="font-semibold text-slate-200 mb-2">{achievement.title}</h3>
-                      <p className="text-sm text-slate-400 mb-3">{achievement.description}</p>
+                      <h3 className="font-semibold text-content-primary mb-2">{achievement.title}</h3>
+                      <p className="text-sm text-content-muted mb-3">{achievement.description}</p>
                       {achievement.earned ? (
-                        <Badge variant="default" className="bg-yellow-600">
+                        <Badge variant="default" className="bg-warning-600">
                           Earned {achievement.earnedDate}
                         </Badge>
                       ) : (
                         <div className="space-y-2">
-                          <div className="w-full bg-slate-700 rounded-full h-2">
+                          <div className="w-full bg-base-800 rounded-full h-2">
                             <div
-                              className="bg-blue-500 h-2 rounded-full"
+                              className="bg-primary-500 h-2 rounded-full"
                               style={{ width: `${Math.min(100, (achievement.progress / achievement.target) * 100)}%` }}
                             />
                           </div>
-                          <p className="text-xs text-slate-400">
+                          <p className="text-xs text-content-muted">
                             {achievement.progress}/{achievement.target}
                           </p>
                         </div>
@@ -757,24 +757,24 @@ const ProgressPage = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.6 }}
             >
-              <h2 className="text-2xl font-bold text-slate-100 mb-6">AI Recommendations</h2>
+              <h2 className="text-2xl font-bold text-content-primary mb-6">AI Recommendations</h2>
               <div className="space-y-4">
                 {progressData.recommendations.map((rec, index) => (
-                  <Card key={index} className="p-6 hover:bg-slate-800/50 cursor-pointer transition-all duration-200">
+                  <Card key={index} className="p-6 hover:bg-base-850/50 cursor-pointer transition-all duration-200">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <div className={`p-3 rounded-lg ${
-                          rec.priority === 'high' ? 'bg-red-500/20 text-red-400' :
-                          rec.priority === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
-                          'bg-green-500/20 text-green-400'
+                          rec.priority === 'high' ? 'bg-error-500/20 text-error-400' :
+                          rec.priority === 'medium' ? 'bg-warning-500/20 text-warning-400' :
+                          'bg-success-500/20 text-success-400'
                         }`}>
                           {rec.type === 'weakness' ? <AlertCircle className="w-5 h-5" /> :
                            rec.type === 'review' ? <BookOpen className="w-5 h-5" /> :
                            <Star className="w-5 h-5" />}
                         </div>
                         <div>
-                          <h3 className="font-semibold text-slate-200">{rec.subject} - {rec.topic}</h3>
-                          <p className="text-slate-400">{rec.action}</p>
+                          <h3 className="font-semibold text-content-primary">{rec.subject} - {rec.topic}</h3>
+                          <p className="text-content-muted">{rec.action}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
@@ -784,7 +784,7 @@ const ProgressPage = () => {
                         }>
                           {rec.priority} priority
                         </Badge>
-                        <ChevronRight className="w-5 h-5 text-slate-400" />
+                        <ChevronRight className="w-5 h-5 text-content-muted" />
                       </div>
                     </div>
                   </Card>
@@ -802,46 +802,46 @@ const ProgressPage = () => {
             className="text-center py-12"
           >
             <Card className="p-12 max-w-2xl mx-auto">
-              <BarChart3 className="w-24 h-24 text-slate-600 mx-auto mb-6" />
-              <h2 className="text-2xl md:text-3xl font-bold text-slate-200 mb-4">
+              <BarChart3 className="w-24 h-24 text-content-muted mx-auto mb-6" />
+              <h2 className="text-2xl md:text-3xl font-bold text-content-primary mb-4">
                 Track Your Learning Progress
               </h2>
-              <p className="text-slate-400 text-lg mb-8">
+              <p className="text-content-muted text-lg mb-8">
                 Sign up for a free account to access detailed analytics, personalized insights, 
                 and AI-powered recommendations to accelerate your AP exam preparation.
               </p>
               <div className="grid md:grid-cols-3 gap-6 mb-8">
                 <div className="text-center">
-                  <div className="p-4 bg-purple-500/20 rounded-lg w-fit mx-auto mb-3">
-                    <TrendingUp className="w-8 h-8 text-purple-400" />
+                  <div className="p-4 bg-primary-900 rounded-lg w-fit mx-auto mb-3">
+                    <TrendingUp className="w-8 h-8 text-primary-400" />
                   </div>
-                  <h3 className="font-semibold text-slate-200 mb-2">Performance Tracking</h3>
-                  <p className="text-sm text-slate-400">
+                  <h3 className="font-semibold text-content-primary mb-2">Performance Tracking</h3>
+                  <p className="text-sm text-content-muted">
                     Monitor your accuracy and improvement over time
                   </p>
                 </div>
                 <div className="text-center">
-                  <div className="p-4 bg-blue-500/20 rounded-lg w-fit mx-auto mb-3">
-                    <Brain className="w-8 h-8 text-blue-400" />
+                  <div className="p-4 bg-primary-500/20 rounded-lg w-fit mx-auto mb-3">
+                    <Brain className="w-8 h-8 text-primary-400" />
                   </div>
-                  <h3 className="font-semibold text-slate-200 mb-2">AI Insights</h3>
-                  <p className="text-sm text-slate-400">
+                  <h3 className="font-semibold text-content-primary mb-2">AI Insights</h3>
+                  <p className="text-sm text-content-muted">
                     Get personalized recommendations and study plans
                   </p>
                 </div>
                 <div className="text-center">
-                  <div className="p-4 bg-green-500/20 rounded-lg w-fit mx-auto mb-3">
-                    <Award className="w-8 h-8 text-green-400" />
+                  <div className="p-4 bg-success-500/20 rounded-lg w-fit mx-auto mb-3">
+                    <Award className="w-8 h-8 text-success-400" />
                   </div>
-                  <h3 className="font-semibold text-slate-200 mb-2">Achievements</h3>
-                  <p className="text-sm text-slate-400">
+                  <h3 className="font-semibold text-content-primary mb-2">Achievements</h3>
+                  <p className="text-sm text-content-muted">
                     Earn badges and celebrate your learning milestones
                   </p>
                 </div>
               </div>
               <Button
                 onClick={() => navigate('/auth')}
-                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-lg px-8 py-3"
+                className="bg-primary-500 hover:bg-primary-600 text-lg px-8 py-3"
               >
                 Get Started Free
               </Button>

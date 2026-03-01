@@ -15,18 +15,18 @@ import { auth, db } from '../config/firebase';
 import { getFirebaseErrorMessage } from '../utils/firebaseErrorMessages';
 
 const AVATAR_GRADIENTS = [
-  'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-  'linear-gradient(135deg, #10b981, #14b8a6)',
-  'linear-gradient(135deg, #f97316, #ef4444)',
-  'linear-gradient(135deg, #ec4899, #f43f5e)',
-  'linear-gradient(135deg, #8b5cf6, #6366f1)',
-  'linear-gradient(135deg, #06b6d4, #3b82f6)',
-  'linear-gradient(135deg, #f59e0b, #f97316)',
-  'linear-gradient(135deg, #d946ef, #8b5cf6)',
-  'linear-gradient(135deg, #14b8a6, #06b6d4)',
-  'linear-gradient(135deg, #f43f5e, #ec4899)',
-  'linear-gradient(135deg, #6366f1, #2563eb)',
-  'linear-gradient(135deg, #84cc16, #22c55e)',
+  'linear-gradient(135deg, #14b8a6, #2dd4bf)',  // Teal
+  'linear-gradient(135deg, #f59e0b, #fbbf24)',  // Amber
+  'linear-gradient(135deg, #22c55e, #4ade80)',  // Green
+  'linear-gradient(135deg, #ef4444, #f87171)',  // Red
+  'linear-gradient(135deg, #3b82f6, #60a5fa)',  // Blue
+  'linear-gradient(135deg, #0d9488, #14b8a6)',  // Deep teal
+  'linear-gradient(135deg, #eab308, #facc15)',  // Gold
+  'linear-gradient(135deg, #0f766e, #0d9488)',  // Dark teal
+  'linear-gradient(135deg, #22c55e, #14b8a6)',  // Green-teal
+  'linear-gradient(135deg, #f59e0b, #ef4444)',  // Amber-red
+  'linear-gradient(135deg, #3b82f6, #14b8a6)',  // Blue-teal
+  'linear-gradient(135deg, #4ade80, #22c55e)',  // Light green
 ];
 
 export { AVATAR_GRADIENTS };

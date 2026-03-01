@@ -19,18 +19,18 @@ const DrawingCanvas = ({ onDrawingChange, initialDrawing = null, disabled = fals
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       setContext(ctx);
-      
+
       // Set canvas size
       canvas.width = 800;
       canvas.height = 600;
-      
+
       // Fill with white background
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
+
       // Save initial state
       saveState();
-      
+
       // Load initial drawing if provided
       if (initialDrawing) {
         const img = new Image();
@@ -53,7 +53,7 @@ const DrawingCanvas = ({ onDrawingChange, initialDrawing = null, disabled = fals
       newHistory.push(imageData);
       setHistory(newHistory);
       setHistoryIndex(newHistory.length - 1);
-      
+
       // Notify parent of drawing change
       if (onDrawingChange) {
         onDrawingChange(imageData);
@@ -90,25 +90,25 @@ const DrawingCanvas = ({ onDrawingChange, initialDrawing = null, disabled = fals
 
   const startDrawing = (e) => {
     if (disabled) return;
-    
+
     setIsDrawing(true);
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    
+
     context.beginPath();
     context.moveTo(x, y);
   };
 
   const draw = (e) => {
     if (!isDrawing || disabled) return;
-    
+
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    
+
     context.lineWidth = lineWidth;
     context.strokeStyle = currentColor;
     context.lineTo(x, y);
@@ -163,17 +163,17 @@ const DrawingCanvas = ({ onDrawingChange, initialDrawing = null, disabled = fals
           img.onload = () => {
             const canvas = canvasRef.current;
             const ctx = canvas.getContext('2d');
-            
+
             // Clear canvas and fill with white
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
+
             // Calculate scaling to fit image within canvas
             const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
             const x = (canvas.width - img.width * scale) / 2;
             const y = (canvas.height - img.height * scale) / 2;
-            
+
             ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
             saveState();
           };
@@ -188,29 +188,29 @@ const DrawingCanvas = ({ onDrawingChange, initialDrawing = null, disabled = fals
   const colors = ['#000000', '#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF', '#FFA500'];
 
   return (
-    <div className="bg-slate-800 rounded-lg border border-slate-600 p-4">
+    <div className="bg-base-850 rounded-lg border border-border-strong p-4">
       <div className="mb-4">
-        <h4 className="text-slate-200 font-medium mb-2">Drawing/Graph Area</h4>
-        <p className="text-sm text-slate-400 mb-3">
+        <h4 className="text-content-primary font-medium mb-2">Drawing/Graph Area</h4>
+        <p className="text-sm text-content-muted mb-3">
           Draw graphs, diagrams, or mathematical expressions. You can also upload an image and annotate it.
         </p>
-        
+
         {/* Tools */}
         <div className="flex flex-wrap items-center gap-4 mb-4">
           <div className="flex items-center gap-2">
-            <label className="text-sm text-slate-400">Tool:</label>
+            <label className="text-sm text-content-muted">Tool:</label>
             <Button
               variant={currentTool === 'pen' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setCurrentTool('pen')}
               disabled={disabled}
             >
-              <PenTool className="w-4 h-4" />
+              <PenTool className="w-4 h-4" strokeWidth={1.5} />
             </Button>
           </div>
-          
+
           <div className="flex items-center gap-2">
-            <label className="text-sm text-slate-400">Size:</label>
+            <label className="text-sm text-content-muted">Size:</label>
             <input
               type="range"
               min="1"
@@ -220,17 +220,17 @@ const DrawingCanvas = ({ onDrawingChange, initialDrawing = null, disabled = fals
               className="w-16"
               disabled={disabled}
             />
-            <span className="text-sm text-slate-400 w-6">{lineWidth}</span>
+            <span className="text-sm text-content-muted w-6">{lineWidth}</span>
           </div>
-          
+
           <div className="flex items-center gap-2">
-            <label className="text-sm text-slate-400">Color:</label>
+            <label className="text-sm text-content-muted">Color:</label>
             <div className="flex gap-1">
               {colors.map(color => (
                 <button
                   key={color}
                   className={`w-6 h-6 rounded border-2 ${
-                    currentColor === color ? 'border-white' : 'border-slate-600'
+                    currentColor === color ? 'border-content-primary' : 'border-border-strong'
                   }`}
                   style={{ backgroundColor: color }}
                   onClick={() => setCurrentColor(color)}
@@ -239,7 +239,7 @@ const DrawingCanvas = ({ onDrawingChange, initialDrawing = null, disabled = fals
               ))}
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -247,7 +247,7 @@ const DrawingCanvas = ({ onDrawingChange, initialDrawing = null, disabled = fals
               onClick={undo}
               disabled={disabled || historyIndex <= 0}
             >
-              <Undo2 className="w-4 h-4" />
+              <Undo2 className="w-4 h-4" strokeWidth={1.5} />
             </Button>
             <Button
               variant="outline"
@@ -255,7 +255,7 @@ const DrawingCanvas = ({ onDrawingChange, initialDrawing = null, disabled = fals
               onClick={clear}
               disabled={disabled}
             >
-              <RotateCcw className="w-4 h-4" />
+              <RotateCcw className="w-4 h-4" strokeWidth={1.5} />
             </Button>
             <Button
               variant="outline"
@@ -263,14 +263,14 @@ const DrawingCanvas = ({ onDrawingChange, initialDrawing = null, disabled = fals
               onClick={uploadImage}
               disabled={disabled}
             >
-              <Upload className="w-4 h-4" />
+              <Upload className="w-4 h-4" strokeWidth={1.5} />
             </Button>
           </div>
         </div>
       </div>
-      
+
       {/* Canvas */}
-      <div className="bg-white rounded border border-slate-300 overflow-hidden">
+      <div className="bg-white rounded border border-border overflow-hidden">
         <canvas
           ref={canvasRef}
           className="block cursor-crosshair"
@@ -284,9 +284,9 @@ const DrawingCanvas = ({ onDrawingChange, initialDrawing = null, disabled = fals
           onTouchEnd={handleTouchEnd}
         />
       </div>
-      
-      <p className="text-xs text-slate-400 mt-2">
-        💡 Tip: Use this space for graphs, calculations, diagrams, or any visual work required for the problem.
+
+      <p className="text-xs text-content-muted mt-2">
+        Tip: Use this space for graphs, calculations, diagrams, or any visual work required for the problem.
       </p>
     </div>
   );

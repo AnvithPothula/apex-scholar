@@ -15,7 +15,7 @@ const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"
 
 const Settings = () => {
   const { user, updateUserProfile } = useAuth();
-  
+
   // Define default study preferences
   const getDefaultStudyPreferences = () => ({
     // Session timing (research-backed defaults)
@@ -23,29 +23,29 @@ const Settings = () => {
     breakLength: 10, // Minutes - cognitive recovery time
     longBreakLength: 30, // Minutes - after 3-4 sessions
     maxStudyHoursPerDay: 6, // Hours - sustainable daily limit
-    
+
     // Schedule preferences
     studyStartTime: 7, // 7 AM - peak cognitive performance
     studyEndTime: 22, // 10 PM - maintain sleep hygiene
     weekendStudy: true,
-    
+
     // Learning optimization (evidence-based)
     studyIntensity: 'moderate', // light, moderate, intense
     preferMorningStudy: true, // Use peak cognitive hours
-    
+
     // Cognitive load management
     maxConcurrentSubjects: 3, // Prevent cognitive overload
     difficultTasksInMorning: true, // Peak cognitive hours
     avoidPostLunchDip: true, // Skip 1-3 PM for difficult tasks
-    
+
     // Timezone preference (defaults to Central Time)
     timezone: 'America/Chicago', // CST/CDT timezone
-    
+
     // Advanced features
     procrastinationBuffer: 0.2 // 20% time buffer
   });
 
-  // Create empty default blackout schedule 
+  // Create empty default blackout schedule
   const getDefaultBlackoutSchedule = () => {
     return {
       monday: [],
@@ -82,14 +82,14 @@ const Settings = () => {
       setIsLoading(false);
       return;
     }
-    
+
     setIsLoading(true);
-    
+
     try {
       // Fix: Remove timeout that could cause race conditions
       const userDocRef = doc(db, 'users', user.uid);
       const userDocSnap = await getDoc(userDocRef);
-      
+
       if (userDocSnap.exists()) {
         const data = userDocSnap.data();
         const defaultPrefs = getDefaultStudyPreferences();
@@ -102,7 +102,7 @@ const Settings = () => {
         if (data.aiPersonalization) {
           setAiPersonalization(prev => ({ ...prev, ...data.aiPersonalization }));
         }
-        
+
         // Set user's timezone preference
         setUserTimezonePreference(mergedPrefs.timezone || 'America/Chicago');
       } else {
@@ -113,10 +113,10 @@ const Settings = () => {
         setDisplayName('');
         setStudyPreferences(defaultPrefs);
         setBlackoutDates(emptySchedule);
-        
+
         // Set default timezone preference
         setUserTimezonePreference(defaultPrefs.timezone);
-        
+
         // Save the defaults to Firebase so they persist
         try {
           const userDocRef = doc(db, 'users', user.uid);
@@ -155,10 +155,10 @@ const Settings = () => {
       }
       return;
     }
-    
+
     setIsSaving(true);
     if (showMessage) setMessage('Saving...');
-    
+
     try {
       // Validate data before saving
       const validatedStudyPreferences = {
@@ -202,7 +202,7 @@ const Settings = () => {
         },
         settingsLastUpdated: new Date().toISOString()
       }, { merge: true });
-      
+
       if (showMessage) {
         setMessage('Settings saved!');
         setTimeout(() => setMessage(''), 2000);
@@ -220,17 +220,17 @@ const Settings = () => {
   useEffect(() => {
     // Don't auto-save during initial load or if not initialized
     if (!isInitialized || isLoading) return;
-    
+
     // Clear any existing timeout
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
-    
+
     // Set a new timeout for auto-save
     saveTimeoutRef.current = setTimeout(() => {
       handleSaveSettings(false); // Save without showing message
     }, AUTO_SAVE_DELAY);
-    
+
     // Cleanup on unmount or when dependencies change
     return () => {
       if (saveTimeoutRef.current) {
@@ -306,8 +306,8 @@ const Settings = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-        <div className="text-lg text-slate-300">Loading settings...</div>
+      <div className="flex items-center justify-center min-h-screen bg-base-950">
+        <div className="text-lg text-content-secondary">Loading settings...</div>
       </div>
     );
   }
@@ -316,34 +316,34 @@ const Settings = () => {
   const availableSubjects = getAvailableSubjects();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen bg-base-950">
       <div className="container mx-auto p-3 sm:p-4 md:p-8 max-w-6xl">
-        <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-slate-100">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-content-primary">
           Settings
           {isSaving && (
-            <span className="ml-3 text-sm font-normal text-blue-400">
-              <span className="inline-block w-2 h-2 bg-blue-400 rounded-full animate-pulse mr-2"></span>
+            <span className="ml-3 text-sm font-normal text-primary-400">
+              <span className="inline-block w-2 h-2 bg-primary-400 rounded-full animate-pulse mr-2"></span>
               Saving...
             </span>
           )}
         </h1>
         {message && (
           <div className={`p-3 sm:p-4 mb-4 text-sm rounded-lg border ${
-            message.startsWith('Error') 
-              ? 'bg-red-900/50 text-red-300 border-red-700' 
+            message.startsWith('Error')
+              ? 'bg-error-900/50 text-error-300 border-error-700'
               : message.includes('Saving')
-              ? 'bg-blue-900/50 text-blue-300 border-blue-700'
-              : 'bg-green-900/50 text-green-300 border-green-700'
+              ? 'bg-primary-900/50 text-primary-300 border-primary-700'
+              : 'bg-success-900/50 text-success-300 border-success-700'
           }`}>
             {message}
           </div>
         )}
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
           {/* Profile Section */}
-          <Card className="bg-slate-800/60 border-slate-700 md:col-span-2 overflow-visible relative z-10">
+          <Card className="bg-base-850 border-border md:col-span-2 overflow-visible relative z-10">
             <CardHeader className="p-4 sm:p-6">
-              <CardTitle className="text-slate-100 text-lg sm:text-xl">Profile</CardTitle>
+              <CardTitle className="text-content-primary text-lg sm:text-xl">Profile</CardTitle>
             </CardHeader>
             <CardContent className="p-4 sm:p-6 pt-0 overflow-visible">
               <div className="flex items-center gap-4">
@@ -351,18 +351,18 @@ const Settings = () => {
                   <button
                     type="button"
                     onClick={() => setShowGradientPicker(prev => !prev)}
-                    className="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-xl shrink-0 ring-2 ring-slate-600 hover:ring-blue-500 transition-all cursor-pointer group"
+                    className="w-14 h-14 rounded-full flex items-center justify-center text-base-950 font-bold text-xl shrink-0 ring-2 ring-border-strong hover:ring-primary-500 transition-all cursor-pointer group"
                     style={{ background: user?.avatarGradient || 'linear-gradient(135deg, #3b82f6, #8b5cf6)' }}
                     title="Click to change avatar color"
                   >
                     {(displayName?.[0] || user?.email?.[0] || 'U').toUpperCase()}
                     <span className="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-content-primary opacity-0 group-hover:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                     </span>
                   </button>
                   {showGradientPicker && (
-                    <div className="absolute top-full left-0 mt-2 p-3 bg-slate-700 border border-slate-600 rounded-xl shadow-xl z-50 w-52">
-                      <p className="text-xs text-slate-300 mb-2 font-medium">Choose avatar color</p>
+                    <div className="absolute top-full left-0 mt-2 p-3 bg-base-800 border border-border-strong rounded-xl shadow-floating z-50 w-52">
+                      <p className="text-xs text-content-secondary mb-2 font-medium">Choose avatar color</p>
                       <div className="grid grid-cols-4 gap-2">
                         {AVATAR_GRADIENTS.map((gradient, i) => (
                           <button
@@ -371,8 +371,8 @@ const Settings = () => {
                             onClick={() => handleGradientSelect(gradient)}
                             className={`w-10 h-10 rounded-full transition-all hover:scale-110 ${
                               gradient === (user?.avatarGradient || AVATAR_GRADIENTS[0])
-                                ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-700'
-                                : 'ring-1 ring-slate-500 hover:ring-slate-400'
+                                ? 'ring-2 ring-content-primary ring-offset-2 ring-offset-base-800'
+                                : 'ring-1 ring-content-muted hover:ring-content-secondary'
                             }`}
                             style={{ background: gradient }}
                             title={`Gradient ${i + 1}`}
@@ -383,7 +383,7 @@ const Settings = () => {
                   )}
                 </div>
                 <div className="flex-1">
-                  <label htmlFor="displayName" className="text-sm font-medium text-slate-300 mb-1 block">
+                  <label htmlFor="displayName" className="text-sm font-medium text-content-secondary mb-1 block">
                     Display Name
                   </label>
                   <Input
@@ -396,18 +396,18 @@ const Settings = () => {
                     onKeyDown={(e) => { if (e.key === 'Enter') { e.target.blur(); } }}
                     className="w-full max-w-sm"
                   />
-                  <p className="text-xs text-slate-400 mt-1">Your tutor will address you by this name</p>
+                  <p className="text-xs text-content-muted mt-1">Your tutor will address you by this name</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           {/* AI Personalization */}
-          <Card className="bg-slate-800/60 border-slate-700 md:col-span-2">
+          <Card className="bg-base-850 border-border md:col-span-2">
             <CardHeader className="p-4 sm:p-6">
-              <CardTitle className="text-slate-100 text-lg sm:text-xl">
+              <CardTitle className="text-content-primary text-lg sm:text-xl">
                 AI Tutor Personalization
-                <span className="text-xs font-normal text-slate-400 block mt-1">
+                <span className="text-xs font-normal text-content-muted block mt-1">
                   Customize how your AI tutor communicates with you
                 </span>
               </CardTitle>
@@ -416,7 +416,7 @@ const Settings = () => {
               <div className="space-y-5">
                 {/* Response Style */}
                 <div>
-                  <label className="text-sm font-medium text-slate-300 mb-2 block">Response Style</label>
+                  <label className="text-sm font-medium text-content-secondary mb-2 block">Response Style</label>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {[
                       { value: 'balanced', label: 'Balanced', desc: 'Clear and adaptive' },
@@ -432,12 +432,12 @@ const Settings = () => {
                         onClick={() => setAiPersonalization(prev => ({ ...prev, style: value }))}
                         className={`text-left p-3 rounded-lg border transition-all ${
                           aiPersonalization.style === value
-                            ? 'border-blue-500 bg-blue-500/10 ring-1 ring-blue-500'
-                            : 'border-slate-600 bg-slate-700/30 hover:border-slate-500'
+                            ? 'border-primary-500 bg-primary-900 ring-1 ring-primary-500'
+                            : 'border-border-strong bg-base-800/30 hover:border-content-muted'
                         }`}
                       >
-                        <span className={`block text-sm font-medium ${aiPersonalization.style === value ? 'text-blue-300' : 'text-slate-200'}`}>{label}</span>
-                        <span className="block text-xs text-slate-400 mt-0.5">{desc}</span>
+                        <span className={`block text-sm font-medium ${aiPersonalization.style === value ? 'text-primary-400' : 'text-content-primary'}`}>{label}</span>
+                        <span className="block text-xs text-content-muted mt-0.5">{desc}</span>
                       </button>
                     ))}
                   </div>
@@ -450,25 +450,25 @@ const Settings = () => {
                       type="checkbox"
                       checked={aiPersonalization.useEmoji}
                       onChange={(e) => setAiPersonalization(prev => ({ ...prev, useEmoji: e.target.checked }))}
-                      className="h-4 w-4 text-blue-500 bg-slate-700 border-slate-600 rounded focus:ring-blue-500"
+                      className="h-4 w-4 text-primary-500 bg-base-800 border-border-strong rounded focus:ring-primary-500"
                     />
-                    <span className="text-sm text-slate-300">Use emoji in responses</span>
+                    <span className="text-sm text-content-secondary">Use emoji in responses</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={aiPersonalization.useHeaders !== false}
                       onChange={(e) => setAiPersonalization(prev => ({ ...prev, useHeaders: e.target.checked }))}
-                      className="h-4 w-4 text-blue-500 bg-slate-700 border-slate-600 rounded focus:ring-blue-500"
+                      className="h-4 w-4 text-primary-500 bg-base-800 border-border-strong rounded focus:ring-primary-500"
                     />
-                    <span className="text-sm text-slate-300">Use headers & lists for structure</span>
+                    <span className="text-sm text-content-secondary">Use headers & lists for structure</span>
                   </label>
                 </div>
 
                 {/* Custom Instructions */}
                 <div>
-                  <label htmlFor="customInstructions" className="text-sm font-medium text-slate-300 mb-2 block">
-                    Custom Instructions <span className="text-slate-500 font-normal">(optional)</span>
+                  <label htmlFor="customInstructions" className="text-sm font-medium text-content-secondary mb-2 block">
+                    Custom Instructions <span className="text-content-muted font-normal">(optional)</span>
                   </label>
                   <textarea
                     id="customInstructions"
@@ -477,17 +477,17 @@ const Settings = () => {
                     onChange={(e) => setAiPersonalization(prev => ({ ...prev, customInstructions: e.target.value.substring(0, 500) }))}
                     rows={3}
                     maxLength={500}
-                    className="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    className="w-full bg-base-800 border border-border-strong rounded-sm px-3 py-2 text-sm text-content-primary placeholder-content-muted focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
                   />
-                  <p className="text-xs text-slate-500 mt-1">{aiPersonalization.customInstructions.length}/500 characters</p>
+                  <p className="text-xs text-content-muted mt-1">{aiPersonalization.customInstructions.length}/500 characters</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-slate-800/60 border-slate-700">
+          <Card className="bg-base-850 border-border">
             <CardHeader className="p-4 sm:p-6">
-              <CardTitle className="text-slate-100 text-lg sm:text-xl">Your AP Subjects</CardTitle>
+              <CardTitle className="text-content-primary text-lg sm:text-xl">Your AP Subjects</CardTitle>
             </CardHeader>
             <CardContent className="p-4 sm:p-6 pt-0">
               <MultiSelectDropdown
@@ -502,23 +502,23 @@ const Settings = () => {
             </CardContent>
           </Card>
 
-          <Card className="bg-slate-800/60 border-slate-700">
+          <Card className="bg-base-850 border-border">
             <CardHeader className="p-4 sm:p-6">
-              <CardTitle className="text-slate-100 text-lg sm:text-xl">
+              <CardTitle className="text-content-primary text-lg sm:text-xl">
                 Study Preferences
-                <span className="text-xs font-normal text-slate-400 block mt-1">
-                  🧠 Scientifically-optimized defaults based on cognitive research
+                <span className="text-xs font-normal text-content-muted block mt-1">
+                  Scientifically-optimized defaults based on cognitive research
                 </span>
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 sm:p-6 pt-0">
               <div className="space-y-6">
                 {/* Session Timing */}
-                <div className="bg-slate-700/30 p-4 rounded-lg">
-                  <h3 className="text-md font-semibold text-slate-200 mb-3">Session Timing</h3>
+                <div className="bg-base-800/30 p-4 rounded-lg">
+                  <h3 className="text-md font-semibold text-content-primary mb-3">Session Timing</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label htmlFor="sessionLength" className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
+                      <label htmlFor="sessionLength" className="flex items-center gap-2 text-sm font-medium text-content-secondary mb-2">
                         Session Length (minutes)
                         <HelpTooltip content="How long each study session should be. Research shows 45-50 minutes is optimal for maintaining focus before taking a break." />
                       </label>
@@ -536,7 +536,7 @@ const Settings = () => {
                       />
                     </div>
                     <div>
-                      <label htmlFor="breakLength" className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
+                      <label htmlFor="breakLength" className="flex items-center gap-2 text-sm font-medium text-content-secondary mb-2">
                         Break Length (minutes)
                         <HelpTooltip content="Short breaks between study sessions. 5-15 minutes allows your brain to rest and consolidate information." />
                       </label>
@@ -554,7 +554,7 @@ const Settings = () => {
                       />
                     </div>
                     <div>
-                      <label htmlFor="longBreakLength" className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
+                      <label htmlFor="longBreakLength" className="flex items-center gap-2 text-sm font-medium text-content-secondary mb-2">
                         Long Break (minutes)
                         <HelpTooltip content="Longer break taken after 3-4 study sessions. Use this time for meals, exercise, or complete mental rest." />
                       </label>
@@ -572,7 +572,7 @@ const Settings = () => {
                       />
                     </div>
                     <div>
-                      <label htmlFor="maxStudyHours" className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
+                      <label htmlFor="maxStudyHours" className="flex items-center gap-2 text-sm font-medium text-content-secondary mb-2">
                         Max Study Hours/Day
                         <HelpTooltip content="Maximum total hours of studying per day. Helps prevent burnout and maintains sustainable study habits." />
                       </label>
@@ -593,11 +593,11 @@ const Settings = () => {
                 </div>
 
                 {/* Schedule Timing */}
-                <div className="bg-slate-700/30 p-4 rounded-lg">
-                  <h3 className="text-md font-semibold text-slate-200 mb-3">Daily Schedule</h3>
+                <div className="bg-base-800/30 p-4 rounded-lg">
+                  <h3 className="text-md font-semibold text-content-primary mb-3">Daily Schedule</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label htmlFor="studyStartTime" className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
+                      <label htmlFor="studyStartTime" className="flex items-center gap-2 text-sm font-medium text-content-secondary mb-2">
                         Study Start Time (24h)
                         <HelpTooltip content="Earliest time you're available to study. Most people have peak cognitive performance in the morning." />
                       </label>
@@ -615,7 +615,7 @@ const Settings = () => {
                       />
                     </div>
                     <div>
-                      <label htmlFor="studyEndTime" className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
+                      <label htmlFor="studyEndTime" className="flex items-center gap-2 text-sm font-medium text-content-secondary mb-2">
                         Study End Time (24h)
                         <HelpTooltip content="Latest time you want to study. Studying too late can interfere with sleep quality." />
                       </label>
@@ -636,11 +636,11 @@ const Settings = () => {
                 </div>
 
                 {/* Learning Preferences */}
-                <div className="bg-slate-700/30 p-4 rounded-lg">
-                  <h3 className="text-md font-semibold text-slate-200 mb-3">Learning Optimization</h3>
+                <div className="bg-base-800/30 p-4 rounded-lg">
+                  <h3 className="text-md font-semibold text-content-primary mb-3">Learning Optimization</h3>
                   <div className="space-y-4">
                     <div>
-                      <label htmlFor="studyIntensity" className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
+                      <label htmlFor="studyIntensity" className="flex items-center gap-2 text-sm font-medium text-content-secondary mb-2">
                         Study Intensity
                         <HelpTooltip content="Light: Shorter sessions with more breaks. Moderate: Balanced approach. Intense: Longer sessions with extended focus periods." />
                       </label>
@@ -655,9 +655,9 @@ const Settings = () => {
                         placeholder="Select study intensity"
                       />
                     </div>
-                    
+
                     <div>
-                      <label htmlFor="timezone" className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
+                      <label htmlFor="timezone" className="flex items-center gap-2 text-sm font-medium text-content-secondary mb-2">
                         Timezone
                         <HelpTooltip content="Select your timezone for accurate scheduling and assignment due dates. This affects how times are displayed throughout the application." />
                       </label>
@@ -679,9 +679,9 @@ const Settings = () => {
                         placeholder="Select your timezone"
                       />
                     </div>
-                    
+
                     <div>
-                      <label htmlFor="maxConcurrentSubjects" className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
+                      <label htmlFor="maxConcurrentSubjects" className="flex items-center gap-2 text-sm font-medium text-content-secondary mb-2">
                         Max Concurrent Subjects
                         <HelpTooltip content="Maximum number of different subjects to study in one day. Too many subjects can cause cognitive overload and reduce focus." />
                       </label>
@@ -700,7 +700,7 @@ const Settings = () => {
                     </div>
 
                     <div>
-                      <label htmlFor="procrastinationBuffer" className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
+                      <label htmlFor="procrastinationBuffer" className="flex items-center gap-2 text-sm font-medium text-content-secondary mb-2">
                         Procrastination Buffer (0.0-0.5)
                         <HelpTooltip content="Extra time buffer added to deadlines. 0.2 means 20% extra time. Helps account for unexpected delays and procrastination." />
                       </label>
@@ -722,8 +722,8 @@ const Settings = () => {
                 </div>
 
                 {/* Advanced Options */}
-                <div className="bg-slate-700/30 p-4 rounded-lg">
-                  <h3 className="text-md font-semibold text-slate-200 mb-3">Advanced Features</h3>
+                <div className="bg-base-800/30 p-4 rounded-lg">
+                  <h3 className="text-md font-semibold text-content-primary mb-3">Advanced Features</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {[
                       { key: 'weekendStudy', label: 'Allow weekend study sessions', desc: 'Schedule tasks on weekends', default: true },
@@ -731,35 +731,35 @@ const Settings = () => {
                       { key: 'difficultTasksInMorning', label: 'Schedule hard tasks in morning', desc: 'Use peak cognitive performance', default: true, help: 'Places challenging material when your brain is most alert and capable of complex thinking.' },
                       { key: 'avoidPostLunchDip', label: 'Avoid post-lunch dip', desc: 'Skip 1-3 PM for difficult tasks', default: true, help: 'Most people experience reduced alertness after lunch. Schedules easier tasks during this time.' }
                     ].map(({ key, label, desc, default: isDefault, help }) => (
-                      <div key={key} className="flex items-start p-2 rounded-lg hover:bg-slate-600/30 transition-colors">
+                      <div key={key} className="flex items-start p-2 rounded-lg hover:bg-base-750/30 transition-colors">
                         <input
                           type="checkbox"
                           id={key}
                           checked={studyPreferences[key] !== undefined ? studyPreferences[key] : isDefault}
                           onChange={(e) => setStudyPreferences({ ...studyPreferences, [key]: e.target.checked })}
-                          className="h-4 w-4 mt-0.5 text-blue-500 bg-slate-700 border-slate-600 rounded focus:ring-blue-500 focus:ring-2 flex-shrink-0"
+                          className="h-4 w-4 mt-0.5 text-primary-500 bg-base-800 border-border-strong rounded focus:ring-primary-500 focus:ring-2 flex-shrink-0"
                         />
                         <div className="ml-3 flex-1">
                           <div className="flex items-center gap-2">
-                            <label htmlFor={key} className="block text-sm text-slate-300 cursor-pointer font-medium">
+                            <label htmlFor={key} className="block text-sm text-content-secondary cursor-pointer font-medium">
                               {label}
                             </label>
                             {help && <HelpTooltip content={help} />}
                           </div>
-                          <span className="text-xs text-slate-400">{desc}</span>
+                          <span className="text-xs text-content-muted">{desc}</span>
                         </div>
                       </div>
                     ))}
                   </div>
                 </div>
               </div>
-              
+
               {/* Revert to Defaults Button */}
-              <div className="flex justify-end pt-4 border-t border-slate-600">
-                <Button 
+              <div className="flex justify-end pt-4 border-t border-border-strong">
+                <Button
                   onClick={handleRevertToDefaults}
                   variant="outline"
-                  className="text-slate-300 border-slate-600 hover:bg-slate-700/50 hover:text-slate-100"
+                  className="text-content-secondary border-border-strong hover:bg-base-800/50 hover:text-content-primary"
                 >
                   Revert to Defaults
                 </Button>
@@ -773,12 +773,12 @@ const Settings = () => {
         </div>
 
         <div className="mt-6 sm:mt-8">
-          <Card className="bg-slate-800/60 border-slate-700">
+          <Card className="bg-base-850 border-border">
             <CardHeader className="p-4 sm:p-6">
-              <CardTitle className="text-slate-100 text-lg sm:text-xl">Blackout Schedule</CardTitle>
+              <CardTitle className="text-content-primary text-lg sm:text-xl">Blackout Schedule</CardTitle>
             </CardHeader>
             <CardContent className="p-4 sm:p-6 pt-0">
-              <p className="text-sm text-slate-400 mb-4">
+              <p className="text-sm text-content-muted mb-4">
                 Set times when you are unavailable to study. The scheduler will not create tasks during these times.
                 Use the quick add templates below to easily add common time blocks like sleep time, school hours, or work hours.
               </p>
@@ -789,8 +789,8 @@ const Settings = () => {
 
         {/* Auto-save indicator */}
         <div className="mt-6 sm:mt-8 flex justify-center sm:justify-end items-center">
-          <div className="text-sm text-slate-400 flex items-center gap-2">
-            <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+          <div className="text-sm text-content-muted flex items-center gap-2">
+            <span className="w-2 h-2 bg-success-500 rounded-full"></span>
             Settings auto-save when changed
           </div>
         </div>

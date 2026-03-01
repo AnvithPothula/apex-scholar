@@ -988,8 +988,8 @@ const PracticeTests = () => {
       // Convert inline as emergency fallback
       return Object.entries(breakdown).map(([part, score]) => (
         <div key={part} className="flex justify-between">
-          <span className="text-slate-300 capitalize">{part.replace('_', ' ')}:</span>
-          <span className="text-blue-400 font-medium">{renderSafeValue(score)} pts</span>
+          <span className="text-content-secondary capitalize">{part.replace('_', ' ')}:</span>
+          <span className="text-primary-400 font-medium">{renderSafeValue(score)} pts</span>
         </div>
       ));
     }
@@ -998,8 +998,8 @@ const PracticeTests = () => {
     if (breakdown.__safe_breakdown && breakdown.parts) {
       return breakdown.parts.map(({ name, score }) => (
         <div key={name} className="flex justify-between">
-          <span className="text-slate-300 capitalize">{name.replace('_', ' ')}:</span>
-          <span className="text-blue-400 font-medium">{score} pts</span>
+          <span className="text-content-secondary capitalize">{name.replace('_', ' ')}:</span>
+          <span className="text-primary-400 font-medium">{score} pts</span>
         </div>
       ));
     }
@@ -1019,8 +1019,8 @@ const PracticeTests = () => {
       
       return (
         <div key={part} className="flex justify-between">
-          <span className="text-slate-300 capitalize">{part.replace('_', ' ')}:</span>
-          <span className="text-blue-400 font-medium">{scoreString} pts</span>
+          <span className="text-content-secondary capitalize">{part.replace('_', ' ')}:</span>
+          <span className="text-primary-400 font-medium">{scoreString} pts</span>
         </div>
       );
     });
@@ -4955,38 +4955,38 @@ Provide a clear, educational response that helps the student understand why ${co
   // Scoring View (shown while AI grades the test)
   if (currentView === 'scoring') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100 flex items-center justify-center">
+      <div className="min-h-screen bg-base-950 text-content-primary flex items-center justify-center">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           className="text-center"
         >
           <div className="relative mb-8">
-            <div className="w-32 h-32 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+            <div className="w-32 h-32 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
             <div className="absolute inset-0 flex items-center justify-center">
-              <Brain className="w-12 h-12 text-blue-400" />
+              <Brain strokeWidth={1.5} className="w-12 h-12 text-primary-400" />
             </div>
           </div>
           
-          <h2 className="text-3xl font-bold text-slate-100 mb-4">Grading Your Test</h2>
-          <p className="text-lg text-slate-300 mb-2">
+          <h2 className="text-3xl font-bold text-content-primary mb-4">Grading Your Test</h2>
+          <p className="text-lg text-content-secondary mb-2">
             Our AI is analyzing your responses and providing detailed feedback
           </p>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-content-muted">
             This may take a few moments for written responses...
           </p>
           
           <div className="mt-8 space-y-2">
-            <div className="flex items-center justify-center gap-2 text-slate-400">
-              <CheckCircle className="w-4 h-4 text-green-400" />
+            <div className="flex items-center justify-center gap-2 text-content-muted">
+              <CheckCircle strokeWidth={1.5} className="w-4 h-4 text-success-400" />
               <span>Analyzing multiple choice answers</span>
             </div>
-            <div className="flex items-center justify-center gap-2 text-slate-400">
-              <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+            <div className="flex items-center justify-center gap-2 text-content-muted">
+              <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
               <span>Scoring written responses with AI</span>
             </div>
-            <div className="flex items-center justify-center gap-2 text-slate-400">
-              <Clock className="w-4 h-4" />
+            <div className="flex items-center justify-center gap-2 text-content-muted">
+              <Clock strokeWidth={1.5} className="w-4 h-4" />
               <span>Generating personalized feedback</span>
             </div>
           </div>
@@ -4997,7 +4997,7 @@ Provide a clear, educational response that helps the student understand why ${co
   // Test History View
   if (currentView === 'history') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100">
+      <div className="min-h-screen bg-base-950 text-content-primary">
         <div className="max-w-6xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
           {/* Header */}
           <motion.div
@@ -5009,15 +5009,15 @@ Provide a clear, educational response that helps the student understand why ${co
               <Button
                 variant="ghost"
                 onClick={() => setCurrentView('setup')}
-                className="text-slate-300 hover:text-slate-100"
+                className="text-content-secondary hover:text-content-primary"
               >
-                <ArrowLeft className="w-4 h-4 mr-1 sm:mr-2" />
+                <ArrowLeft strokeWidth={1.5} className="w-4 h-4 mr-1 sm:mr-2" />
                 <span className="hidden sm:inline">Back to Setup</span>
                 <span className="sm:hidden">Back</span>
               </Button>
               <div>
-                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-100">Test History</h1>
-                <p className="text-sm text-slate-400 hidden sm:block">Review your past practice tests</p>
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold font-display text-content-primary">Test History</h1>
+                <p className="text-sm text-content-muted hidden sm:block">Review your past practice tests</p>
               </div>
             </div>
           </motion.div>
@@ -5026,9 +5026,9 @@ Provide a clear, educational response that helps the student understand why ${co
           <div className="grid gap-4">
             {testHistory.length === 0 ? (
               <Card className="p-8 text-center">
-                <Clock className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                <h3 className="text-xl font-bold text-slate-300 mb-2">No Tests Yet</h3>
-                <p className="text-slate-400 mb-6">Take your first practice test to see your history here.</p>
+                <Clock strokeWidth={1.5} className="w-16 h-16 text-content-disabled mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-content-secondary mb-2">No Tests Yet</h3>
+                <p className="text-content-muted mb-6">Take your first practice test to see your history here.</p>
                 <Button onClick={() => setCurrentView('setup')}>
                   Start Practice Test
                 </Button>
@@ -5056,11 +5056,11 @@ Provide a clear, educational response that helps the student understand why ${co
                     setCurrentView('results');
                   }}
                 >
-                  <Card className="p-6 hover:bg-slate-800/50 transition-colors">
+                  <Card className="p-6 hover:bg-base-850/50 transition-colors">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-4 mb-3">
-                          <h3 className="text-xl font-bold text-slate-100">{test.subject}</h3>
+                          <h3 className="text-xl font-bold text-content-primary">{test.subject}</h3>
                           <Badge variant="secondary">
                             {test.section === 'mcq' ? 'Multiple Choice' : 
                              test.section === 'frq' ? 'Free Response' : 
@@ -5077,30 +5077,30 @@ Provide a clear, educational response that helps the student understand why ${co
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                           <div>
-                            <span className="text-slate-400">Score: </span>
-                            <span className="text-slate-200">{test.results?.percentage || 0}%</span>
+                            <span className="text-content-muted">Score: </span>
+                            <span className="text-content-primary">{test.results?.percentage || 0}%</span>
                           </div>
                           <div>
-                            <span className="text-slate-400">AP Score: </span>
-                            <span className="text-blue-400 font-bold">{test.results?.apScore || 'N/A'}</span>
+                            <span className="text-content-muted">AP Score: </span>
+                            <span className="text-primary-400 font-bold">{test.results?.apScore || 'N/A'}</span>
                           </div>
                           <div>
-                            <span className="text-slate-400">Questions: </span>
-                            <span className="text-slate-200">{test.questions?.length || 0}</span>
+                            <span className="text-content-muted">Questions: </span>
+                            <span className="text-content-primary">{test.questions?.length || 0}</span>
                           </div>
                           <div>
-                            <span className="text-slate-400">Date: </span>
-                            <span className="text-slate-200">
+                            <span className="text-content-muted">Date: </span>
+                            <span className="text-content-primary">
                               {test.createdAt instanceof Date ? test.createdAt.toLocaleDateString() : 'Recent'}
                             </span>
                           </div>
                         </div>
                       </div>
                       <div className="text-center ml-6">
-                        <div className="text-3xl font-bold text-blue-400 mb-1">
+                        <div className="text-3xl font-bold text-primary-400 mb-1">
                           {test.results?.apScore || 'N/A'}
                         </div>
-                        <p className="text-xs text-slate-400">AP Score</p>
+                        <p className="text-xs text-content-muted">AP Score</p>
                       </div>
                     </div>
                   </Card>
@@ -5119,7 +5119,7 @@ Provide a clear, educational response that helps the student understand why ${co
     const currentConfig = TEST_CONFIGURATIONS[canonicalSubject] || DEFAULT_CONFIG;
     
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100">
+      <div className="min-h-screen bg-base-950 text-content-primary">
         <div className="max-w-6xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
           {/* Header */}
           <motion.div
@@ -5128,14 +5128,14 @@ Provide a clear, educational response that helps the student understand why ${co
             className="text-center mb-6 sm:mb-8 md:mb-12"
           >
             <div className="flex items-center justify-center gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4 md:mb-6">
-              <div className="p-2 sm:p-3 md:p-4 bg-gradient-to-br from-purple-600 to-blue-600 rounded-xl md:rounded-2xl shadow-lg">
-                <Brain className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-white" />
+              <div className="p-2 sm:p-3 md:p-4 bg-primary-500 rounded-sm md:rounded-md shadow-raised">
+                <Brain strokeWidth={1.5} className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-content-primary" />
               </div>
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold font-display text-primary-400">
                 AI Practice Tests
               </h1>
             </div>
-            <p className="text-sm sm:text-base md:text-lg text-slate-300 max-w-3xl mx-auto px-2">
+            <p className="text-sm sm:text-base md:text-lg text-content-secondary max-w-3xl mx-auto px-2">
               Generate personalized AP practice tests with AI-powered questions, real-time feedback, 
               and comprehensive score analysis. Prepare like never before!
             </p>
@@ -5156,15 +5156,15 @@ Provide a clear, educational response that helps the student understand why ${co
               transition={{ delay: 0.2 }}
             >
               <Card className="p-8">
-                <h2 className="text-2xl font-bold text-slate-100 mb-6 flex items-center gap-3">
-                  <Settings className="w-6 h-6 text-blue-400" />
+                <h2 className="text-2xl font-bold text-content-primary mb-6 flex items-center gap-3">
+                  <Settings strokeWidth={1.5} className="w-6 h-6 text-primary-400" />
                   Test Configuration
                 </h2>
 
                 <div className="space-y-6">
                   {/* Subject Selection */}
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-3">
+                    <label className="block text-sm font-medium text-content-secondary mb-3">
                       AP Subject *
                     </label>
                     <CustomDropdown
@@ -5186,7 +5186,7 @@ Provide a clear, educational response that helps the student understand why ${co
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                     >
-                      <label className="block text-sm font-medium text-slate-300 mb-3">
+                      <label className="block text-sm font-medium text-content-secondary mb-3">
                         Test Section *
                       </label>
                       <div className="grid gap-3">
@@ -5199,18 +5199,18 @@ Provide a clear, educational response that helps the student understand why ${co
                             }}
                             className={`p-4 rounded-lg border cursor-pointer transition-all ${
                               selectedSection === section.id
-                                ? 'border-blue-500 bg-blue-500/10'
-                                : 'border-slate-600 hover:border-slate-500 bg-slate-700/50'
+                                ? 'border-primary-500 bg-primary-900'
+                                : 'border-border-strong hover:border-border-strong bg-base-800'
                             }`}
                           >
                             <div className="flex items-center justify-between">
                               <div>
-                                <h3 className="font-medium text-slate-200 mb-3">{section.name}</h3>
-                                <p className="text-sm text-slate-400">{section.description}</p>
+                                <h3 className="font-medium text-content-primary mb-3">{section.name}</h3>
+                                <p className="text-sm text-content-muted">{section.description}</p>
                               </div>
                               <div className="text-right">
-                                <div className="text-sm text-slate-300">{section.time} min</div>
-                                <div className="text-xs text-slate-400">{section.questions} questions</div>
+                                <div className="text-sm text-content-secondary">{section.time} min</div>
+                                <div className="text-xs text-content-muted">{section.questions} questions</div>
                               </div>
                             </div>
                           </div>
@@ -5235,7 +5235,7 @@ Provide a clear, educational response that helps the student understand why ${co
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: 0.15 }}
                         >
-                          <label className="block text-sm font-medium text-slate-300 mb-3">
+                          <label className="block text-sm font-medium text-content-secondary mb-3">
                             FRQ Type *
                           </label>
                           <div className="grid gap-3">
@@ -5245,18 +5245,18 @@ Provide a clear, educational response that helps the student understand why ${co
                                 onClick={() => setSelectedSubSection(subSection.id)}
                                 className={`p-4 rounded-lg border cursor-pointer transition-all ${
                                   selectedSubSection === subSection.id
-                                    ? 'border-purple-500 bg-purple-500/10'
-                                    : 'border-slate-600 hover:border-slate-500 bg-slate-700/50'
+                                    ? 'border-primary-500 bg-primary-900'
+                                    : 'border-border-strong hover:border-border-strong bg-base-800'
                                 }`}
                               >
                                 <div className="flex items-center justify-between">
                                   <div>
-                                    <h3 className="font-medium text-slate-200 mb-3">{subSection.name}</h3>
-                                    <p className="text-sm text-slate-400">{subSection.description}</p>
+                                    <h3 className="font-medium text-content-primary mb-3">{subSection.name}</h3>
+                                    <p className="text-sm text-content-muted">{subSection.description}</p>
                                   </div>
                                   <div className="text-right">
-                                    <div className="text-sm text-slate-300">{subSection.time} min</div>
-                                    <div className="text-xs text-slate-400">{subSection.questions} questions</div>
+                                    <div className="text-sm text-content-secondary">{subSection.time} min</div>
+                                    <div className="text-xs text-content-muted">{subSection.questions} questions</div>
                                   </div>
                                 </div>
                               </div>
@@ -5275,7 +5275,7 @@ Provide a clear, educational response that helps the student understand why ${co
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.1 }}
                     >
-                      <label className="block text-sm font-medium text-slate-300 mb-3">
+                      <label className="block text-sm font-medium text-content-secondary mb-3">
                         Select Units (Optional - leave empty for all units)
                       </label>
                       <div className="mb-3">
@@ -5285,7 +5285,7 @@ Provide a clear, educational response that helps the student understand why ${co
                             const allUnits = currentConfig.units.map(unit => unit.name);
                             setSelectedUnits(selectedUnits.length === allUnits.length ? [] : allUnits);
                           }}
-                          className="px-3 py-2 text-sm bg-slate-600 hover:bg-slate-500 rounded-lg text-slate-200 transition-colors"
+                          className="px-3 py-2 text-sm bg-base-750 hover:bg-base-750 rounded-lg text-content-primary transition-colors"
                         >
                           {selectedUnits.length === (currentConfig?.units || []).length ? 'Deselect All' : 'Select All'}
                         </button>
@@ -5303,26 +5303,26 @@ Provide a clear, educational response that helps the student understand why ${co
                             }}
                             className={`p-3 rounded-lg border cursor-pointer transition-all ${
                               selectedUnits.includes(unit.name)
-                                ? 'border-purple-500 bg-purple-500/10'
-                                : 'border-slate-600 hover:border-slate-500 bg-slate-700/50'
+                                ? 'border-primary-500 bg-primary-900'
+                                : 'border-border-strong hover:border-border-strong bg-base-800'
                             }`}
                           >
                             <div className="flex items-center space-x-2">
                               <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
                                 selectedUnits.includes(unit.name)
-                                  ? 'border-purple-500 bg-purple-500'
-                                  : 'border-slate-400'
+                                  ? 'border-primary-500 bg-primary-500'
+                                  : 'border-border-strong'
                               }`}>
                                 {selectedUnits.includes(unit.name) && (
-                                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                  <svg className="w-3 h-3 text-content-primary" fill="currentColor" viewBox="0 0 20 20">
                                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
                                   </svg>
                                 )}
                               </div>
                               <div>
-                                <span className="font-medium text-slate-200 text-sm">{unit.name}</span>
+                                <span className="font-medium text-content-primary text-sm">{unit.name}</span>
                                 {unit.topics && (
-                                  <div className="text-xs text-slate-400 mt-1">
+                                  <div className="text-xs text-content-muted mt-1">
                                     {unit.topics.slice(0, 3).join(', ')}{unit.topics.length > 3 ? '...' : ''}
                                   </div>
                                 )}
@@ -5343,7 +5343,7 @@ Provide a clear, educational response that helps the student understand why ${co
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.2 }}
                     >
-                      <label className="block text-sm font-medium text-slate-300 mb-3">
+                      <label className="block text-sm font-medium text-content-secondary mb-3">
                         Time Limit
                       </label>
                       <div className="space-y-3">
@@ -5351,13 +5351,13 @@ Provide a clear, educational response that helps the student understand why ${co
                           onClick={() => setUseDefaultTime(true)}
                           className={`p-3 rounded-lg border cursor-pointer transition-all ${
                             useDefaultTime
-                              ? 'border-green-500 bg-green-500/10'
-                              : 'border-slate-600 hover:border-slate-500 bg-slate-700/50'
+                              ? 'border-success-500 bg-success-900'
+                              : 'border-border-strong hover:border-border-strong bg-base-800'
                           }`}
                         >
                           <div className="flex items-center justify-between">
-                            <span className="text-slate-200">Official AP Time</span>
-                            <span className="text-green-400 font-medium">
+                            <span className="text-content-primary">Official AP Time</span>
+                            <span className="text-success-400 font-medium">
                               {(() => {
                                 const config = currentConfig;
                                 const section = config.sections.find(s => s.id === selectedSection);
@@ -5374,12 +5374,12 @@ Provide a clear, educational response that helps the student understand why ${co
                           onClick={() => setUseDefaultTime(false)}
                           className={`p-3 rounded-lg border cursor-pointer transition-all ${
                             !useDefaultTime
-                              ? 'border-blue-500 bg-blue-500/10'
-                              : 'border-slate-600 hover:border-slate-500 bg-slate-700/50'
+                              ? 'border-primary-500 bg-primary-900'
+                              : 'border-border-strong hover:border-border-strong bg-base-800'
                           }`}
                         >
                           <div className="flex items-center justify-between">
-                            <span className="text-slate-200">Custom Time</span>
+                            <span className="text-content-primary">Custom Time</span>
                             <Input
                               type="number"
                               placeholder="Minutes"
@@ -5401,7 +5401,7 @@ Provide a clear, educational response that helps the student understand why ${co
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.25 }}
                     >
-                      <label className="block text-sm font-medium text-slate-300 mb-3">
+                      <label className="block text-sm font-medium text-content-secondary mb-3">
                         Number of Questions
                       </label>
                       <div className="space-y-3">
@@ -5409,13 +5409,13 @@ Provide a clear, educational response that helps the student understand why ${co
                           onClick={() => setUseDefaultQuestionCount(true)}
                           className={`p-3 rounded-lg border cursor-pointer transition-all ${
                             useDefaultQuestionCount
-                              ? 'border-green-500 bg-green-500/10'
-                              : 'border-slate-600 hover:border-slate-500 bg-slate-700/50'
+                              ? 'border-success-500 bg-success-900'
+                              : 'border-border-strong hover:border-border-strong bg-base-800'
                           }`}
                         >
                           <div className="flex items-center justify-between">
-                            <span className="text-slate-200">Official AP Count</span>
-                            <span className="text-green-400 font-medium">
+                            <span className="text-content-primary">Official AP Count</span>
+                            <span className="text-success-400 font-medium">
                               {(() => {
                                 const config = currentConfig;
                                 const section = config.sections.find(s => s.id === selectedSection);
@@ -5432,12 +5432,12 @@ Provide a clear, educational response that helps the student understand why ${co
                           onClick={() => setUseDefaultQuestionCount(false)}
                           className={`p-3 rounded-lg border cursor-pointer transition-all ${
                             !useDefaultQuestionCount
-                              ? 'border-blue-500 bg-blue-500/10'
-                              : 'border-slate-600 hover:border-slate-500 bg-slate-700/50'
+                              ? 'border-primary-500 bg-primary-900'
+                              : 'border-border-strong hover:border-border-strong bg-base-800'
                           }`}
                         >
                           <div className="flex items-center justify-between">
-                            <span className="text-slate-200">Custom Count</span>
+                            <span className="text-content-primary">Custom Count</span>
                             <Input
                               type="number"
                               placeholder="1-100"
@@ -5460,7 +5460,7 @@ Provide a clear, educational response that helps the student understand why ${co
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.3 }}
-                  className="mt-8 pt-6 border-t border-slate-700"
+                  className="mt-8 pt-6 border-t border-border"
                 >
                   <Button
                     onClick={handleStartTest}
@@ -5472,17 +5472,16 @@ Provide a clear, educational response that helps the student understand why ${co
        return !selectedSubject || !selectedSection || 
                              (hasSubSections && !selectedSubSection) || isGeneratingTest;
                     })()}
-                    className="w-full py-4 text-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-                    glow
+                    className="w-full py-4 text-lg bg-primary-500 hover:bg-primary-600"
                   >
                     {isGeneratingTest ? (
                       <div className="flex items-center gap-3">
-                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <div className="w-5 h-5 border-2 border-border border-t-transparent rounded-full animate-spin"></div>
                         Generating... {generationProgress.generated}/{generationProgress.total} questions
                       </div>
                     ) : (
                       <div className="flex items-center gap-3">
-                        <Play className="w-6 h-6" />
+                        <Play strokeWidth={1.5} className="w-6 h-6" />
                         Generate & Start Test
                         {(() => {
                           const config = currentConfig;
@@ -5512,37 +5511,37 @@ Provide a clear, educational response that helps the student understand why ${co
             >
               {/* Features */}
               <Card className="p-6">
-                <h3 className="text-xl font-bold text-slate-100 mb-4 flex items-center gap-2">
-                  <Zap className="w-5 h-5 text-yellow-400" />
+                <h3 className="text-xl font-bold text-content-primary mb-4 flex items-center gap-2">
+                  <Zap strokeWidth={1.5} className="w-5 h-5 text-warning-400" />
                   AI-Powered Features
                 </h3>
                 <div className="space-y-4">
                   <div className="flex items-start gap-3">
-                    <Target className="w-5 h-5 text-blue-400 mt-0.5" />
+                    <Target strokeWidth={1.5} className="w-5 h-5 text-primary-400 mt-0.5" />
                     <div>
-                      <h4 className="font-medium text-slate-200 mb-3">Adaptive Questions</h4>
-                      <p className="text-sm text-slate-400">AI generates questions tailored to your difficulty level</p>
+                      <h4 className="font-medium text-content-primary mb-3">Adaptive Questions</h4>
+                      <p className="text-sm text-content-muted">AI generates questions tailored to your difficulty level</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
-                    <MessageSquare className="w-5 h-5 text-green-400 mt-0.5" />
+                    <MessageSquare strokeWidth={1.5} className="w-5 h-5 text-success-400 mt-0.5" />
                     <div>
-                      <h4 className="font-medium text-slate-200 mb-3">Instant Tutor Help</h4>
-                      <p className="text-sm text-slate-400">Ask questions about any problem during review</p>
+                      <h4 className="font-medium text-content-primary mb-3">Instant Tutor Help</h4>
+                      <p className="text-sm text-content-muted">Ask questions about any problem during review</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
-                    <TrendingUp className="w-5 h-5 text-purple-400 mt-0.5" />
+                    <TrendingUp strokeWidth={1.5} className="w-5 h-5 text-primary-400 mt-0.5" />
                     <div>
-                      <h4 className="font-medium text-slate-200 mb-3">Detailed Analytics</h4>
-                      <p className="text-sm text-slate-400">Comprehensive score breakdown and improvement insights</p>
+                      <h4 className="font-medium text-content-primary mb-3">Detailed Analytics</h4>
+                      <p className="text-sm text-content-muted">Comprehensive score breakdown and improvement insights</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
-                    <Award className="w-5 h-5 text-orange-400 mt-0.5" />
+                    <Award strokeWidth={1.5} className="w-5 h-5 text-accent-400 mt-0.5" />
                     <div>
-                      <h4 className="font-medium text-slate-200 mb-3">AP Score Prediction</h4>
-                      <p className="text-sm text-slate-400">Get your predicted AP score based on performance</p>
+                      <h4 className="font-medium text-content-primary mb-3">AP Score Prediction</h4>
+                      <p className="text-sm text-content-muted">Get your predicted AP score based on performance</p>
                     </div>
                   </div>
                 </div>
@@ -5552,22 +5551,22 @@ Provide a clear, educational response that helps the student understand why ${co
               {testHistory.length > 0 && (
                 <Card className="p-6">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-                      <Clock className="w-5 h-5 text-green-400" />
+                    <h3 className="text-xl font-bold text-content-primary flex items-center gap-2">
+                      <Clock strokeWidth={1.5} className="w-5 h-5 text-success-400" />
                       Recent Tests
                     </h3>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => setCurrentView('history')}
-                      className="text-blue-400 hover:text-blue-300"
+                      className="text-primary-400 hover:text-primary-400"
                     >
                       View All
                     </Button>
                   </div>
                   <div className="space-y-3">
                     {testHistory.slice(0, 3).map((test) => (
-                      <div key={test.id} className="p-3 bg-slate-700/50 rounded-lg hover:bg-slate-700/70 transition-colors cursor-pointer"
+                      <div key={test.id} className="p-3 bg-base-800 rounded-lg hover:bg-base-800 transition-colors cursor-pointer"
                            onClick={() => {
                              console.log('🚨 RECENT: Loading test results:', test.results);
                              const sanitizedResults = sanitizeResultsData(test.results);
@@ -5584,21 +5583,21 @@ Provide a clear, educational response that helps the student understand why ${co
                            }}>
                         <div className="flex items-center justify-between">
                           <div>
-                            <h4 className="font-medium text-slate-200 mb-2">{test.subject}</h4>
-                            <p className="text-sm text-slate-400">
+                            <h4 className="font-medium text-content-primary mb-2">{test.subject}</h4>
+                            <p className="text-sm text-content-muted">
                               {test.section === 'mcq' ? 'Multiple Choice' : 
                                test.section === 'frq' ? 'Free Response' : 'Full Test'}
                             </p>
-                            <p className="text-xs text-slate-500">
+                            <p className="text-xs text-content-muted">
                               {test.createdAt instanceof Date ? test.createdAt.toLocaleDateString() : 'Recent'}
                             </p>
                           </div>
                           <div className="text-right">
-                            <div className="text-lg font-bold text-blue-400">
+                            <div className="text-lg font-bold text-primary-400">
                               {test.results?.apScore}
                             </div>
-                            <p className="text-xs text-slate-400">AP Score</p>
-                            <p className="text-xs text-slate-500">
+                            <p className="text-xs text-content-muted">AP Score</p>
+                            <p className="text-xs text-content-muted">
                               {test.results?.percentage || 0}%
                             </p>
                           </div>
@@ -5622,22 +5621,22 @@ Provide a clear, educational response that helps the student understand why ${co
     // Show error if no questions are available
     if (!questions || questions.length === 0) {
       return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100 flex items-center justify-center">
+        <div className="min-h-screen bg-base-950 text-content-primary flex items-center justify-center">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             className="text-center"
           >
-            <X className="w-16 h-16 text-red-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-slate-100 mb-4">No Questions Available</h2>
-            <p className="text-lg text-slate-300 mb-6">
+            <X strokeWidth={1.5} className="w-16 h-16 text-error-400 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-content-primary mb-4">No Questions Available</h2>
+            <p className="text-lg text-content-secondary mb-6">
               There was an issue generating questions for this test.
             </p>
             <Button
               onClick={resetTest}
-              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+              className="bg-primary-500 hover:bg-primary-600"
             >
-              <RotateCw className="w-5 h-5 mr-2" />
+              <RotateCw strokeWidth={1.5} className="w-5 h-5 mr-2" />
               Try Again
             </Button>
           </motion.div>
@@ -5648,15 +5647,15 @@ Provide a clear, educational response that helps the student understand why ${co
     // Show error if current question is not available
     if (!currentQuestion) {
       return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100 flex items-center justify-center">
+        <div className="min-h-screen bg-base-950 text-content-primary flex items-center justify-center">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             className="text-center"
           >
-            <Flag className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-slate-100 mb-4">Question Not Found</h2>
-            <p className="text-lg text-slate-300 mb-6">
+            <Flag strokeWidth={1.5} className="w-16 h-16 text-warning-400 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-content-primary mb-4">Question Not Found</h2>
+            <p className="text-lg text-content-secondary mb-6">
               Question {currentQuestionIndex + 1} of {questions.length} could not be loaded.
             </p>
             <div className="flex gap-4 justify-center">
@@ -5668,9 +5667,9 @@ Provide a clear, educational response that helps the student understand why ${co
               </Button>
               <Button
                 onClick={resetTest}
-                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                className="bg-primary-500 hover:bg-primary-600"
               >
-                <RotateCw className="w-5 h-5 mr-2" />
+                <RotateCw strokeWidth={1.5} className="w-5 h-5 mr-2" />
                 Restart Test
               </Button>
             </div>
@@ -5680,7 +5679,7 @@ Provide a clear, educational response that helps the student understand why ${co
     }
     
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100">
+      <div className="min-h-screen bg-base-950 text-content-primary">
         
         {/* Settings Panel */}
         {showSettings && (
@@ -5688,22 +5687,22 @@ Provide a clear, educational response that helps the student understand why ${co
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
           >
-            <div className={`bg-slate-800 rounded-lg border border-slate-700 ${isMobile ? 'w-full max-w-sm' : 'w-full max-w-md'}`}>
-              <div className="flex items-center justify-between p-6 border-b border-slate-700">
-                <h3 className="text-lg font-semibold text-slate-100">Settings</h3>
+            <div className={`bg-base-850 rounded-lg border border-border ${isMobile ? 'w-full max-w-sm' : 'w-full max-w-md'}`}>
+              <div className="flex items-center justify-between p-6 border-b border-border">
+                <h3 className="text-lg font-semibold text-content-primary">Settings</h3>
                 <button
                   onClick={() => setShowSettings(false)}
-                  className="text-slate-400 hover:text-slate-200 transition-colors"
+                  className="text-content-muted hover:text-content-primary transition-colors"
                 >
-                  <X className="w-5 h-5" />
+                  <X strokeWidth={1.5} className="w-5 h-5" />
                 </button>
               </div>
               <div className="p-6 space-y-6">
                 {/* Auto-sync Settings */}
                 <div>
-                  <h4 className="text-sm font-medium text-slate-200 mb-3">Auto-sync Settings</h4>
+                  <h4 className="text-sm font-medium text-content-primary mb-3">Auto-sync Settings</h4>
                   <div className="space-y-3">
                     <label className="flex items-center gap-3">
                       <input
@@ -5714,11 +5713,11 @@ Provide a clear, educational response that helps the student understand why ${co
                           setAutoSyncEnabled(newValue);
                           console.log(`✅ Auto-sync ${newValue ? 'enabled' : 'disabled'} by user`);
                         }}
-                        className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-2"
+                        className="w-4 h-4 rounded border-border-strong bg-base-800 text-primary-500 focus:ring-primary-500 focus:ring-2"
                       />
-                      <span className="text-sm text-slate-300">Enable auto-sync</span>
+                      <span className="text-sm text-content-secondary">Enable auto-sync</span>
                     </label>
-                    <p className="text-xs text-slate-400 ml-7">
+                    <p className="text-xs text-content-muted ml-7">
                       Automatically save your progress and settings
                     </p>
                   </div>
@@ -5728,27 +5727,27 @@ Provide a clear, educational response that helps the student understand why ${co
 
                 {/* Mobile Settings */}
                 <div>
-                  <h4 className="text-sm font-medium text-slate-200 mb-3">Mobile Experience</h4>
+                  <h4 className="text-sm font-medium text-content-primary mb-3">Mobile Experience</h4>
                   <div className="space-y-3">
                     <label className="flex items-center gap-3">
                       <input
                         type="checkbox"
                         checked={isMobile}
                         onChange={(e) => setIsMobile(e.target.checked)}
-                        className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-2"
+                        className="w-4 h-4 rounded border-border-strong bg-base-800 text-primary-500 focus:ring-primary-500 focus:ring-2"
                       />
-                      <span className="text-sm text-slate-300">Force mobile layout</span>
+                      <span className="text-sm text-content-secondary">Force mobile layout</span>
                     </label>
-                    <p className="text-xs text-slate-400 ml-7">
+                    <p className="text-xs text-content-muted ml-7">
                       Override automatic mobile detection
                     </p>
                   </div>
                 </div>
               </div>
-              <div className="p-6 border-t border-slate-700">
+              <div className="p-6 border-t border-border">
                 <button
                   onClick={() => setShowSettings(false)}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors"
+                  className="w-full bg-primary-500 hover:bg-primary-600 text-base-950 py-2 px-4 rounded-lg transition-colors"
                 >
                   Save Settings
                 </button>
@@ -5758,11 +5757,11 @@ Provide a clear, educational response that helps the student understand why ${co
         )}
 
         {/* Test Header */}
-        <div className="bg-slate-800/90 backdrop-blur-xl border-b border-slate-700 sticky top-0 z-50">
+        <div className="bg-base-850 border-b border-border sticky top-0 z-50">
           <div className="max-w-6xl mx-auto px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4">
             <div className="flex items-center justify-between mb-2 sm:mb-3 gap-2">
               <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-                <h1 className="text-sm sm:text-lg md:text-xl font-bold text-slate-100 truncate">
+                <h1 className="text-sm sm:text-lg md:text-xl font-bold text-content-primary truncate">
                   {selectedSubject} - {selectedSection.toUpperCase()}
                 </h1>
                 <Badge variant="secondary" className="text-xs sm:text-sm whitespace-nowrap flex-shrink-0">
@@ -5771,9 +5770,9 @@ Provide a clear, educational response that helps the student understand why ${co
               </div>
               
               <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
-                <div className="flex items-center gap-1 sm:gap-2 text-slate-300">
-                  <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className={`font-mono text-sm sm:text-lg ${timeRemaining < 300 ? 'text-red-400' : ''}`}>
+                <div className="flex items-center gap-1 sm:gap-2 text-content-secondary">
+                  <Clock strokeWidth={1.5} className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className={`font-mono text-sm sm:text-lg ${timeRemaining < 300 ? 'text-error-400' : ''}`}>
                     {formatTimeFromSeconds(timeRemaining)}
                   </span>
                 </div>
@@ -5781,9 +5780,9 @@ Provide a clear, educational response that helps the student understand why ${co
                 <Button
                   variant="ghost"
                   onClick={() => setTestPaused(!testPaused)}
-                  className="text-slate-300"
+                  className="text-content-secondary"
                 >
-                  {testPaused ? <Play className="w-5 h-5" /> : <Pause className="w-5 h-5" />}
+                  {testPaused ? <Play strokeWidth={1.5} className="w-5 h-5" /> : <Pause strokeWidth={1.5} className="w-5 h-5" />}
                 </Button>
                 
                 <Button
@@ -5800,9 +5799,9 @@ Provide a clear, educational response that helps the student understand why ${co
             </div>
             
             {/* Progress Bar */}
-            <div className="w-full bg-slate-700 rounded-full h-2">
+            <div className="w-full bg-base-800 rounded-full h-2">
               <div 
-                className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-300" 
+                className="bg-primary-500 h-2 rounded-full transition-all duration-300" 
                 style={{ 
                   width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` 
                 }}
@@ -5810,7 +5809,7 @@ Provide a clear, educational response that helps the student understand why ${co
             </div>
             
             {/* Answered Questions Indicator */}
-            <div className="flex items-center justify-between mt-2 text-sm text-slate-400">
+            <div className="flex items-center justify-between mt-2 text-sm text-content-muted">
               <span>
                 {Object.keys(userAnswers).length} answered • {questions.length - Object.keys(userAnswers).length} remaining
               </span>
@@ -5826,14 +5825,14 @@ Provide a clear, educational response that helps the student understand why ${co
               animate={{ opacity: 1 }}
               className="text-center py-12"
             >
-              <Pause className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-slate-200 mb-2">Test Paused</h2>
-              <p className="text-slate-400 mb-6">Click the play button to resume your test</p>
+              <Pause strokeWidth={1.5} className="w-16 h-16 text-warning-400 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-content-primary mb-2">Test Paused</h2>
+              <p className="text-content-muted mb-6">Click the play button to resume your test</p>
               <Button
                 onClick={() => setTestPaused(false)}
-                className="bg-green-600 hover:bg-green-700"
+                className="bg-success-500 hover:bg-success-500"
               >
-                <Play className="w-5 h-5 mr-2" />
+                <Play strokeWidth={1.5} className="w-5 h-5 mr-2" />
                 Resume Test
               </Button>
             </motion.div>
@@ -5848,7 +5847,7 @@ Provide a clear, educational response that helps the student understand why ${co
                 {/* Question */}
                 <div className="mb-8">
                   <div className="flex items-start gap-4 mb-6">
-                    <div className="p-3 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg text-white font-bold text-lg min-w-[3rem] text-center">
+                    <div className="p-3 bg-primary-500 rounded-lg text-base-950 font-bold text-lg min-w-[3rem] text-center">
                       {currentQuestionIndex + 1}
                     </div>
                     <div className="flex-1">
@@ -5877,36 +5876,36 @@ Provide a clear, educational response that helps the student understand why ${co
                            'Written Response'}
                         </Badge>
                       </div>
-                      <div className="text-lg text-slate-200 leading-relaxed">
+                      <div className="text-lg text-content-primary leading-relaxed">
                         <LaTeXRenderer content={currentQuestion?.question || ''} />
                       </div>
                       
                       {/* Display sources for Synthesis questions */}
                       {currentQuestion?.sources && currentQuestion.sources.length > 0 && (
-                        <div className="mt-6 p-6 bg-slate-700/30 rounded-lg">
-                          <h4 className="font-medium text-slate-300 mb-4 text-xl">Sources:</h4>
+                        <div className="mt-6 p-6 bg-base-800 rounded-lg">
+                          <h4 className="font-medium text-content-secondary mb-4 text-xl">Sources:</h4>
                           <div className="space-y-6">
                             {currentQuestion.sources.map((source, index) => (
-                              <div key={index} className="border-l-4 border-green-500 pl-4">
+                              <div key={index} className="border-l-4 border-success-500 pl-4">
                                 <div className="mb-2">
-                                  <span className="font-bold text-green-400">Source {String.fromCharCode(65 + index)}</span>
+                                  <span className="font-bold text-success-400">Source {String.fromCharCode(65 + index)}</span>
                                   {source.title && (
-                                    <div className="text-sm text-slate-300 mt-1 font-medium">
+                                    <div className="text-sm text-content-secondary mt-1 font-medium">
                                       {source.title}
                                     </div>
                                   )}
                                   {source.source && (
-                                    <div className="text-sm text-slate-400 mt-1">
+                                    <div className="text-sm text-content-muted mt-1">
                                       Source: {source.source}
                                     </div>
                                   )}
                                   {source.type && (
-                                    <div className="text-sm text-slate-400">
+                                    <div className="text-sm text-content-muted">
                                       Type: {source.type}
                                     </div>
                                   )}
                                 </div>
-                                <div className="text-slate-300 leading-relaxed bg-slate-800/50 p-4 rounded">
+                                <div className="text-content-secondary leading-relaxed bg-base-850/50 p-4 rounded">
                                   {source.content || source.description}
                                 </div>
                               </div>
@@ -5917,19 +5916,19 @@ Provide a clear, educational response that helps the student understand why ${co
 
                       {/* Display passage for rhetorical analysis, poetry, or prose questions */}
                       {currentQuestion?.passage && (
-                        <div className="mt-6 p-6 bg-slate-700/30 rounded-lg">
-                          <h4 className="font-medium text-slate-300 mb-4 text-xl">
+                        <div className="mt-6 p-6 bg-base-800 rounded-lg">
+                          <h4 className="font-medium text-content-secondary mb-4 text-xl">
                             {currentQuestion.type === 'poetry-analysis' ? 'Poem:' :
                              currentQuestion.type === 'prose-analysis' ? 'Passage:' :
                              currentQuestion.type === 'rhetorical-analysis' ? 'Text:' :
                              'Reading:'}
                           </h4>
                           {currentQuestion.passageInfo && (
-                            <div className="mb-4 text-sm text-slate-400">
+                            <div className="mb-4 text-sm text-content-muted">
                               {currentQuestion.passageInfo}
                             </div>
                           )}
-                          <div className="text-slate-300 leading-relaxed bg-slate-800/50 p-4 rounded font-serif">
+                          <div className="text-content-secondary leading-relaxed bg-base-850/50 p-4 rounded font-serif">
                             <pre className="whitespace-pre-wrap font-serif">
                               {currentQuestion.passage}
                             </pre>
@@ -5939,16 +5938,16 @@ Provide a clear, educational response that helps the student understand why ${co
 
                       {/* Display work list for open questions */}
                       {currentQuestion?.worksList && currentQuestion.worksList.length > 0 && (
-                        <div className="mt-6 p-6 bg-slate-700/30 rounded-lg">
-                          <h4 className="font-medium text-slate-300 mb-4 text-xl">Suggested Works:</h4>
+                        <div className="mt-6 p-6 bg-base-800 rounded-lg">
+                          <h4 className="font-medium text-content-secondary mb-4 text-xl">Suggested Works:</h4>
                           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                             {currentQuestion.worksList.map((work, index) => (
-                              <div key={index} className="text-slate-300 text-sm p-2 bg-slate-800/50 rounded">
+                              <div key={index} className="text-content-secondary text-sm p-2 bg-base-850/50 rounded">
                                 {work}
                               </div>
                             ))}
                           </div>
-                          <div className="mt-3 text-sm text-slate-400">
+                          <div className="mt-3 text-sm text-content-muted">
                             Or another work of comparable literary merit
                           </div>
                         </div>
@@ -5960,8 +5959,8 @@ Provide a clear, educational response that helps the student understand why ${co
                           {currentQuestion.type === 'dbq' ? (
                             // DBQ: Show document buttons and selected document
                             <div className="space-y-4">
-                              <div className="p-4 bg-slate-700/30 rounded-lg">
-                                <h4 className="font-medium text-slate-300 mb-4 text-lg">Historical Documents:</h4>
+                              <div className="p-4 bg-base-800 rounded-lg">
+                                <h4 className="font-medium text-content-secondary mb-4 text-lg">Historical Documents:</h4>
                                 <div className="flex flex-wrap gap-3 mb-4">
                                   {currentQuestion.documents.map((doc, index) => (
                                     <button
@@ -5969,8 +5968,8 @@ Provide a clear, educational response that helps the student understand why ${co
                                       onClick={() => setSelectedDBQDocument(selectedDBQDocument === index ? null : index)}
                                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                                         selectedDBQDocument === index
-                                          ? 'bg-blue-600 text-white ring-2 ring-blue-400'
-                                          : 'bg-slate-700 text-slate-300 hover:bg-slate-600 border border-slate-600'
+                                          ? 'bg-primary-500 text-base-950 ring-2 ring-primary-500'
+                                          : 'bg-base-800 text-content-secondary hover:bg-base-750 border border-border-strong'
                                       }`}
                                     >
                                       Document {String.fromCharCode(65 + index)}
@@ -5979,23 +5978,23 @@ Provide a clear, educational response that helps the student understand why ${co
                                 </div>
                                 
                                 {selectedDBQDocument !== null && (
-                                  <div className="border-l-4 border-blue-500 pl-4 bg-slate-800/50 p-4 rounded">
+                                  <div className="border-l-4 border-primary-500 pl-4 bg-base-850/50 p-4 rounded">
                                     <div className="mb-3">
-                                      <span className="font-bold text-blue-400">
+                                      <span className="font-bold text-primary-400">
                                         Document {String.fromCharCode(65 + selectedDBQDocument)}
                                       </span>
                                       {currentQuestion.documents[selectedDBQDocument].source && (
-                                        <div className="text-sm text-slate-400 mt-1">
+                                        <div className="text-sm text-content-muted mt-1">
                                           Source: {currentQuestion.documents[selectedDBQDocument].source}
                                         </div>
                                       )}
                                       {currentQuestion.documents[selectedDBQDocument].date && (
-                                        <div className="text-sm text-slate-400">
+                                        <div className="text-sm text-content-muted">
                                           Date: {currentQuestion.documents[selectedDBQDocument].date}
                                         </div>
                                       )}
                                     </div>
-                                    <div className="text-slate-300 italic leading-relaxed">
+                                    <div className="text-content-secondary italic leading-relaxed">
                                       "{currentQuestion.documents[selectedDBQDocument].content}"
                                     </div>
                                   </div>
@@ -6004,18 +6003,18 @@ Provide a clear, educational response that helps the student understand why ${co
                             </div>
                           ) : (
                             // Non-DBQ: Show documents/stimulus in separate box under question
-                            <div className="p-6 bg-slate-700/30 rounded-lg">
-                              <h4 className="font-medium text-slate-300 mb-4 text-lg">Supporting Documents:</h4>
+                            <div className="p-6 bg-base-800 rounded-lg">
+                              <h4 className="font-medium text-content-secondary mb-4 text-lg">Supporting Documents:</h4>
                               <div className="space-y-4">
                                 {currentQuestion.documents.map((doc, index) => (
-                                  <div key={index} className="border-l-4 border-green-500 pl-4 bg-slate-800/50 p-4 rounded">
+                                  <div key={index} className="border-l-4 border-success-500 pl-4 bg-base-850/50 p-4 rounded">
                                     {doc.source && (
-                                      <div className="text-sm text-slate-400 mb-2">
+                                      <div className="text-sm text-content-muted mb-2">
                                         Source: {doc.source}
                                         {doc.date && `, ${doc.date}`}
                                       </div>
                                     )}
-                                    <div className="text-slate-300 leading-relaxed">
+                                    <div className="text-content-secondary leading-relaxed">
                                       {doc.content}
                                     </div>
                                   </div>
@@ -6033,13 +6032,13 @@ Provide a clear, educational response that helps the student understand why ${co
                         const sourceLine = sourceMatch ? sourceMatch[1].trim() : null;
                         const content = sourceMatch ? stim.replace(sourceMatch[0], '').trim() : stim;
                         return (
-                          <div className="mt-6 p-6 bg-slate-700/30 rounded-lg">
-                            <h4 className="font-medium text-slate-300 mb-4 text-lg">Stimulus:</h4>
+                          <div className="mt-6 p-6 bg-base-800 rounded-lg">
+                            <h4 className="font-medium text-content-secondary mb-4 text-lg">Stimulus:</h4>
                             {sourceLine && (
-                              <div className="text-sm text-slate-400 mb-2">Source: {sourceLine}</div>
+                              <div className="text-sm text-content-muted mb-2">Source: {sourceLine}</div>
                             )}
-                            <div className="border-l-4 border-green-500 pl-4 bg-slate-800/50 p-4 rounded">
-                              <div className="text-slate-300 leading-relaxed italic">
+                            <div className="border-l-4 border-success-500 pl-4 bg-base-850/50 p-4 rounded">
+                              <div className="text-content-secondary leading-relaxed italic">
                                 {content}
                               </div>
                             </div>
@@ -6049,15 +6048,15 @@ Provide a clear, educational response that helps the student understand why ${co
 
                       {/* Display LEQ prompt options */}
                       {currentQuestion?.promptOptions && currentQuestion.promptOptions.length > 0 && (
-                        <div className="mt-6 p-6 bg-slate-700/30 rounded-lg">
-                          <h4 className="font-medium text-slate-300 mb-4 text-xl">Choose ONE of the following prompts:</h4>
+                        <div className="mt-6 p-6 bg-base-800 rounded-lg">
+                          <h4 className="font-medium text-content-secondary mb-4 text-xl">Choose ONE of the following prompts:</h4>
                           <div className="space-y-4">
                             {currentQuestion.promptOptions.map((prompt, index) => (
-                              <div key={index} className="p-4 bg-slate-800/50 rounded border-l-4 border-purple-500">
+                              <div key={index} className="p-4 bg-base-850/50 rounded border-l-4 border-primary-500">
                                 <div className="mb-2">
-                                  <span className="font-bold text-purple-400">Prompt {index + 1}:</span>
+                                  <span className="font-bold text-primary-400">Prompt {index + 1}:</span>
                                 </div>
-                                <div className="text-slate-300 leading-relaxed">
+                                <div className="text-content-secondary leading-relaxed">
                                   {prompt}
                                 </div>
                               </div>
@@ -6068,11 +6067,11 @@ Provide a clear, educational response that helps the student understand why ${co
                       
                       {/* Display question parts if they exist */}
                       {currentQuestion?.parts && currentQuestion.parts.length > 0 && (
-                        <div className="mt-4 p-4 bg-slate-700/30 rounded-lg">
-                          <h4 className="font-medium text-slate-300 mb-2">Question Parts:</h4>
+                        <div className="mt-4 p-4 bg-base-800 rounded-lg">
+                          <h4 className="font-medium text-content-secondary mb-2">Question Parts:</h4>
                           <div className="space-y-2">
                             {currentQuestion.parts.map((part, index) => (
-                              <div key={index} className="text-slate-400 text-sm flex">
+                              <div key={index} className="text-content-muted text-sm flex">
                                 <span className="font-medium mr-2">{String.fromCharCode(97 + index)}.)</span>
                                 <span>{part}</span>
                               </div>
@@ -6089,7 +6088,7 @@ Provide a clear, educational response that helps the student understand why ${co
                   {/* MCQ Options */}
                   {currentQuestion?.type === 'mcq' && currentQuestion?.options && (
                     <div className={`space-y-3 ${isMobile ? 'space-y-2' : ''}`}>
-                      <h3 className={`text-lg font-medium text-slate-200 mb-4 ${isMobile ? 'text-base mb-3' : ''}`}>Choose the best answer:</h3>
+                      <h3 className={`text-lg font-medium text-content-primary mb-4 ${isMobile ? 'text-base mb-3' : ''}`}>Choose the best answer:</h3>
                       {currentQuestion.options.map((option, index) => {
                         const isSelected = userAnswers[currentQuestion.id] === index;
                         
@@ -6101,13 +6100,13 @@ Provide a clear, educational response that helps the student understand why ${co
                             onClick={() => handleAnswerSelect(currentQuestion.id, index)}
                             className={`w-full text-left ${isMobile ? 'p-3' : 'p-4'} rounded-lg border-2 transition-all ${
                               isSelected
-                                ? 'border-blue-500 bg-blue-500/10 text-blue-100'
-                                : 'border-slate-600 bg-slate-700/50 text-slate-300 hover:border-slate-500 hover:bg-slate-700'
+                                ? 'border-primary-500 bg-primary-900 text-primary-400'
+                                : 'border-border-strong bg-base-800 text-content-secondary hover:border-border-strong hover:bg-base-800'
                             }`}
                           >
                             <div className={`flex items-start ${isMobile ? 'gap-2' : 'gap-3'}`}>
                               <span className={`font-bold ${isMobile ? 'text-base' : 'text-lg'} min-w-[1.5rem] ${
-                                isSelected ? 'text-blue-400' : 'text-slate-400'
+                                isSelected ? 'text-primary-400' : 'text-content-muted'
                               }`}>
                                 {String.fromCharCode(65 + index)}.
                               </span>
@@ -6121,7 +6120,7 @@ Provide a clear, educational response that helps the student understand why ${co
                                 } />
                               </span>
                               {isSelected && (
-                                <CheckCircle className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} text-blue-400 flex-shrink-0 mt-0.5`} />
+                                <CheckCircle strokeWidth={1.5} className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} text-primary-400 flex-shrink-0 mt-0.5`} />
                               )}
                             </div>
                           </motion.button>
@@ -6134,7 +6133,7 @@ Provide a clear, educational response that helps the student understand why ${co
                   {currentQuestion?.type !== 'mcq' && (
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-medium text-slate-200">Your Response:</h3>
+                        <h3 className="text-lg font-medium text-content-primary">Your Response:</h3>
                         {currentQuestion?.timeframe && (
                           <Badge variant="secondary">
                             Suggested Time: {currentQuestion.timeframe}
@@ -6153,21 +6152,21 @@ Provide a clear, educational response that helps the student understand why ${co
                             currentQuestion?.type === 'leq' ? 'Develop an argument with a clear thesis statement...' :
                             'Write your response here...'
                           }
-                          className={`w-full bg-slate-700/50 border border-slate-600 rounded-lg text-slate-100 placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 resize-none ${
+                          className={`w-full bg-base-800 border border-border-strong rounded-lg text-content-primary placeholder-content-muted focus:border-primary-500 focus:ring-2 focus:ring-primary-500 resize-none ${
                             isMobile ? 'h-48 p-3 text-sm' : 'h-64 p-4'
                           }`}
                           style={{ minHeight: isMobile ? '12rem' : '16rem' }}
                         />
                         
                         {/* Character count */}
-                        <div className="absolute bottom-3 right-3 text-xs text-slate-400">
+                        <div className="absolute bottom-3 right-3 text-xs text-content-muted">
                           {renderSafeValue(userAnswers[currentQuestion.id]).length} characters
                         </div>
                       </div>
                       
                       {/* Quick formatting tips */}
-                      <div className="text-sm text-slate-400 bg-slate-800/50 p-3 rounded-lg">
-                        <strong className="text-slate-300">Tips:</strong> 
+                      <div className="text-sm text-content-muted bg-base-850/50 p-3 rounded-lg">
+                        <strong className="text-content-secondary">Tips:</strong> 
                         {currentQuestion?.type === 'dbq' && ' Use specific evidence from the documents. Reference at least 6 documents.'}
                         {currentQuestion?.type === 'frq' && ' Structure your response with clear topic sentences and supporting evidence.'}
                         {currentQuestion?.type === 'saq' && ' Be concise but thorough. Include specific historical examples.'}
@@ -6181,7 +6180,7 @@ Provide a clear, educational response that helps the student understand why ${co
                 </div>
 
                 {/* Navigation */}
-                <div className="pt-6 border-t border-slate-700">
+                <div className="pt-6 border-t border-border">
                   {/* Top Row: Previous, Settings, Next */}
                   <div className="flex items-center justify-between mb-4">
                     <Button
@@ -6190,7 +6189,7 @@ Provide a clear, educational response that helps the student understand why ${co
                       disabled={currentQuestionIndex === 0}
                       className="flex items-center gap-2"
                     >
-                      <ArrowLeft className="w-4 h-4" />
+                      <ArrowLeft strokeWidth={1.5} className="w-4 h-4" />
                       Previous
                     </Button>
 
@@ -6198,10 +6197,10 @@ Provide a clear, educational response that helps the student understand why ${co
                     <Button
                       variant="ghost"
                       onClick={() => setShowSettings(true)}
-                      className="flex items-center gap-2 text-slate-400 hover:text-slate-200"
+                      className="flex items-center gap-2 text-content-muted hover:text-content-primary"
                       title="Settings"
                     >
-                      <Settings className="w-4 h-4" />
+                      <Settings strokeWidth={1.5} className="w-4 h-4" />
                       Settings
                     </Button>
 
@@ -6216,15 +6215,15 @@ Provide a clear, educational response that helps the student understand why ${co
                     >
                       {currentQuestionIndex === questions.length - 1 ? 'Submit Test' : 'Next'}
                       {currentQuestionIndex === questions.length - 1 ? 
-                        <CheckCircle className="w-4 h-4" /> : 
-                        <ArrowRight className="w-4 h-4" />
+                        <CheckCircle strokeWidth={1.5} className="w-4 h-4" /> : 
+                        <ArrowRight strokeWidth={1.5} className="w-4 h-4" />
                       }
                     </Button>
                   </div>
 
                   {/* Bottom Row: Question Numbers */}
                   <div className="w-full">
-                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800">
+                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-base-750 scrollbar-track-base-850">
                       <div className="flex items-center gap-2 min-w-fit px-2 pb-2 justify-center">
                         {questions.map((_, index) => {
                           const isAnswered = userAnswers[questions[index].id] !== undefined;
@@ -6236,16 +6235,16 @@ Provide a clear, educational response that helps the student understand why ${co
                               onClick={() => setCurrentQuestionIndex(index)}
                               className={`w-10 h-10 rounded-full text-sm font-medium transition-all relative flex-shrink-0 ${
                                 isCurrent
-                                  ? 'bg-blue-600 text-white ring-2 ring-blue-400 ring-offset-2 ring-offset-slate-800'
+                                  ? 'bg-primary-500 text-base-950 ring-2 ring-primary-500 ring-offset-2 ring-offset-base-850'
                                   : isAnswered
-                                  ? 'bg-green-600 text-white hover:bg-green-500'
-                                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600 border border-slate-600'
+                                  ? 'bg-success-500 text-base-950 hover:bg-success-500'
+                                  : 'bg-base-800 text-content-secondary hover:bg-base-750 border border-border-strong'
                               }`}
                               title={`Question ${index + 1}${isAnswered ? ' (Answered)' : ' (Unanswered)'}`}
                             >
                               {index + 1}
                               {isAnswered && !isCurrent && (
-                                <CheckCircle className="w-3 h-3 absolute -top-1 -right-1 text-green-300" />
+                                <CheckCircle strokeWidth={1.5} className="w-3 h-3 absolute -top-1 -right-1 text-success-400" />
                               )}
                             </button>
                           );
@@ -6265,7 +6264,7 @@ Provide a clear, educational response that helps the student understand why ${co
   // Results View
   if (currentView === 'results' && testResults) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100">
+      <div className="min-h-screen bg-base-950 text-content-primary">
         <div className="max-w-6xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
           {/* Results Header */}
           <motion.div
@@ -6274,14 +6273,14 @@ Provide a clear, educational response that helps the student understand why ${co
             className="text-center mb-6 sm:mb-8 md:mb-12"
           >
             <div className="flex items-center justify-center gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4 md:mb-6">
-              <div className="p-2 sm:p-3 md:p-4 bg-gradient-to-br from-green-600 to-blue-600 rounded-xl md:rounded-2xl shadow-lg">
-                <Trophy className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-white" />
+              <div className="p-2 sm:p-3 md:p-4 bg-success-500 rounded-sm md:rounded-md shadow-raised">
+                <Trophy strokeWidth={1.5} className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-content-primary" />
               </div>
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-success-400">
                 Test Results
               </h1>
             </div>
-            <p className="text-sm sm:text-base md:text-lg text-slate-300">
+            <p className="text-sm sm:text-base md:text-lg text-content-secondary">
               {selectedSubject} • {selectedSection === 'mcq' ? 'Multiple Choice' : selectedSection === 'frq' ? 'Free Response' : 'Full Test'}
             </p>
           </motion.div>
@@ -6294,11 +6293,11 @@ Provide a clear, educational response that helps the student understand why ${co
               transition={{ delay: 0.1 }}
             >
               <Card className="p-3 sm:p-4 md:p-6 text-center">
-                <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-blue-400 mb-1 md:mb-2">
+                <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-primary-400 mb-1 md:mb-2">
                   {safeTestResults.apScore}
                 </div>
-                <p className="text-slate-300 mb-1">Predicted AP Score</p>
-                <p className="text-sm text-slate-400">
+                <p className="text-content-secondary mb-1">Predicted AP Score</p>
+                <p className="text-sm text-content-muted">
                   {safeTestResults.apScore >= 4 ? 'Likely to Pass' : 'Needs Improvement'}
                 </p>
               </Card>
@@ -6310,11 +6309,11 @@ Provide a clear, educational response that helps the student understand why ${co
               transition={{ delay: 0.2 }}
             >
               <Card className="p-3 sm:p-4 md:p-6 text-center">
-                <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-green-400 mb-1 md:mb-2">
+                <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-success-400 mb-1 md:mb-2">
                   {safeTestResults.percentage}%
                 </div>
-                <p className="text-slate-300 mb-1">Overall Score</p>
-                <p className="text-sm text-slate-400">
+                <p className="text-content-secondary mb-1">Overall Score</p>
+                <p className="text-sm text-content-muted">
                   {safeTestResults.score} / {safeTestResults.totalPoints} points
                 </p>
               </Card>
@@ -6326,11 +6325,11 @@ Provide a clear, educational response that helps the student understand why ${co
               transition={{ delay: 0.3 }}
             >
               <Card className="p-3 sm:p-4 md:p-6 text-center">
-                <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-purple-400 mb-1 md:mb-2">
+                <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-primary-400 mb-1 md:mb-2">
                   {safeTestResults.timeSpent}
                 </div>
-                <p className="text-slate-300 mb-1">Minutes Used</p>
-                <p className="text-sm text-slate-400">Time Management</p>
+                <p className="text-content-secondary mb-1">Minutes Used</p>
+                <p className="text-sm text-content-muted">Time Management</p>
               </Card>
             </motion.div>
 
@@ -6340,11 +6339,11 @@ Provide a clear, educational response that helps the student understand why ${co
               transition={{ delay: 0.4 }}
             >
               <Card className="p-3 sm:p-4 md:p-6 text-center">
-                <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-yellow-400 mb-1 md:mb-2">
+                <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-warning-400 mb-1 md:mb-2">
                   {questions.filter(q => userAnswers[q.id] !== undefined).length}
                 </div>
-                <p className="text-slate-300 mb-1">Questions Answered</p>
-                <p className="text-sm text-slate-400">
+                <p className="text-content-secondary mb-1">Questions Answered</p>
+                <p className="text-sm text-content-muted">
                   of {questions.length} total
                 </p>
               </Card>
@@ -6360,29 +6359,29 @@ Provide a clear, educational response that helps the student understand why ${co
               className="mb-8"
             >
               <Card className="p-6">
-                <h2 className="text-xl font-bold text-slate-100 mb-4 flex items-center gap-3">
-                  <TrendingUp className="w-5 h-5 text-blue-400" />
+                <h2 className="text-xl font-bold text-content-primary mb-4 flex items-center gap-3">
+                  <TrendingUp strokeWidth={1.5} className="w-5 h-5 text-primary-400" />
                   Section Performance
                 </h2>
                 <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
                   {Object.entries(safeTestResults.breakdown).map(([section, data]) => (
                     data.total > 0 && (
-                      <div key={section} className="p-4 bg-slate-700/50 rounded-lg">
-                        <h3 className="font-medium text-slate-200 mb-2 capitalize">
+                      <div key={section} className="p-4 bg-base-800 rounded-lg">
+                        <h3 className="font-medium text-content-primary mb-2 capitalize">
                           {section === 'mcq' ? 'Multiple Choice' : 
                            section === 'frq' ? 'Free Response' :
                            section === 'saq' ? 'Short Answer' : 
                            section}
                         </h3>
-                        <div className="text-2xl font-bold text-blue-400 mb-1">
+                        <div className="text-2xl font-bold text-primary-400 mb-1">
                           {data.percentage}%
                         </div>
-                        <p className="text-sm text-slate-400">
+                        <p className="text-sm text-content-muted">
                           {data.correct} / {data.total} points
                         </p>
-                        <div className="w-full bg-slate-600 rounded-full h-2 mt-2">
+                        <div className="w-full bg-base-750 rounded-full h-2 mt-2">
                           <div 
-                            className="bg-blue-500 h-2 rounded-full" 
+                            className="bg-primary-500 h-2 rounded-full" 
                             style={{ width: `${data.percentage}%` }}
                           ></div>
                         </div>
@@ -6401,8 +6400,8 @@ Provide a clear, educational response that helps the student understand why ${co
             transition={{ delay: 0.4 }}
           >
             <Card className="p-8">
-              <h2 className="text-2xl font-bold text-slate-100 mb-6 flex items-center gap-3">
-                <FileQuestion className="w-6 h-6 text-blue-400" />
+              <h2 className="text-2xl font-bold text-content-primary mb-6 flex items-center gap-3">
+                <FileQuestion className="w-6 h-6 text-primary-400" />
                 Question Review
               </h2>
 
@@ -6412,23 +6411,23 @@ Provide a clear, educational response that helps the student understand why ${co
                   const isCorrect = result?.correct;
                   
                   return (
-                    <div key={question.id} className="border border-slate-700 rounded-lg p-6">
+                    <div key={question.id} className="border border-border rounded-lg p-6">
                       <div className="flex items-start gap-4 mb-4">
-                        <div className={`p-2 rounded-lg ${isCorrect ? 'bg-green-600' : 'bg-red-600'}`}>
+                        <div className={`p-2 rounded-lg ${isCorrect ? 'bg-success-500' : 'bg-error-500'}`}>
                           {isCorrect ? (
-                            <CheckCircle className="w-5 h-5 text-white" />
+                            <CheckCircle strokeWidth={1.5} className="w-5 h-5 text-content-primary" />
                           ) : (
-                            <X className="w-5 h-5 text-white" />
+                            <X strokeWidth={1.5} className="w-5 h-5 text-content-primary" />
                           )}
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-3">
-                            <h3 className="font-medium text-slate-200 mb-3">Question {index + 1}</h3>
+                            <h3 className="font-medium text-content-primary mb-3">Question {index + 1}</h3>
                             <Badge variant={isCorrect ? "success" : "destructive"}>
                               {result?.score || 0} / {result?.maxPoints || 1} points
                             </Badge>
                           </div>
-                          <div className="text-slate-300 mb-4">
+                          <div className="text-content-secondary mb-4">
                             <MarkdownRenderer content={renderSafeValue(question.question)} />
                           </div>
 
@@ -6439,21 +6438,21 @@ Provide a clear, educational response that helps the student understand why ${co
                                 const isUserAnswer = result.userAnswer === i;
                                 const isCorrectAnswer = result.correctAnswer === i || question.correctAnswer === i;
                                 
-                                let borderColor = 'border-slate-600';
-                                let bgColor = 'bg-slate-700/50';
-                                let textColor = 'text-slate-200';
+                                let borderColor = 'border-border-strong';
+                                let bgColor = 'bg-base-800';
+                                let textColor = 'text-content-primary';
                                 let label = '';
 
                                 if (isCorrectAnswer) {
-                                  borderColor = 'border-green-500';
-                                  bgColor = 'bg-green-500/20';
-                                  textColor = 'text-green-100';
+                                  borderColor = 'border-success-500';
+                                  bgColor = 'bg-success-900';
+                                  textColor = 'text-success-400';
                                   label = ' ✓ Correct Answer';
                                 }
                                 if (isUserAnswer && !isCorrectAnswer) {
-                                  borderColor = 'border-red-500';
-                                  bgColor = 'bg-red-500/20';
-                                  textColor = 'text-red-100';
+                                  borderColor = 'border-error-500';
+                                  bgColor = 'bg-error-900';
+                                  textColor = 'text-error-400';
                                   label = ' ✗ Your Answer';
                                 }
                                 if (isUserAnswer && isCorrectAnswer) {
@@ -6493,9 +6492,9 @@ Provide a clear, educational response that helps the student understand why ${co
                            question.type === 'short-answer' || question.type === 'essays') && (
                             <div className="space-y-4">
                               <div>
-                                <h4 className="font-medium text-slate-200 mb-2">Your Response:</h4>
-                                <div className="p-4 bg-slate-700/50 rounded-lg">
-                                  <p className="text-slate-300 whitespace-pre-wrap">
+                                <h4 className="font-medium text-content-primary mb-2">Your Response:</h4>
+                                <div className="p-4 bg-base-800 rounded-lg">
+                                  <p className="text-content-secondary whitespace-pre-wrap">
                                     {renderSafeValue(result?.userAnswer) || 'No response provided'}
                                   </p>
                                   {/* Drawing canvas removed */}
@@ -6505,8 +6504,8 @@ Provide a clear, educational response that helps the student understand why ${co
                               {/* AI Scoring Breakdown */}
                               {result.breakdown && Object.keys(result.breakdown).length > 0 && (
                                 <div>
-                                  <h4 className="font-medium text-slate-200 mb-2">Score Breakdown:</h4>
-                                  <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                                  <h4 className="font-medium text-content-primary mb-2">Score Breakdown:</h4>
+                                  <div className="p-4 bg-primary-900 border border-primary-500/30 rounded-lg">
                                     <div className="grid grid-cols-2 gap-4 mb-3">
                                       {renderBreakdownSafely(result.breakdown)}
                                     </div>
@@ -6517,8 +6516,8 @@ Provide a clear, educational response that helps the student understand why ${co
                               {/* AI Feedback */}
                               {result.feedback && (
                                 <div>
-                                  <h4 className="font-medium text-slate-200 mb-2">AI Feedback:</h4>
-                                  <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg space-y-3">
+                                  <h4 className="font-medium text-content-primary mb-2">AI Feedback:</h4>
+                                  <div className="p-4 bg-success-900 border border-success-500/30 rounded-lg space-y-3">
                                     <LaTeXRenderer content={renderSafeValue(result.feedback)} />
                                     
                                     {/* Strengths and Improvements */}
@@ -6526,11 +6525,11 @@ Provide a clear, educational response that helps the student understand why ${co
                                       <div className="grid md:grid-cols-2 gap-4 mt-4">
                                         {result.strengths?.length > 0 && (
                                           <div>
-                                            <h5 className="font-medium text-green-400 mb-2">Strengths:</h5>
-                                            <ul className="text-sm text-slate-300 space-y-1">
+                                            <h5 className="font-medium text-success-400 mb-2">Strengths:</h5>
+                                            <ul className="text-sm text-content-secondary space-y-1">
                                               {result.strengths.map((strength, idx) => (
                                                 <li key={idx} className="flex items-start gap-2">
-                                                  <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
+                                                  <CheckCircle strokeWidth={1.5} className="w-4 h-4 text-success-400 mt-0.5 flex-shrink-0" />
                                                   {renderSafeValue(strength)}
                                                 </li>
                                               ))}
@@ -6540,11 +6539,11 @@ Provide a clear, educational response that helps the student understand why ${co
                                         
                                         {result.improvements?.length > 0 && (
                                           <div>
-                                            <h5 className="font-medium text-yellow-400 mb-2">Areas for Improvement:</h5>
-                                            <ul className="text-sm text-slate-300 space-y-1">
+                                            <h5 className="font-medium text-warning-400 mb-2">Areas for Improvement:</h5>
+                                            <ul className="text-sm text-content-secondary space-y-1">
                                               {result.improvements.map((improvement, idx) => (
                                                 <li key={idx} className="flex items-start gap-2">
-                                                  <Target className="w-4 h-4 text-yellow-400 mt-0.5 flex-shrink-0" />
+                                                  <Target strokeWidth={1.5} className="w-4 h-4 text-warning-400 mt-0.5 flex-shrink-0" />
                                                   {renderSafeValue(improvement)}
                                                 </li>
                                               ))}
@@ -6559,8 +6558,8 @@ Provide a clear, educational response that helps the student understand why ${co
                               
                               {question.sampleAnswer && (
                                 <div>
-                                  <h4 className="font-medium text-slate-200 mb-2">Sample Answer:</h4>
-                                  <div className="p-4 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+                                  <h4 className="font-medium text-content-primary mb-2">Sample Answer:</h4>
+                                  <div className="p-4 bg-primary-900 border border-primary-500/30 rounded-lg">
                                     <MarkdownRenderer content={renderSafeValue(question.sampleAnswer)} />
                                   </div>
                                 </div>
@@ -6573,25 +6572,25 @@ Provide a clear, educational response that helps the student understand why ${co
                                 if (!merged || !merged.items || merged.items.length === 0) return null;
                                 return (
                                   <div>
-                                    <h4 className="font-medium text-slate-200 mb-2">Scoring Rubric:</h4>
-                                    <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg space-y-2">
-                                      <div className="text-slate-300 text-sm mb-1">
+                                    <h4 className="font-medium text-content-primary mb-2">Scoring Rubric:</h4>
+                                    <div className="p-4 bg-primary-900 border border-primary-500/30 rounded-lg space-y-2">
+                                      <div className="text-content-secondary text-sm mb-1">
                                         Total Points: {merged.totalPoints}
                                       </div>
                                       {merged.items.map((it, idx) => (
-                                        <div key={idx} className={`flex items-center justify-between px-3 py-2 rounded-md ${it.earned > 0 ? 'bg-green-500/10 border border-green-500/30' : 'bg-slate-700/40 border border-slate-600/50'}`}>
-                                          <div className="text-slate-200 text-sm font-medium">{it.label}</div>
-                                          <div className={`text-xs font-semibold ${it.earned > 0 ? 'text-green-400' : 'text-slate-400'}`}>
+                                        <div key={idx} className={`flex items-center justify-between px-3 py-2 rounded-md ${it.earned > 0 ? 'bg-success-900 border border-success-500/30' : 'bg-base-800 border border-border-strong'}`}>
+                                          <div className="text-content-primary text-sm font-medium">{it.label}</div>
+                                          <div className={`text-xs font-semibold ${it.earned > 0 ? 'text-success-400' : 'text-content-muted'}`}>
                                             {Math.round(it.earned)}/{it.maxPoints} pts
                                           </div>
                                         </div>
                                       ))}
                                       {question?.rubric?.scoringGuidelines && (
-                                        <div className="text-slate-400 text-xs mt-2">{renderSafeValue(question.rubric.scoringGuidelines)}</div>
+                                        <div className="text-content-muted text-xs mt-2">{renderSafeValue(question.rubric.scoringGuidelines)}</div>
                                       )}
                                       {Array.isArray(question?.rubric?.keyTerms) && question.rubric.keyTerms.length > 0 && (
                                         <div className="pt-2">
-                                          <p className="text-slate-300 text-sm mb-1">Key Terms & Concepts:</p>
+                                          <p className="text-content-secondary text-sm mb-1">Key Terms & Concepts:</p>
                                           <div className="flex flex-wrap gap-2">
                                             {question.rubric.keyTerms.map((term, termIndex) => (
                                               <Badge key={termIndex} variant="secondary">
@@ -6609,7 +6608,7 @@ Provide a clear, educational response that helps the student understand why ${co
                           )}
 
                           {/* Ask Tutor */}
-                          <div className="mt-4 pt-4 border-t border-slate-700">
+                          <div className="mt-4 pt-4 border-t border-border">
                             {askingTutor === question.id ? (
                               <div className="space-y-3">
                                 <Input
@@ -6625,7 +6624,7 @@ Provide a clear, educational response that helps the student understand why ${co
                                   >
                                     {tutorProcessing === question.id ? (
                                       <>
-                                        <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin mr-2"></div>
+                                        <div className="w-4 h-4 border-2 border-border-strong border-t-transparent rounded-full animate-spin mr-2"></div>
                                         Processing...
                                       </>
                                     ) : (
@@ -6647,9 +6646,9 @@ Provide a clear, educational response that helps the student understand why ${co
                                 </div>
                                 
                                 {tutorResponse && (
-                                  <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-                                    <h5 className="font-medium text-blue-400 mb-2 flex items-center gap-2">
-                                      <Brain className="w-4 h-4" />
+                                  <div className="p-4 bg-primary-900 border border-primary-500/30 rounded-lg">
+                                    <h5 className="font-medium text-primary-400 mb-2 flex items-center gap-2">
+                                      <Brain strokeWidth={1.5} className="w-4 h-4" />
                                       AI Tutor Response:
                                     </h5>
                                     <MarkdownRenderer content={renderSafeValue(tutorResponse)} />
@@ -6661,9 +6660,9 @@ Provide a clear, educational response that helps the student understand why ${co
                                 variant="ghost"
                                 onClick={() => { setTutorResponse(''); setTutorQuestion(''); setAskingTutor(question.id); }}
                                 size="sm"
-                                className="text-blue-400 hover:text-blue-300"
+                                className="text-primary-400 hover:text-primary-400"
                               >
-                                <HelpCircle className="w-4 h-4 mr-2" />
+                                <HelpCircle strokeWidth={1.5} className="w-4 h-4 mr-2" />
                                 Ask Tutor About This Question
                               </Button>
                             )}
@@ -6686,10 +6685,9 @@ Provide a clear, educational response that helps the student understand why ${co
           >
             <Button
               onClick={resetTest}
-              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-              glow
+              className="bg-primary-500 hover:bg-primary-600"
             >
-              <RotateCw className="w-5 h-5 mr-2" />
+              <RotateCw strokeWidth={1.5} className="w-5 h-5 mr-2" />
               Take Another Test
             </Button>
             
@@ -6719,7 +6717,7 @@ Provide a clear, educational response that helps the student understand why ${co
                 linkElement.click();
               }}
             >
-              <Download className="w-5 h-5 mr-2" />
+              <Download strokeWidth={1.5} className="w-5 h-5 mr-2" />
               Save Results
             </Button>
           </motion.div>

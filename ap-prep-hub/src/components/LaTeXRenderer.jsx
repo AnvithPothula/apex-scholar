@@ -59,13 +59,13 @@ const LaTeXRenderer = ({ content, inline = false }) => {
   if (!katexLoaded) {
     if (loadError) {
       return (
-        <span className="text-red-400">
+        <span className="text-error-400">
           [Failed to load math renderer]
         </span>
       );
     }
     return (
-      <span className="text-slate-400 animate-pulse">
+      <span className="text-content-muted animate-pulse">
         Loading math...
       </span>
     );
@@ -90,7 +90,7 @@ const LaTeXRenderer = ({ content, inline = false }) => {
           return <BlockMath key={`block-${index}-${math.length}`} math={math} />;
         } catch (error) {
           console.warn('LaTeX parsing error (block):', error);
-          return <span key={`block-error-${index}-${part.length}`} className="text-red-400">[LaTeX Error: {part}]</span>;
+          return <span key={`block-error-${index}-${part.length}`} className="text-error-400">[LaTeX Error: {part}]</span>;
         }
       } else if (part.startsWith('$') && part.endsWith('$')) {
         // Inline math
@@ -99,7 +99,7 @@ const LaTeXRenderer = ({ content, inline = false }) => {
           return <InlineMath key={`inline-${index}-${math.length}`} math={math} />;
         } catch (error) {
           console.warn('LaTeX parsing error (inline):', error);
-          return <span key={`inline-error-${index}-${part.length}`} className="text-red-400">[LaTeX Error: {part}]</span>;
+          return <span key={`inline-error-${index}-${part.length}`} className="text-error-400">[LaTeX Error: {part}]</span>;
         }
       } else {
         // Regular text
