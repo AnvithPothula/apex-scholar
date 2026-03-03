@@ -131,13 +131,21 @@ class SchoologyCalendarService {
       event.isAssignmentByUrl = this.isAssignmentUrl(event.url);
       
     } else if (line.startsWith('DTSTART')) {
-      // Handle both DTSTART: and DTSTART;VALUE=DATE: formats
+      // Handle DTSTART:, DTSTART;VALUE=DATE:, and DTSTART;TZID=...: formats
       const colonIndex = line.indexOf(':');
       if (colonIndex !== -1) {
         const dateStr = line.substring(colonIndex + 1);
         event.rawStartDate = dateStr;
+
+        // Extract TZID if present (e.g., DTSTART;TZID=America/Chicago:20260304T235900)
+        const params = line.substring(0, colonIndex);
+        const tzidMatch = params.match(/TZID=([^;:]+)/i);
+        if (tzidMatch) {
+          event.startTzid = tzidMatch[1];
+        }
+
         const parsedDate = this.parseICalDate(dateStr);
-        
+
         if (parsedDate) {
           event.startDate = parsedDate;
           // Set initial due date to start date (will be overridden by end date if available)
@@ -145,13 +153,21 @@ class SchoologyCalendarService {
         }
       }
     } else if (line.startsWith('DTEND')) {
-      // Handle both DTEND: and DTEND;VALUE=DATE: formats
+      // Handle DTEND:, DTEND;VALUE=DATE:, and DTEND;TZID=...: formats
       const colonIndex = line.indexOf(':');
       if (colonIndex !== -1) {
         const dateStr = line.substring(colonIndex + 1);
         event.rawEndDate = dateStr;
+
+        // Extract TZID if present
+        const params = line.substring(0, colonIndex);
+        const tzidMatch = params.match(/TZID=([^;:]+)/i);
+        if (tzidMatch) {
+          event.endTzid = tzidMatch[1];
+        }
+
         const parsedDate = this.parseICalDate(dateStr);
-        
+
         if (parsedDate) {
           event.endDate = parsedDate;
           // Use end date as the due date (this is typically when assignment is due)
@@ -337,39 +353,71 @@ class SchoologyCalendarService {
     let title = event.title;
     if (!title || title.trim() === '' || title === 'undefined' || title === null || title === 'null') {
       title = `Schoology Assignment ${event.id || Date.now()}`;
-  
+
     } else {
       title = title.trim(); // Clean up any whitespace
     }
-    
+
     // Determine the best due date based on available information
     let dueDate;
     let dueDateSource = 'unknown';
-    
+
     // Priority order: 1) End date, 2) Start date, 3) fallback to today 11:59 PM
     if (event.endDate) {
       dueDate = new Date(event.endDate);
       dueDateSource = 'end date from calendar';
-      
-      // RFC 5545: date-only DTEND is exclusive — subtract 1 day to get the actual due date
-      if (event.rawEndDate && !event.rawEndDate.includes('T')) {
+
+      const isDateOnly = event.rawEndDate && !event.rawEndDate.includes('T');
+
+      if (isDateOnly) {
+        // RFC 5545: date-only DTEND is exclusive — subtract 1 day, set to 11:59 PM
         dueDate.setDate(dueDate.getDate() - 1);
-        dueDateSource = 'end date from calendar (adjusted for exclusive DTEND)';
-      }
-      
-      // If it's a date-only event (midnight), set to 11:59 PM in user's timezone
-      if (dueDate.getHours() === 0 && dueDate.getMinutes() === 0 && dueDate.getSeconds() === 0) {
         dueDate.setHours(23, 59, 59, 999);
-        dueDateSource = `end date from calendar (time set to 11:59 PM ${getUserTimezone()})`;
+        dueDateSource = `end date (exclusive DTEND → 11:59 PM previous day, ${getUserTimezone()})`;
+      } else {
+        // Datetime DTEND — check for midnight and early-morning edge cases
+        const endHour = dueDate.getHours();
+        const endMin = dueDate.getMinutes();
+        const endSec = dueDate.getSeconds();
+
+        if (endHour === 0 && endMin === 0 && endSec === 0) {
+          // Midnight datetime DTEND: treat as end-of-previous-day (11:59 PM)
+          // This handles iCal entries like DTEND:20260305T000000 which mean
+          // the event/assignment ends at the boundary of March 4 → March 5
+          dueDate.setDate(dueDate.getDate() - 1);
+          dueDate.setHours(23, 59, 59, 999);
+          dueDateSource = `end date (midnight DTEND → 11:59 PM previous day, ${getUserTimezone()})`;
+        } else if (endHour < 6 && event.startDate) {
+          // Early morning DTEND (12:00 AM – 5:59 AM): likely a timezone artifact
+          // or Schoology encoding "end of day" as just-past-midnight.
+          // If DTSTART is late evening on the previous calendar day, use DTSTART
+          // as the actual due time since it better represents the deadline.
+          const startDate = new Date(event.startDate);
+          const startHour = startDate.getHours();
+          const startDay = startDate.toDateString();
+          const endDay = dueDate.toDateString();
+
+          if (startDay !== endDay && startHour >= 20) {
+            // DTSTART is evening on the previous day — use it as the due time
+            dueDate = new Date(startDate);
+            dueDateSource = `start date (DTEND early AM ${endHour}:${String(endMin).padStart(2,'0')}, using late-PM DTSTART instead)`;
+          } else if (startDay === endDay && startHour >= 20) {
+            // Same calendar day but DTSTART is evening — use it
+            dueDate = new Date(startDate);
+            dueDateSource = `start date (DTEND early AM, using late-PM DTSTART instead)`;
+          }
+          // else: keep DTEND as-is (genuinely early-morning due time)
+        }
+        // else: normal datetime DTEND with a meaningful time — use as-is
       }
     } else if (event.startDate) {
       dueDate = new Date(event.startDate);
       dueDateSource = 'start date from calendar';
-      
-      // If it's a date-only event (midnight), set to 11:59 PM in user's timezone
+
+      // If it's midnight, set to 11:59 PM (date-only DTSTART or midnight marker)
       if (dueDate.getHours() === 0 && dueDate.getMinutes() === 0 && dueDate.getSeconds() === 0) {
         dueDate.setHours(23, 59, 59, 999);
-        dueDateSource = `start date from calendar (time set to 11:59 PM ${getUserTimezone()})`;
+        dueDateSource = `start date (midnight → 11:59 PM, ${getUserTimezone()})`;
       }
     } else {
       // Last resort: default to 11:59 PM today in user's timezone
@@ -377,7 +425,6 @@ class SchoologyCalendarService {
       dueDate = new Date();
       dueDate.setHours(23, 59, 59, 999);
       dueDateSource = `defaulted to 11:59 PM today in ${userTimezone} (no date found)`;
-  // Intentionally no console logs here to keep output clean
     }
     
     // Convert to timestamp (seconds, not milliseconds, to match Schoology format)

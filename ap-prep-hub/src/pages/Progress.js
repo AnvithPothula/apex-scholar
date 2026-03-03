@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Trophy, Star, Calendar, TrendingUp, Award, Target, BookOpen, Brain, Calculator, Zap, Clock, BarChart3, Medal, Crown, Flame, CheckCircle, AlertCircle, ChevronRight, Filter, Download } from 'lucide-react';
-import { Card, Button, Badge, Progress, Select } from '../components/ui/UIComponents';
+import { Card, Button, Badge, Progress } from '../components/ui/UIComponents';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { AP_SUBJECTS } from '../constants/subjects';
+import { cn } from '../utils/helpers';
 import achievementsService from '../services/achievementsService';
 import dataService from '../services/dataService';
 import geminiService from '../services/geminiService';
@@ -37,14 +38,14 @@ const ProgressPage = () => {
   const loadUserProgress = async () => {
     try {
       setIsLoading(true);
-      
+
       // Load achievements data
       const achievements = await achievementsService.getUserAchievements(user.uid);
       setUserAchievements(achievements);
-      
+
       const categorized = achievementsService.getAchievementsByCategory();
       setAchievementsByCategory(categorized);
-      
+
       // Load all user data
       const [
         overallProgress,
@@ -81,7 +82,6 @@ const ProgressPage = () => {
       setUserStats(stats);
     } catch (error) {
       console.error('Error loading progress data:', error);
-      // Set default data on error
       setProgressData(getDefaultProgressData());
     } finally {
       setIsLoading(false);
@@ -106,7 +106,7 @@ const ProgressPage = () => {
     const sessionQuestions = studySessions.reduce((total, session) => {
       return total + (session.questionsAnswered || session.cardsStudied || 0);
     }, 0);
-    
+
     const flashcardQuestions = flashcardDecks.reduce((total, deck) => {
       return total + (deck.totalCards || 0);
     }, 0);
@@ -117,42 +117,33 @@ const ProgressPage = () => {
   const calculateOverallAccuracy = (studySessions, flashcardDecks) => {
     const allSessions = [...studySessions];
     if (allSessions.length === 0) return 0;
-    
+
     const totalAccuracy = allSessions.reduce((sum, session) => {
       return sum + (session.accuracy || 0);
     }, 0);
-    
+
     return Math.round(totalAccuracy / allSessions.length);
   };
 
   const calculateImprovement = (studySessions) => {
     if (studySessions.length < 2) return '+0%';
-    
+
     const recent = studySessions.slice(0, Math.floor(studySessions.length / 2));
     const older = studySessions.slice(Math.floor(studySessions.length / 2));
-    
+
     const recentAvg = recent.reduce((sum, s) => sum + (s.accuracy || 0), 0) / recent.length;
     const olderAvg = older.reduce((sum, s) => sum + (s.accuracy || 0), 0) / older.length;
-    
+
     const improvement = recentAvg - olderAvg;
     return improvement > 0 ? `+${Math.round(improvement)}%` : `${Math.round(improvement)}%`;
   };
 
-  const calculateRank = (totalMinutes, streak) => {
-    const totalHours = totalMinutes / 60;
-    if (totalHours >= 50 && streak >= 20) return 'Expert';
-    if (totalHours >= 20 && streak >= 10) return 'Advanced';
-    if (totalHours >= 10 && streak >= 5) return 'Intermediate';
-    return 'Beginner';
-  };
-
   const processSubjectProgress = (progressData, studySessions) => {
     const subjectMap = new Map();
-    
-    // Process study sessions
+
     studySessions.forEach(session => {
       if (!session.subject) return;
-      
+
       if (!subjectMap.has(session.subject)) {
         subjectMap.set(session.subject, {
           name: session.subject,
@@ -162,14 +153,13 @@ const ProgressPage = () => {
       subjectMap.get(session.subject).sessions.push(session);
     });
 
-    // Convert to array and calculate metrics
     return Array.from(subjectMap.values()).map((subject, index) => {
       const allSessions = subject.sessions;
       const totalTime = subject.sessions.reduce((sum, s) => sum + (s.duration || 0), 0);
-      const avgAccuracy = allSessions.length > 0 
-        ? allSessions.reduce((sum, s) => sum + (s.accuracy || 0), 0) / allSessions.length 
+      const avgAccuracy = allSessions.length > 0
+        ? allSessions.reduce((sum, s) => sum + (s.accuracy || 0), 0) / allSessions.length
         : 0;
-      
+
       const colors = [
         'bg-primary-500',
         'bg-success-500',
@@ -184,22 +174,22 @@ const ProgressPage = () => {
         accuracy: Math.round(avgAccuracy),
         timeSpent: formatStudyTime(totalTime),
         questionsAnswered: allSessions.reduce((sum, s) => sum + (s.questionsAnswered || 0), 0),
-        strongTopics: ['Advanced Concepts', 'Problem Solving'], // Mock data
-        weakTopics: ['Basic Fundamentals', 'Time Management'], // Mock data
+        strongTopics: ['Advanced Concepts', 'Problem Solving'],
+        weakTopics: ['Basic Fundamentals', 'Time Management'],
         lastStudied: allSessions.length > 0 ? 'Recently' : 'Never',
         streak: Math.min(10, allSessions.length),
         color: colors[index % colors.length]
       };
-    }).slice(0, 5); // Limit to 5 subjects for display
+    }).slice(0, 5);
   };
 
   const processWeeklyActivity = (studySessions) => {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const weekData = days.map(day => ({ day, questions: 0, time: 0 }));
-    
+
     const oneWeekAgo = new Date();
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-    
+
     studySessions.forEach(session => {
       const sessionDate = session.timestamp?.toDate() || new Date();
       if (sessionDate >= oneWeekAgo) {
@@ -208,16 +198,14 @@ const ProgressPage = () => {
         weekData[dayIndex].time += session.duration || 0;
       }
     });
-    
+
     return weekData;
   };
 
   const processAchievements = (achievements) => {
-    // Get all achievement definitions
     const allAchievements = achievementsService.getAllAchievements();
     const unlockedAchievements = achievements.unlockedAchievements || [];
-    
-    // Create achievement display array for overview tab
+
     const achievementDisplayList = Object.values(allAchievements).slice(0, 4).map(achievement => {
       const isUnlocked = unlockedAchievements.includes(achievement.id);
       const progress = achievementsService.getAchievementProgress(
@@ -226,7 +214,7 @@ const ProgressPage = () => {
         achievements.activityCounters || {},
         achievements.studyStreaks || {}
       );
-      
+
       return {
         id: achievement.id,
         title: achievement.title,
@@ -240,12 +228,10 @@ const ProgressPage = () => {
     });
 
     return {
-      // Object structure for achievements tab
       unlocked: unlockedAchievements,
       totalPoints: achievements.totalPoints || 0,
       activityCounters: achievements.activityCounters || {},
       studyStreaks: achievements.studyStreaks || {},
-      // Array structure for overview tab
       displayList: achievementDisplayList
     };
   };
@@ -257,18 +243,17 @@ const ProgressPage = () => {
           type: 'start',
           subject: 'General',
           topic: 'Getting Started',
-          action: 'Begin your learning journey by exploring subjects',
+          action: 'Start with any AP subject to build your baseline.',
           priority: 'high'
         }
       ];
     }
 
-    // Generate AI-powered recommendations
     try {
       const analysis = await geminiService.analyzeStudentProgress(
         progressData.map(p => p.subject || 'Unknown'),
         studySessions,
-        ['Time Management', 'Consistency'] // Mock weak areas
+        ['Time Management', 'Consistency']
       );
 
       return analysis.recommendations?.map((rec, index) => ({
@@ -285,7 +270,7 @@ const ProgressPage = () => {
           type: 'review',
           subject: 'General',
           topic: 'Study Habits',
-          action: 'Maintain consistent daily study schedule',
+          action: 'Keep a consistent daily study schedule.',
           priority: 'medium'
         }
       ];
@@ -311,54 +296,209 @@ const ProgressPage = () => {
       { day: 'Sat', questions: 0, time: 0 },
       { day: 'Sun', questions: 0, time: 0 }
     ],
-    achievements: [],
+    achievements: { unlocked: [], totalPoints: 0, activityCounters: {}, studyStreaks: {}, displayList: [] },
     recommendations: []
   });
 
-  const StatCard = ({ title, value, change, icon: Icon, color = "text-primary-400" }) => (
-    <Card className="p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-content-muted mb-1">{title}</p>
-          <p className="text-2xl font-bold text-content-primary">{value}</p>
-          {change && (
-            <p className={`text-sm ${change.startsWith('+') ? 'text-success-400' : 'text-error-400'}`}>
-              {change} from last month
-            </p>
-          )}
+  // ─── Internal Components ──────────────────────────────────────────
+
+  const colorToVar = (bgClass) => ({
+    'bg-primary-500': 'var(--color-primary-400)',
+    'bg-success-500': 'var(--color-success-400)',
+    'bg-error-500':   'var(--color-error-400)',
+    'bg-warning-500': 'var(--color-warning-400)',
+  }[bgClass] || 'var(--color-primary-400)');
+
+  const BentoStatCard = ({ icon: Icon, label, value, change, color = "text-primary-400", iconBg = "bg-base-800" }) => (
+    <Card className="p-5 flex flex-col justify-between">
+      <div className="flex items-center gap-2 mb-3">
+        <div className={cn("p-2 rounded-sm", iconBg)}>
+          <Icon className={cn("w-4 h-4", color)} strokeWidth={1.5} />
         </div>
-        <div className={`p-3 bg-base-850 rounded-sm ${color}`}>
-          <Icon className="w-6 h-6" />
-        </div>
+        <span className="text-caption text-content-muted">{label}</span>
+      </div>
+      <div>
+        <p className="text-h2 font-display text-content-primary">{value}</p>
+        {change && (
+          <p className={cn("text-caption mt-1", change.startsWith('+') && change !== '+0%' ? 'text-success-400' : 'text-content-muted')}>
+            {change} vs. last month
+          </p>
+        )}
       </div>
     </Card>
   );
 
-  const ProgressChart = ({ data }) => (
-    <Card className="p-6">
-      <h3 className="text-lg font-semibold text-content-primary mb-4">Weekly Activity</h3>
-      <div className="flex items-end justify-between h-32 gap-2">
-        {data.map((day, index) => (
-          <div key={index} className="flex flex-col items-center flex-1">
-            <div className="relative w-full bg-base-800 rounded-t-lg overflow-hidden mb-2">
-              <motion.div
-                initial={{ height: 0 }}
-                animate={{ height: `${(day.questions / 30) * 100}%` }}
-                transition={{ delay: index * 0.1, duration: 0.5 }}
-                className="bg-primary-500 w-full"
-                style={{ minHeight: '4px' }}
+  const CircularProgressRing = ({ percentage, size = 72, strokeW = 5, color = "var(--color-primary-500)" }) => {
+    const r = (size - strokeW) / 2;
+    const circ = 2 * Math.PI * r;
+    const offset = circ - (percentage / 100) * circ;
+    const c = size / 2;
+    return (
+      <svg width={size} height={size} className="transform -rotate-90">
+        <circle cx={c} cy={c} r={r} fill="none" stroke="var(--color-base-800)" strokeWidth={strokeW} />
+        <motion.circle
+          cx={c} cy={c} r={r} fill="none" stroke={color} strokeWidth={strokeW}
+          strokeLinecap="round" strokeDasharray={circ}
+          initial={{ strokeDashoffset: circ }}
+          animate={{ strokeDashoffset: offset }}
+          transition={{ duration: 1.2, ease: "easeOut" }}
+        />
+      </svg>
+    );
+  };
+
+  const WeeklyActivityChart = ({ data }) => {
+    const maxQ = Math.max(...data.map(d => d.questions), 1);
+    const W = 100;
+    const H = 60;
+    const pad = { top: 8, right: 4, bottom: 2, left: 4 };
+    const cw = W - pad.left - pad.right;
+    const ch = H - pad.top - pad.bottom;
+
+    const pts = data.map((d, i) => ({
+      x: pad.left + (i / Math.max(data.length - 1, 1)) * cw,
+      y: pad.top + ch - (d.questions / maxQ) * ch,
+      ...d
+    }));
+
+    const linePath = pts.map((p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`)).join(' ');
+    const areaPath = `${linePath} L ${pts[pts.length - 1].x} ${pad.top + ch} L ${pts[0].x} ${pad.top + ch} Z`;
+
+    return (
+      <Card className="p-6">
+        <h3 className="text-h4 font-display text-content-primary mb-4">Weekly Activity</h3>
+        <div className="relative">
+          <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-40" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--color-primary-400)" stopOpacity="0.3" />
+                <stop offset="100%" stopColor="var(--color-primary-400)" stopOpacity="0.02" />
+              </linearGradient>
+            </defs>
+
+            {/* Subtle grid lines */}
+            {[0.25, 0.5, 0.75].map((frac) => (
+              <line
+                key={frac}
+                x1={pad.left} y1={pad.top + ch * (1 - frac)}
+                x2={W - pad.right} y2={pad.top + ch * (1 - frac)}
+                stroke="var(--color-border-subtle)" strokeWidth="0.2" strokeDasharray="1 1"
               />
-            </div>
-            <span className="text-xs text-content-muted">{day.day}</span>
+            ))}
+
+            {/* Gradient area fill */}
+            <motion.path
+              d={areaPath}
+              fill="url(#areaGrad)"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.8, delay: 0.3 }}
+            />
+
+            {/* Line stroke */}
+            <motion.path
+              d={linePath}
+              fill="none"
+              stroke="var(--color-primary-400)"
+              strokeWidth="0.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              pathLength="1"
+              initial={{ pathLength: 0 }}
+              animate={{ pathLength: 1 }}
+              transition={{ duration: 1, delay: 0.2, ease: "easeInOut" }}
+            />
+
+            {/* Data points */}
+            {pts.map((p, i) => (
+              <motion.circle
+                key={i}
+                cx={p.x} cy={p.y} r="1"
+                fill="var(--color-primary-400)"
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.4 + i * 0.08 }}
+              />
+            ))}
+          </svg>
+
+          {/* X-axis day labels */}
+          <div className="flex justify-between mt-2 px-1">
+            {data.map((d, i) => (
+              <span key={i} className="chart-label text-center">{d.day}</span>
+            ))}
+          </div>
+        </div>
+      </Card>
+    );
+  };
+
+  // Skeleton that mirrors the bento layout structure
+  const DashboardSkeleton = () => (
+    <div className="py-4 space-y-8">
+      {/* Tab bar skeleton */}
+      <div className="flex justify-center">
+        <div className="animate-pulse flex gap-1 bg-base-850 p-1 rounded-xl">
+          <div className="h-9 w-24 bg-base-800 rounded-lg" />
+          <div className="h-9 w-28 bg-base-800 rounded-lg" />
+        </div>
+      </div>
+
+      {/* Bento stat grid skeleton */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-pulse">
+        <div className="md:col-span-1 md:row-span-2 lg:col-span-2 lg:row-span-2 bg-base-850 border border-border rounded-md p-6">
+          <div className="h-4 w-24 bg-base-800 rounded mb-6" />
+          <div className="h-12 w-20 bg-base-800 rounded mb-3" />
+          <div className="h-4 w-32 bg-base-800 rounded" />
+        </div>
+        {[1, 2, 3].map(i => (
+          <div key={i} className="bg-base-850 border border-border rounded-md p-5">
+            <div className="h-3 w-16 bg-base-800 rounded mb-4" />
+            <div className="h-7 w-20 bg-base-800 rounded" />
           </div>
         ))}
       </div>
-      <div className="mt-4 flex items-center justify-between text-sm text-content-muted">
-        <span>Questions per day</span>
-        <span>Max: 30</span>
+
+      {/* Chart + performance skeleton */}
+      <div className="grid md:grid-cols-2 gap-6 animate-pulse">
+        <div className="bg-base-850 border border-border rounded-md p-6">
+          <div className="h-4 w-32 bg-base-800 rounded mb-4" />
+          <div className="h-40 bg-base-800 rounded" />
+        </div>
+        <div className="bg-base-850 border border-border rounded-md p-6">
+          <div className="h-4 w-28 bg-base-800 rounded mb-6" />
+          <div className="space-y-5">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="flex justify-between">
+                <div className="h-3 w-28 bg-base-800 rounded" />
+                <div className="h-3 w-16 bg-base-800 rounded" />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
-    </Card>
+
+      {/* Subject card skeletons */}
+      <div className="space-y-4 animate-pulse">
+        {[1, 2].map(i => (
+          <div key={i} className="bg-base-850 border border-border rounded-md p-6 flex gap-5">
+            <div className="w-[72px] h-[72px] bg-base-800 rounded-full flex-shrink-0" />
+            <div className="flex-1">
+              <div className="h-5 w-40 bg-base-800 rounded mb-3" />
+              <div className="h-3 w-56 bg-base-800 rounded mb-4" />
+              <div className="flex gap-1.5">
+                <div className="h-5 w-24 bg-base-800 rounded-sm" />
+                <div className="h-5 w-20 bg-base-800 rounded-sm" />
+                <div className="h-5 w-28 bg-base-800 rounded-sm" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
+
+  // ─── Render ───────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-base-950 text-content-primary">
@@ -372,19 +512,19 @@ const ProgressPage = () => {
           <div>
             <div className="flex items-center gap-2 sm:gap-3 md:gap-4 mb-2 sm:mb-4">
               <div className="p-2 sm:p-3 md:p-4 bg-primary-500 rounded-sm md:rounded-md shadow-raised">
-                <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-base-950" />
+                <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-base-950" strokeWidth={1.5} />
               </div>
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-content-primary font-display">
-                Progress Analytics
+                Progress
               </h1>
             </div>
             <p className="text-sm sm:text-base md:text-lg text-content-secondary">
-              Track your learning journey with detailed insights and achievements.
+              Your study analytics, achievements, and AI recommendations.
             </p>
           </div>
           <div className="flex gap-3">
             <Button variant="outline" className="hidden md:flex">
-              <Download className="w-4 h-4 mr-2" />
+              <Download className="w-4 h-4 mr-2" strokeWidth={1.5} />
               Export Report
             </Button>
           </div>
@@ -420,12 +560,7 @@ const ProgressPage = () => {
         </motion.div>
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="text-center">
-              <div className="w-16 h-16 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-content-muted">Loading your progress data...</p>
-            </div>
-          </div>
+          <DashboardSkeleton />
         ) : user && progressData ? (
           <>
             {activeTab === 'achievements' && (
@@ -442,7 +577,8 @@ const ProgressPage = () => {
                       <div className="flex items-center gap-4">
                         <div className={`p-4 ${getRankInfo(progressData.overall.totalPoints).bgColor} rounded-2xl`}>
                           {React.createElement(getRankInfo(progressData.overall.totalPoints).icon, {
-                            className: `w-8 h-8 ${getRankInfo(progressData.overall.totalPoints).color}`
+                            className: `w-8 h-8 ${getRankInfo(progressData.overall.totalPoints).color}`,
+                            strokeWidth: 1.5
                           })}
                         </div>
                         <div>
@@ -498,28 +634,27 @@ const ProgressPage = () => {
                                     {achievement.title}
                                   </h3>
                                   <p className="text-sm text-content-muted mb-4">{achievement.description}</p>
-                                  
+
                                   <div className="flex items-center justify-between mb-4">
                                     <Badge variant={isUnlocked ? 'default' : 'secondary'} className="text-xs">
                                       {achievement.points} pts
                                     </Badge>
                                     {isUnlocked && (
                                       <div className="flex items-center gap-1">
-                                        <Trophy className="w-4 h-4 text-success-400" />
-                                        <span className="text-xs text-success-400 font-medium">Unlocked!</span>
+                                        <Trophy className="w-4 h-4 text-success-400" strokeWidth={1.5} />
+                                        <span className="text-xs text-success-400 font-medium">Unlocked</span>
                                       </div>
                                     )}
                                   </div>
-                                  
-                                  {/* Progress Bar */}
+
                                   {!isUnlocked && progress && (
                                     <div>
                                       <div className="flex justify-between text-xs text-content-muted mb-2">
                                         <span>Progress</span>
                                         <span>{progress.current} / {progress.target}</span>
                                       </div>
-                                      <Progress 
-                                        value={progress.percentage} 
+                                      <Progress
+                                        value={progress.percentage}
                                         className="h-2"
                                       />
                                     </div>
@@ -538,315 +673,334 @@ const ProgressPage = () => {
 
             {activeTab === 'overview' && (
               <>
-            {/* Quick Stats */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
-            >
-              <StatCard
-                title="Study Streak"
-                value={`${progressData.overall.studyStreak} days`}
-                icon={Zap}
-                color="text-accent-400"
-              />
-              <StatCard
-                title="Total Study Time"
-                value={progressData.overall.totalStudyTime}
-                change={progressData.overall.improvement}
-                icon={Clock}
-                color="text-primary-400"
-              />
-              <StatCard
-                title="Questions Answered"
-                value={progressData.overall.questionsAnswered}
-                icon={Target}
-                color="text-success-400"
-              />
-              <StatCard
-                title="Overall Accuracy"
-                value={`${progressData.overall.accuracy}%`}
-                change={progressData.overall.improvement}
-                icon={TrendingUp}
-                color="text-primary-400"
-              />
-            </motion.div>
+                {/* ── Bento Stat Grid ── */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8"
+                >
+                  {/* Hero: Study Streak (spans 2×2 on lg) */}
+                  <Card className="p-6 md:col-span-1 md:row-span-2 lg:col-span-2 lg:row-span-2 flex flex-col justify-between bg-primary-950 border-primary-700/30">
+                    <div>
+                      <div className="flex items-center gap-2 mb-4">
+                        <div className="p-2 bg-accent-900 rounded-sm">
+                          <Zap className="w-5 h-5 text-accent-400" strokeWidth={1.5} />
+                        </div>
+                        <span className="text-caption text-content-muted uppercase tracking-wider">Study Streak</span>
+                      </div>
+                      <p className="text-display font-display text-content-primary">
+                        {progressData.overall.studyStreak}
+                      </p>
+                      <p className="text-h3 text-content-secondary font-body">days in a row</p>
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-border-subtle">
+                      <div className="flex items-center gap-2">
+                        <Flame className="w-4 h-4 text-accent-400" strokeWidth={1.5} />
+                        <span className="text-body-sm text-content-muted">Keep it going tomorrow</span>
+                      </div>
+                    </div>
+                  </Card>
 
-            {/* Charts Section */}
-            <div className="grid md:grid-cols-2 gap-6 md:gap-8 mb-6 md:mb-8">
-              {/* Weekly Activity Chart */}
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 }}
-              >
-                <ProgressChart data={progressData.weeklyActivity} />
-              </motion.div>
+                  {/* Study Time */}
+                  <BentoStatCard
+                    icon={Clock}
+                    label="Study Time"
+                    value={progressData.overall.totalStudyTime}
+                    change={progressData.overall.improvement}
+                    color="text-primary-400"
+                    iconBg="bg-primary-900"
+                  />
 
-              {/* Performance Overview */}
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3 }}
-              >
-                <Card className="p-6">
-                  <h3 className="text-lg font-semibold text-content-primary mb-4">Performance Overview</h3>
+                  {/* Questions */}
+                  <BentoStatCard
+                    icon={Target}
+                    label="Questions"
+                    value={progressData.overall.questionsAnswered}
+                    color="text-success-400"
+                    iconBg="bg-success-900"
+                  />
+
+                  {/* Accuracy */}
+                  <BentoStatCard
+                    icon={TrendingUp}
+                    label="Accuracy"
+                    value={`${progressData.overall.accuracy}%`}
+                    change={progressData.overall.improvement}
+                    color="text-primary-400"
+                    iconBg="bg-primary-900"
+                  />
+                </motion.div>
+
+                {/* ── Charts Section ── */}
+                <div className="grid md:grid-cols-2 gap-6 md:gap-8 mb-6 md:mb-8">
+                  {/* Weekly Activity Chart */}
+                  <motion.div
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.2 }}
+                  >
+                    <WeeklyActivityChart data={progressData.weeklyActivity} />
+                  </motion.div>
+
+                  {/* At a Glance */}
+                  <motion.div
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.3 }}
+                  >
+                    <Card className="p-6">
+                      <h3 className="text-h4 font-display text-content-primary mb-4">At a Glance</h3>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-content-secondary">Current Rank</span>
+                          <Badge variant="default" className="bg-primary-500">
+                            {progressData.overall.rank}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-content-secondary">Questions Answered</span>
+                          <span className="text-content-primary">{progressData.overall.questionsAnswered}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-content-secondary">Average Accuracy</span>
+                          <span className="text-success-400">{progressData.overall.accuracy}%</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-content-secondary">Study Streak</span>
+                          <span className="text-accent-400">{progressData.overall.studyStreak} days</span>
+                        </div>
+                      </div>
+                    </Card>
+                  </motion.div>
+                </div>
+
+                {/* ── Subject Progress (Circular Rings + Tag Cloud) ── */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4 }}
+                  className="mb-8"
+                >
+                  <h2 className="text-2xl font-bold text-content-primary mb-6">By Subject</h2>
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-content-secondary">Current Rank</span>
-                      <Badge variant="default" className="bg-primary-500">
-                        {progressData.overall.rank}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-content-secondary">Questions Answered</span>
-                      <span className="text-content-primary">{progressData.overall.questionsAnswered}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-content-secondary">Average Accuracy</span>
-                      <span className="text-success-400">{progressData.overall.accuracy}%</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-content-secondary">Study Streak</span>
-                      <span className="text-accent-400">{progressData.overall.studyStreak} days</span>
-                    </div>
-                  </div>
-                </Card>
-              </motion.div>
-            </div>
+                    {progressData.subjects.map((subject, index) => (
+                      <motion.div
+                        key={index}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.5 + index * 0.1 }}
+                      >
+                        <Card className="p-6">
+                          <div className="flex items-start gap-5">
+                            {/* Circular Progress Ring */}
+                            <div className="relative flex-shrink-0">
+                              <CircularProgressRing
+                                percentage={subject.progress}
+                                color={colorToVar(subject.color)}
+                              />
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <span className="text-body-sm font-semibold text-content-primary transform rotate-0"
+                                  style={{ transform: 'rotate(90deg)' }}
+                                >
+                                  {subject.progress}%
+                                </span>
+                              </div>
+                            </div>
 
-            {/* Subject Progress */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className="mb-8"
-            >
-              <h2 className="text-2xl font-bold text-content-primary mb-6">Subject Progress</h2>
-              <div className="space-y-6">
-                {progressData.subjects.map((subject, index) => (
-                  <Card key={index} className="p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h3 className="text-lg font-semibold text-content-primary mb-2">{subject.name}</h3>
-                        <div className="flex items-center gap-4 text-sm text-content-muted">
-                          <span className="flex items-center gap-1">
-                            <Clock className="w-4 h-4" />
-                            {subject.timeSpent}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Target className="w-4 h-4" />
-                            {subject.questionsAnswered} questions
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Zap className="w-4 h-4" />
-                            {subject.streak} day streak
-                          </span>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-content-primary">{subject.progress}%</div>
-                        <div className="text-sm text-content-muted">Complete</div>
-                      </div>
-                    </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between mb-1">
+                                <h3 className="text-h4 font-display text-content-primary">{subject.name}</h3>
+                                <Button size="sm" className="bg-primary-500 hover:bg-primary-600 flex-shrink-0 ml-4">
+                                  Continue
+                                </Button>
+                              </div>
+                              <div className="flex items-center gap-3 text-caption text-content-muted mb-3">
+                                <span className="flex items-center gap-1">
+                                  <Clock className="w-3.5 h-3.5" strokeWidth={1.5} />
+                                  {subject.timeSpent}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Target className="w-3.5 h-3.5" strokeWidth={1.5} />
+                                  {subject.questionsAnswered} questions
+                                </span>
+                              </div>
 
-                    {/* Progress Bar */}
-                    <div className="mb-4">
-                      <div className="w-full bg-base-800 rounded-full h-3">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${subject.progress}%` }}
-                          transition={{ delay: index * 0.1, duration: 0.8 }}
-                          className={`${subject.color} h-3 rounded-full`}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid md:grid-cols-2 gap-6">
-                      {/* Strong Topics */}
-                      <div>
-                        <h4 className="text-sm font-medium text-success-400 mb-2 flex items-center gap-1">
-                          <CheckCircle className="w-4 h-4" />
-                          Strong Topics
-                        </h4>
-                        <div className="space-y-1">
-                          {subject.strongTopics.map((topic, idx) => (
-                            <Badge key={idx} variant="outline" className="text-success-400 border-success-400">
-                              {topic}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Weak Topics */}
-                      <div>
-                        <h4 className="text-sm font-medium text-accent-400 mb-2 flex items-center gap-1">
-                          <AlertCircle className="w-4 h-4" />
-                          Needs Work
-                        </h4>
-                        <div className="space-y-1">
-                          {subject.weakTopics.map((topic, idx) => (
-                            <Badge key={idx} variant="outline" className="text-accent-400 border-accent-400">
-                              {topic}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 flex items-center justify-between">
-                      <span className="text-sm text-content-muted">
-                        Last studied: {subject.lastStudied}
-                      </span>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="outline">
-                          View Details
-                        </Button>
-                        <Button size="sm" className="bg-primary-500 hover:bg-primary-600">
-                          Continue Learning
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            </motion.div>
-
-            {/* Achievements */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 }}
-              className="mb-8"
-            >
-              <h2 className="text-2xl font-bold text-content-primary mb-6">Recent Achievements</h2>
-              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {progressData.achievements.displayList.map((achievement) => (
-                  <Card key={achievement.id} className={`p-6 ${achievement.earned ? 'border-warning-500/50 bg-warning-500/10' : 'border-border'}`}>
-                    <div className="text-center">
-                      <div className="text-4xl mb-3">{achievement.icon}</div>
-                      <h3 className="font-semibold text-content-primary mb-2">{achievement.title}</h3>
-                      <p className="text-sm text-content-muted mb-3">{achievement.description}</p>
-                      {achievement.earned ? (
-                        <Badge variant="default" className="bg-warning-600">
-                          Earned {achievement.earnedDate}
-                        </Badge>
-                      ) : (
-                        <div className="space-y-2">
-                          <div className="w-full bg-base-800 rounded-full h-2">
-                            <div
-                              className="bg-primary-500 h-2 rounded-full"
-                              style={{ width: `${Math.min(100, (achievement.progress / achievement.target) * 100)}%` }}
-                            />
+                              {/* Organic tag cloud */}
+                              <div className="flex flex-wrap gap-1.5">
+                                {subject.strongTopics.map((topic, idx) => (
+                                  <Badge key={`s-${idx}`} variant="success" className="text-xs">
+                                    {topic}
+                                  </Badge>
+                                ))}
+                                {subject.weakTopics.map((topic, idx) => (
+                                  <Badge key={`w-${idx}`} variant="warning" className="text-xs">
+                                    {topic}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
                           </div>
-                          <p className="text-xs text-content-muted">
-                            {achievement.progress}/{achievement.target}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            </motion.div>
+                        </Card>
+                      </motion.div>
+                    ))}
+                  </div>
+                </motion.div>
 
-            {/* AI Recommendations */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6 }}
-            >
-              <h2 className="text-2xl font-bold text-content-primary mb-6">AI Recommendations</h2>
-              <div className="space-y-4">
-                {progressData.recommendations.map((rec, index) => (
-                  <Card key={index} className="p-6 hover:bg-base-850/50 cursor-pointer transition-all duration-200">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className={`p-3 rounded-lg ${
-                          rec.priority === 'high' ? 'bg-error-500/20 text-error-400' :
-                          rec.priority === 'medium' ? 'bg-warning-500/20 text-warning-400' :
-                          'bg-success-500/20 text-success-400'
-                        }`}>
-                          {rec.type === 'weakness' ? <AlertCircle className="w-5 h-5" /> :
-                           rec.type === 'review' ? <BookOpen className="w-5 h-5" /> :
-                           <Star className="w-5 h-5" />}
+                {/* ── Recent Achievements ── */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 }}
+                  className="mb-8"
+                >
+                  <h2 className="text-2xl font-bold text-content-primary mb-6">Recent Achievements</h2>
+                  <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {progressData.achievements.displayList.map((achievement) => (
+                      <Card key={achievement.id} className={`p-6 ${achievement.earned ? 'border-warning-500/50 bg-warning-500/10' : 'border-border'}`}>
+                        <div className="text-center">
+                          <div className="text-4xl mb-3">{achievement.icon}</div>
+                          <h3 className="font-semibold text-content-primary mb-2">{achievement.title}</h3>
+                          <p className="text-sm text-content-muted mb-3">{achievement.description}</p>
+                          {achievement.earned ? (
+                            <Badge variant="default" className="bg-warning-600">
+                              Earned {achievement.earnedDate}
+                            </Badge>
+                          ) : (
+                            <div className="space-y-2">
+                              <div className="w-full bg-base-800 rounded-full h-2">
+                                <div
+                                  className="bg-primary-500 h-2 rounded-full"
+                                  style={{ width: `${Math.min(100, (achievement.progress / achievement.target) * 100)}%` }}
+                                />
+                              </div>
+                              <p className="text-xs text-content-muted">
+                                {achievement.progress}/{achievement.target}
+                              </p>
+                            </div>
+                          )}
                         </div>
-                        <div>
-                          <h3 className="font-semibold text-content-primary">{rec.subject} - {rec.topic}</h3>
-                          <p className="text-content-muted">{rec.action}</p>
+                      </Card>
+                    ))}
+                  </div>
+                </motion.div>
+
+                {/* ── Recommended Next ── */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.6 }}
+                >
+                  <h2 className="text-2xl font-bold text-content-primary mb-6">Recommended Next</h2>
+                  <div className="space-y-4">
+                    {progressData.recommendations.map((rec, index) => (
+                      <Card key={index} className="p-6 hover:bg-base-850/50 cursor-pointer transition-all duration-200">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className={`p-3 rounded-lg ${
+                              rec.priority === 'high' ? 'bg-error-500/20 text-error-400' :
+                              rec.priority === 'medium' ? 'bg-warning-500/20 text-warning-400' :
+                              'bg-success-500/20 text-success-400'
+                            }`}>
+                              {rec.type === 'weakness' ? <AlertCircle className="w-5 h-5" strokeWidth={1.5} /> :
+                               rec.type === 'review' ? <BookOpen className="w-5 h-5" strokeWidth={1.5} /> :
+                               <Star className="w-5 h-5" strokeWidth={1.5} />}
+                            </div>
+                            <div>
+                              <h3 className="font-semibold text-content-primary">{rec.subject} — {rec.topic}</h3>
+                              <p className="text-content-muted">{rec.action}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <Badge variant={
+                              rec.priority === 'high' ? 'destructive' :
+                              rec.priority === 'medium' ? 'default' : 'secondary'
+                            }>
+                              {rec.priority}
+                            </Badge>
+                            <ChevronRight className="w-5 h-5 text-content-muted" strokeWidth={1.5} />
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <Badge variant={
-                          rec.priority === 'high' ? 'destructive' :
-                          rec.priority === 'medium' ? 'default' : 'secondary'
-                        }>
-                          {rec.priority} priority
-                        </Badge>
-                        <ChevronRight className="w-5 h-5 text-content-muted" />
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            </motion.div>
+                      </Card>
+                    ))}
+                  </div>
+                </motion.div>
               </>
             )}
           </>
         ) : (
-          /* Not Logged In State */
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center py-12"
-          >
-            <Card className="p-12 max-w-2xl mx-auto">
-              <BarChart3 className="w-24 h-24 text-content-muted mx-auto mb-6" />
-              <h2 className="text-2xl md:text-3xl font-bold text-content-primary mb-4">
-                Track Your Learning Progress
-              </h2>
-              <p className="text-content-muted text-lg mb-8">
-                Sign up for a free account to access detailed analytics, personalized insights, 
-                and AI-powered recommendations to accelerate your AP exam preparation.
-              </p>
-              <div className="grid md:grid-cols-3 gap-6 mb-8">
-                <div className="text-center">
-                  <div className="p-4 bg-primary-900 rounded-lg w-fit mx-auto mb-3">
-                    <TrendingUp className="w-8 h-8 text-primary-400" />
+          /* ── Not Logged In: Blurred Mock Dashboard ── */
+          <div className="relative min-h-[60vh]">
+            {/* Blurred decorative mock */}
+            <div className="select-none pointer-events-none" aria-hidden="true">
+              <div className="filter blur-[6px] opacity-50">
+                {/* Mock bento grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                  <div className="md:col-span-1 md:row-span-2 lg:col-span-2 lg:row-span-2 bg-base-850 border border-border rounded-md p-6">
+                    <div className="h-4 w-24 bg-base-800 rounded mb-6" />
+                    <div className="h-12 w-16 bg-base-800 rounded mb-3" />
+                    <div className="h-4 w-32 bg-base-800 rounded" />
                   </div>
-                  <h3 className="font-semibold text-content-primary mb-2">Performance Tracking</h3>
-                  <p className="text-sm text-content-muted">
-                    Monitor your accuracy and improvement over time
-                  </p>
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="bg-base-850 border border-border rounded-md p-5">
+                      <div className="h-3 w-16 bg-base-800 rounded mb-4" />
+                      <div className="h-7 w-20 bg-base-800 rounded" />
+                    </div>
+                  ))}
                 </div>
-                <div className="text-center">
-                  <div className="p-4 bg-primary-500/20 rounded-lg w-fit mx-auto mb-3">
-                    <Brain className="w-8 h-8 text-primary-400" />
-                  </div>
-                  <h3 className="font-semibold text-content-primary mb-2">AI Insights</h3>
-                  <p className="text-sm text-content-muted">
-                    Get personalized recommendations and study plans
-                  </p>
+                {/* Mock chart area */}
+                <div className="grid md:grid-cols-2 gap-6 mb-8">
+                  <div className="bg-base-850 border border-border rounded-md p-6 h-48" />
+                  <div className="bg-base-850 border border-border rounded-md p-6 h-48" />
                 </div>
-                <div className="text-center">
-                  <div className="p-4 bg-success-500/20 rounded-lg w-fit mx-auto mb-3">
-                    <Award className="w-8 h-8 text-success-400" />
-                  </div>
-                  <h3 className="font-semibold text-content-primary mb-2">Achievements</h3>
-                  <p className="text-sm text-content-muted">
-                    Earn badges and celebrate your learning milestones
-                  </p>
+                {/* Mock subject cards */}
+                <div className="space-y-4">
+                  {[1, 2].map(i => (
+                    <div key={i} className="bg-base-850 border border-border rounded-md p-6 flex gap-5">
+                      <div className="w-[72px] h-[72px] bg-base-800 rounded-full flex-shrink-0" />
+                      <div className="flex-1">
+                        <div className="h-5 w-40 bg-base-800 rounded mb-3" />
+                        <div className="h-3 w-56 bg-base-800 rounded mb-4" />
+                        <div className="flex gap-1.5">
+                          <div className="h-5 w-24 bg-base-800 rounded-sm" />
+                          <div className="h-5 w-20 bg-base-800 rounded-sm" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-              <Button
-                onClick={() => navigate('/auth')}
-                className="bg-primary-500 hover:bg-primary-600 text-lg px-8 py-3"
+            </div>
+
+            {/* Overlay login prompt */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="relative max-w-md w-full mx-4"
               >
-                Get Started Free
-              </Button>
-            </Card>
-          </motion.div>
+                <div className="empty-state-pattern" />
+                <Card className="relative z-10 p-8 text-center bg-base-850/95 backdrop-blur-sm border-border-strong shadow-floating">
+                  <div className="p-3 bg-primary-900 rounded-md w-fit mx-auto mb-4">
+                    <BarChart3 className="w-8 h-8 text-primary-400" strokeWidth={1.5} />
+                  </div>
+                  <h2 className="text-h2 font-display text-content-primary mb-2">
+                    See your progress
+                  </h2>
+                  <p className="text-body text-content-secondary mb-6">
+                    Create a free account to unlock analytics, AI study recommendations, and achievement tracking.
+                  </p>
+                  <Button
+                    onClick={() => navigate('/auth')}
+                    className="bg-primary-500 hover:bg-primary-600 w-full"
+                    size="lg"
+                  >
+                    Get started
+                  </Button>
+                </Card>
+              </motion.div>
+            </div>
+          </div>
         )}
       </div>
     </div>

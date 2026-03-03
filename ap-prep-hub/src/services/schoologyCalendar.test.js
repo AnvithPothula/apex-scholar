@@ -193,13 +193,15 @@ END:VCALENDAR`;
       expect(assignments[0].title).toBe('Math Homework Ch 5');
     });
 
-    it('should extract the correct due date', () => {
+    it('should extract the correct due date with exclusive DTEND', () => {
       const assignments = schoologyCalendar.parseICalData(sampleICalData);
       expect(assignments[0].dueDate).toBeInstanceOf(Date);
-      // DTEND is 20260116, which should become Jan 16, 2026 at 11:59 PM
+      // DTEND is 20260116 (date-only, exclusive per RFC 5545)
+      // Exclusive DTEND means the event goes up to but NOT including Jan 16
+      // So the actual due date is Jan 15, 2026 at 11:59 PM
       expect(assignments[0].dueDate.getFullYear()).toBe(2026);
       expect(assignments[0].dueDate.getMonth()).toBe(0); // January
-      expect(assignments[0].dueDate.getDate()).toBe(16);
+      expect(assignments[0].dueDate.getDate()).toBe(15); // NOT 16 — exclusive DTEND
       expect(assignments[0].dueDate.getHours()).toBe(23);
       expect(assignments[0].dueDate.getMinutes()).toBe(59);
     });
@@ -255,6 +257,77 @@ END:VCALENDAR`;
       const result = schoologyCalendar.processAssignmentEvent(event);
       expect(result.title).toBeTruthy();
       expect(result.title.length).toBeGreaterThan(0);
+    });
+
+    it('should handle midnight datetime DTEND by subtracting a day', () => {
+      // DTEND:20260305T000000 means midnight March 5 = end of March 4
+      const event = {
+        id: 'midnight_test',
+        title: 'Midnight DTEND Test',
+        endDate: new Date('2026-03-05T00:00:00'),
+        rawEndDate: '20260305T000000',
+        url: 'http://school.district196.org/assignment/999'
+      };
+
+      const result = schoologyCalendar.processAssignmentEvent(event);
+      expect(result.dueDate.getFullYear()).toBe(2026);
+      expect(result.dueDate.getMonth()).toBe(2); // March
+      expect(result.dueDate.getDate()).toBe(4); // March 4 (not March 5)
+      expect(result.dueDate.getHours()).toBe(23);
+      expect(result.dueDate.getMinutes()).toBe(59);
+    });
+
+    it('should use DTSTART when DTEND is early morning and DTSTART is late evening', () => {
+      // DTSTART: March 4 at 11:59 PM, DTEND: March 5 at 12:59 AM
+      // Should use DTSTART's time (11:59 PM March 4) since DTEND is likely a timezone artifact
+      const event = {
+        id: 'early_am_test',
+        title: 'Early AM DTEND Test',
+        startDate: new Date('2026-03-04T23:59:00'),
+        endDate: new Date('2026-03-05T00:59:00'),
+        rawStartDate: '20260304T235900',
+        rawEndDate: '20260305T005900',
+        url: 'http://school.district196.org/assignment/888'
+      };
+
+      const result = schoologyCalendar.processAssignmentEvent(event);
+      expect(result.dueDate.getMonth()).toBe(2); // March
+      expect(result.dueDate.getDate()).toBe(4); // March 4
+      expect(result.dueDate.getHours()).toBe(23); // 11 PM
+      expect(result.dueDate.getMinutes()).toBe(59);
+    });
+
+    it('should preserve normal datetime DTEND as-is', () => {
+      // DTEND at 3:00 PM should be kept unchanged
+      const event = {
+        id: 'normal_test',
+        title: 'Normal DTEND Test',
+        endDate: new Date('2026-03-04T15:00:00'),
+        rawEndDate: '20260304T150000',
+        url: 'http://school.district196.org/assignment/777'
+      };
+
+      const result = schoologyCalendar.processAssignmentEvent(event);
+      expect(result.dueDate.getDate()).toBe(4);
+      expect(result.dueDate.getHours()).toBe(15);
+      expect(result.dueDate.getMinutes()).toBe(0);
+    });
+
+    it('should handle date-only DTEND with exclusive subtraction', () => {
+      // DTEND date-only 20260305 → March 4 at 11:59 PM
+      const event = {
+        id: 'dateonly_test',
+        title: 'Date Only DTEND Test',
+        endDate: new Date(2026, 2, 5), // March 5, midnight local
+        rawEndDate: '20260305',
+        url: 'http://school.district196.org/assignment/666'
+      };
+
+      const result = schoologyCalendar.processAssignmentEvent(event);
+      expect(result.dueDate.getMonth()).toBe(2); // March
+      expect(result.dueDate.getDate()).toBe(4); // March 4 (exclusive)
+      expect(result.dueDate.getHours()).toBe(23);
+      expect(result.dueDate.getMinutes()).toBe(59);
     });
   });
 });
