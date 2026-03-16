@@ -1,4 +1,5 @@
 export const AP_SUBJECTS = {
+    "AP Art History": { name: "AP Art History", description: "Explore art across cultures and time periods.", icon: "🎨" },
     "AP Biology": { name: "AP Biology", description: "Dive into the science of living organisms.", icon: "🔬" },
     "AP Calculus AB": { name: "AP Calculus AB", description: "Master derivatives, integrals, and limits.", icon: "∫" },
     "AP Calculus BC": { name: "AP Calculus BC", description: "Advanced topics in calculus.", icon: "∬" },
@@ -19,10 +20,12 @@ export const AP_SUBJECTS = {
     "AP Latin": { name: "AP Latin", description: "Read and analyze classical texts.", icon: "🏛️" },
     "AP Macroeconomics": { name: "AP Macroeconomics", description: "Study economy-wide phenomena.", icon: "📈" },
     "AP Microeconomics": { name: "AP Microeconomics", description: "Analyze individual economic decisions.", icon: "📉" },
+    "AP Music Theory": { name: "AP Music Theory", description: "Study musical structure, composition, and analysis.", icon: "🎵" },
     "AP Physics 1: Algebra-Based": { name: "AP Physics 1", description: "Explore the fundamental principles of physics.", icon: "🔬" },
     "AP Physics 2: Algebra-Based": { name: "AP Physics 2", description: "Advanced physics concepts and applications.", icon: "⚛️" },
     "AP Physics C: Mechanics": { name: "AP Physics C: Mechanics", description: "Delve into classical mechanics with calculus.", icon: "📐" },
     "AP Physics C: Electricity and Magnetism": { name: "AP Physics C: E&M", description: "Master electromagnetism with calculus.", icon: "⚡" },
+    "AP Precalculus": { name: "AP Precalculus", description: "Build foundations for calculus and beyond.", icon: "📐" },
     "AP Psychology": { name: "AP Psychology", description: "Investigate the human mind and behavior.", icon: "🧠" },
     "AP Spanish Language and Culture": { name: "AP Spanish Language", description: "Master the Spanish language.", icon: "🇪🇸" },
     "AP Spanish Literature and Culture": { name: "AP Spanish Literature", description: "Explore Spanish literature and culture.", icon: "📖" },

@@ -5525,6 +5525,95 @@ export const AP_CURRICULUM_COMPREHENSIVE = {
     ]
   },
 
+  "precalculus": {
+    name: "AP Precalculus",
+    description: "Enhance students' understanding of functions and their properties. Covers polynomial, rational, exponential, logarithmic, and trigonometric functions, preparing students for calculus and other college-level mathematics.",
+    examFormat: {
+      duration: "2 hours",
+      sections: [
+        { name: "Multiple Choice Part A (No Calculator)", questions: 28, time: "80 minutes", weight: "62.5%" },
+        { name: "Multiple Choice Part B (Calculator)", questions: 12, time: "40 minutes", weight: "37.5%" }
+      ]
+    },
+    bigIdeas: [
+      "Change (CHA): Changing quantities can be modeled and predicted",
+      "Equivalence (EQU): Relationships between quantities can be expressed in equivalent ways",
+      "Covariation (COV): How one quantity changes relative to another"
+    ],
+    units: [
+      {
+        name: "Unit 1: Polynomial and Rational Functions",
+        weight: "30-40%",
+        topics: [
+          "Change in tandem",
+          "Rates of change",
+          "Polynomial functions and rates of change",
+          "Polynomial functions and end behavior",
+          "Polynomial functions and zeros",
+          "Rational functions",
+          "Vertical asymptotes and holes",
+          "End behavior of rational functions",
+          "Transformations of functions"
+        ]
+      },
+      {
+        name: "Unit 2: Exponential and Logarithmic Functions",
+        weight: "27-40%",
+        topics: [
+          "Arithmetic and geometric sequences",
+          "Exponential functions",
+          "Exponential function manipulation",
+          "Exponential function context and data modeling",
+          "Composition of functions",
+          "Inverse functions",
+          "Logarithmic functions",
+          "Logarithmic function manipulation",
+          "Semi-log plots"
+        ]
+      },
+      {
+        name: "Unit 3: Trigonometric and Polar Functions",
+        weight: "15-20%",
+        topics: [
+          "Periodic phenomena",
+          "Sine, cosine, and tangent",
+          "Sinusoidal functions",
+          "Sinusoidal function context and data modeling",
+          "Trigonometric function transformations",
+          "Trigonometric identities and solving equations",
+          "Polar function graphs",
+          "Rates of change in polar functions"
+        ]
+      },
+      {
+        name: "Unit 4: Functions Involving Parameters, Vectors, and Matrices",
+        weight: "10-15%",
+        topics: [
+          "Parametric functions",
+          "Parametric functions modeling planar motion",
+          "Vectors",
+          "Vector-valued functions",
+          "Matrices",
+          "Matrices as transformations of the plane"
+        ]
+      }
+    ],
+    keySkills: [
+      "Analyze and interpret mathematical models",
+      "Determine function behavior and properties",
+      "Apply transformations to functions",
+      "Model real-world phenomena with appropriate function types",
+      "Use technology strategically for exploration and verification"
+    ],
+    studyTips: [
+      "Focus on understanding function behavior rather than memorizing formulas",
+      "Practice graphing by hand before using a calculator",
+      "Connect algebraic representations to graphical and verbal descriptions",
+      "Work with real-world data to understand modeling applications",
+      "Build fluency with function transformations across all types"
+    ]
+  },
+
   "statistics": {
     name: "AP Statistics",
     description: "Equivalent to a one-semester, introductory, non-calculus-based college course in statistics. Students develop strategies for collecting, organizing, analyzing, and drawing conclusions from data.",
@@ -8949,28 +9038,107 @@ export const AP_CURRICULUM_COMPREHENSIVE = {
 
 // Helper functions for curriculum access
 export const getCurriculumData = (subject) => {
-  // First try direct lookup
+  // First try direct lookup (camelCase keys like 'biology', 'calculusAB')
   if (AP_CURRICULUM_COMPREHENSIVE[subject]) {
     return AP_CURRICULUM_COMPREHENSIVE[subject];
   }
   
-  // Then try normalized lookup for backwards compatibility
-  const normalizedSubject = subject.toLowerCase().replace(/\s+/g, '').replace(/-/g, '');
-  const subjectMap = {
-    'arthistory': 'artHistory',
-    'aparthistory': 'artHistory',
-    'apbiology': 'biology',
-    'biology': 'biology',
-    'apcalculusab': 'calculusAB',
-    'calculusab': 'calculusAB',
-    'apcalculusbc': 'calculusBC', 
-    'calculusbc': 'calculusBC',
-    'apchemistry': 'chemistry',
-    'chemistry': 'chemistry'
+  // Comprehensive display-name → key mapping for all subjects
+  const displayNameMap = {
+    // Arts
+    'AP Art History': 'artHistory',
+    'AP Studio Art and Design': 'studioArt',
+    'AP Studio Art: 2-D Design': 'studioArt2D',
+    'AP Studio Art: 3-D Design': 'studioArt3D',
+    'AP Studio Art: Drawing': 'studioArtDrawing',
+    'AP Music Theory': 'musicTheory',
+
+    // Sciences
+    'AP Biology': 'biology',
+    'AP Chemistry': 'chemistry',
+    'AP Environmental Science': 'environmentalScience',
+    'AP Physics 1': 'physics1',
+    'AP Physics 1: Algebra-Based': 'physics1',
+    'AP Physics 2': 'physics2',
+    'AP Physics 2: Algebra-Based': 'physics2',
+    'AP Physics C: Mechanics': 'physicsC_Mechanics',
+    'AP Physics C: Electricity and Magnetism': 'physicsC_ElectricityMagnetism',
+    'AP Physics C: E&M': 'physicsC_ElectricityMagnetism',
+    'AP Psychology': 'psychology',
+
+    // Math
+    'AP Calculus AB': 'calculusAB',
+    'AP Calculus BC': 'calculusBC',
+    'AP Precalculus': 'precalculus',
+    'AP Statistics': 'statistics',
+
+    // Computer Science
+    'AP Computer Science A': 'computerScienceA',
+    'AP Computer Science Principles': 'computerSciencePrinciples',
+    'AP CS Principles': 'computerSciencePrinciples',
+
+    // English
+    'AP English Language and Composition': 'englishLanguageAndComposition',
+    'AP English Language': 'englishLanguageAndComposition',
+    'AP English Literature and Composition': 'englishLiteratureAndComposition',
+    'AP English Literature': 'englishLiteratureAndComposition',
+
+    // History & Social Sciences
+    'AP European History': 'europeanHistory',
+    'AP Human Geography': 'humanGeography',
+    'AP Macroeconomics': 'macroeconomics',
+    'AP Microeconomics': 'microeconomics',
+    'AP United States History': 'usHistory',
+    'AP U.S. History': 'usHistory',
+    'AP US History': 'usHistory',
+    'AP United States Government and Politics': 'usGovernmentPolitics',
+    'AP U.S. Government and Politics': 'usGovernmentPolitics',
+    'AP US Government': 'usGovernmentPolitics',
+    'AP Comparative Government and Politics': 'comparativeGovernment',
+    'AP Government and Politics: Comparative': 'comparativeGovernment',
+    'AP Comparative Government': 'comparativeGovernment',
+    'AP World History: Modern': 'worldHistory',
+    'AP World History': 'worldHistory',
+
+    // World Languages
+    'AP Chinese Language and Culture': 'chineseLanguage',
+    'AP Chinese': 'chineseLanguage',
+    'AP French Language and Culture': 'frenchLanguage',
+    'AP French': 'frenchLanguage',
+    'AP German Language and Culture': 'germanLanguage',
+    'AP German': 'germanLanguage',
+    'AP Italian Language and Culture': 'italianLanguage',
+    'AP Italian': 'italianLanguage',
+    'AP Japanese Language and Culture': 'japaneseLanguage',
+    'AP Japanese': 'japaneseLanguage',
+    'AP Latin': 'latin',
+    'AP Spanish Language and Culture': 'spanishLanguage',
+    'AP Spanish Language': 'spanishLanguage',
+    'AP Spanish Literature and Culture': 'spanishLiterature',
+    'AP Spanish Literature': 'spanishLiterature',
+
+    // Special Programs
+    'AP Research': 'research',
+    'AP Seminar': 'seminar',
+    'AP African American Studies': 'africanAmericanStudies',
   };
+
+  // Try display name lookup
+  const key = displayNameMap[subject];
+  if (key && AP_CURRICULUM_COMPREHENSIVE[key]) {
+    return AP_CURRICULUM_COMPREHENSIVE[key];
+  }
   
-  const mappedSubject = subjectMap[normalizedSubject] || normalizedSubject;
-  return AP_CURRICULUM_COMPREHENSIVE[mappedSubject] || null;
+  // Fallback: normalized lookup (strip "AP ", lowercase, remove spaces/hyphens)
+  const normalizedSubject = subject.toLowerCase().replace(/^ap\s+/i, '').replace(/[\s\-:]+/g, '');
+  for (const [k, v] of Object.entries(AP_CURRICULUM_COMPREHENSIVE)) {
+    const normalizedKey = k.toLowerCase().replace(/[\s\-_]+/g, '');
+    if (normalizedKey === normalizedSubject) {
+      return v;
+    }
+  }
+
+  return null;
 };
 
 // Generate contextual information for AI prompts

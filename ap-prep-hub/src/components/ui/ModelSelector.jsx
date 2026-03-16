@@ -68,6 +68,19 @@ export default function ModelSelector({ value, onChange, compact = false, classN
     return () => window.removeEventListener('apex:puterAuthComplete', handleAuthComplete);
   }, [value, onChange]);
 
+  // Handle Puter auth being cleared (from Developer Settings)
+  useEffect(() => {
+    const handleAuthCleared = () => {
+      setHasPuter(false);
+      // Force switch to Gemini fallback since Puter models are no longer available
+      if (onChange) {
+        onChange('gemini-2.0-flash');
+      }
+    };
+    window.addEventListener('apex:puterAuthCleared', handleAuthCleared);
+    return () => window.removeEventListener('apex:puterAuthCleared', handleAuthCleared);
+  }, [onChange]);
+
   // Close on outside click
   useEffect(() => {
     if (!open) return;

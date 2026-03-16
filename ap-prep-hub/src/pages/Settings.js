@@ -485,7 +485,7 @@ const Settings = () => {
             </CardContent>
           </Card>
 
-          <Card className="bg-base-850 border-border">
+          <Card className="bg-base-850 border-border md:col-span-2">
             <CardHeader className="p-4 sm:p-6">
               <CardTitle className="text-content-primary text-lg sm:text-xl">Your AP Subjects</CardTitle>
             </CardHeader>
@@ -502,7 +502,7 @@ const Settings = () => {
             </CardContent>
           </Card>
 
-          <Card className="bg-base-850 border-border">
+          <Card className="bg-base-850 border-border md:col-span-2">
             <CardHeader className="p-4 sm:p-6">
               <CardTitle className="text-content-primary text-lg sm:text-xl">
                 Study Preferences

@@ -750,6 +750,79 @@ const TEST_CONFIGURATIONS = {
       { id: 'full', name: 'Full Practice Test', time: 180, questions: 53, description: 'Complete AP Latin exam simulation' }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
+  },
+  'AP Art History': {
+    sections: [
+      { id: 'mcq', name: 'Multiple Choice', time: 60, questions: 80, description: 'Art identification, analysis, and attribution' },
+      { 
+        id: 'frq', 
+        name: 'Free Response', 
+        time: 120, 
+        questions: 6, 
+        description: 'Choose FRQ type or take all',
+        subSections: [
+          { id: 'short-frq', name: 'Short FRQs Only', time: 60, questions: 4, description: '4 short FRQ questions' },
+          { id: 'long-frq', name: 'Long FRQs Only', time: 60, questions: 2, description: '2 long essay questions' },
+          { id: 'all-frq', name: 'All FRQs', time: 120, questions: 6, description: '4 Short + 2 Long FRQs' }
+        ]
+      },
+      { id: 'full', name: 'Full Practice Test', time: 180, questions: 86, description: 'Complete AP Art History exam simulation' }
+    ],
+    units: [
+      { id: 'unit1', name: 'Unit 1: Global Prehistory, 30,000–500 B.C.E.', topics: ['Cave paintings', 'Megalithic architecture', 'Neolithic art', 'Stonehenge'] },
+      { id: 'unit2', name: 'Unit 2: Ancient Mediterranean, 3500 B.C.E.–300 C.E.', topics: ['Egyptian art', 'Greek art', 'Roman art', 'Mesopotamian art'] },
+      { id: 'unit3', name: 'Unit 3: Early Europe and Colonial Americas, 200–1750 C.E.', topics: ['Byzantine art', 'Gothic', 'Renaissance', 'Baroque'] },
+      { id: 'unit4', name: 'Unit 4: Later Europe and Americas, 1750–1980 C.E.', topics: ['Neoclassicism', 'Romanticism', 'Impressionism', 'Modernism'] },
+      { id: 'unit5', name: 'Unit 5: Indigenous Americas, 1000 B.C.E.–1980 C.E.', topics: ['Maya', 'Aztec', 'Inca', 'Native North American art'] },
+      { id: 'unit6', name: 'Unit 6: Africa, 1100–1980 C.E.', topics: ['West African art', 'Benin bronzes', 'Kongo art', 'Ethiopian art'] },
+      { id: 'unit7', name: 'Unit 7: West and Central Asia, 500 B.C.E.–1980 C.E.', topics: ['Islamic art', 'Persian art', 'Ottoman architecture', 'Mughal art'] },
+      { id: 'unit8', name: 'Unit 8: South, East, and Southeast Asia, 300 B.C.E.–1980 C.E.', topics: ['Buddhist art', 'Hindu art', 'Chinese art', 'Japanese art'] },
+      { id: 'unit9', name: 'Unit 9: The Pacific, 700–1980 C.E.', topics: ['Polynesian art', 'Melanesian art', 'Aboriginal Australian art'] },
+      { id: 'unit10', name: 'Unit 10: Global Contemporary, 1980 C.E. to Present', topics: ['Installation art', 'Performance art', 'Digital art', 'Globalization in art'] }
+    ],
+    difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
+  },
+  'AP Music Theory': {
+    sections: [
+      { id: 'mcq', name: 'Multiple Choice', time: 80, questions: 75, description: 'Pitch, rhythm, harmony, and form analysis' },
+      { 
+        id: 'frq', 
+        name: 'Free Response', 
+        time: 80, 
+        questions: 7, 
+        description: 'Choose FRQ type or take all',
+        subSections: [
+          { id: 'written-frq', name: 'Written FRQs Only', time: 60, questions: 5, description: 'Part-writing, harmonization, and composition' },
+          { id: 'aural-frq', name: 'Aural Skills Only', time: 20, questions: 2, description: 'Sight-singing and melodic dictation' },
+          { id: 'all-frq', name: 'All FRQs', time: 80, questions: 7, description: '5 Written + 2 Aural FRQs' }
+        ]
+      },
+      { id: 'full', name: 'Full Practice Test', time: 160, questions: 82, description: 'Complete AP Music Theory exam simulation' }
+    ],
+    units: [
+      { id: 'unit1', name: 'Unit 1: Pitch, Scales, and Key Signatures', topics: ['Staff notation', 'Major scales', 'Key signatures', 'Intervals'] },
+      { id: 'unit2', name: 'Unit 2: Minor Scales, Melody, and Timbre', topics: ['Minor scales', 'Melodic analysis', 'Instrument timbres', 'Texture'] },
+      { id: 'unit3', name: 'Unit 3: Triads and Seventh Chords', topics: ['Triad types', 'Seventh chords', 'Inversions', 'Roman numeral analysis'] },
+      { id: 'unit4', name: 'Unit 4: Chord Function and Cadences', topics: ['Harmonic function', 'Authentic cadences', 'Half cadences', 'Deceptive cadences'] },
+      { id: 'unit5', name: 'Unit 5: Chord Progressions', topics: ['Common progressions', 'Predominant function', 'Voice leading', 'Part writing'] },
+      { id: 'unit6', name: 'Unit 6: Embellishments and Melodic Devices', topics: ['Non-chord tones', 'Suspensions', 'Passing tones', 'Neighbor tones'] },
+      { id: 'unit7', name: 'Unit 7: Secondary Function and Modulation', topics: ['Secondary dominants', 'Modulation', 'Tonicization', 'Pivot chords'] },
+      { id: 'unit8', name: 'Unit 8: Modes and Form', topics: ['Modal scales', 'Binary form', 'Ternary form', 'Sonata form'] }
+    ],
+    difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
+  },
+  'AP Precalculus': {
+    sections: [
+      { id: 'mcq', name: 'Multiple Choice', time: 120, questions: 40, description: 'Part A: 28Q (80min, no calc) + Part B: 12Q (40min, calc)' },
+      { id: 'full', name: 'Full Practice Test', time: 120, questions: 40, description: 'Complete AP Precalculus exam simulation' }
+    ],
+    units: [
+      { id: 'unit1', name: 'Unit 1: Polynomial and Rational Functions', topics: ['Polynomial functions', 'Rates of change', 'Complex zeros', 'Rational functions'] },
+      { id: 'unit2', name: 'Unit 2: Exponential and Logarithmic Functions', topics: ['Exponential functions', 'Logarithmic functions', 'Exponential models', 'Composition'] },
+      { id: 'unit3', name: 'Unit 3: Trigonometric and Polar Functions', topics: ['Periodic functions', 'Trigonometric functions', 'Trigonometric identities', 'Polar coordinates'] },
+      { id: 'unit4', name: 'Unit 4: Functions Involving Parameters, Vectors, and Matrices', topics: ['Parametric functions', 'Vectors', 'Matrices', 'Linear transformations'] }
+    ],
+    difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   }
 };
 

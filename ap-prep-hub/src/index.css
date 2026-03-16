@@ -9,7 +9,12 @@
    ============================================================ */
 
 @layer base {
-  :root {
+  /* ============================================================
+     DARK THEME (default)
+     ============================================================ */
+  :root,
+  [data-theme="dark"] {
+    color-scheme: dark;
     /* ---- Base / Backgrounds ---- */
     --color-base-950: #0c0f14;
     --color-base-900: #131720;
@@ -70,6 +75,91 @@
     --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.3);
     --shadow-raised: 0 4px 12px rgba(0, 0, 0, 0.4);
     --shadow-floating: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.03);
+
+    /* ---- Glass Effect ---- */
+    --glass-bg: rgba(15, 23, 42, 0.7);
+    --glass-border: rgba(51, 65, 85, 0.5);
+
+    /* ---- Scrollbar ---- */
+    --scrollbar-track: #131720;
+    --scrollbar-thumb: #2a3146;
+    --scrollbar-thumb-hover: #3a4262;
+  }
+
+  /* ============================================================
+     LIGHT THEME
+     ============================================================ */
+  [data-theme="light"] {
+    color-scheme: light;
+    /* ---- Base / Backgrounds ---- */
+    --color-base-950: #ffffff;
+    --color-base-900: #f8fafc;
+    --color-base-850: #f1f5f9;
+    --color-base-800: #e2e8f0;
+    --color-base-750: #cbd5e1;
+
+    /* ---- Borders ---- */
+    --color-border: #d1d5db;
+    --color-border-subtle: #e5e7eb;
+    --color-border-strong: #9ca3af;
+
+    /* ---- Text ---- */
+    --color-text-primary: #111827;
+    --color-text-secondary: #4b5563;
+    --color-text-muted: #6b7280;
+    --color-text-disabled: #9ca3af;
+
+    /* ---- Primary Accent: Teal (adjusted for light bg contrast) ---- */
+    --color-primary-400: #0d9488;
+    --color-primary-500: #14b8a6;
+    --color-primary-600: #0d9488;
+    --color-primary-700: #0f766e;
+    --color-primary-900: #ccfbf1;
+    --color-primary-950: #f0fdfa;
+
+    /* ---- Secondary Accent: Amber ---- */
+    --color-accent-400: #d97706;
+    --color-accent-500: #f59e0b;
+    --color-accent-900: #fef3c7;
+
+    /* ---- Semantic: Success ---- */
+    --color-success-400: #16a34a;
+    --color-success-500: #22c55e;
+    --color-success-900: #dcfce7;
+
+    /* ---- Semantic: Warning ---- */
+    --color-warning-400: #ca8a04;
+    --color-warning-500: #eab308;
+    --color-warning-900: #fef9c3;
+
+    /* ---- Semantic: Error ---- */
+    --color-error-400: #dc2626;
+    --color-error-500: #ef4444;
+    --color-error-900: #fef2f2;
+
+    /* ---- Semantic: Info ---- */
+    --color-info-400: #2563eb;
+    --color-info-500: #3b82f6;
+    --color-info-900: #dbeafe;
+
+    /* ---- Interactive States ---- */
+    --color-hover-overlay: rgba(0, 0, 0, 0.04);
+    --color-active-overlay: rgba(0, 0, 0, 0.06);
+    --color-focus-ring: rgba(20, 184, 166, 0.3);
+
+    /* ---- Shadows (softer for light mode) ---- */
+    --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.06);
+    --shadow-raised: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --shadow-floating: 0 8px 24px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.04);
+
+    /* ---- Glass Effect ---- */
+    --glass-bg: rgba(255, 255, 255, 0.8);
+    --glass-border: rgba(209, 213, 219, 0.6);
+
+    /* ---- Scrollbar ---- */
+    --scrollbar-track: #f1f5f9;
+    --scrollbar-thumb: #cbd5e1;
+    --scrollbar-thumb-hover: #9ca3af;
   }
 
   * {
@@ -223,6 +313,14 @@ html {
   overflow-x: hidden;
 }
 
+/* Theme transition */
+html,
+html *,
+html *::before,
+html *::after {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease, box-shadow 0.2s ease;
+}
+
 /* Mobile viewport height fix */
 body {
   min-height: 100vh;
@@ -234,14 +332,14 @@ body {
   width: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--color-base-900);
+  background: var(--scrollbar-track);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border);
+  background: var(--scrollbar-thumb);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-border-strong);
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* Animation utilities */
@@ -255,7 +353,8 @@ body {
 
 /* Focus ring */
 .focus-ring {
-  @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-base-900;
+  @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+  --tw-ring-offset-color: var(--color-base-950);
 }
 
 /* Card hover */

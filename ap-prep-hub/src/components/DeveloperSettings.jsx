@@ -228,7 +228,9 @@ export default function DeveloperSettings({ onClose }) {
                                         }
                                     }
                                     keysToRemove.forEach(k => localStorage.removeItem(k));
-                                    alert(`Cleared ${keysToRemove.length} Puter auth key(s). Reload the page to re-authenticate.`);
+                                    // Notify ModelSelector and other components that Puter auth was cleared
+                                    window.dispatchEvent(new CustomEvent('apex:puterAuthCleared'));
+                                    alert(`Cleared ${keysToRemove.length} Puter auth key(s). Puter models are now disabled.`);
                                 }}
                                 className="px-4 py-2 bg-error-600 hover:bg-error-700 text-content-primary rounded-lg transition-colors text-sm font-medium flex items-center gap-2"
                             >

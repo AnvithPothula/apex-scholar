@@ -39,7 +39,7 @@ const mdComponents = {
   h1: ({ children }) => <h1 className="text-xl font-display font-bold mb-3 text-content-primary">{children}</h1>,
   h2: ({ children }) => <h2 className="text-lg font-display font-bold mb-2 text-content-primary">{children}</h2>,
   h3: ({ children }) => <h3 className="text-base font-display font-semibold mb-2 text-content-primary">{children}</h3>,
-  p: ({ children }) => <p className="mb-2 leading-relaxed">{children}</p>,
+  p: ({ children }) => <div className="mb-2 leading-relaxed">{children}</div>,
   ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
   ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
   li: ({ children }) => <li className="ml-2">{children}</li>,

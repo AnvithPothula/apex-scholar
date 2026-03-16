@@ -577,7 +577,7 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
                       {solution.difficulty}
                     </Badge>
                   </div>
-                  <p className="text-content-secondary font-medium"><MarkdownRenderer content={solution.question} /></p>
+                  <div className="text-content-secondary font-medium"><MarkdownRenderer content={solution.question} /></div>
                   <p className="text-sm text-content-muted mt-2">
                     <Clock className="w-4 h-4 inline mr-1" strokeWidth={1.5} />
                     Estimated time: {solution.timeToSolve}
@@ -615,7 +615,7 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
                     <CheckCircle className="w-5 h-5 text-success-400" strokeWidth={1.5} />
                     <h3 className="text-lg font-semibold text-content-primary">Final Answer</h3>
                   </div>
-                  <p className="text-success-300 font-mono text-lg"><MarkdownRenderer content={solution.finalAnswer} /></p>
+                  <div className="text-success-300 font-mono text-lg"><MarkdownRenderer content={solution.finalAnswer} /></div>
                 </div>
 
                 {/* Key Concepts */}

@@ -950,6 +950,15 @@ const AITutors = () => {
             const jsonStr = cleaned.substring(firstBrace, lastBrace + 1);
             const mcq = JSON.parse(jsonStr);
             if (mcq && mcq.question && Array.isArray(mcq.choices) && mcq.choices.length >= 2) {
+              // Ensure correctIndex is always a number (AI may return it as a string)
+              if (mcq.correctIndex !== undefined && mcq.correctIndex !== null) {
+                mcq.correctIndex = parseInt(mcq.correctIndex, 10);
+                if (isNaN(mcq.correctIndex)) mcq.correctIndex = 0;
+              }
+              // Ensure explanations is an array (AI may omit or return wrong type)
+              if (!Array.isArray(mcq.explanations)) {
+                mcq.explanations = mcq.choices.map(() => '');
+              }
               aiMessage.responseType = 'mcq';
               aiMessage.mcq = mcq;
               // Replace content with just the question text (hide raw JSON from display)
@@ -1245,7 +1254,7 @@ RESPONSE STRUCTURE: Direct analysis → 2-3 key concepts → AP application → 
             threshold: "BLOCK_MEDIUM_AND_ABOVE"
           }
         ],
-        timeoutMs: 60000 // 60 second timeout for Claude/GPT complex prompts
+        timeoutMs: 45000 // 45 second timeout
       };
       console.log("Calling enhanced Gemini API with curriculum focus and file analysis...", {
         messagePartsCount: messageParts.length,

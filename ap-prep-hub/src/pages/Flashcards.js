@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, Plus, Search, Play, Trash2, Clock, BookOpen, Sparkles, CheckCircle, X, Edit3, Save, ChevronDown } from 'lucide-react';
+import { Zap, Plus, Search, Play, Trash2, Clock, BookOpen, Sparkles, CheckCircle, X, Edit3, Save, ChevronDown, Globe, Lock, Copy, Users } from 'lucide-react';
 import { Button, Card, Input } from '../components/ui/UIComponents';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -85,6 +85,15 @@ const FlashcardsPage = () => {
   const [selectedModel, setSelectedModel] = useState(getDefaultModel);
 
   const [userCollections, setUserCollections] = useState([]);
+  
+  // Public / Private tab state
+  const [activeTab, setActiveTab] = useState('my'); // 'my' | 'public'
+  const [publicDecks, setPublicDecks] = useState([]);
+  const [publicSearchQuery, setPublicSearchQuery] = useState('');
+  const [publicSubjectFilter, setPublicSubjectFilter] = useState('');
+  const [isSearchingPublic, setIsSearchingPublic] = useState(false);
+  const [copyingDeckId, setCopyingDeckId] = useState(null);
+  const [isPublicDeck, setIsPublicDeck] = useState(false); // toggle for create forms
 
   // Load user's flashcard decks
   const loadUserFlashcards = useCallback(async () => {
@@ -128,7 +137,8 @@ const FlashcardsPage = () => {
         cardCount: flashcards.length,
         difficulty: 'Medium',
         description: createDescription || `AI-generated flashcards for ${createTopic}`,
-        progress: 0
+        progress: 0,
+        isPublic: isPublicDeck
       };
 
       // Save to Firebase
@@ -146,6 +156,7 @@ const FlashcardsPage = () => {
       setCreateSubject('');
       setCreateTopic('');
       setCreateDescription('');
+      setIsPublicDeck(false);
     } catch (error) {
       console.error('Error creating flashcards:', error);
       if (error instanceof RateLimitError || error?.isRateLimit) {
@@ -267,7 +278,8 @@ const FlashcardsPage = () => {
         difficulty: 'Custom',
         description: createDescription || `Manually created flashcards`,
         progress: 0,
-        isManual: true
+        isManual: true,
+        isPublic: isPublicDeck
       };
 
       // Save to Firebase
@@ -287,6 +299,7 @@ const FlashcardsPage = () => {
       setManualCards([{ question: '', answer: '' }]);
       setCreateSubject('');
       setCreateDescription('');
+      setIsPublicDeck(false);
     } catch (error) {
       console.error('Error creating manual flashcards:', error);
       alert('Failed to create flashcards. Please try again.');
@@ -295,6 +308,67 @@ const FlashcardsPage = () => {
 
   const addCard = () => {
     setManualCards(prev => [...prev, { question: '', answer: '' }]);
+  };
+
+  // --- Public flashcard functions ---
+  const searchPublicDecks = useCallback(async () => {
+    setIsSearchingPublic(true);
+    try {
+      const decks = await dataService.searchPublicFlashcardDecks(publicSearchQuery, publicSubjectFilter);
+      setPublicDecks(decks.map(deck => ({
+        ...deck,
+        createdAt: deck.createdAt ? new Date(deck.createdAt.seconds * 1000) : new Date()
+      })));
+    } catch (error) {
+      console.error('Error searching public decks:', error);
+    } finally {
+      setIsSearchingPublic(false);
+    }
+  }, [publicSearchQuery, publicSubjectFilter]);
+
+  // Load public decks when switching to public tab or changing filters
+  useEffect(() => {
+    if (activeTab === 'public') {
+      searchPublicDecks();
+    }
+  }, [activeTab, searchPublicDecks]);
+
+  const handleCopyPublicDeck = async (deck) => {
+    if (!user) return;
+    setCopyingDeckId(deck.id);
+    try {
+      const newId = await dataService.copyPublicDeckToUser(user.uid, deck);
+      // Add to local My Decks
+      setUserCollections(prev => [{
+        ...deck,
+        id: newId,
+        userId: user.uid,
+        isPublic: false,
+        progress: 0,
+        lastStudied: 'Never',
+        createdAt: new Date(),
+        copiedFrom: deck.id
+      }, ...prev]);
+      alert('Deck copied to your flashcards!');
+    } catch (error) {
+      console.error('Error copying deck:', error);
+      alert('Failed to copy deck. Please try again.');
+    } finally {
+      setCopyingDeckId(null);
+    }
+  };
+
+  const handleToggleVisibility = async (deck) => {
+    const newVisibility = !deck.isPublic;
+    try {
+      await dataService.toggleFlashcardVisibility(deck.id, newVisibility);
+      setUserCollections(prev => prev.map(d =>
+        d.id === deck.id ? { ...d, isPublic: newVisibility } : d
+      ));
+    } catch (error) {
+      console.error('Error toggling visibility:', error);
+      alert('Failed to update visibility.');
+    }
   };
 
   const removeCard = (index) => {
@@ -529,25 +603,91 @@ const FlashcardsPage = () => {
           </div>
         </motion.div>
 
-        {/* Search Bar */}
+        {/* Tabs: My Decks / Public */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="mb-8"
+          className="mb-6 sm:mb-8"
         >
-          <div className="relative max-w-2xl mx-auto">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-content-muted" strokeWidth={1.5} />
-            <Input
-              placeholder="Search your flashcard collections..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 text-center"
-            />
+          <div className="flex justify-center mb-6">
+            <div className="flex bg-base-850 p-1 rounded-lg border border-border">
+              <button
+                onClick={() => setActiveTab('my')}
+                className={`px-4 sm:px-6 py-2 rounded-md text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+                  activeTab === 'my'
+                    ? 'bg-primary-500 text-base-950 shadow-sm'
+                    : 'text-content-muted hover:text-content-primary'
+                }`}
+              >
+                <BookOpen className="w-4 h-4" strokeWidth={1.5} />
+                My Decks
+              </button>
+              <button
+                onClick={() => setActiveTab('public')}
+                className={`px-4 sm:px-6 py-2 rounded-md text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+                  activeTab === 'public'
+                    ? 'bg-primary-500 text-base-950 shadow-sm'
+                    : 'text-content-muted hover:text-content-primary'
+                }`}
+              >
+                <Globe className="w-4 h-4" strokeWidth={1.5} />
+                Public Decks
+              </button>
+            </div>
           </div>
+
+          {/* Search Bar (context-aware) */}
+          {activeTab === 'my' ? (
+            <div className="relative max-w-2xl mx-auto">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-content-muted" strokeWidth={1.5} />
+              <Input
+                placeholder="Search your flashcard collections..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 text-center"
+              />
+            </div>
+          ) : (
+            <div className="max-w-3xl mx-auto space-y-3">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-content-muted" strokeWidth={1.5} />
+                  <Input
+                    placeholder="Search public flashcards by topic, title, or description..."
+                    value={publicSearchQuery}
+                    onChange={(e) => setPublicSearchQuery(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') searchPublicDecks(); }}
+                    className="pl-10"
+                  />
+                </div>
+                <div className="w-full sm:w-48">
+                  <CustomDropdown
+                    options={[{ value: '', label: 'All Subjects' }, ...subjectOptions]}
+                    value={publicSubjectFilter}
+                    onChange={setPublicSubjectFilter}
+                    placeholder="Filter by subject"
+                  />
+                </div>
+                <Button
+                  onClick={searchPublicDecks}
+                  disabled={isSearchingPublic}
+                  className="bg-primary-500 hover:bg-primary-600 text-base-950 whitespace-nowrap"
+                >
+                  {isSearchingPublic ? (
+                    <div className="w-4 h-4 border-2 border-base-950 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Search className="w-4 h-4" strokeWidth={1.5} />
+                  )}
+                  <span className="ml-2 hidden sm:inline">Search</span>
+                </Button>
+              </div>
+            </div>
+          )}
         </motion.div>
 
         {/* My Flashcards Section */}
+        {activeTab === 'my' && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -619,6 +759,26 @@ const FlashcardsPage = () => {
                   <p className="text-xs text-content-muted mt-1">
                     💡 LaTeX math is supported! Use $x^2$ for inline math or $$x + y = z$$ for block math
                   </p>
+                </div>
+                {/* Visibility Toggle */}
+                <div className="mb-4 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsPublicDeck(!isPublicDeck)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
+                      isPublicDeck ? 'bg-primary-500' : 'bg-base-750'
+                    }`}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
+                      isPublicDeck ? 'translate-x-6' : 'translate-x-1'
+                    }`} />
+                  </button>
+                  <div className="flex items-center gap-1.5">
+                    {isPublicDeck ? <Globe className="w-4 h-4 text-primary-400" strokeWidth={1.5} /> : <Lock className="w-4 h-4 text-content-muted" strokeWidth={1.5} />}
+                    <span className="text-sm text-content-secondary">
+                      {isPublicDeck ? 'Public — anyone can find and copy this deck' : 'Private — only you can see this deck'}
+                    </span>
+                  </div>
                 </div>
                 <div className="flex gap-3">
                   <Button
@@ -755,6 +915,27 @@ const FlashcardsPage = () => {
                   ))}
                 </div>
 
+                {/* Visibility Toggle */}
+                <div className="mb-4 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsPublicDeck(!isPublicDeck)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
+                      isPublicDeck ? 'bg-primary-500' : 'bg-base-750'
+                    }`}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
+                      isPublicDeck ? 'translate-x-6' : 'translate-x-1'
+                    }`} />
+                  </button>
+                  <div className="flex items-center gap-1.5">
+                    {isPublicDeck ? <Globe className="w-4 h-4 text-primary-400" strokeWidth={1.5} /> : <Lock className="w-4 h-4 text-content-muted" strokeWidth={1.5} />}
+                    <span className="text-sm text-content-secondary">
+                      {isPublicDeck ? 'Public — anyone can find and copy this deck' : 'Private — only you can see this deck'}
+                    </span>
+                  </div>
+                </div>
+
                 <div className="flex gap-3">
                   <Button
                     onClick={handleManualCreate}
@@ -789,10 +970,24 @@ const FlashcardsPage = () => {
                   >
                     <Card className="p-6 h-full hover:bg-base-850/50 transition-all duration-200 group">
                       <div className="flex items-start justify-between mb-4">
-                        <div className="flex-1">
-                          <h3 className="text-lg font-bold text-content-primary mb-2 group-hover:text-primary-400 transition-colors">
-                            {collection.title}
-                          </h3>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2 flex-wrap">
+                            <h3 className="text-lg font-bold text-content-primary group-hover:text-primary-400 transition-colors truncate">
+                              {collection.title}
+                            </h3>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleToggleVisibility(collection); }}
+                              className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors ${
+                                collection.isPublic
+                                  ? 'bg-primary-900 text-primary-400 hover:bg-primary-500 hover:text-base-950'
+                                  : 'bg-base-800 text-content-muted hover:bg-base-750'
+                              }`}
+                              title={collection.isPublic ? 'Click to make private' : 'Click to make public'}
+                            >
+                              {collection.isPublic ? <Globe className="w-3 h-3" strokeWidth={1.5} /> : <Lock className="w-3 h-3" strokeWidth={1.5} />}
+                              {collection.isPublic ? 'Public' : 'Private'}
+                            </button>
+                          </div>
                           <p className="text-sm text-content-muted mb-3">
                             {collection.description}
                           </p>
@@ -868,6 +1063,114 @@ const FlashcardsPage = () => {
             </Card>
           )}
         </motion.div>
+        )}
+
+        {/* Public Flashcards Section */}
+        {activeTab === 'public' && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="mb-12"
+        >
+          <div className="flex items-center gap-2 mb-6">
+            <Users className="w-5 h-5 text-primary-400" strokeWidth={1.5} />
+            <h2 className="text-xl sm:text-2xl font-bold text-content-primary">Public Flashcards</h2>
+          </div>
+
+          {isSearchingPublic ? (
+            <div className="flex justify-center py-12">
+              <div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : publicDecks.length > 0 ? (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {publicDecks.map((deck) => (
+                <motion.div
+                  key={deck.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  whileHover={{ scale: 1.02 }}
+                >
+                  <Card className="p-6 h-full hover:bg-base-850/50 transition-all duration-200 group">
+                    <div className="mb-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="text-lg font-bold text-content-primary group-hover:text-primary-400 transition-colors truncate">
+                          {deck.title}
+                        </h3>
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary-900 text-primary-400 whitespace-nowrap">
+                          <Globe className="w-3 h-3" strokeWidth={1.5} />
+                          Public
+                        </span>
+                      </div>
+                      {deck.topic && (
+                        <p className="text-xs text-primary-400 mb-1">{AP_SUBJECTS[deck.subject]?.name || deck.subject}</p>
+                      )}
+                      <p className="text-sm text-content-muted mb-3 line-clamp-2">
+                        {deck.description}
+                      </p>
+                      <div className="flex items-center gap-4 text-xs text-content-muted">
+                        <div className="flex items-center gap-1">
+                          <BookOpen className="w-3 h-3" strokeWidth={1.5} />
+                          <span>{deck.cardCount || deck.cards?.length || 0} cards</span>
+                        </div>
+                        {deck.createdAt && (
+                          <div className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" strokeWidth={1.5} />
+                            <span>{deck.createdAt instanceof Date ? deck.createdAt.toLocaleDateString() : 'Recently'}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => handleCopyPublicDeck(deck)}
+                        disabled={copyingDeckId === deck.id}
+                        className="flex-1 bg-primary-500 hover:bg-primary-600 text-base-950"
+                      >
+                        {copyingDeckId === deck.id ? (
+                          <div className="w-4 h-4 border-2 border-base-950 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <>
+                            <Copy className="w-4 h-4 mr-2" strokeWidth={1.5} />
+                            Copy to My Decks
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleStudyCollection(deck)}
+                        className="hover:bg-primary-500/20 hover:border-primary-500"
+                      >
+                        <Play className="w-4 h-4" strokeWidth={1.5} />
+                      </Button>
+                    </div>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          ) : (
+            <Card className="p-8 text-center">
+              <Globe className="w-16 h-16 text-content-muted mx-auto mb-4" strokeWidth={1.5} />
+              <h3 className="text-xl font-bold text-content-secondary mb-2">No public decks found</h3>
+              <p className="text-content-muted mb-4">
+                {publicSearchQuery || publicSubjectFilter
+                  ? 'Try a different search term or clear your filters.'
+                  : 'Be the first to share a flashcard deck! Create a deck and toggle it to Public.'}
+              </p>
+              {(publicSearchQuery || publicSubjectFilter) && (
+                <Button
+                  variant="outline"
+                  onClick={() => { setPublicSearchQuery(''); setPublicSubjectFilter(''); }}
+                >
+                  Clear Filters
+                </Button>
+              )}
+            </Card>
+          )}
+        </motion.div>
+        )}
       </div>
       )}
 
@@ -896,6 +1199,32 @@ const FlashcardsPage = () => {
                   value={editingDeck.description}
                   onChange={(e) => setEditingDeck(prev => ({ ...prev, description: e.target.value }))}
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-content-secondary mb-2">Visibility</label>
+                <button
+                  type="button"
+                  onClick={() => setEditingDeck(prev => ({ ...prev, isPublic: !prev.isPublic }))}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
+                    editingDeck.isPublic
+                      ? 'border-primary-500 bg-primary-500/10 text-primary-400'
+                      : 'border-border bg-base-800/50 text-content-secondary'
+                  }`}
+                >
+                  {editingDeck.isPublic ? (
+                    <>
+                      <Globe className="w-4 h-4" strokeWidth={1.5} />
+                      <span className="text-sm font-medium">Public</span>
+                      <span className="text-xs text-content-muted ml-1">— Anyone can find and copy this deck</span>
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="w-4 h-4" strokeWidth={1.5} />
+                      <span className="text-sm font-medium">Private</span>
+                      <span className="text-xs text-content-muted ml-1">— Only you can see this deck</span>
+                    </>
+                  )}
+                </button>
               </div>
               <div>
                 <label className="block text-sm font-medium text-content-secondary mb-2">Cards</label>

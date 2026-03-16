@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Brain, Calendar, Settings, LogOut, Award, Shield, X, MessageSquare, Send, FileQuestion, Zap, Calculator, Star, Code2 } from 'lucide-react';
+import { Brain, Calendar, Settings, LogOut, Award, Shield, X, MessageSquare, Send, FileQuestion, Zap, Calculator, Star, Code2, Sun, Moon } from 'lucide-react';
 import { Button, Avatar, AvatarFallback, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from './ui/UIComponents';
 import { useAuth } from '../contexts/AuthContext';
 import { createPageUrl, cn } from '../utils/helpers';
@@ -9,6 +9,7 @@ import PuterAuthPrompt from './auth/PuterAuthPrompt';
 import OnboardingWalkthrough from './OnboardingWalkthrough';
 import ReviewModal from './ReviewModal';
 import DeveloperSettings, { isAdmin } from './DeveloperSettings';
+import { useTheme } from '../contexts/ThemeContext';
 
 export function Layout({ children }) {
     const location = useLocation();
@@ -19,6 +20,7 @@ export function Layout({ children }) {
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [showReviewModal, setShowReviewModal] = useState(false);
     const [showDevSettings, setShowDevSettings] = useState(false);
+    const { theme, toggleTheme, isDark } = useTheme();
     const isActiveTab = (pageName) => location.pathname.startsWith(createPageUrl(pageName));
 
     return (
@@ -98,6 +100,14 @@ export function Layout({ children }) {
                         </nav>
                         
                         <div className="flex items-center space-x-1 sm:space-x-2">
+                            <button
+                                onClick={toggleTheme}
+                                className="p-1.5 sm:p-2 rounded-lg text-content-muted hover:text-content-primary hover:bg-base-850 transition-all duration-200"
+                                aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+                                title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+                            >
+                                {isDark ? <Sun strokeWidth={1.5} size={16} className="sm:w-[18px] sm:h-[18px]" /> : <Moon strokeWidth={1.5} size={16} className="sm:w-[18px] sm:h-[18px]" />}
+                            </button>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" className="flex items-center space-x-1 sm:space-x-2 p-0.5 sm:p-1 rounded-full hover:bg-base-850 transition-all duration-200">

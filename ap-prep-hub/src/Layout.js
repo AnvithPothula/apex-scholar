@@ -19,8 +19,7 @@ export default function Layout({ children, currentPageName }) {
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
 
   useEffect(() => {
-    // Force dark theme permanently
-    document.documentElement.classList.add("dark");
+    // Theme is now managed by ThemeContext
 
     const fetchUser = async () => {
       try {
@@ -50,8 +49,8 @@ export default function Layout({ children, currentPageName }) {
         {`
           .glass-effect {
             backdrop-filter: blur(20px);
-            background: rgba(15, 23, 42, 0.7);
-            border-color: rgba(51, 65, 85, 0.5);
+            background: var(--glass-bg);
+            border-color: var(--glass-border);
           }
 
           .tab-transition {

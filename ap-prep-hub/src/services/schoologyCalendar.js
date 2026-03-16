@@ -144,7 +144,7 @@ class SchoologyCalendarService {
           event.startTzid = tzidMatch[1];
         }
 
-        const parsedDate = this.parseICalDate(dateStr);
+        const parsedDate = this.parseICalDate(dateStr, event.startTzid);
 
         if (parsedDate) {
           event.startDate = parsedDate;
@@ -166,7 +166,7 @@ class SchoologyCalendarService {
           event.endTzid = tzidMatch[1];
         }
 
-        const parsedDate = this.parseICalDate(dateStr);
+        const parsedDate = this.parseICalDate(dateStr, event.endTzid);
 
         if (parsedDate) {
           event.endDate = parsedDate;
@@ -185,8 +185,10 @@ class SchoologyCalendarService {
 
   /**
    * Parse iCal date format to JavaScript Date
+   * @param {string} dateStr - iCal date string (e.g., 20250825T140000Z, 20250825T140000, 20250825)
+   * @param {string} [tzid] - Optional IANA timezone name (e.g., "America/Chicago")
    */
-  parseICalDate(dateStr) {
+  parseICalDate(dateStr, tzid) {
     try {
       
       
@@ -201,19 +203,37 @@ class SchoologyCalendarService {
       // Handle different iCal date formats with timezone awareness
       if (cleanDateStr.includes('T')) {
         // DateTime format: 20250825T140000Z or 20250825T140000
-        let isoStr;
         if (cleanDateStr.endsWith('Z')) {
-          // UTC time: 20250825T140000Z
-          isoStr = cleanDateStr.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z/, '$1-$2-$3T$4:$5:$6Z');
+          // UTC time: 20250825T140000Z — TZID is irrelevant
+          const isoStr = cleanDateStr.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z/, '$1-$2-$3T$4:$5:$6Z');
+          const date = new Date(isoStr);
+          if (!isNaN(date.getTime())) {
+            return date;
+          }
         } else {
-          // Local time: 20250825T140000 - interpret in user's timezone
-          isoStr = cleanDateStr.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/, '$1-$2-$3T$4:$5:$6');
-        }
-        
-        const date = new Date(isoStr);
-        if (!isNaN(date.getTime())) {
-          
-          return date;
+          // Local/wall-clock time: 20250825T140000
+          const match = cleanDateStr.match(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/);
+          if (match) {
+            const [, y, mo, d, h, mi, s] = match.map(Number);
+
+            // If TZID is provided, interpret the wall-clock time in that timezone
+            if (tzid) {
+              try {
+                const date = this._dateInTimezone(y, mo, d, h, mi, s, tzid);
+                if (date && !isNaN(date.getTime())) {
+                  return date;
+                }
+              } catch (tzError) {
+                console.warn('TZID conversion failed, falling back to local time:', tzError);
+              }
+            }
+            // No TZID or TZID conversion failed — interpret in browser's local timezone
+            const isoStr = `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}T${String(h).padStart(2,'0')}:${String(mi).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+            const date = new Date(isoStr);
+            if (!isNaN(date.getTime())) {
+              return date;
+            }
+          }
         }
       } else if (cleanDateStr.length === 8 && /^\d{8}$/.test(cleanDateStr)) {
         // Date only format: 20250825 - create in user's timezone
@@ -255,6 +275,38 @@ class SchoologyCalendarService {
       console.warn('❌ Failed to parse iCal date:', dateStr, error);
       return null;
     }
+  }
+
+  /**
+   * Convert wall-clock components in a specific IANA timezone to a JS Date (UTC).
+   * Example: _dateInTimezone(2026, 3, 4, 23, 59, 0, 'America/Chicago')
+   * → Date representing 2026-03-05T05:59:00Z (CST is UTC-6)
+   */
+  _dateInTimezone(year, month, day, hour, minute, second, timezone) {
+    // Step 1: Create a UTC date with the target wall-clock components
+    const utcEstimate = Date.UTC(year, month - 1, day, hour, minute, second);
+
+    // Step 2: Format that UTC instant in the target timezone to see what wall-clock it maps to
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour12: false
+    });
+
+    const parts = formatter.formatToParts(new Date(utcEstimate));
+    const get = (type) => parseInt(parts.find(p => p.type === type)?.value || '0', 10);
+
+    let tzHour = get('hour');
+    if (tzHour === 24) tzHour = 0; // some locales use 24 for midnight
+
+    const tzWall = Date.UTC(get('year'), get('month') - 1, get('day'), tzHour, get('minute'), get('second'));
+
+    // Step 3: The difference tells us the timezone's UTC offset at that instant
+    const offsetMs = utcEstimate - tzWall;
+
+    // Step 4: Shift the estimate by the offset so the target timezone shows the desired wall-clock
+    return new Date(utcEstimate + offsetMs);
   }
 
   /**

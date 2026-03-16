@@ -1242,8 +1242,8 @@ class GeminiService {
       console.log('[AI] Puter.generateFromPayload start', { model: model || 'default', hasImage: imageParts.length > 0 });
       // If prompt is very long, use a truncated version for Puter attempt to avoid stalls
       let promptForPuter = prompt;
-      if (promptForPuter.length > 12000) {
-        const head = promptForPuter.slice(0, 8000);
+      if (promptForPuter.length > 10000) {
+        const head = promptForPuter.slice(0, 7000);
         const tail = promptForPuter.slice(-2000);
         promptForPuter = head + '\n...\n' + tail;
       }
@@ -1253,7 +1253,7 @@ class GeminiService {
         ? puter.ai.chat(promptForPuter, selectedImage, puterOpts)
         : puter.ai.chat(promptForPuter, puterOpts);
       console.log('[AI] Waiting for Puter response...');
-      const timeoutMs = payload?.timeoutMs || 60000; // Allow up to 60s for complex prompts
+      const timeoutMs = payload?.timeoutMs || 45000; // Allow up to 45s for complex prompts
       const resp = await withTimeout(p, timeoutMs, 'Puter payload request timed out');
       console.log('[AI] Puter.generateFromPayload success', { model, ms: Date.now() - t0, respType: typeof resp });
       
@@ -1288,8 +1288,8 @@ class GeminiService {
           const retryModel = await this.ensureWorkingModel({ multimodal: imageParts.length > 0, probeMs: 8000 });
           const tR = Date.now();
           let promptForPuter = prompt;
-          if (promptForPuter.length > 12000) {
-            const head = promptForPuter.slice(0, 8000);
+          if (promptForPuter.length > 10000) {
+            const head = promptForPuter.slice(0, 7000);
             const tail = promptForPuter.slice(-2000);
             promptForPuter = head + '\n...\n' + tail;
           }

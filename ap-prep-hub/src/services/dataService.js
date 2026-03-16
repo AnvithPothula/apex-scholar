@@ -67,6 +67,7 @@ class DataService {
       const deckRef = await addDoc(collection(this.db, 'flashcardDecks'), {
         userId,
         ...deckData,
+        isPublic: deckData.isPublic || false,
         createdAt: serverTimestamp(),
         lastStudied: null,
         progress: 0
@@ -111,6 +112,86 @@ class DataService {
       await deleteDoc(doc(this.db, 'flashcardDecks', deckId));
     } catch (error) {
       console.error('Error deleting flashcard deck:', error);
+      throw error;
+    }
+  }
+
+  async updateFlashcardDeck(deckId, deckData) {
+    try {
+      const deckRef = doc(this.db, 'flashcardDecks', deckId);
+      // Remove fields that shouldn't be overwritten
+      const { id, originalId, createdAt, lastStudied: _ls, ...updateData } = deckData;
+      await updateDoc(deckRef, {
+        ...updateData,
+        lastUpdated: serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Error updating flashcard deck:', error);
+      throw error;
+    }
+  }
+
+  async toggleFlashcardVisibility(deckId, isPublic) {
+    try {
+      const deckRef = doc(this.db, 'flashcardDecks', deckId);
+      await updateDoc(deckRef, { isPublic, lastUpdated: serverTimestamp() });
+    } catch (error) {
+      console.error('Error toggling flashcard visibility:', error);
+      throw error;
+    }
+  }
+
+  async searchPublicFlashcardDecks(searchTerm = '', subjectFilter = '') {
+    try {
+      // Query all public decks
+      const q = query(
+        collection(this.db, 'flashcardDecks'),
+        where('isPublic', '==', true),
+        orderBy('createdAt', 'desc'),
+        firestoreLimit(50)
+      );
+      const snapshot = await getDocs(q);
+      let decks = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      // Client-side filtering for search term and subject
+      if (searchTerm) {
+        const lower = searchTerm.toLowerCase();
+        decks = decks.filter(d =>
+          (d.title || '').toLowerCase().includes(lower) ||
+          (d.topic || '').toLowerCase().includes(lower) ||
+          (d.description || '').toLowerCase().includes(lower) ||
+          (d.subject || '').toLowerCase().includes(lower)
+        );
+      }
+      if (subjectFilter) {
+        decks = decks.filter(d => d.subject === subjectFilter);
+      }
+
+      return decks;
+    } catch (error) {
+      console.error('Error searching public flashcard decks:', error);
+      return [];
+    }
+  }
+
+  async copyPublicDeckToUser(userId, sourceDeck) {
+    try {
+      const newDeck = {
+        title: sourceDeck.title,
+        subject: sourceDeck.subject || 'General',
+        topic: sourceDeck.topic || '',
+        cards: sourceDeck.cards || [],
+        cardCount: sourceDeck.cardCount || (sourceDeck.cards || []).length,
+        difficulty: sourceDeck.difficulty || 'Medium',
+        description: sourceDeck.description || '',
+        progress: 0,
+        isPublic: false,
+        copiedFrom: sourceDeck.id,
+        copiedFromUser: sourceDeck.userId || null,
+      };
+      return await this.saveFlashcardDeck(userId, newDeck);
+    } catch (error) {
+      console.error('Error copying public deck:', error);
       throw error;
     }
   }

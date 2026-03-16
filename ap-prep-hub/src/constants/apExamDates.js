@@ -37,7 +37,7 @@ export const SUBJECT_KEY_TO_EXAM_NAME = {
   "physics1": "AP Physics 1: Algebra-Based",
   "physics2": "AP Physics 2: Algebra-Based",
   "physicsC_Mechanics": "AP Physics C: Mechanics",
-  "physicsC_ElectricityAndMagnetism": "AP Physics C: Electricity and Magnetism",
+  "physicsC_ElectricityMagnetism": "AP Physics C: Electricity and Magnetism",
   "precalculus": "AP Precalculus",
   "psychology": "AP Psychology",
   "research": "AP Research",
