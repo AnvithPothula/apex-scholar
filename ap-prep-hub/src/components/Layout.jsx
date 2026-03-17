@@ -25,24 +25,23 @@ export function Layout({ children }) {
 
     return (
         <div className="min-h-screen bg-base-950 text-content-primary">
-            <header className="sticky top-0 z-50 border-b border-border bg-base-900 shadow-raised">
+            <header className="sticky top-0 z-50 border-b border-border bg-base-900/95 backdrop-blur-sm">
                 <div className="max-w-screen-xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
                     <div className="flex items-center justify-between h-14 sm:h-16">
                                                 <Link
                                                         to="/"
                                                         onClick={(e) => {
-                                                            // Ensure client-side navigation to home works even if already on a similar route
                                                             e.preventDefault();
                                                             navigate('/');
                                                         }}
-                                                        className="flex items-center space-x-2 sm:space-x-3 group"
+                                                        className="flex items-center space-x-2 group"
                                                 >
-                            <div className="p-1 sm:p-1.5 rounded-lg group-hover:opacity-80 transition-all duration-200">
-                                <ApexScholarLogo 
-                                    className="w-8 h-8 sm:w-10 sm:h-10" 
+                            <div className="p-1 rounded-md group-hover:opacity-80 transition-opacity duration-150">
+                                <ApexScholarLogo
+                                    className="w-7 h-7 sm:w-8 sm:h-8"
                                 />
                             </div>
-                            <h1 className="text-lg sm:text-xl font-display font-bold text-primary-400 truncate max-w-[120px] sm:max-w-none">Apex Scholar</h1>
+                            <h1 className="text-base sm:text-lg font-display font-semibold text-content-primary truncate max-w-[120px] sm:max-w-none">Apex Scholar</h1>
                         </Link>
                         
                         {/* Mobile-optimized navigation */}
@@ -51,7 +50,7 @@ export function Layout({ children }) {
                                 to={createPageUrl("AITutors")} 
                                 className={cn(
                                     "px-2 sm:px-2.5 md:px-3 lg:px-4 py-1.5 sm:py-2 flex items-center space-x-1 md:space-x-1.5 font-medium transition-all duration-200 text-xs sm:text-sm",
-                                    isActiveTab("AITutors") ? "text-primary-400 border-b-2 border-primary-500" : "text-content-muted hover:text-content-primary"
+                                    isActiveTab("AITutors") ? "text-content-primary border-b-2 border-content-primary" : "text-content-muted hover:text-content-primary"
                                 )}
                             >
                                 <Brain strokeWidth={1.5} size={14} className="sm:w-4 sm:h-4 flex-shrink-0" />
@@ -61,7 +60,7 @@ export function Layout({ children }) {
                                 to={createPageUrl("PracticeTests")} 
                                 className={cn(
                                     "px-2 sm:px-2.5 md:px-3 lg:px-4 py-1.5 sm:py-2 flex items-center space-x-1 md:space-x-1.5 font-medium transition-all duration-200 text-xs sm:text-sm",
-                                    isActiveTab("PracticeTests") ? "text-primary-400 border-b-2 border-primary-500" : "text-content-muted hover:text-content-primary"
+                                    isActiveTab("PracticeTests") ? "text-content-primary border-b-2 border-content-primary" : "text-content-muted hover:text-content-primary"
                                 )}
                             >
                                 <FileQuestion strokeWidth={1.5} size={14} className="sm:w-4 sm:h-4 flex-shrink-0" />
@@ -71,7 +70,7 @@ export function Layout({ children }) {
                                 to={createPageUrl("Flashcards")} 
                                 className={cn(
                                     "px-2 sm:px-2.5 md:px-3 lg:px-4 py-1.5 sm:py-2 flex items-center space-x-1 md:space-x-1.5 font-medium transition-all duration-200 text-xs sm:text-sm",
-                                    isActiveTab("Flashcards") ? "text-primary-400 border-b-2 border-primary-500" : "text-content-muted hover:text-content-primary"
+                                    isActiveTab("Flashcards") ? "text-content-primary border-b-2 border-content-primary" : "text-content-muted hover:text-content-primary"
                                 )}
                             >
                                 <Zap strokeWidth={1.5} size={14} className="sm:w-4 sm:h-4 flex-shrink-0" />
@@ -81,7 +80,7 @@ export function Layout({ children }) {
                                 to={createPageUrl("Solver")} 
                                 className={cn(
                                     "px-2 sm:px-2.5 md:px-3 lg:px-4 py-1.5 sm:py-2 flex items-center space-x-1 md:space-x-1.5 font-medium transition-all duration-200 text-xs sm:text-sm",
-                                    isActiveTab("Solver") ? "text-primary-400 border-b-2 border-primary-500" : "text-content-muted hover:text-content-primary"
+                                    isActiveTab("Solver") ? "text-content-primary border-b-2 border-content-primary" : "text-content-muted hover:text-content-primary"
                                 )}
                             >
                                 <Calculator strokeWidth={1.5} size={14} className="sm:w-4 sm:h-4 flex-shrink-0" />
@@ -91,7 +90,7 @@ export function Layout({ children }) {
                                 to={createPageUrl("SmartScheduler")} 
                                 className={cn(
                                     "px-2 sm:px-2.5 md:px-3 lg:px-4 py-1.5 sm:py-2 flex items-center space-x-1 md:space-x-1.5 font-medium transition-all duration-200 text-xs sm:text-sm",
-                                    isActiveTab("SmartScheduler") ? "text-primary-400 border-b-2 border-primary-500" : "text-content-muted hover:text-content-primary"
+                                    isActiveTab("SmartScheduler") ? "text-content-primary border-b-2 border-content-primary" : "text-content-muted hover:text-content-primary"
                                 )}
                             >
                                 <Calendar strokeWidth={1.5} size={14} className="sm:w-4 sm:h-4 flex-shrink-0" />
@@ -138,7 +137,7 @@ export function Layout({ children }) {
                                         <Star strokeWidth={1.5} size={14} className="mr-2"/>Rate Us
                                     </DropdownMenuItem>
                                     {isAdmin(user?.uid) && (
-                                        <DropdownMenuItem onSelect={() => setShowDevSettings(true)} className="flex items-center text-primary-400 hover:bg-base-800 hover:text-primary-400">
+                                        <DropdownMenuItem onSelect={() => setShowDevSettings(true)} className="flex items-center text-content-primary hover:bg-base-800 hover:text-content-primary">
                                             <Code2 strokeWidth={1.5} size={14} className="mr-2"/>Developer Settings
                                         </DropdownMenuItem>
                                     )}
@@ -167,8 +166,7 @@ export function Layout({ children }) {
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
                     <div className="bg-base-850 rounded-md p-6 max-w-md w-full border border-border shadow-floating">
                         <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-xl font-display font-bold text-content-primary flex items-center">
-                                <Award strokeWidth={1.5} className="w-5 h-5 mr-2 text-warning-500" />
+                            <h2 className="text-base font-display font-semibold text-content-primary">
                                 Credits
                             </h2>
                             <button
@@ -180,7 +178,7 @@ export function Layout({ children }) {
                         </div>
                         <div className="space-y-4">
                             <div>
-                                <h3 className="text-lg font-semibold text-primary-400 mb-2">Creators & Developers:</h3>
+                                <h3 className="text-sm font-semibold text-content-primary mb-2">Creators & Developers:</h3>
                                 <ul className="space-y-1 text-content-secondary">
                                     <li>• Anvith Pothula</li>
                                     <li>• Prateek Roy</li>
@@ -196,8 +194,7 @@ export function Layout({ children }) {
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
                     <div className="bg-base-850 rounded-md p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto border border-border shadow-floating">
                         <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-xl font-display font-bold text-content-primary flex items-center">
-                                <Shield strokeWidth={1.5} className="w-5 h-5 mr-2 text-primary-500" />
+                            <h2 className="text-base font-display font-semibold text-content-primary">
                                 Privacy Policy
                             </h2>
                             <button
@@ -209,7 +206,7 @@ export function Layout({ children }) {
                         </div>
                         <div className="space-y-6 text-content-secondary">
                             <div>
-                                <h3 className="text-lg font-semibold text-primary-400 mb-2">Information We Collect</h3>
+                                <h3 className="text-sm font-semibold text-content-primary mb-2">Information We Collect</h3>
                                 <p className="text-sm leading-relaxed">
                                     We collect information you provide directly to us when you create an account and use our services. This includes:
                                 </p>
@@ -223,7 +220,7 @@ export function Layout({ children }) {
                             </div>
                             
                             <div>
-                                <h3 className="text-lg font-semibold text-primary-400 mb-2">How We Use Your Information</h3>
+                                <h3 className="text-sm font-semibold text-content-primary mb-2">How We Use Your Information</h3>
                                 <ul className="text-sm space-y-1">
                                     <li>• Provide and improve our AI tutoring, practice tests, and study tools</li>
                                     <li>• Personalize your learning experience and generate study schedules</li>
@@ -234,7 +231,7 @@ export function Layout({ children }) {
                             </div>
                             
                             <div>
-                                <h3 className="text-lg font-semibold text-primary-400 mb-2">Third-Party Services</h3>
+                                <h3 className="text-sm font-semibold text-content-primary mb-2">Third-Party Services</h3>
                                 <p className="text-sm leading-relaxed mb-2">
                                     Apex Scholar integrates with the following third-party services, each with their own privacy policies:
                                 </p>
@@ -250,21 +247,21 @@ export function Layout({ children }) {
                             </div>
                             
                             <div>
-                                <h3 className="text-lg font-semibold text-primary-400 mb-2">Data Security</h3>
+                                <h3 className="text-sm font-semibold text-content-primary mb-2">Data Security</h3>
                                 <p className="text-sm leading-relaxed">
                                     We implement appropriate technical measures to protect your personal information, including encrypted connections (HTTPS), Firebase security rules, and API key rotation. Your data is stored securely in Google Cloud infrastructure via Firebase.
                                 </p>
                             </div>
                             
                             <div>
-                                <h3 className="text-lg font-semibold text-primary-400 mb-2">Data Retention</h3>
+                                <h3 className="text-sm font-semibold text-content-primary mb-2">Data Retention</h3>
                                 <p className="text-sm leading-relaxed">
                                     Your data is retained for as long as your account is active. Conversation histories and study data persist to support your ongoing learning. You may request deletion of your data at any time.
                                 </p>
                             </div>
                             
                             <div>
-                                <h3 className="text-lg font-semibold text-primary-400 mb-2">Your Rights</h3>
+                                <h3 className="text-sm font-semibold text-content-primary mb-2">Your Rights</h3>
                                 <ul className="text-sm space-y-1">
                                     <li>• Access and review your personal information</li>
                                     <li>• Correct inaccurate data through Settings</li>
@@ -275,14 +272,14 @@ export function Layout({ children }) {
                             </div>
                             
                             <div>
-                                <h3 className="text-lg font-semibold text-primary-400 mb-2">Children's Privacy</h3>
+                                <h3 className="text-sm font-semibold text-content-primary mb-2">Children's Privacy</h3>
                                 <p className="text-sm leading-relaxed">
                                     Apex Scholar is designed for high school students preparing for AP exams. We do not knowingly collect personal information from children under 13 without parental consent.
                                 </p>
                             </div>
                             
                             <div>
-                                <h3 className="text-lg font-semibold text-primary-400 mb-2">Contact Us</h3>
+                                <h3 className="text-sm font-semibold text-content-primary mb-2">Contact Us</h3>
                                 <p className="text-sm leading-relaxed">
                                     If you have any questions about this Privacy Policy or wish to exercise your data rights, please contact us through the Feedback button in the menu.
                                 </p>
@@ -383,8 +380,7 @@ function FeedbackModal({ user, onClose }) {
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
             <div className="bg-base-850 rounded-md p-6 max-w-lg w-full border border-border shadow-floating">
                 <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-display font-bold text-content-primary flex items-center">
-                        <MessageSquare strokeWidth={1.5} className="w-5 h-5 mr-2 text-primary-500" />
+                    <h2 className="text-base font-display font-semibold text-content-primary">
                         Send Feedback
                     </h2>
                     <button
@@ -404,7 +400,7 @@ function FeedbackModal({ user, onClose }) {
                         <select
                             value={feedbackType}
                             onChange={(e) => setFeedbackType(e.target.value)}
-                            className="w-full bg-base-800 border border-border-strong rounded-sm px-3 py-2 text-content-primary focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all"
+                            className="w-full bg-base-800 border border-border-strong rounded-sm px-3 py-2 text-content-primary focus:border-content-muted focus:ring-1 focus:ring-content-muted/20 transition-all"
                             required
                         >
                             <option value="">Select feedback type...</option>
@@ -425,7 +421,7 @@ function FeedbackModal({ user, onClose }) {
                             type="text"
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
-                            className="w-full bg-base-800 border border-border-strong rounded-sm px-3 py-2 text-content-primary focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all"
+                            className="w-full bg-base-800 border border-border-strong rounded-sm px-3 py-2 text-content-primary focus:border-content-muted focus:ring-1 focus:ring-content-muted/20 transition-all"
                             placeholder="Brief description of your feedback"
                             required
                         />
@@ -440,7 +436,7 @@ function FeedbackModal({ user, onClose }) {
                             value={message}
                             onChange={(e) => setMessage(e.target.value)}
                             rows={4}
-                            className="w-full bg-base-800 border border-border-strong rounded-sm px-3 py-2 text-content-primary focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all resize-none"
+                            className="w-full bg-base-800 border border-border-strong rounded-sm px-3 py-2 text-content-primary focus:border-content-muted focus:ring-1 focus:ring-content-muted/20 transition-all resize-none"
                             placeholder="Please provide detailed feedback..."
                             required
                         />
@@ -453,7 +449,7 @@ function FeedbackModal({ user, onClose }) {
                                 ? 'bg-success-900/30 border border-success-600 text-success-300'
                                 : submitStatus.includes('Failed') || submitStatus.includes('Please fill')
                                 ? 'bg-error-900/30 border border-error-600 text-error-300'
-                                : 'bg-primary-900/30 border border-primary-600 text-primary-300'
+                                : 'bg-base-800/30 border border-border text-content-muted'
                         }`}>
                             {submitStatus}
                         </div>
@@ -471,7 +467,7 @@ function FeedbackModal({ user, onClose }) {
                         <button
                             type="submit"
                             disabled={isSubmitting}
-                            className="flex-1 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-base-950 rounded-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="flex-1 px-4 py-2 bg-content-primary text-base-950 rounded-sm transition-colors hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {isSubmitting ? (
                                 <>

@@ -65,13 +65,13 @@ const CustomDropdown = ({
         type="button"
         className={`
           w-full px-4 py-3 bg-base-800 border border-border-strong rounded-lg
-          text-left focus:outline-none focus:ring-2 focus:ring-primary-500
+          text-left focus:outline-none focus:ring-2 focus:ring-content-muted
           focus:border-transparent transition-all duration-200 flex justify-between items-center
           ${disabled
             ? 'opacity-50 cursor-not-allowed bg-base-800/30'
             : 'hover:bg-base-750 cursor-pointer'
           }
-          ${isOpen ? 'ring-2 ring-primary-500 border-transparent' : ''}
+          ${isOpen ? 'ring-2 ring-content-muted border-transparent' : ''}
         `}
         onClick={handleToggle}
         disabled={disabled}
@@ -108,7 +108,7 @@ const CustomDropdown = ({
                 className={`
                   w-full px-4 py-3 text-left hover:bg-base-750 focus:bg-base-750
                   focus:outline-none transition-colors duration-150 text-content-primary
-                  ${selectedOption?.value === option.value ? 'bg-base-750 text-primary-400' : ''}
+                  ${selectedOption?.value === option.value ? 'bg-base-750 text-content-muted' : ''}
                   ${index === options.length - 1 ? '' : 'border-b border-border-subtle'}
                 `}
                 onClick={() => handleSelect(option)}

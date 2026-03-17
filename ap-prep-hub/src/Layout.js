@@ -193,7 +193,7 @@ export default function Layout({ children, currentPageName }) {
             </div>
             <div className="space-y-4">
               <div>
-                <h3 className="text-lg font-semibold text-primary-400 mb-2">Creators & Developers:</h3>
+                <h3 className="text-lg font-semibold text-content-primary mb-2">Creators & Developers:</h3>
                 <ul className="space-y-1 text-content-secondary">
                   <li>Anvith Pothula</li>
                   <li>Prateek Roy</li>
@@ -210,7 +210,7 @@ export default function Layout({ children, currentPageName }) {
           <div className="bg-base-850 rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto border border-border">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-content-primary flex items-center">
-                <Shield className="w-5 h-5 mr-2 text-primary-500" strokeWidth={1.5} />
+                <Shield className="w-5 h-5 mr-2 text-content-muted" strokeWidth={1.5} />
                 Privacy Policy
               </h2>
               <button
@@ -222,14 +222,14 @@ export default function Layout({ children, currentPageName }) {
             </div>
             <div className="space-y-6 text-content-secondary">
               <div>
-                <h3 className="text-lg font-semibold text-primary-400 mb-2">Information We Collect</h3>
+                <h3 className="text-lg font-semibold text-content-primary mb-2">Information We Collect</h3>
                 <p className="text-sm leading-relaxed">
                   We collect information you provide directly to us, such as when you create an account, use our services, or contact us. This may include your name, email address, study preferences, and academic progress data.
                 </p>
               </div>
 
               <div>
-                <h3 className="text-lg font-semibold text-primary-400 mb-2">How We Use Your Information</h3>
+                <h3 className="text-lg font-semibold text-content-primary mb-2">How We Use Your Information</h3>
                 <ul className="text-sm space-y-1">
                   <li>Provide and improve our AI tutoring services</li>
                   <li>Personalize your learning experience</li>
@@ -240,21 +240,21 @@ export default function Layout({ children, currentPageName }) {
               </div>
 
               <div>
-                <h3 className="text-lg font-semibold text-primary-400 mb-2">Data Security</h3>
+                <h3 className="text-lg font-semibold text-content-primary mb-2">Data Security</h3>
                 <p className="text-sm leading-relaxed">
                   We implement appropriate technical and organizational measures to protect your personal information against unauthorized access, alteration, disclosure, or destruction.
                 </p>
               </div>
 
               <div>
-                <h3 className="text-lg font-semibold text-primary-400 mb-2">Third-Party Services</h3>
+                <h3 className="text-lg font-semibold text-content-primary mb-2">Third-Party Services</h3>
                 <p className="text-sm leading-relaxed">
                   We may use third-party services (like Firebase for authentication) that have their own privacy policies. We encourage you to review their privacy practices.
                 </p>
               </div>
 
               <div>
-                <h3 className="text-lg font-semibold text-primary-400 mb-2">Your Rights</h3>
+                <h3 className="text-lg font-semibold text-content-primary mb-2">Your Rights</h3>
                 <ul className="text-sm space-y-1">
                   <li>Access your personal information</li>
                   <li>Correct inaccurate data</li>
@@ -265,7 +265,7 @@ export default function Layout({ children, currentPageName }) {
               </div>
 
               <div>
-                <h3 className="text-lg font-semibold text-primary-400 mb-2">Contact Us</h3>
+                <h3 className="text-lg font-semibold text-content-primary mb-2">Contact Us</h3>
                 <p className="text-sm leading-relaxed">
                   If you have any questions about this Privacy Policy, please contact us through the Feedback button.
                 </p>
@@ -350,7 +350,7 @@ function FeedbackModal({ currentUser, onClose }) {
       <div className="bg-base-850 rounded-xl p-6 max-w-lg w-full border border-border">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-content-primary flex items-center">
-            <MessageSquare className="w-5 h-5 mr-2 text-primary-500" strokeWidth={1.5} />
+            <MessageSquare className="w-5 h-5 mr-2 text-content-muted" strokeWidth={1.5} />
             Send Feedback
           </h2>
           <button
@@ -370,7 +370,7 @@ function FeedbackModal({ currentUser, onClose }) {
             <select
               value={feedbackType}
               onChange={(e) => setFeedbackType(e.target.value)}
-              className="w-full bg-base-800 border border-border-strong rounded-lg px-3 py-2 text-content-primary focus:border-primary-500 focus:ring-2 focus:ring-primary-500 transition-all"
+              className="w-full bg-base-800 border border-border-strong rounded-lg px-3 py-2 text-content-primary focus:border-content-muted focus:ring-1 focus:ring-content-muted/20 transition-all"
               required
             >
               <option value="">Select feedback type...</option>
@@ -391,7 +391,7 @@ function FeedbackModal({ currentUser, onClose }) {
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full bg-base-800 border border-border-strong rounded-lg px-3 py-2 text-content-primary focus:border-primary-500 focus:ring-2 focus:ring-primary-500 transition-all"
+              className="w-full bg-base-800 border border-border-strong rounded-lg px-3 py-2 text-content-primary focus:border-content-muted focus:ring-1 focus:ring-content-muted/20 transition-all"
               placeholder="Brief description of your feedback"
               required
             />
@@ -406,7 +406,7 @@ function FeedbackModal({ currentUser, onClose }) {
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               rows={4}
-              className="w-full bg-base-800 border border-border-strong rounded-lg px-3 py-2 text-content-primary focus:border-primary-500 focus:ring-2 focus:ring-primary-500 transition-all resize-none"
+              className="w-full bg-base-800 border border-border-strong rounded-lg px-3 py-2 text-content-primary focus:border-content-muted focus:ring-1 focus:ring-content-muted/20 transition-all resize-none"
               placeholder="Please provide detailed feedback..."
               required
             />
@@ -419,7 +419,7 @@ function FeedbackModal({ currentUser, onClose }) {
                 ? 'bg-success-900/30 border border-success-600 text-success-300'
                 : submitStatus.includes('Failed') || submitStatus.includes('Please fill')
                 ? 'bg-error-900/30 border border-error-600 text-error-300'
-                : 'bg-primary-900/30 border border-primary-600 text-primary-300'
+                : 'bg-base-800/30 border border-border text-content-muted'
             }`}>
               {submitStatus}
             </div>
@@ -437,7 +437,7 @@ function FeedbackModal({ currentUser, onClose }) {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-base-950 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-4 py-2 bg-content-primary hover:opacity-90 text-base-950 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? (
                 <>

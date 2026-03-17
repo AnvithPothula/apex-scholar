@@ -103,7 +103,7 @@ export default function ReviewModal({ onClose }) {
                             onChange={(e) => setReviewText(e.target.value)}
                             rows={4}
                             maxLength={1000}
-                            className="w-full bg-base-800 border border-border rounded-lg px-3 py-2 text-content-primary focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all resize-none"
+                            className="w-full bg-base-800 border border-border rounded-lg px-3 py-2 text-content-primary focus:border-content-muted focus:ring-2 focus:ring-content-muted/20 transition-all resize-none"
                             placeholder="What do you like? What could be improved?"
                         />
                         <p className="text-xs text-content-muted mt-1 text-right">
@@ -118,7 +118,7 @@ export default function ReviewModal({ onClose }) {
                                 ? 'bg-success-900/30 border border-success-600 text-success-300'
                                 : submitStatus.includes('Failed') || submitStatus.includes('Please select')
                                 ? 'bg-error-900/30 border border-error-600 text-error-300'
-                                : 'bg-primary-900/30 border border-primary-600 text-primary-300'
+                                : 'bg-base-800/30 border border-border text-content-muted'
                         }`}>
                             {submitStatus}
                         </div>

@@ -146,8 +146,8 @@ export const PerformanceStats = ({ className = '' }) => {
       {/* Total Responses */}
       <Card className="p-4">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-sm bg-primary-900/20 border border-primary-500/30">
-            <Target strokeWidth={1.5} className="w-4 h-4 text-primary-400" />
+          <div className="p-2 rounded-sm bg-base-800/20 border border-content-muted/30">
+            <Target strokeWidth={1.5} className="w-4 h-4 text-content-muted" />
           </div>
           <div>
             <div className="text-lg font-bold text-content-primary">
@@ -200,7 +200,7 @@ export const SpeedGoalIndicator = ({ currentAverage }) => {
       <div className="relative">
         <div className="w-full bg-base-800 rounded-full h-2">
           <motion.div
-            className={`h-2 rounded-full ${isAchieving ? 'bg-success-500' : 'bg-primary-500'}`}
+            className={`h-2 rounded-full ${isAchieving ? 'bg-success-500' : 'bg-content-primary'}`}
             initial={{ width: 0 }}
             animate={{ width: `${percentage}%` }}
             transition={{ duration: 1, ease: "easeOut" }}

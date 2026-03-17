@@ -148,7 +148,7 @@ export default function NotFound() {
   const getScoreMessage = () => {
     const pct = correctCount / totalQuestions;
     if (pct === 1) return { score: "5", msg: "Perfect score! Too bad this page still doesn't exist.", color: "text-success-400" };
-    if (pct >= 0.8) return { score: "4", msg: "Impressive! You clearly study too much.", color: "text-primary-400" };
+    if (pct >= 0.8) return { score: "4", msg: "Impressive! You clearly study too much.", color: "text-content-muted" };
     if (pct >= 0.6) return { score: "3", msg: "Passing! Most colleges will accept this 404.", color: "text-warning-400" };
     if (pct >= 0.4) return { score: "2", msg: "Not quite. Maybe study the 404 curriculum.", color: "text-accent-400" };
     return { score: "1", msg: "This page scored better than you.", color: "text-error-400" };
@@ -190,8 +190,8 @@ export default function NotFound() {
           <div className="bg-base-800 px-5 py-3.5 border-b border-border-strong">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-primary-900 flex items-center justify-center">
-                  <Brain className="w-4 h-4 text-primary-400" strokeWidth={1.5} />
+                <div className="w-7 h-7 rounded-lg bg-base-800 flex items-center justify-center">
+                  <Brain className="w-4 h-4 text-content-muted" strokeWidth={1.5} />
                 </div>
                 <div>
                   <span className="text-xs font-bold text-content-secondary tracking-wider uppercase block leading-tight">Apex Scholar</span>
@@ -245,7 +245,7 @@ export default function NotFound() {
                 <div className="flex items-center gap-2 mb-3">
                   <div className="flex-1 h-1 bg-base-800 rounded-full overflow-hidden">
                     <motion.div
-                      className="h-full bg-primary-500 rounded-full"
+                      className="h-full bg-content-primary rounded-full"
                       initial={{ width: `${((qIndex) / totalQuestions) * 100}%` }}
                       animate={{ width: `${((qIndex + (answered ? 1 : 0)) / totalQuestions) * 100}%` }}
                       transition={{ duration: 0.3 }}
@@ -258,7 +258,7 @@ export default function NotFound() {
                 <div className="mb-3">
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-lg">{currentQuestion.icon}</span>
-                    <span className="text-[10px] font-bold text-primary-400/80 uppercase tracking-wider">{currentQuestion.subject}</span>
+                    <span className="text-[10px] font-bold text-content-muted/80 uppercase tracking-wider">{currentQuestion.subject}</span>
                   </div>
                   <p className="text-content-primary text-sm font-medium leading-relaxed">{currentQuestion.question}</p>
                 </div>
@@ -311,7 +311,7 @@ export default function NotFound() {
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       onClick={handleNext}
-                      className="mt-3 w-full py-2 px-4 bg-primary-500 hover:bg-primary-600 rounded-lg text-base-950 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                      className="mt-3 w-full py-2 px-4 bg-content-primary hover:bg-content-primary rounded-lg text-base-950 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
                     >
                       {questionNum >= totalQuestions ? 'See Results' : 'Next Question'}
                       <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.5} />
@@ -331,8 +331,8 @@ export default function NotFound() {
                   const result = getScoreMessage();
                   return (
                     <div className="text-center py-4">
-                      <div className="w-16 h-16 rounded-md bg-primary-900 border border-primary-500/30 flex items-center justify-center mx-auto mb-3">
-                        <Trophy className="w-8 h-8 text-primary-400" strokeWidth={1.5} />
+                      <div className="w-16 h-16 rounded-md bg-base-800 border border-content-muted/30 flex items-center justify-center mx-auto mb-3">
+                        <Trophy className="w-8 h-8 text-content-muted" strokeWidth={1.5} />
                       </div>
                       <div className="mb-1">
                         <span className="text-xs text-content-muted uppercase tracking-wider font-bold">Your AP 404 Score</span>
@@ -356,7 +356,7 @@ export default function NotFound() {
 
                       <button
                         onClick={handleRestart}
-                        className="text-xs text-content-muted hover:text-primary-400 transition-colors inline-flex items-center gap-1"
+                        className="text-xs text-content-muted hover:text-content-muted transition-colors inline-flex items-center gap-1"
                       >
                         <Sparkles className="w-3 h-3" strokeWidth={1.5} />
                         Retake exam
@@ -383,7 +383,7 @@ export default function NotFound() {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.97 }}
               onClick={() => navigate('/AITutors')}
-              className="flex-1 py-2.5 px-3 bg-primary-500 hover:bg-primary-600 rounded-sm text-base-950 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-raised"
+              className="flex-1 py-2.5 px-3 bg-content-primary hover:bg-content-primary rounded-sm text-base-950 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-raised"
             >
               <Home className="w-3.5 h-3.5" strokeWidth={1.5} />
               Back to Studying

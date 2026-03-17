@@ -139,7 +139,7 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
               <select 
                 value={formData.type} 
                 onChange={(e) => setFormData({...formData, type: e.target.value})}
-                className="flex h-10 w-full rounded-sm border border-border-strong bg-base-800 px-3 py-2 text-sm text-content-primary placeholder-content-muted focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all duration-200"
+                className="flex h-10 w-full rounded-sm border border-border-strong bg-base-800 px-3 py-2 text-sm text-content-primary placeholder-content-muted focus:border-content-muted focus:ring-1 focus:ring-content-muted/20 transition-colors duration-150"
               >
                 <option value="homework">Homework</option>
                 <option value="test">Test Prep</option>
@@ -154,7 +154,7 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
               <select 
                 value={formData.difficulty} 
                 onChange={(e) => setFormData({...formData, difficulty: e.target.value})}
-                className="flex h-10 w-full rounded-sm border border-border-strong bg-base-800 px-3 py-2 text-sm text-content-primary placeholder-content-muted focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all duration-200"
+                className="flex h-10 w-full rounded-sm border border-border-strong bg-base-800 px-3 py-2 text-sm text-content-primary placeholder-content-muted focus:border-content-muted focus:ring-1 focus:ring-content-muted/20 transition-colors duration-150"
               >
                 <option value="Easy">Easy</option>
                 <option value="Medium">Medium</option>
@@ -188,7 +188,7 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
               <select 
                 value={formData.priority || 'medium'} 
                 onChange={(e) => setFormData({...formData, priority: e.target.value})}
-                className="flex h-10 w-full rounded-sm border border-border-strong bg-base-800 px-3 py-2 text-sm text-content-primary placeholder-content-muted focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all duration-200"
+                className="flex h-10 w-full rounded-sm border border-border-strong bg-base-800 px-3 py-2 text-sm text-content-primary placeholder-content-muted focus:border-content-muted focus:ring-1 focus:ring-content-muted/20 transition-colors duration-150"
               >
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
@@ -223,7 +223,7 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
             <Button 
               type="button" 
               onClick={handleSubmit}
-              className="flex-1 bg-primary-500 hover:bg-primary-600 text-base-950 h-10 sm:h-11 text-sm"
+              className="flex-1 h-10 sm:h-11 text-sm"
             >
               {task ? 'Update Task' : 'Create Task'}
             </Button>

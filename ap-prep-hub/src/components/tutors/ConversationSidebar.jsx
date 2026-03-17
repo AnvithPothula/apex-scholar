@@ -50,7 +50,7 @@ export function ConversationSidebar({
           return (
             <div
               key={conv.id}
-              className={`group px-3 py-2 text-sm cursor-pointer flex items-center justify-between gap-2 ${isActive ? 'bg-primary-950 text-primary-400 border-l-2 border-primary-500' : 'hover:bg-base-850 text-content-secondary'}`}
+              className={`group px-3 py-2 text-sm cursor-pointer flex items-center justify-between gap-2 ${isActive ? 'bg-base-800 text-content-primary' : 'hover:bg-base-850 text-content-secondary'}`}
               onClick={() => !isEditing && onSelect(conv.id)}
             >
               <div className="flex-1 min-w-0">
@@ -60,7 +60,7 @@ export function ConversationSidebar({
                     value={tempName}
                     onChange={e => setTempName(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') cancelEdit(); }}
-                    className="w-full bg-base-850 border border-border-strong rounded px-2 py-1 text-xs text-content-primary focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    className="w-full bg-base-850 border border-border-strong rounded px-2 py-1 text-xs text-content-primary focus:outline-none focus:ring-1 focus:ring-content-muted"
                   />
                 ) : (
                   <div className="truncate font-medium">

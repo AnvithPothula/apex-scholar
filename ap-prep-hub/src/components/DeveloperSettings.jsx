@@ -76,7 +76,7 @@ export default function DeveloperSettings({ onClose }) {
             <div className="bg-base-850 rounded-sm p-6 max-w-2xl w-full max-h-[85vh] overflow-y-auto border border-border">
                 <div className="flex items-center justify-between mb-6">
                     <h2 className="text-xl font-bold text-content-primary flex items-center">
-                        <Code2 className="w-5 h-5 mr-2 text-primary-500" strokeWidth={1.5} />
+                        <Code2 className="w-5 h-5 mr-2 text-content-primary" strokeWidth={1.5} />
                         Developer Settings
                     </h2>
                     <button
@@ -148,7 +148,7 @@ export default function DeveloperSettings({ onClose }) {
                             {/* Reviews List */}
                             {loading ? (
                                 <div className="text-center py-8">
-                                    <div className="w-6 h-6 border-2 border-primary-400 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                                    <div className="w-6 h-6 border-2 border-content-muted border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
                                     <p className="text-sm text-content-muted">Loading reviews...</p>
                                 </div>
                             ) : reviews.length === 0 ? (

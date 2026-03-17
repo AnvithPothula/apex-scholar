@@ -238,7 +238,7 @@ export default function BlackoutScheduleManager({ blackoutDates = {}, setBlackou
                                             </>
                                         ) : (
                                             <>
-                                                <span className="text-sm text-primary-400 bg-primary-900/30 px-2 py-1 rounded flex-1">
+                                                <span className="text-sm text-content-muted bg-base-800/30 px-2 py-1 rounded flex-1">
                                                     {normalizedItem.name}
                                                 </span>
                                                 <Button variant="ghost" size="sm" onClick={() => startEditingName(day, index)} className="text-content-muted hover:text-content-secondary">

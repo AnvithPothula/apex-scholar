@@ -96,8 +96,8 @@ const ProgressPage = () => {
 
   const getRankInfo = (totalPoints) => {
     if (totalPoints >= 1000) return { rank: 'Master', icon: Crown, color: 'text-warning-400', bgColor: 'bg-warning-400/20' };
-    if (totalPoints >= 500) return { rank: 'Expert', icon: Medal, color: 'text-primary-400', bgColor: 'bg-primary-400/20' };
-    if (totalPoints >= 200) return { rank: 'Advanced', icon: Trophy, color: 'text-primary-400', bgColor: 'bg-primary-400/20' };
+    if (totalPoints >= 500) return { rank: 'Expert', icon: Medal, color: 'text-content-primary', bgColor: 'bg-base-750/20' };
+    if (totalPoints >= 200) return { rank: 'Advanced', icon: Trophy, color: 'text-content-primary', bgColor: 'bg-base-750/20' };
     if (totalPoints >= 50) return { rank: 'Intermediate', icon: Award, color: 'text-success-400', bgColor: 'bg-success-400/20' };
     return { rank: 'Beginner', icon: Star, color: 'text-content-muted', bgColor: 'bg-base-750/20' };
   };
@@ -161,9 +161,9 @@ const ProgressPage = () => {
         : 0;
 
       const colors = [
-        'bg-primary-500',
+        'bg-content-primary',
         'bg-success-500',
-        'bg-primary-500',
+        'bg-content-primary',
         'bg-error-500',
         'bg-warning-500'
       ];
@@ -303,13 +303,13 @@ const ProgressPage = () => {
   // ─── Internal Components ──────────────────────────────────────────
 
   const colorToVar = (bgClass) => ({
-    'bg-primary-500': 'var(--color-primary-400)',
+    'bg-content-primary': 'var(--color-content-primary)',
     'bg-success-500': 'var(--color-success-400)',
     'bg-error-500':   'var(--color-error-400)',
     'bg-warning-500': 'var(--color-warning-400)',
-  }[bgClass] || 'var(--color-primary-400)');
+  }[bgClass] || 'var(--color-content-primary)');
 
-  const BentoStatCard = ({ icon: Icon, label, value, change, color = "text-primary-400", iconBg = "bg-base-800" }) => (
+  const BentoStatCard = ({ icon: Icon, label, value, change, color = "text-content-primary", iconBg = "bg-base-800" }) => (
     <Card className="p-5 flex flex-col justify-between">
       <div className="flex items-center gap-2 mb-3">
         <div className={cn("p-2 rounded-sm", iconBg)}>
@@ -328,7 +328,7 @@ const ProgressPage = () => {
     </Card>
   );
 
-  const CircularProgressRing = ({ percentage, size = 72, strokeW = 5, color = "var(--color-primary-500)" }) => {
+  const CircularProgressRing = ({ percentage, size = 72, strokeW = 5, color = "var(--color-content-primary)" }) => {
     const r = (size - strokeW) / 2;
     const circ = 2 * Math.PI * r;
     const offset = circ - (percentage / 100) * circ;
@@ -371,8 +371,8 @@ const ProgressPage = () => {
           <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-40" preserveAspectRatio="none">
             <defs>
               <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--color-primary-400)" stopOpacity="0.3" />
-                <stop offset="100%" stopColor="var(--color-primary-400)" stopOpacity="0.02" />
+                <stop offset="0%" stopColor="var(--color-content-primary)" stopOpacity="0.3" />
+                <stop offset="100%" stopColor="var(--color-content-primary)" stopOpacity="0.02" />
               </linearGradient>
             </defs>
 
@@ -399,7 +399,7 @@ const ProgressPage = () => {
             <motion.path
               d={linePath}
               fill="none"
-              stroke="var(--color-primary-400)"
+              stroke="var(--color-content-primary)"
               strokeWidth="0.5"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -414,7 +414,7 @@ const ProgressPage = () => {
               <motion.circle
                 key={i}
                 cx={p.x} cy={p.y} r="1"
-                fill="var(--color-primary-400)"
+                fill="var(--color-content-primary)"
                 initial={{ scale: 0, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: 0.4 + i * 0.08 }}
@@ -511,8 +511,8 @@ const ProgressPage = () => {
         >
           <div>
             <div className="flex items-center gap-2 sm:gap-3 md:gap-4 mb-2 sm:mb-4">
-              <div className="p-2 sm:p-3 md:p-4 bg-primary-500 rounded-sm md:rounded-md shadow-raised">
-                <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-base-950" strokeWidth={1.5} />
+              <div className="p-2 sm:p-3 md:p-4 bg-base-750 rounded-sm md:rounded-md shadow-raised">
+                <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-content-primary" strokeWidth={1.5} />
               </div>
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-content-primary font-display">
                 Progress
@@ -572,7 +572,7 @@ const ProgressPage = () => {
                   transition={{ delay: 0.2 }}
                   className="mb-8"
                 >
-                  <Card className="p-6 bg-primary-900 border-primary-500/30">
+                  <Card className="p-6 bg-base-850 border-border">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <div className={`p-4 ${getRankInfo(progressData.overall.totalPoints).bgColor} rounded-2xl`}>
@@ -587,7 +587,7 @@ const ProgressPage = () => {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-3xl font-bold text-primary-400">{progressData.overall.totalPoints}</div>
+                        <div className="text-3xl font-bold text-content-primary">{progressData.overall.totalPoints}</div>
                         <p className="text-content-muted">Total Points</p>
                       </div>
                     </div>
@@ -681,7 +681,7 @@ const ProgressPage = () => {
                   className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8"
                 >
                   {/* Hero: Study Streak (spans 2×2 on lg) */}
-                  <Card className="p-6 md:col-span-1 md:row-span-2 lg:col-span-2 lg:row-span-2 flex flex-col justify-between bg-primary-950 border-primary-700/30">
+                  <Card className="p-6 md:col-span-1 md:row-span-2 lg:col-span-2 lg:row-span-2 flex flex-col justify-between bg-base-900 border-border-strong/30">
                     <div>
                       <div className="flex items-center gap-2 mb-4">
                         <div className="p-2 bg-accent-900 rounded-sm">
@@ -708,8 +708,8 @@ const ProgressPage = () => {
                     label="Study Time"
                     value={progressData.overall.totalStudyTime}
                     change={progressData.overall.improvement}
-                    color="text-primary-400"
-                    iconBg="bg-primary-900"
+                    color="text-content-primary"
+                    iconBg="bg-base-800"
                   />
 
                   {/* Questions */}
@@ -727,8 +727,8 @@ const ProgressPage = () => {
                     label="Accuracy"
                     value={`${progressData.overall.accuracy}%`}
                     change={progressData.overall.improvement}
-                    color="text-primary-400"
-                    iconBg="bg-primary-900"
+                    color="text-content-primary"
+                    iconBg="bg-base-800"
                   />
                 </motion.div>
 
@@ -754,7 +754,7 @@ const ProgressPage = () => {
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
                           <span className="text-content-secondary">Current Rank</span>
-                          <Badge variant="default" className="bg-primary-500">
+                          <Badge variant="default" className="bg-base-750">
                             {progressData.overall.rank}
                           </Badge>
                         </div>
@@ -811,7 +811,7 @@ const ProgressPage = () => {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-start justify-between mb-1">
                                 <h3 className="text-h4 font-display text-content-primary">{subject.name}</h3>
-                                <Button size="sm" className="bg-primary-500 hover:bg-primary-600 flex-shrink-0 ml-4">
+                                <Button size="sm" className="flex-shrink-0 ml-4">
                                   Continue
                                 </Button>
                               </div>
@@ -870,7 +870,7 @@ const ProgressPage = () => {
                             <div className="space-y-2">
                               <div className="w-full bg-base-800 rounded-full h-2">
                                 <div
-                                  className="bg-primary-500 h-2 rounded-full"
+                                  className="bg-content-primary h-2 rounded-full"
                                   style={{ width: `${Math.min(100, (achievement.progress / achievement.target) * 100)}%` }}
                                 />
                               </div>
@@ -981,8 +981,8 @@ const ProgressPage = () => {
               >
                 <div className="empty-state-pattern" />
                 <Card className="relative z-10 p-8 text-center bg-base-850/95 backdrop-blur-sm border-border-strong shadow-floating">
-                  <div className="p-3 bg-primary-900 rounded-md w-fit mx-auto mb-4">
-                    <BarChart3 className="w-8 h-8 text-primary-400" strokeWidth={1.5} />
+                  <div className="p-3 bg-base-800 rounded-md w-fit mx-auto mb-4">
+                    <BarChart3 className="w-8 h-8 text-content-primary" strokeWidth={1.5} />
                   </div>
                   <h2 className="text-h2 font-display text-content-primary mb-2">
                     See your progress
@@ -992,7 +992,7 @@ const ProgressPage = () => {
                   </p>
                   <Button
                     onClick={() => navigate('/auth')}
-                    className="bg-primary-500 hover:bg-primary-600 w-full"
+                    className="w-full"
                     size="lg"
                   >
                     Get started

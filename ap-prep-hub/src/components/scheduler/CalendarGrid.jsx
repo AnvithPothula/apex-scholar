@@ -148,7 +148,7 @@ export default function CalendarGrid({
                 </div>
                 <div
                   className={`text-lg mt-1 w-8 h-8 rounded-full flex items-center justify-center mx-auto ${
-                    isTodayDateFns(d) ? "bg-primary-500 text-base-950" : "text-content-secondary"
+                    isTodayDateFns(d) ? "bg-content-primary text-base-950" : "text-content-secondary"
                   }`}
                 >
                   {format(d, "d")}
@@ -289,7 +289,7 @@ export default function CalendarGrid({
             >
               <div
                 className={`font-semibold text-sm mb-2 flex items-center justify-between ${
-                  isTodayDateFns(day) ? "text-primary-400" : "text-content-secondary"
+                  isTodayDateFns(day) ? "text-content-muted" : "text-content-secondary"
                 } ${format(day, 'M') !== format(currentDate, 'M') ? 'opacity-50' : ''}`}
               >
                 <span>{format(day, 'd')}</span>

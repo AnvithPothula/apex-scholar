@@ -82,14 +82,14 @@ const APExamDashboard = () => {
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Calendar className="w-5 h-5 text-primary-400" strokeWidth={1.5} />
+              <Calendar className="w-5 h-5 text-content-muted" strokeWidth={1.5} />
               <div>
                 <h3 className="text-content-primary font-medium">AP Exam Schedule</h3>
                 <p className="text-content-muted text-sm">{buttonText}</p>
               </div>
             </div>
             {upcomingExams.length > 0 && (
-              <Badge className="bg-primary-900/50 text-primary-300 border-primary-700">
+              <Badge className="bg-base-800 text-content-secondary border-border">
                 {upcomingExams.length}
               </Badge>
             )}
@@ -118,7 +118,7 @@ const APExamDashboard = () => {
               >
               <div className="p-6 border-b border-border flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <Calendar className="w-6 h-6 text-primary-400" strokeWidth={1.5} />
+                  <Calendar className="w-6 h-6 text-content-muted" strokeWidth={1.5} />
                   <h2 className="text-xl font-semibold text-content-primary">AP Exam Schedule</h2>
                 </div>
                 <button
@@ -186,7 +186,7 @@ const APExamDashboard = () => {
                               <div className="space-y-2">
                                 {exam.reviewSchedule.map((review, reviewIndex) => (
                                   <div key={reviewIndex} className="flex items-center gap-3 text-sm">
-                                    <Target className="w-3 h-3 text-primary-400" strokeWidth={1.5} />
+                                    <Target className="w-3 h-3 text-content-muted" strokeWidth={1.5} />
                                     <span className="text-content-muted">{review.startDate}:</span>
                                     <span className="text-content-secondary">{review.description}</span>
                                   </div>

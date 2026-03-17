@@ -274,7 +274,7 @@ const DiagnosticTypes = () => {
         <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
           {isGeneratingQuestions ? (
             <Card className="p-12 text-center">
-              <div className="w-16 h-16 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+              <div className="w-16 h-16 border-4 border-content-muted border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
               <h2 className="text-2xl font-bold text-content-primary mb-4">Generating Diagnostic Questions</h2>
               <p className="text-content-muted">AI is creating personalized questions for {takingDiagnostic.name}...</p>
             </Card>
@@ -290,13 +290,13 @@ const DiagnosticTypes = () => {
                 <Card className="p-6">
                   <h3 className="text-xl font-bold text-content-primary mb-4">Overall Performance</h3>
                   <div className="text-center">
-                    <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-primary-400 mb-2">{diagnosticResult.accuracy}%</div>
+                    <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-content-primary mb-2">{diagnosticResult.accuracy}%</div>
                     <p className="text-content-muted">{diagnosticResult.correctAnswers} out of {diagnosticResult.totalQuestions} correct</p>
                   </div>
                   <div className="mt-4">
                     <div className="w-full bg-base-800 rounded-full h-3">
                       <div 
-                        className="bg-primary-500 h-3 rounded-full transition-all duration-1000" 
+                        className="bg-content-primary h-3 rounded-full transition-all duration-1000" 
                         style={{ width: `${diagnosticResult.accuracy}%` }}
                       ></div>
                     </div>
@@ -374,7 +374,7 @@ const DiagnosticTypes = () => {
                 <ul className="space-y-2">
                   {diagnosticResult.recommendations.map((rec, index) => (
                     <li key={index} className="text-content-secondary flex items-center">
-                      <ArrowRight className="w-4 h-4 text-primary-400 mr-2" />
+                      <ArrowRight className="w-4 h-4 text-content-secondary mr-2" />
                       {rec}
                     </li>
                   ))}
@@ -395,7 +395,6 @@ const DiagnosticTypes = () => {
                 </Button>
                 <Button
                   onClick={() => navigate('/practice-tests')}
-                  className="bg-primary-500 hover:bg-primary-600"
                 >
                   Start Practice Tests
                 </Button>
@@ -427,7 +426,7 @@ const DiagnosticTypes = () => {
               <div className="mb-6">
                 <div className="w-full bg-base-800 rounded-full h-2">
                   <div 
-                    className="bg-primary-500 h-2 rounded-full transition-all duration-300" 
+                    className="bg-content-primary h-2 rounded-full transition-all duration-300" 
                     style={{ width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }}
                   ></div>
                 </div>
@@ -445,7 +444,7 @@ const DiagnosticTypes = () => {
                         onClick={() => handleAnswerSelect(currentQuestionIndex, index)}
                         className={`w-full p-4 text-left rounded-lg border transition-all duration-200 ${
                           answers[currentQuestionIndex] === index
-                            ? 'border-primary-500 bg-primary-500/20 text-primary-400'
+                            ? 'border-content-muted bg-base-800 text-content-primary'
                             : 'border-border-strong bg-base-850 text-content-secondary hover:border-border'
                         }`}
                       >
@@ -468,7 +467,6 @@ const DiagnosticTypes = () => {
                 <Button
                   onClick={handleNextQuestion}
                   disabled={answers[currentQuestionIndex] === undefined}
-                  className="bg-primary-500 hover:bg-primary-600"
                 >
                   {currentQuestionIndex === questions.length - 1 ? 'Finish Diagnostic' : 'Next Question'}
                 </Button>
@@ -486,8 +484,8 @@ const DiagnosticTypes = () => {
           className="text-center mb-6 sm:mb-8 md:mb-12"
         >
           <div className="flex items-center justify-center gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4 md:mb-6">
-            <div className="p-2 sm:p-3 md:p-4 bg-primary-500 rounded-sm md:rounded-md shadow-raised">
-              <Brain className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-base-950" />
+            <div className="p-2 sm:p-3 md:p-4 bg-base-750 rounded-sm md:rounded-md shadow-raised">
+              <Brain className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-content-primary" />
             </div>
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-content-primary font-display">
               AI Diagnostics
@@ -506,11 +504,11 @@ const DiagnosticTypes = () => {
           transition={{ delay: 0.1 }}
           className="mb-8"
         >
-          <Card className="p-6 bg-primary-900 border-primary-500/30">
+          <Card className="p-6 bg-base-850 border-border">
             <div className="grid md:grid-cols-4 gap-6">
               <div className="text-center">
-                <div className="p-3 bg-primary-500/20 rounded-lg w-fit mx-auto mb-3">
-                  <Target className="w-6 h-6 text-primary-400" />
+                <div className="p-3 bg-base-800 rounded-lg w-fit mx-auto mb-3">
+                  <Target className="w-6 h-6 text-content-secondary" />
                 </div>
                 <h3 className="font-semibold text-content-primary mb-2">Adaptive Assessment</h3>
                 <p className="text-sm text-content-muted">
@@ -518,8 +516,8 @@ const DiagnosticTypes = () => {
                 </p>
               </div>
               <div className="text-center">
-                <div className="p-3 bg-primary-900 rounded-lg w-fit mx-auto mb-3">
-                  <BarChart3 className="w-6 h-6 text-primary-400" />
+                <div className="p-3 bg-base-800 rounded-lg w-fit mx-auto mb-3">
+                  <BarChart3 className="w-6 h-6 text-content-secondary" />
                 </div>
                 <h3 className="font-semibold text-content-primary mb-2">Detailed Analysis</h3>
                 <p className="text-sm text-content-muted">
@@ -559,7 +557,7 @@ const DiagnosticTypes = () => {
             <h2 className="text-xl font-bold text-content-primary mb-6 text-center">How AI Diagnostics Work</h2>
             <div className="grid md:grid-cols-3 gap-6">
               <div className="text-center">
-                <div className="w-12 h-12 bg-primary-500 rounded-full flex items-center justify-center text-base-950 font-bold text-lg mx-auto mb-4">
+                <div className="w-12 h-12 bg-base-750 rounded-full flex items-center justify-center text-content-primary font-bold text-lg mx-auto mb-4">
                   1
                 </div>
                 <h3 className="font-semibold text-content-primary mb-2">Take Assessment</h3>
@@ -568,7 +566,7 @@ const DiagnosticTypes = () => {
                 </p>
               </div>
               <div className="text-center">
-                <div className="w-12 h-12 bg-primary-500 rounded-full flex items-center justify-center text-base-950 font-bold text-lg mx-auto mb-4">
+                <div className="w-12 h-12 bg-base-750 rounded-full flex items-center justify-center text-content-primary font-bold text-lg mx-auto mb-4">
                   2
                 </div>
                 <h3 className="font-semibold text-content-primary mb-2">AI Analysis</h3>
@@ -617,7 +615,7 @@ const DiagnosticTypes = () => {
                     variant={selectedCategory === category ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setSelectedCategory(category)}
-                    className={selectedCategory === category ? 'bg-primary-500 hover:bg-primary-600' : ''}
+                    className={selectedCategory === category ? '' : ''}
                   >
                     {category}
                   </Button>
@@ -656,7 +654,7 @@ const DiagnosticTypes = () => {
                       <span>1.2k+ taken</span>
                     </div>
                   </div>
-                  <h3 className="font-semibold text-content-primary mb-2 group-hover:text-primary-400 transition-colors">
+                  <h3 className="font-semibold text-content-primary mb-2 group-hover:text-content-primary transition-colors">
                     {subject.name}
                   </h3>
                   <p className="text-sm text-content-muted mb-4">
@@ -667,7 +665,7 @@ const DiagnosticTypes = () => {
                       <Clock className="w-4 h-4" />
                       <span>15-20 min</span>
                     </div>
-                    <Button size="sm" className="bg-primary-500 hover:bg-primary-600">
+                    <Button size="sm">
                       <Play className="w-4 h-4 mr-1" />
                       Start
                     </Button>
@@ -699,7 +697,7 @@ const DiagnosticTypes = () => {
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <h3 className="text-lg font-bold text-content-primary group-hover:text-primary-400 transition-colors">
+                        <h3 className="text-lg font-bold text-content-primary group-hover:text-content-primary transition-colors">
                           {subject.name}
                         </h3>
                       </div>
@@ -735,7 +733,7 @@ const DiagnosticTypes = () => {
                       e.stopPropagation();
                       handleStartDiagnostic(key);
                     }}
-                    className="w-full bg-primary-500 hover:bg-primary-600"
+                    className="w-full"
                   >
                     <Brain className="w-4 h-4 mr-2" />
                     Start Diagnostic
@@ -774,7 +772,7 @@ const DiagnosticTypes = () => {
           transition={{ delay: 0.6 }}
           className="mt-12"
         >
-          <Card className="p-8 bg-primary-900 border-primary-500/30">
+          <Card className="p-8 bg-base-800 border-content-muted/30">
             <h2 className="text-2xl font-bold text-content-primary mb-6 text-center">
               Why Take AI Diagnostic Assessments?
             </h2>
@@ -789,8 +787,8 @@ const DiagnosticTypes = () => {
                 </p>
               </div>
               <div className="text-center">
-                <div className="p-3 bg-primary-500/20 rounded-lg w-fit mx-auto mb-4">
-                  <TrendingUp className="w-6 h-6 text-primary-400" />
+                <div className="p-3 bg-content-primary/20 rounded-lg w-fit mx-auto mb-4">
+                  <TrendingUp className="w-6 h-6 text-content-muted" />
                 </div>
                 <h3 className="font-semibold text-content-primary mb-2">Track Progress</h3>
                 <p className="text-sm text-content-muted">
@@ -798,8 +796,8 @@ const DiagnosticTypes = () => {
                 </p>
               </div>
               <div className="text-center">
-                <div className="p-3 bg-primary-900 rounded-lg w-fit mx-auto mb-4">
-                  <Award className="w-6 h-6 text-primary-400" />
+                <div className="p-3 bg-base-800 rounded-lg w-fit mx-auto mb-4">
+                  <Award className="w-6 h-6 text-content-muted" />
                 </div>
                 <h3 className="font-semibold text-content-primary mb-2">Optimize Study Time</h3>
                 <p className="text-sm text-content-muted">
@@ -818,7 +816,7 @@ const DiagnosticTypes = () => {
             transition={{ delay: 0.7 }}
             className="mt-12 text-center"
           >
-            <Card className="p-8 bg-primary-900 border-primary-500/30">
+            <Card className="p-8 bg-base-800 border-content-muted/30">
               <h2 className="text-2xl font-bold text-content-primary mb-4">
                 Sign Up to Save Your Results
               </h2>
@@ -828,7 +826,7 @@ const DiagnosticTypes = () => {
               </p>
               <Button
                 onClick={() => navigate('/auth')}
-                className="bg-primary-500 hover:bg-primary-600 px-8 py-3 text-lg"
+                className="bg-content-primary hover:bg-content-primary px-8 py-3 text-lg"
               >
                 Get Started Free
               </Button>

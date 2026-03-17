@@ -81,7 +81,7 @@ const SyncHistoryManager = () => {
           </div>
           <button
             onClick={() => setExpanded(!expanded)}
-            className="text-primary-600 hover:text-primary-400 text-sm font-medium"
+            className="text-content-primary hover:text-content-muted text-sm font-medium"
           >
             {expanded ? 'Hide Details' : 'Show Details'}
           </button>
@@ -91,9 +91,9 @@ const SyncHistoryManager = () => {
       <div className="p-6">
         {/* Summary Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-primary-800/30 border border-primary-600/50 rounded-lg p-4">
-            <div className="text-2xl font-bold text-primary-600">{totalSynced}</div>
-            <div className="text-sm text-primary-400">Total Synced Assignments</div>
+          <div className="bg-base-800/30 border border-border/50 rounded-lg p-4">
+            <div className="text-2xl font-bold text-content-primary">{totalSynced}</div>
+            <div className="text-sm text-content-muted">Total Synced Assignments</div>
           </div>
 
           {syncStats?.assignmentsBySource && (
@@ -106,11 +106,11 @@ const SyncHistoryManager = () => {
           )}
 
           {syncStats?.assignmentsByCourse && (
-            <div className="bg-primary-800/30 border border-primary-600/50 rounded-lg p-4">
-              <div className="text-2xl font-bold text-primary-600">
+            <div className="bg-base-800/30 border border-border/50 rounded-lg p-4">
+              <div className="text-2xl font-bold text-content-primary">
                 {Object.keys(syncStats.assignmentsByCourse).length}
               </div>
-              <div className="text-sm text-primary-400">Courses</div>
+              <div className="text-sm text-content-muted">Courses</div>
             </div>
           )}
         </div>

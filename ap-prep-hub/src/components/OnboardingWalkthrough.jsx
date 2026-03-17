@@ -8,37 +8,37 @@ const STEPS = [
     icon: Sparkles,
     title: 'Welcome to Apex Scholar!',
     description: 'Your AI-powered AP exam prep platform. Let\'s take a quick tour of the key features.',
-    color: 'bg-primary-500'
+    color: 'bg-base-750'
   },
   {
     icon: Brain,
     title: 'AI Tutors',
     description: 'Chat with expert AI tutors for any AP subject. Choose modes like Explain, Practice MCQ, Walkthrough, or upload files for analysis.',
-    color: 'bg-primary-500'
+    color: 'bg-base-750'
   },
   {
     icon: FileQuestion,
     title: 'Practice Tests',
     description: 'Generate full-length AP practice tests with real exam format, timed sections, and detailed scoring analysis.',
-    color: 'bg-primary-500'
+    color: 'bg-base-750'
   },
   {
     icon: Zap,
     title: 'Flashcards',
     description: 'AI-generated flashcards with spaced repetition to help you memorize key concepts efficiently.',
-    color: 'bg-primary-500'
+    color: 'bg-base-750'
   },
   {
     icon: Calculator,
     title: 'Problem Solver',
     description: 'Upload or type any problem — get step-by-step solutions with LaTeX-rendered math.',
-    color: 'bg-primary-500'
+    color: 'bg-base-750'
   },
   {
     icon: Calendar,
     title: 'Smart Scheduler',
     description: 'AI creates an optimized study schedule based on your subjects, deadlines, and study preferences.',
-    color: 'bg-primary-500'
+    color: 'bg-base-750'
   },
   {
     icon: Settings,
@@ -134,7 +134,7 @@ export default function OnboardingWalkthrough() {
                 key={i}
                 onClick={() => setStep(i)}
                 className={`w-2 h-2 rounded-full transition-all ${
-                  i === step ? 'bg-primary-400 w-4' : 'bg-base-750 hover:bg-base-800'
+                  i === step ? 'bg-content-primary w-4' : 'bg-base-750 hover:bg-base-800'
                 }`}
               />
             ))}
@@ -144,7 +144,7 @@ export default function OnboardingWalkthrough() {
             onClick={handleNext}
             className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
               isLast
-                ? 'bg-primary-500 text-base-950 shadow-raised'
+                ? 'bg-content-primary text-base-950 shadow-raised'
                 : 'bg-base-800 text-content-primary hover:bg-base-750'
             }`}
           >

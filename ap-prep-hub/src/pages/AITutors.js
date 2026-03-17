@@ -1516,17 +1516,17 @@ Please check your internet connection and try again. In the meantime:
       'programming': 'from-emerald-600 to-success-700',
       
       // English & Literature - BLUE
-      'english': 'from-primary-500 to-primary-600',
-      'literature': 'from-primary-600 to-primary-600',
-      'language': 'from-primary-400 to-primary-500',
-      'composition': 'from-primary-500 to-primary-500',
-      'chinese': 'from-primary-500 to-primary-600',
-      'french': 'from-primary-400 to-primary-500',
-      'german': 'from-primary-600 to-primary-600',
-      'italian': 'from-primary-500 to-primary-600',
-      'japanese': 'from-primary-400 to-primary-500',
-      'spanish': 'from-primary-500 to-primary-600',
-      'latin': 'from-primary-600 to-primary-600',
+      'english': 'from-blue-500 to-blue-600',
+      'literature': 'from-blue-600 to-blue-700',
+      'language': 'from-blue-400 to-blue-500',
+      'composition': 'from-blue-500 to-blue-600',
+      'chinese': 'from-blue-500 to-blue-600',
+      'french': 'from-blue-400 to-blue-500',
+      'german': 'from-blue-600 to-blue-700',
+      'italian': 'from-blue-500 to-blue-600',
+      'japanese': 'from-blue-400 to-blue-500',
+      'spanish': 'from-blue-500 to-blue-600',
+      'latin': 'from-blue-600 to-blue-700',
       
       // History & Social Sciences - ORANGE
       'history': 'from-orange-500 to-orange-600',
@@ -1544,15 +1544,15 @@ Please check your internet connection and try again. In the meantime:
       'microeconomics': 'from-orange-500 to-orange-600',
       
       // Arts - Keep creative colors (not in main 4 categories)
-      'art': 'from-primary-500 to-primary-600',
-      'studio': 'from-primary-500 to-primary-600',
+      'art': 'from-purple-500 to-purple-600',
+      'studio': 'from-purple-500 to-purple-600',
       'drawing': 'from-gray-500 to-gray-600',
-      'design': 'from-primary-500 to-primary-600',
-      'music': 'from-primary-500 to-primary-600',
-      
+      'design': 'from-purple-500 to-purple-600',
+      'music': 'from-purple-500 to-purple-600',
+
       // Other
       'research': 'from-gray-600 to-gray-700',
-      'seminar': 'from-primary-500 to-primary-600'
+      'seminar': 'from-gray-500 to-gray-600'
     };
     
     // Find matching color by checking if subject ID contains key terms
@@ -1572,7 +1572,7 @@ Please check your internet connection and try again. In the meantime:
     if (subjectLower.includes('comparative')) return 'from-orange-500 to-orange-600';
     
     // Default fallback
-    return 'from-primary-500 to-primary-600';
+    return 'from-gray-500 to-gray-600';
   };
 
   // Early return for subject selection
@@ -1650,7 +1650,7 @@ Please check your internet connection and try again. In the meantime:
                 animate={{ opacity: 1, y: 0 }}
                 className={`group relative p-3 rounded-lg cursor-pointer transition-all duration-200 ${
                   activeConversationId === conversation.id
-                    ? 'bg-primary-900 border border-primary-500/30'
+                    ? 'bg-base-800 border border-border-strong'
                     : 'bg-base-800 hover:bg-base-800'
                 }`}
                 onClick={() => {
@@ -1820,7 +1820,7 @@ Please check your internet connection and try again. In the meantime:
                       {getCurriculumData(selectedSubject)?.name || selectedSubject}
                     </h1>
                     <p className="text-xs sm:text-sm text-content-secondary flex items-center gap-1 sm:gap-2">
-                      <Bot strokeWidth={1.5} className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-400 flex-shrink-0" />
+                      <Bot strokeWidth={1.5} className="w-3 h-3 sm:w-4 sm:h-4 text-content-muted flex-shrink-0" />
                       <span className="hidden sm:inline">AI Tutor • Ready to help</span>
                       <span className="sm:hidden">AI Tutor</span>
                     </p>
@@ -1829,7 +1829,7 @@ Please check your internet connection and try again. In the meantime:
               </div>
               
               <div className="flex items-center gap-2 sm:gap-6 flex-shrink-0">
-                <Badge variant="primary" className="bg-emerald-800 text-emerald-200 border-emerald-600 text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1 hidden sm:inline-flex">
+                <Badge variant="primary" className="bg-base-800 text-content-secondary border-border text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1 hidden sm:inline-flex">
                   Active Session
                 </Badge>
                 {/* Mobile back button */}
@@ -1859,7 +1859,7 @@ Please check your internet connection and try again. In the meantime:
                 size="sm"
                 aria-pressed={selectedMode === m}
                 onClick={() => setSelectedMode(m)}
-                className={`text-xs sm:text-sm px-2 sm:px-3 py-1.5 ${selectedMode === m ? 'bg-primary-900 text-primary-400' : 'text-content-secondary hover:text-content-primary'}`}
+                className={`text-xs sm:text-sm px-2 sm:px-3 py-1.5 ${selectedMode === m ? 'bg-base-800 text-content-primary border border-border-strong border-b-2 border-b-content-muted' : 'text-content-secondary hover:text-content-primary'}`}
               >
                 <span className="hidden sm:inline">{m}</span>
                 <span className="sm:hidden">{m === 'Practice MCQ' ? 'MCQ' : m === 'Summarize Attachment' ? 'Summarize' : m}</span>
@@ -1887,7 +1887,6 @@ Please check your internet connection and try again. In the meantime:
               <Card className="bg-base-850 border-border-strong">
                 <CardContent className="p-6">
                   <div className="text-center mb-4">
-                    <Sparkles strokeWidth={1.5} className="w-8 h-8 text-primary-400 mx-auto mb-2" />
                     <h3 className="font-semibold text-content-primary">Quick Start Suggestions</h3>
                   </div>
                   <div className="space-y-2">
@@ -1922,9 +1921,9 @@ Please check your internet connection and try again. In the meantime:
                   {/* Avatar */}
                   <div className="flex-shrink-0">
                     <div className={`w-10 h-10 rounded-sm flex items-center justify-center ${
-                      message.type === 'user' 
-                        ? 'bg-primary-500' 
-                        : 'bg-gradient-to-br from-emerald-500 to-teal-600'
+                      message.type === 'user'
+                        ? 'bg-base-750'
+                        : 'bg-base-800 border border-border'
                     }`}>
                       {message.type === 'user' ? (
                         <User strokeWidth={1.5} className="w-5 h-5 text-content-primary" />
@@ -1938,13 +1937,13 @@ Please check your internet connection and try again. In the meantime:
                   <div className="flex-1 max-w-2xl">
                     <Card className={`${
                       message.type === 'user'
-                        ? 'bg-primary-500 text-base-950 border-none'
+                        ? 'bg-base-750 text-content-primary border border-border'
                         : 'bg-base-850 border border-border-strong'
                     }`}>
                       <CardContent className="p-4">
                         {message.type === 'user' ? (
                           <div>
-                            <p className="text-sm leading-relaxed whitespace-pre-wrap text-base-950">
+                            <p className="text-sm leading-relaxed whitespace-pre-wrap text-content-primary">
                               {message.content}
                             </p>
                             
@@ -1954,12 +1953,12 @@ Please check your internet connection and try again. In the meantime:
                                 {message.files.map((file, index) => (
                                   <div key={index} className="flex items-center gap-2 p-2 bg-base-850/50 rounded-lg">
                                     {file.category === 'image' ? (
-                                      <Image strokeWidth={1.5} className="w-4 h-4 text-primary-400" />
+                                      <Image strokeWidth={1.5} className="w-4 h-4 text-content-muted" />
                                     ) : (
-                                      <FileText strokeWidth={1.5} className="w-4 h-4 text-primary-400" />
+                                      <FileText strokeWidth={1.5} className="w-4 h-4 text-content-muted" />
                                     )}
-                                    <span className="text-xs text-primary-400">{file.name}</span>
-                                    <span className="text-xs text-primary-400">
+                                    <span className="text-xs text-content-muted">{file.name}</span>
+                                    <span className="text-xs text-content-muted">
                                       ({Math.round(file.size / 1024)}KB)
                                     </span>
                                   </div>
@@ -1997,7 +1996,7 @@ Please check your internet connection and try again. In the meantime:
                         )}
                         
                         <div className={`text-xs mt-2 ${
-                          message.type === 'user' ? 'text-primary-400' : 'text-content-muted'
+                          message.type === 'user' ? 'text-content-muted' : 'text-content-muted'
                         }`}>
                           {message.timestamp.toLocaleTimeString([], { 
                             hour: '2-digit', 
@@ -2021,27 +2020,26 @@ Please check your internet connection and try again. In the meantime:
                 exit={{ opacity: 0, y: -20 }}
                 className="flex gap-3"
               >
-                <div className="w-10 h-10 rounded-sm bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-sm bg-base-800 border border-border flex items-center justify-center">
                   <Bot strokeWidth={1.5} className="w-5 h-5 text-content-primary" />
                 </div>
                 <Card className="bg-base-850 border border-border-strong">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-1">
-                      <Sparkles strokeWidth={1.5} className="w-4 h-4 text-emerald-400 animate-pulse" />
-                      <span className="text-sm text-content-secondary">AI Tutor is thinking...</span>
+                      <span className="text-sm text-content-secondary">Thinking...</span>
                       <div className="flex gap-1 ml-2">
                         <motion.div
-                          className="w-1.5 h-1.5 bg-emerald-500 rounded-full"
+                          className="w-1.5 h-1.5 bg-content-muted rounded-full"
                           animate={{ opacity: [1, 0.3, 1] }}
                           transition={{ duration: 1, repeat: Infinity, delay: 0 }}
                         />
                         <motion.div
-                          className="w-1.5 h-1.5 bg-emerald-500 rounded-full"
+                          className="w-1.5 h-1.5 bg-content-muted rounded-full"
                           animate={{ opacity: [1, 0.3, 1] }}
                           transition={{ duration: 1, repeat: Infinity, delay: 0.2 }}
                         />
                         <motion.div
-                          className="w-1.5 h-1.5 bg-emerald-500 rounded-full"
+                          className="w-1.5 h-1.5 bg-content-muted rounded-full"
                           animate={{ opacity: [1, 0.3, 1] }}
                           transition={{ duration: 1, repeat: Infinity, delay: 0.4 }}
                         />
@@ -2084,7 +2082,7 @@ Please check your internet connection and try again. In the meantime:
                     className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-base-750 rounded-lg border border-border-strong"
                   >
                     {file.category === 'image' ? (
-                      <Image strokeWidth={1.5} className="w-3 h-3 sm:w-4 sm:h-4 text-primary-400" />
+                      <Image strokeWidth={1.5} className="w-3 h-3 sm:w-4 sm:h-4 text-content-muted" />
                     ) : (
                       <FileText strokeWidth={1.5} className="w-3 h-3 sm:w-4 sm:h-4 text-success-400" />
                     )}
@@ -2141,7 +2139,7 @@ Please check your internet connection and try again. In the meantime:
                   handleSendMessage();
                 }}
                 disabled={(!currentMessage.trim() && uploadedFiles.length === 0) || isTyping}
-                className="px-3 sm:px-6 py-2 sm:py-2.5 bg-primary-500 hover:bg-primary-600"
+                className="px-3 sm:px-6 py-2 sm:py-2.5 bg-content-primary text-base-950 hover:opacity-90"
               >
                 <Send strokeWidth={1.5} className="w-4 h-4 sm:w-5 sm:h-5" />
               </Button>

@@ -36,18 +36,17 @@ export default function ModelSelector({ value, onChange, compact = false, classN
   const ref = useRef(null);
 
   // Detect Puter availability (poll briefly on mount)
+  // IMPORTANT: Only use geminiService.getPuter() which checks AUTHENTICATION,
+  // not just SDK presence. window.puter.ai existing doesn't mean user is authed.
   useEffect(() => {
     let cancelled = false;
     const check = () => {
-      // Check if user is authenticated with Puter
       const puter = geminiService.getPuter();
       if (puter) { if (!cancelled) setHasPuter(true); return true; }
-      // Also check if SDK is loaded but user not yet authed
-      if (window.puter && window.puter.ai) { if (!cancelled) setHasPuter(true); return true; }
       return false;
     };
     if (check()) return;
-    // Poll for up to 6s
+    // Poll for up to 6s (token may take a moment to restore from localStorage)
     let attempts = 0;
     const iv = setInterval(() => {
       if (check() || ++attempts >= 6) clearInterval(iv);
@@ -108,7 +107,7 @@ export default function ModelSelector({ value, onChange, compact = false, classN
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        <Cpu className="w-3.5 h-3.5 text-primary-400 flex-shrink-0" strokeWidth={1.5} />
+        <Cpu className="w-3.5 h-3.5 text-content-muted flex-shrink-0" strokeWidth={1.5} />
         <span className={compact ? 'hidden sm:inline' : ''}>{selected.label}</span>
         <ChevronDown className={`w-3 h-3 text-content-muted transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth={1.5} />
       </button>
@@ -132,17 +131,17 @@ export default function ModelSelector({ value, onChange, compact = false, classN
                   onClick={() => handleSelect(model)}
                   className={`flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors ${
                     isSelected
-                      ? 'bg-primary-900 text-primary-400'
+                      ? 'bg-base-800 text-content-muted'
                       : 'text-content-secondary hover:bg-base-750'
                   }`}
                 >
-                  <Icon className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'text-primary-400' : 'text-content-muted'}`} strokeWidth={1.5} />
+                  <Icon className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'text-content-muted' : 'text-content-muted'}`} strokeWidth={1.5} />
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium truncate">{model.label}</div>
                     <div className="text-xs text-content-muted truncate">{model.description}</div>
                   </div>
                   {isSelected && (
-                    <div className="w-2 h-2 rounded-full bg-primary-400 flex-shrink-0" />
+                    <div className="w-2 h-2 rounded-full bg-content-muted flex-shrink-0" />
                   )}
                 </li>
               );
@@ -164,7 +163,7 @@ export default function ModelSelector({ value, onChange, compact = false, classN
                   } catch {}
                   window.dispatchEvent(new CustomEvent('apex:requestPuterAuth'));
                 }}
-                className="w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-primary-900 hover:bg-primary-500/30 border border-primary-500/40 rounded-lg text-xs text-primary-400 font-medium transition-colors"
+                className="w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-base-800 hover:bg-content-primary/30 border border-content-muted/40 rounded-lg text-xs text-content-muted font-medium transition-colors"
               >
                 <LogIn className="w-3.5 h-3.5" strokeWidth={1.5} />
                 Connect Puter Account
@@ -182,17 +181,17 @@ export function getDefaultModel() {
   try {
     const saved = localStorage.getItem('apex.ai.userModel');
     if (saved) {
-      // If saved model is a Puter model but Puter isn't available, fall back to Gemini
+      // If saved model is a Puter model but Puter isn't authenticated, fall back to Gemini
       const isPuterModel = PUTER_MODELS.some(m => m.value === saved);
       if (isPuterModel) {
-        const hasPuter = !!(geminiService.getPuter() || (window.puter && window.puter.ai));
+        const hasPuter = !!geminiService.getPuter();
         if (!hasPuter) return 'gemini-2.0-flash';
       }
       return saved;
     }
   } catch {}
-  // Default: check if Puter is available
-  const hasPuter = !!(geminiService.getPuter() || (window.puter && window.puter.ai));
+  // Default: only offer Puter models if user is authenticated (not just SDK loaded)
+  const hasPuter = !!geminiService.getPuter();
   return hasPuter ? 'claude-sonnet-4' : 'gemini-2.0-flash';
 }
 

@@ -95,7 +95,7 @@ export function SchoologyCallback() {
         <CardContent className="p-6 text-center">
           <div className="mb-6">
             {status === 'processing' && (
-              <Loader className="w-12 h-12 animate-spin text-primary-400 mx-auto" />
+              <Loader className="w-12 h-12 animate-spin text-content-muted mx-auto" />
             )}
             {status === 'success' && (
               <CheckCircle className="w-12 h-12 text-success-400 mx-auto" />
@@ -125,7 +125,7 @@ export function SchoologyCallback() {
             <div className="space-y-3">
               <Button 
                 onClick={handleRetry}
-                className="w-full bg-primary-500 hover:bg-primary-600 text-base-950"
+                className="w-full bg-content-primary hover:bg-content-primary text-base-950"
               >
                 Return to Settings
               </Button>

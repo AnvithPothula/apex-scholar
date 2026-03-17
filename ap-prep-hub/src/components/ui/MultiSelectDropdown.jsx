@@ -53,7 +53,7 @@ export default function MultiSelectDropdown({ options = [], selected = [], onCha
       <button
         type="button"
         className={`w-full min-h-[44px] px-3 py-2 bg-base-800 border rounded-lg text-left flex flex-wrap items-center gap-1.5 transition-all ${
-          open ? 'border-primary-500 ring-2 ring-primary-500/30' : 'border-border-strong hover:border-border'
+          open ? 'border-content-muted ring-2 ring-content-muted/30' : 'border-border-strong hover:border-border'
         }`}
         onClick={() => { setOpen(o => !o); setTimeout(() => inputRef.current?.focus(), 50); }}
         aria-haspopup="listbox"
@@ -65,7 +65,7 @@ export default function MultiSelectDropdown({ options = [], selected = [], onCha
           selectedLabels.map((label, i) => (
             <span
               key={selected[i]}
-              className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary-900 border border-primary-700/30 rounded-md text-xs text-primary-400"
+              className="inline-flex items-center gap-1 px-2 py-0.5 bg-base-800 border border-border-strong/30 rounded-md text-xs text-content-muted"
             >
               {label}
               <button
@@ -93,7 +93,7 @@ export default function MultiSelectDropdown({ options = [], selected = [], onCha
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search subjects..."
-              className="w-full px-2 py-1.5 bg-base-800 border border-border-strong rounded text-sm text-content-primary placeholder-content-muted focus:outline-none focus:border-primary-500"
+              className="w-full px-2 py-1.5 bg-base-800 border border-border-strong rounded text-sm text-content-primary placeholder-content-muted focus:outline-none focus:border-content-muted"
             />
           </div>
           <ul className="max-h-52 overflow-y-auto py-1" role="listbox">
@@ -110,12 +110,12 @@ export default function MultiSelectDropdown({ options = [], selected = [], onCha
                     onClick={() => toggle(opt.value)}
                     className={`flex items-center gap-2 px-3 py-2 cursor-pointer text-sm transition-colors ${
                       isSelected
-                        ? 'bg-primary-900 text-primary-400'
+                        ? 'bg-base-800 text-content-muted'
                         : 'text-content-secondary hover:bg-base-750'
                     }`}
                   >
                     <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${
-                      isSelected ? 'bg-primary-500 border-primary-500' : 'border-content-muted'
+                      isSelected ? 'bg-content-primary border-content-muted' : 'border-content-muted'
                     }`}>
                       {isSelected && <Check className="w-3 h-3 text-base-950" strokeWidth={1.5} />}
                     </div>

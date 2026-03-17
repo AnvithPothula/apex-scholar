@@ -203,10 +203,10 @@ export default function PuterAuthPrompt() {
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[60]">
       <div className="bg-base-850 rounded-md max-w-lg w-full border border-border shadow-floating overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="bg-primary-500/10 border-b border-border px-6 py-5">
+        <div className="bg-content-primary/10 border-b border-border px-6 py-5">
           <div className="flex items-center gap-3">
-              <div className="p-2 rounded-sm bg-primary-500/20">
-                <Sparkles className="w-6 h-6 text-primary-400" strokeWidth={1.5} />
+              <div className="p-2 rounded-sm bg-content-primary/20">
+                <Sparkles className="w-6 h-6 text-content-muted" strokeWidth={1.5} />
               </div>
               <div>
                 <h2 className="text-lg font-bold text-content-primary">Enable AI Features</h2>
@@ -226,7 +226,7 @@ export default function PuterAuthPrompt() {
           ) : (
             <>
               <p className="text-content-secondary text-sm leading-relaxed">
-                Apex Scholar uses <strong className="text-primary-400">Puter</strong> to provide free,
+                Apex Scholar uses <strong className="text-content-muted">Puter</strong> to provide free,
                 unlimited access to advanced AI models. We <strong className="text-content-primary">strongly recommend</strong> connecting
                 your account — it only takes a moment and dramatically improves your experience.
               </p>
@@ -270,7 +270,7 @@ export default function PuterAuthPrompt() {
             <button
               onClick={handleContinue}
               disabled={authState === 'loading'}
-              className="flex-[2] px-4 py-2.5 bg-primary-500 hover:bg-primary-400 disabled:opacity-70 text-base-950 rounded-sm text-sm font-semibold transition-all flex items-center justify-center gap-2 shadow-raised"
+              className="flex-[2] px-4 py-2.5 bg-content-primary hover:opacity-90 disabled:opacity-70 text-base-950 rounded-sm text-sm font-semibold transition-all flex items-center justify-center gap-2 shadow-raised"
             >
               {authState === 'loading' ? (
                 <>
@@ -297,7 +297,7 @@ function Benefit({ icon: Icon, text }) {
   return (
     <div className="flex items-center gap-3">
       <div className="p-1.5 rounded-lg bg-base-800/60">
-        <Icon className="w-4 h-4 text-primary-400" strokeWidth={1.5} />
+        <Icon className="w-4 h-4 text-content-muted" strokeWidth={1.5} />
       </div>
       <span className="text-content-secondary text-sm">{text}</span>
     </div>

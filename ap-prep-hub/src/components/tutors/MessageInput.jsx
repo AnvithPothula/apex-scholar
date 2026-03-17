@@ -27,7 +27,7 @@ export function MessageInput({ onSendMessage, isLoading }) {
           value={message} 
           onChange={(e) => setMessage(e.target.value)} 
           onKeyPress={handleKeyPress} 
-          className="min-h-[60px] max-h-48 resize-none pr-12 border-2 border-border-strong focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all duration-200 rounded-sm" 
+          className="min-h-[60px] max-h-48 resize-none pr-12 border-2 border-border-strong focus:border-content-muted focus:ring-1 focus:ring-content-muted/20 transition-all duration-200 rounded-sm" 
           disabled={isLoading} 
         />
         <div className="absolute right-3 bottom-3 text-xs text-content-muted">
@@ -38,7 +38,7 @@ export function MessageInput({ onSendMessage, isLoading }) {
         onClick={handleSend} 
         disabled={!message.trim() || isLoading} 
         size="lg" 
-        className="h-[60px] px-6 bg-primary-500 hover:bg-primary-600 text-base-950 transition-all duration-200 shadow-raised hover:shadow-floating rounded-sm"
+        className="h-[60px] px-6 bg-content-primary text-base-950 hover:opacity-90 transition-all duration-200 shadow-raised hover:shadow-floating rounded-sm"
       >
         <Send strokeWidth={1.5} className="w-5 h-5" />
       </Button>

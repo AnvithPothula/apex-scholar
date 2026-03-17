@@ -208,7 +208,7 @@ export function SchoologyIntegration() {
       <Card className="bg-base-850/60 border-border">
         <CardContent className="p-6">
           <div className="flex items-center justify-center">
-            <Loader className="w-6 h-6 animate-spin text-primary-400" strokeWidth={1.5} />
+            <Loader className="w-6 h-6 animate-spin text-content-muted" strokeWidth={1.5} />
             <span className="ml-2 text-content-secondary">Loading Schoology integration...</span>
           </div>
         </CardContent>
@@ -284,12 +284,12 @@ export function SchoologyIntegration() {
                 value={calendarUrl}
                 onChange={(e) => setCalendarUrl(e.target.value)}
                 placeholder="webcal://yourschool.schoology.com/calendar/feed/ical/..."
-                className="flex-1 px-3 py-2 bg-base-800 border border-border rounded-md text-content-primary placeholder-content-muted focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="flex-1 px-3 py-2 bg-base-800 border border-border rounded-md text-content-primary placeholder-content-muted focus:outline-none focus:ring-2 focus:ring-content-muted"
               />
               <Button
                 onClick={handleSetCalendarUrl}
                 disabled={!calendarUrl.trim() || isSettingCalendar}
-                className="bg-primary-600 hover:bg-primary-700"
+                className="bg-content-primary hover:opacity-90"
               >
                 {isSettingCalendar ? (
                   <Loader className="w-4 h-4 animate-spin" strokeWidth={1.5} />
@@ -358,7 +358,7 @@ export function SchoologyIntegration() {
                   onChange={handleAutoSyncToggle}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-base-750 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-content-primary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                <div className="w-11 h-6 bg-base-750 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-content-muted rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-content-primary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-content-primary"></div>
               </label>
             </div>
 

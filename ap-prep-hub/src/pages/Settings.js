@@ -321,8 +321,8 @@ const Settings = () => {
         <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-content-primary">
           Settings
           {isSaving && (
-            <span className="ml-3 text-sm font-normal text-primary-400">
-              <span className="inline-block w-2 h-2 bg-primary-400 rounded-full animate-pulse mr-2"></span>
+            <span className="ml-3 text-sm font-normal text-content-secondary">
+              <span className="inline-block w-2 h-2 bg-content-secondary rounded-full animate-pulse mr-2"></span>
               Saving...
             </span>
           )}
@@ -332,7 +332,7 @@ const Settings = () => {
             message.startsWith('Error')
               ? 'bg-error-900/50 text-error-300 border-error-700'
               : message.includes('Saving')
-              ? 'bg-primary-900/50 text-primary-300 border-primary-700'
+              ? 'bg-base-800/50 text-content-muted border-border-strong'
               : 'bg-success-900/50 text-success-300 border-success-700'
           }`}>
             {message}
@@ -351,7 +351,7 @@ const Settings = () => {
                   <button
                     type="button"
                     onClick={() => setShowGradientPicker(prev => !prev)}
-                    className="w-14 h-14 rounded-full flex items-center justify-center text-base-950 font-bold text-xl shrink-0 ring-2 ring-border-strong hover:ring-primary-500 transition-all cursor-pointer group"
+                    className="w-14 h-14 rounded-full flex items-center justify-center text-base-950 font-bold text-xl shrink-0 ring-2 ring-border-strong hover:ring-content-muted transition-all cursor-pointer group"
                     style={{ background: user?.avatarGradient || 'linear-gradient(135deg, #3b82f6, #8b5cf6)' }}
                     title="Click to change avatar color"
                   >
@@ -432,11 +432,11 @@ const Settings = () => {
                         onClick={() => setAiPersonalization(prev => ({ ...prev, style: value }))}
                         className={`text-left p-3 rounded-lg border transition-all ${
                           aiPersonalization.style === value
-                            ? 'border-primary-500 bg-primary-900 ring-1 ring-primary-500'
+                            ? 'border-content-primary bg-base-800 ring-1 ring-content-primary'
                             : 'border-border-strong bg-base-800/30 hover:border-content-muted'
                         }`}
                       >
-                        <span className={`block text-sm font-medium ${aiPersonalization.style === value ? 'text-primary-400' : 'text-content-primary'}`}>{label}</span>
+                        <span className={`block text-sm font-medium ${aiPersonalization.style === value ? 'text-content-primary' : 'text-content-primary'}`}>{label}</span>
                         <span className="block text-xs text-content-muted mt-0.5">{desc}</span>
                       </button>
                     ))}
@@ -450,7 +450,7 @@ const Settings = () => {
                       type="checkbox"
                       checked={aiPersonalization.useEmoji}
                       onChange={(e) => setAiPersonalization(prev => ({ ...prev, useEmoji: e.target.checked }))}
-                      className="h-4 w-4 text-primary-500 bg-base-800 border-border-strong rounded focus:ring-primary-500"
+                      className="h-4 w-4 text-content-primary bg-base-800 border-border-strong rounded focus:ring-content-muted"
                     />
                     <span className="text-sm text-content-secondary">Use emoji in responses</span>
                   </label>
@@ -459,7 +459,7 @@ const Settings = () => {
                       type="checkbox"
                       checked={aiPersonalization.useHeaders !== false}
                       onChange={(e) => setAiPersonalization(prev => ({ ...prev, useHeaders: e.target.checked }))}
-                      className="h-4 w-4 text-primary-500 bg-base-800 border-border-strong rounded focus:ring-primary-500"
+                      className="h-4 w-4 text-content-primary bg-base-800 border-border-strong rounded focus:ring-content-muted"
                     />
                     <span className="text-sm text-content-secondary">Use headers & lists for structure</span>
                   </label>
@@ -477,7 +477,7 @@ const Settings = () => {
                     onChange={(e) => setAiPersonalization(prev => ({ ...prev, customInstructions: e.target.value.substring(0, 500) }))}
                     rows={3}
                     maxLength={500}
-                    className="w-full bg-base-800 border border-border-strong rounded-sm px-3 py-2 text-sm text-content-primary placeholder-content-muted focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                    className="w-full bg-base-800 border border-border-strong rounded-sm px-3 py-2 text-sm text-content-primary placeholder-content-muted focus:outline-none focus:ring-2 focus:ring-content-muted focus:border-transparent resize-none"
                   />
                   <p className="text-xs text-content-muted mt-1">{aiPersonalization.customInstructions.length}/500 characters</p>
                 </div>
@@ -737,7 +737,7 @@ const Settings = () => {
                           id={key}
                           checked={studyPreferences[key] !== undefined ? studyPreferences[key] : isDefault}
                           onChange={(e) => setStudyPreferences({ ...studyPreferences, [key]: e.target.checked })}
-                          className="h-4 w-4 mt-0.5 text-primary-500 bg-base-800 border-border-strong rounded focus:ring-primary-500 focus:ring-2 flex-shrink-0"
+                          className="h-4 w-4 mt-0.5 text-content-primary bg-base-800 border-border-strong rounded focus:ring-content-muted focus:ring-2 flex-shrink-0"
                         />
                         <div className="ml-3 flex-1">
                           <div className="flex items-center gap-2">

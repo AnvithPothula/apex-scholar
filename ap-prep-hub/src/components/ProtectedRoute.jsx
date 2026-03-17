@@ -10,7 +10,7 @@ export function ProtectedRoute({ children }) {
         return (
             <div className="flex h-screen items-center justify-center bg-base-950">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-content-muted mx-auto mb-4"></div>
                     <p className="text-content-muted">Loading Application...</p>
                 </div>
             </div>
@@ -28,7 +28,7 @@ export function ProtectedRoute({ children }) {
                     <div className="space-y-2">
                         <button
                             onClick={() => window.location.reload()}
-                            className="w-full bg-primary-500 text-base-950 px-4 py-2 rounded-sm hover:bg-primary-600 transition-colors"
+                            className="w-full bg-content-primary text-base-950 px-4 py-2 rounded-sm hover:bg-content-primary transition-colors"
                         >
                             Refresh Page
                         </button>

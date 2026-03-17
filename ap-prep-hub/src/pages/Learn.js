@@ -1599,7 +1599,7 @@ const Learn = () => {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.1 * index }}
-                      className="p-4 bg-primary-900 border border-primary-500/20 rounded-lg"
+                      className="p-4 bg-base-800 border border-border-strong rounded-lg"
                     >
                       <p className="text-content-secondary">{example}</p>
                     </motion.div>
@@ -1620,14 +1620,14 @@ const Learn = () => {
                   </Button>
                   <Button 
                     onClick={() => navigate('/solver')}
-                    className="flex items-center justify-center gap-2 bg-primary-500 hover:bg-primary-600"
+                    className="flex items-center justify-center gap-2"
                   >
                     <Target className="w-4 h-4" />
                     Practice Problems
                   </Button>
                   <Button 
                     onClick={() => navigate('/ai-tutors')}
-                    className="flex items-center justify-center gap-2 bg-primary-500 hover:bg-primary-600"
+                    className="flex items-center justify-center gap-2"
                   >
                     <BookOpen className="w-4 h-4" />
                     Ask AI Tutor
@@ -1658,14 +1658,14 @@ const Learn = () => {
                   </Button>
                   <Button 
                     onClick={() => navigate('/solver')}
-                    className="flex items-center justify-center gap-2 bg-primary-500 hover:bg-primary-600"
+                    className="flex items-center justify-center gap-2"
                   >
                     <Target className="w-4 h-4" />
                     Practice Problems
                   </Button>
                   <Button 
                     onClick={() => navigate('/ai-tutors')}
-                    className="flex items-center justify-center gap-2 bg-primary-500 hover:bg-primary-600"
+                    className="flex items-center justify-center gap-2"
                   >
                     <BookOpen className="w-4 h-4" />
                     Ask AI Tutor
@@ -1726,11 +1726,11 @@ const Learn = () => {
                     onClick={() => handleTopicClick(topic)}
                   >
                     <CheckCircle className="w-5 h-5 text-success-400 flex-shrink-0" />
-                    <span className="text-content-primary group-hover:text-primary-400 transition-colors">
+                    <span className="text-content-primary group-hover:text-content-primary transition-colors">
                       {typeof topic === 'string' ? topic : topic.name}
                     </span>
                     {typeof topic === 'object' && topic.content && (
-                      <Badge variant="outline" className="ml-auto text-xs bg-primary-900 text-primary-400">
+                      <Badge variant="outline" className="ml-auto text-xs bg-base-800 text-content-secondary">
                         Interactive
                       </Badge>
                     )}
@@ -1778,8 +1778,8 @@ const Learn = () => {
               <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
                     onClick={() => navigate('/solver')}>
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="p-2 bg-primary-900 rounded-lg group-hover:bg-primary-900 transition-colors">
-                    <Target className="w-5 h-5 text-primary-400" />
+                  <div className="p-2 bg-base-800 rounded-lg group-hover:bg-base-750 transition-colors">
+                    <Target className="w-5 h-5 text-content-secondary" />
                   </div>
                   <h3 className="font-semibold text-content-primary">Get Help</h3>
                 </div>
@@ -1815,8 +1815,8 @@ const Learn = () => {
               Back to Subjects
             </Button>
             <div className="flex items-center gap-4 mb-6">
-              <div className="p-4 bg-primary-500 rounded-md shadow-raised">
-                <BookOpen className="w-8 h-8 text-base-950" />
+              <div className="p-4 bg-base-750 rounded-md shadow-raised">
+                <BookOpen className="w-8 h-8 text-content-primary" />
               </div>
               <div>
                 <h1 className="text-3xl font-bold text-content-primary">
@@ -1866,8 +1866,8 @@ const Learn = () => {
               <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
                     onClick={() => navigate('/solver')}>
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="p-2 bg-primary-900 rounded-lg group-hover:bg-primary-900 transition-colors">
-                    <Target className="w-5 h-5 text-primary-400" />
+                  <div className="p-2 bg-base-800 rounded-lg group-hover:bg-base-750 transition-colors">
+                    <Target className="w-5 h-5 text-content-secondary" />
                   </div>
                   <h3 className="font-semibold text-content-primary">Problem Solver</h3>
                 </div>
@@ -1913,7 +1913,7 @@ const Learn = () => {
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-lg font-bold text-content-primary group-hover:text-primary-400 transition-colors">
+                          <h3 className="text-lg font-bold text-content-primary group-hover:text-content-primary transition-colors">
                             {unit.title}
                           </h3>
                           <Badge variant="outline" className="text-xs">
@@ -1941,7 +1941,7 @@ const Learn = () => {
                       )}
                     </div>
 
-                    <div className="flex items-center text-primary-400 text-sm">
+                    <div className="flex items-center text-content-secondary text-sm">
                       View Unit Details <ChevronRight className="w-4 h-4 ml-1" />
                     </div>
                   </Card>
@@ -1964,8 +1964,8 @@ const Learn = () => {
           className="text-center mb-12"
         >
           <div className="flex items-center justify-center gap-4 mb-6">
-            <div className="p-4 bg-primary-500 rounded-md shadow-raised">
-              <Book className="w-8 h-8 text-base-950" />
+            <div className="p-4 bg-base-750 rounded-md shadow-raised">
+              <Book className="w-8 h-8 text-content-primary" />
             </div>
             <h1 className="text-4xl font-bold text-content-primary font-display">
               AP Learning Hub
@@ -1984,11 +1984,11 @@ const Learn = () => {
           transition={{ delay: 0.1 }}
           className="mb-8"
         >
-          <Card className="p-6 bg-primary-900 border-primary-500/30">
+          <Card className="p-6 bg-base-850 border-border">
             <div className="grid md:grid-cols-4 gap-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-primary-900 rounded-lg">
-                  <Brain className="w-5 h-5 text-primary-400" />
+                <div className="p-2 bg-base-800 rounded-lg">
+                  <Brain className="w-5 h-5 text-content-secondary" />
                 </div>
                 <div>
                   <h3 className="font-semibold text-content-primary">AI Diagnostics</h3>
@@ -1996,8 +1996,8 @@ const Learn = () => {
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-primary-900 rounded-lg">
-                  <Target className="w-5 h-5 text-primary-400" />
+                <div className="p-2 bg-base-800 rounded-lg">
+                  <Target className="w-5 h-5 text-content-secondary" />
                 </div>
                 <div>
                   <h3 className="font-semibold text-content-primary">Smart Practice</h3>
@@ -2054,7 +2054,7 @@ const Learn = () => {
                     variant={selectedCategory === category ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setSelectedCategory(category)}
-                    className={selectedCategory === category ? 'bg-primary-500 hover:bg-primary-600' : ''}
+                    className={selectedCategory === category ? '' : ''}
                   >
                     {category}
                   </Button>
@@ -2096,15 +2096,15 @@ const Learn = () => {
             <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
                   onClick={() => navigate('/practice-tests')}>
               <div className="flex items-center gap-3 mb-3">
-                <div className="p-2 bg-primary-900 rounded-lg group-hover:bg-primary-900 transition-colors">
-                  <FileText className="w-5 h-5 text-primary-400" />
+                <div className="p-2 bg-base-800 rounded-lg group-hover:bg-base-750 transition-colors">
+                  <FileText className="w-5 h-5 text-content-secondary" />
                 </div>
                 <h3 className="font-semibold text-content-primary">Practice Tests</h3>
               </div>
               <p className="text-sm text-content-muted mb-3">
                 Take full-length AP practice tests with AI-generated questions and instant feedback.
               </p>
-              <div className="flex items-center text-primary-400 text-sm">
+              <div className="flex items-center text-content-secondary text-sm">
                 Start Practice <ChevronRight className="w-4 h-4 ml-1" />
               </div>
             </Card>
@@ -2162,7 +2162,7 @@ const Learn = () => {
                 <Card className="p-6 h-full hover:bg-base-850 transition-all duration-200 group border-border hover:border-border-strong">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
-                      <h3 className="text-lg font-bold text-content-primary mb-2 group-hover:text-primary-400 transition-colors">
+                      <h3 className="text-lg font-bold text-content-primary mb-2 group-hover:text-content-primary transition-colors">
                         {subject.name}
                       </h3>
                       <p className="text-sm text-content-muted leading-relaxed mb-4">
@@ -2191,7 +2191,7 @@ const Learn = () => {
                         e.stopPropagation();
                         handleSubjectClick(key);
                       }}
-                      className="flex-1 bg-primary-500 hover:bg-primary-600"
+                      className="flex-1"
                     >
                       <BookOpen className="w-4 h-4 mr-2" />
                       {CURRICULUM_DATA[key] ? 'Curriculum' : 'Study'}
@@ -2243,7 +2243,7 @@ const Learn = () => {
             transition={{ delay: 0.6 }}
             className="mt-12 text-center"
           >
-            <Card className="p-8 bg-primary-900 border-primary-500/30">
+            <Card className="p-8 bg-base-850 border-border">
               <h2 className="text-2xl font-bold text-content-primary mb-4">
                 Unlock Your Full Learning Potential
               </h2>
@@ -2253,7 +2253,7 @@ const Learn = () => {
               </p>
               <Button
                 onClick={() => navigate('/auth')}
-                className="bg-primary-500 hover:bg-primary-600 px-8 py-3 text-lg"
+                className="px-8 py-3 text-lg"
               >
                 Get Started Free
               </Button>

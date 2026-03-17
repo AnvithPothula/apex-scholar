@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, Plus, Search, Play, Trash2, Clock, BookOpen, Sparkles, CheckCircle, X, Edit3, Save, ChevronDown, Globe, Lock, Copy, Users } from 'lucide-react';
+import { Plus, Search, Play, Trash2, Clock, BookOpen, CheckCircle, X, Edit3, Save, ChevronDown, Globe, Lock, Copy, Users } from 'lucide-react';
 import { Button, Card, Input } from '../components/ui/UIComponents';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -25,7 +25,7 @@ const CustomDropdown = ({ options, value, onChange, placeholder, className = "" 
     <div className={`relative ${className}`}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full bg-base-800 border border-border-strong rounded-lg px-4 py-3 text-left text-content-primary focus:border-primary-500 focus:outline-none transition-colors flex items-center justify-between"
+        className="w-full bg-base-800 border border-border-strong rounded-lg px-4 py-3 text-left text-content-primary focus:border-content-muted focus:outline-none transition-colors flex items-center justify-between"
       >
         <span className={selectedOption ? 'text-content-primary' : 'text-content-muted'}>
           {selectedOption ? selectedOption.label : placeholder}
@@ -505,7 +505,7 @@ const FlashcardsPage = () => {
           <div className="mb-6">
             <div className="w-full bg-base-800 rounded-full h-2">
               <div 
-                className="bg-primary-500 h-2 rounded-full transition-all duration-300" 
+                className="bg-content-primary h-2 rounded-full transition-all duration-300" 
                 style={{ width: `${((currentCardIndex + 1) / studyingDeck.cards.length) * 100}%` }}
               ></div>
             </div>
@@ -525,7 +525,7 @@ const FlashcardsPage = () => {
               {!showAnswer && (
                 <Button
                   onClick={() => setShowAnswer(true)}
-                  className="mt-4 sm:mt-6 bg-primary-500 hover:bg-primary-600 text-base-950 text-sm sm:text-base"
+                  className="mt-4 sm:mt-6 bg-content-primary text-base-950 hover:opacity-90 text-sm sm:text-base"
                 >
                   Show Answer
                 </Button>
@@ -548,7 +548,7 @@ const FlashcardsPage = () => {
                 </Button>
                 <Button
                   onClick={() => handleCardAnswer(true)}
-                  className="bg-primary-500 hover:bg-primary-600 text-base-950"
+                  className="bg-content-primary text-base-950 hover:opacity-90"
                 >
                   <CheckCircle className="w-4 h-4 mr-2" strokeWidth={1.5} />
                   Got It Right
@@ -578,22 +578,10 @@ const FlashcardsPage = () => {
         // Main Flashcards Interface
         <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
         {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-6 sm:mb-8 md:mb-12"
-        >
-          <div className="flex items-center justify-center gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4 md:mb-6">
-            <div className="p-2 sm:p-3 md:p-4 bg-primary-500 rounded-md shadow-raised">
-              <Zap className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-base-950" strokeWidth={1.5} />
-            </div>
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-content-primary font-display">
-              AI Flashcards
-            </h1>
-          </div>
-          <p className="text-sm sm:text-base md:text-lg text-content-secondary max-w-3xl mx-auto px-2">
-            Create personalized flashcard decks with AI assistance and study smarter with 
-            spaced repetition algorithms that adapt to your learning pace.
+        <div className="text-center mb-6 sm:mb-8 md:mb-12">
+          <h1 className="text-2xl font-display font-semibold text-content-primary mb-2">Flashcards</h1>
+          <p className="text-sm sm:text-base text-content-secondary">
+            Create and study flashcard decks.
           </p>
           <div className="mt-3 flex justify-center">
             <ModelSelector
@@ -601,22 +589,17 @@ const FlashcardsPage = () => {
               onChange={(m) => { setSelectedModel(m); saveSelectedModel(m); }}
             />
           </div>
-        </motion.div>
+        </div>
 
         {/* Tabs: My Decks / Public */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="mb-6 sm:mb-8"
-        >
+        <div className="mb-6 sm:mb-8">
           <div className="flex justify-center mb-6">
             <div className="flex bg-base-850 p-1 rounded-lg border border-border">
               <button
                 onClick={() => setActiveTab('my')}
                 className={`px-4 sm:px-6 py-2 rounded-md text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
                   activeTab === 'my'
-                    ? 'bg-primary-500 text-base-950 shadow-sm'
+                    ? 'bg-content-primary text-base-950 shadow-sm'
                     : 'text-content-muted hover:text-content-primary'
                 }`}
               >
@@ -627,7 +610,7 @@ const FlashcardsPage = () => {
                 onClick={() => setActiveTab('public')}
                 className={`px-4 sm:px-6 py-2 rounded-md text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
                   activeTab === 'public'
-                    ? 'bg-primary-500 text-base-950 shadow-sm'
+                    ? 'bg-content-primary text-base-950 shadow-sm'
                     : 'text-content-muted hover:text-content-primary'
                 }`}
               >
@@ -672,7 +655,7 @@ const FlashcardsPage = () => {
                 <Button
                   onClick={searchPublicDecks}
                   disabled={isSearchingPublic}
-                  className="bg-primary-500 hover:bg-primary-600 text-base-950 whitespace-nowrap"
+                  className="bg-content-primary text-base-950 hover:opacity-90 whitespace-nowrap"
                 >
                   {isSearchingPublic ? (
                     <div className="w-4 h-4 border-2 border-base-950 border-t-transparent rounded-full animate-spin" />
@@ -684,7 +667,7 @@ const FlashcardsPage = () => {
               </div>
             </div>
           )}
-        </motion.div>
+        </div>
 
         {/* My Flashcards Section */}
         {activeTab === 'my' && (
@@ -699,16 +682,16 @@ const FlashcardsPage = () => {
             <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
               <Button
                 onClick={() => setShowManualCreate(true)}
-                className="flex-1 sm:flex-none bg-primary-500 hover:bg-primary-600 text-sm"
+                className="flex-1 sm:flex-none bg-content-primary text-base-950 hover:opacity-90 text-sm"
               >
                 <Plus className="w-4 h-4 mr-1 sm:mr-2" strokeWidth={1.5} />
                 <span className="hidden sm:inline">Create Manual</span>
               </Button>
               <Button
                 onClick={() => setShowCreateForm(true)}
-                className="flex-1 sm:flex-none bg-primary-500 hover:bg-primary-600 text-sm"
+                className="flex-1 sm:flex-none bg-content-primary text-base-950 hover:opacity-90 text-sm"
               >
-                <Sparkles className="w-4 h-4 mr-1 sm:mr-2" strokeWidth={1.5} />
+                <Plus className="w-4 h-4 mr-1 sm:mr-2" strokeWidth={1.5} />
                 <span className="hidden sm:inline">Create with AI</span>
               </Button>
             </div>
@@ -766,7 +749,7 @@ const FlashcardsPage = () => {
                     type="button"
                     onClick={() => setIsPublicDeck(!isPublicDeck)}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
-                      isPublicDeck ? 'bg-primary-500' : 'bg-base-750'
+                      isPublicDeck ? 'bg-content-primary' : 'bg-base-750'
                     }`}
                   >
                     <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
@@ -774,7 +757,7 @@ const FlashcardsPage = () => {
                     }`} />
                   </button>
                   <div className="flex items-center gap-1.5">
-                    {isPublicDeck ? <Globe className="w-4 h-4 text-primary-400" strokeWidth={1.5} /> : <Lock className="w-4 h-4 text-content-muted" strokeWidth={1.5} />}
+                    {isPublicDeck ? <Globe className="w-4 h-4 text-content-muted" strokeWidth={1.5} /> : <Lock className="w-4 h-4 text-content-muted" strokeWidth={1.5} />}
                     <span className="text-sm text-content-secondary">
                       {isPublicDeck ? 'Public — anyone can find and copy this deck' : 'Private — only you can see this deck'}
                     </span>
@@ -784,16 +767,16 @@ const FlashcardsPage = () => {
                   <Button
                     onClick={handleCreateCollection}
                     disabled={!createSubject || !createTopic || isGenerating}
-                    className="bg-primary-500 hover:bg-primary-600 text-base-950"
+                    className="bg-content-primary text-base-950 hover:opacity-90"
                   >
                     {isGenerating ? (
                       <>
-                        <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin mr-2"></div>
+                        <div className="w-4 h-4 border-2 border-content-muted border-t-transparent rounded-full animate-spin mr-2"></div>
                         Generating...
                       </>
                     ) : (
                       <>
-                        <Sparkles className="w-4 h-4 mr-2" strokeWidth={1.5} />
+                        <Plus className="w-4 h-4 mr-2" strokeWidth={1.5} />
                         Generate Flashcards
                       </>
                     )}
@@ -906,7 +889,7 @@ const FlashcardsPage = () => {
                             placeholder="Enter the answer..."
                             value={card.answer}
                             onChange={(e) => updateCard(index, 'answer', e.target.value)}
-                            className="w-full bg-base-800 border border-border-strong rounded-lg px-3 py-2 text-content-primary placeholder-content-muted focus:border-primary-500 focus:outline-none transition-colors resize-none"
+                            className="w-full bg-base-800 border border-border-strong rounded-lg px-3 py-2 text-content-primary placeholder-content-muted focus:border-content-muted focus:outline-none transition-colors resize-none"
                             rows={3}
                           />
                         </div>
@@ -921,7 +904,7 @@ const FlashcardsPage = () => {
                     type="button"
                     onClick={() => setIsPublicDeck(!isPublicDeck)}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
-                      isPublicDeck ? 'bg-primary-500' : 'bg-base-750'
+                      isPublicDeck ? 'bg-content-primary' : 'bg-base-750'
                     }`}
                   >
                     <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
@@ -929,7 +912,7 @@ const FlashcardsPage = () => {
                     }`} />
                   </button>
                   <div className="flex items-center gap-1.5">
-                    {isPublicDeck ? <Globe className="w-4 h-4 text-primary-400" strokeWidth={1.5} /> : <Lock className="w-4 h-4 text-content-muted" strokeWidth={1.5} />}
+                    {isPublicDeck ? <Globe className="w-4 h-4 text-content-muted" strokeWidth={1.5} /> : <Lock className="w-4 h-4 text-content-muted" strokeWidth={1.5} />}
                     <span className="text-sm text-content-secondary">
                       {isPublicDeck ? 'Public — anyone can find and copy this deck' : 'Private — only you can see this deck'}
                     </span>
@@ -940,7 +923,7 @@ const FlashcardsPage = () => {
                   <Button
                     onClick={handleManualCreate}
                     disabled={!manualTitle || manualCards.some(card => !card.question || !card.answer)}
-                    className="bg-primary-500 hover:bg-primary-600 text-base-950"
+                    className="bg-content-primary text-base-950 hover:opacity-90"
                   >
                     <Save className="w-4 h-4 mr-2" strokeWidth={1.5} />
                     Create Deck
@@ -972,14 +955,14 @@ const FlashcardsPage = () => {
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-2 flex-wrap">
-                            <h3 className="text-lg font-bold text-content-primary group-hover:text-primary-400 transition-colors truncate">
+                            <h3 className="text-lg font-bold text-content-primary group-hover:text-content-muted transition-colors truncate">
                               {collection.title}
                             </h3>
                             <button
                               onClick={(e) => { e.stopPropagation(); handleToggleVisibility(collection); }}
                               className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors ${
                                 collection.isPublic
-                                  ? 'bg-primary-900 text-primary-400 hover:bg-primary-500 hover:text-base-950'
+                                  ? 'bg-base-800 text-content-muted hover:bg-content-primary hover:text-base-950'
                                   : 'bg-base-800 text-content-muted hover:bg-base-750'
                               }`}
                               title={collection.isPublic ? 'Click to make private' : 'Click to make public'}
@@ -1009,7 +992,7 @@ const FlashcardsPage = () => {
                         <Button
                           size="sm"
                           onClick={() => handleStudyCollection(collection)}
-                          className="flex-1 bg-primary-500 hover:bg-primary-600 text-base-950"
+                          className="flex-1 bg-content-primary text-base-950 hover:opacity-90"
                         >
                           <Play className="w-4 h-4 mr-2" strokeWidth={1.5} />
                           Study
@@ -1018,7 +1001,7 @@ const FlashcardsPage = () => {
                           size="sm"
                           variant="outline"
                           onClick={() => startEditingDeck(collection)}
-                          className="hover:bg-primary-500/20 hover:border-primary-500"
+                          className="hover:bg-content-primary/20 hover:border-content-primary"
                         >
                           <Edit3 className="w-4 h-4" strokeWidth={1.5} />
                         </Button>
@@ -1037,12 +1020,12 @@ const FlashcardsPage = () => {
               </div>
             ) : (
               <Card className="p-8 text-center">
-                <Zap className="w-16 h-16 text-content-muted mx-auto mb-4" strokeWidth={1.5} />
+                <BookOpen className="w-16 h-16 text-content-muted mx-auto mb-4" strokeWidth={1.5} />
                 <h3 className="text-xl font-bold text-content-secondary mb-2">No flashcards yet</h3>
                 <p className="text-content-muted mb-6">Create your first AI-powered flashcard collection to get started.</p>
                 <Button
                   onClick={() => setShowCreateForm(true)}
-                  className="bg-primary-500 hover:bg-primary-600 text-base-950"
+                  className="bg-content-primary text-base-950 hover:opacity-90"
                 >
                   <Plus className="w-4 h-4 mr-2" strokeWidth={1.5} />
                   Create Flashcards
@@ -1051,12 +1034,12 @@ const FlashcardsPage = () => {
             )
           ) : (
             <Card className="p-8 text-center">
-              <Zap className="w-16 h-16 text-content-muted mx-auto mb-4" strokeWidth={1.5} />
+              <BookOpen className="w-16 h-16 text-content-muted mx-auto mb-4" strokeWidth={1.5} />
               <h3 className="text-xl font-bold text-content-secondary mb-2">Sign up to create flashcards</h3>
               <p className="text-content-muted mb-6">Create a free account to build your own custom flashcard decks with AI assistance.</p>
               <Button
                 onClick={() => navigate('/auth')}
-                className="bg-primary-500 hover:bg-primary-600 text-base-950"
+                className="bg-content-primary text-base-950 hover:opacity-90"
               >
                 Create Account
               </Button>
@@ -1074,13 +1057,13 @@ const FlashcardsPage = () => {
           className="mb-12"
         >
           <div className="flex items-center gap-2 mb-6">
-            <Users className="w-5 h-5 text-primary-400" strokeWidth={1.5} />
+            <Users className="w-5 h-5 text-content-muted" strokeWidth={1.5} />
             <h2 className="text-xl sm:text-2xl font-bold text-content-primary">Public Flashcards</h2>
           </div>
 
           {isSearchingPublic ? (
             <div className="flex justify-center py-12">
-              <div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+              <div className="w-8 h-8 border-2 border-content-primary border-t-transparent rounded-full animate-spin" />
             </div>
           ) : publicDecks.length > 0 ? (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1094,16 +1077,16 @@ const FlashcardsPage = () => {
                   <Card className="p-6 h-full hover:bg-base-850/50 transition-all duration-200 group">
                     <div className="mb-4">
                       <div className="flex items-center gap-2 mb-2">
-                        <h3 className="text-lg font-bold text-content-primary group-hover:text-primary-400 transition-colors truncate">
+                        <h3 className="text-lg font-bold text-content-primary group-hover:text-content-muted transition-colors truncate">
                           {deck.title}
                         </h3>
-                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary-900 text-primary-400 whitespace-nowrap">
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-base-800 text-content-muted whitespace-nowrap">
                           <Globe className="w-3 h-3" strokeWidth={1.5} />
                           Public
                         </span>
                       </div>
                       {deck.topic && (
-                        <p className="text-xs text-primary-400 mb-1">{AP_SUBJECTS[deck.subject]?.name || deck.subject}</p>
+                        <p className="text-xs text-content-muted mb-1">{AP_SUBJECTS[deck.subject]?.name || deck.subject}</p>
                       )}
                       <p className="text-sm text-content-muted mb-3 line-clamp-2">
                         {deck.description}
@@ -1126,7 +1109,7 @@ const FlashcardsPage = () => {
                         size="sm"
                         onClick={() => handleCopyPublicDeck(deck)}
                         disabled={copyingDeckId === deck.id}
-                        className="flex-1 bg-primary-500 hover:bg-primary-600 text-base-950"
+                        className="flex-1 bg-content-primary text-base-950 hover:opacity-90"
                       >
                         {copyingDeckId === deck.id ? (
                           <div className="w-4 h-4 border-2 border-base-950 border-t-transparent rounded-full animate-spin" />
@@ -1141,7 +1124,7 @@ const FlashcardsPage = () => {
                         size="sm"
                         variant="outline"
                         onClick={() => handleStudyCollection(deck)}
-                        className="hover:bg-primary-500/20 hover:border-primary-500"
+                        className="hover:bg-content-primary/20 hover:border-content-primary"
                       >
                         <Play className="w-4 h-4" strokeWidth={1.5} />
                       </Button>
@@ -1207,7 +1190,7 @@ const FlashcardsPage = () => {
                   onClick={() => setEditingDeck(prev => ({ ...prev, isPublic: !prev.isPublic }))}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
                     editingDeck.isPublic
-                      ? 'border-primary-500 bg-primary-500/10 text-primary-400'
+                      ? 'border-content-muted bg-content-primary/10 text-content-muted'
                       : 'border-border bg-base-800/50 text-content-secondary'
                   }`}
                 >
@@ -1251,7 +1234,7 @@ const FlashcardsPage = () => {
               </div>
             </div>
             <div className="p-6 border-t border-border flex gap-3">
-              <Button onClick={saveEditedDeck} className="bg-primary-500 hover:bg-primary-600 text-base-950">
+              <Button onClick={saveEditedDeck} className="bg-content-primary text-base-950 hover:opacity-90">
                 <Save className="w-4 h-4 mr-2" strokeWidth={1.5} />
                 Save Changes
               </Button>
@@ -1280,7 +1263,7 @@ const FlashcardsPage = () => {
                 <textarea
                   value={editingCard.question}
                   onChange={(e) => setEditingCard(prev => ({ ...prev, question: e.target.value }))}
-                  className="w-full bg-base-800 border border-border-strong rounded-lg px-3 py-2 text-content-primary placeholder-content-muted focus:border-primary-500 focus:outline-none transition-colors resize-none"
+                  className="w-full bg-base-800 border border-border-strong rounded-lg px-3 py-2 text-content-primary placeholder-content-muted focus:border-content-muted focus:outline-none transition-colors resize-none"
                   rows={3}
                 />
               </div>
@@ -1289,13 +1272,13 @@ const FlashcardsPage = () => {
                 <textarea
                   value={editingCard.answer}
                   onChange={(e) => setEditingCard(prev => ({ ...prev, answer: e.target.value }))}
-                  className="w-full bg-base-800 border border-border-strong rounded-lg px-3 py-2 text-content-primary placeholder-content-muted focus:border-primary-500 focus:outline-none transition-colors resize-none"
+                  className="w-full bg-base-800 border border-border-strong rounded-lg px-3 py-2 text-content-primary placeholder-content-muted focus:border-content-muted focus:outline-none transition-colors resize-none"
                   rows={4}
                 />
               </div>
             </div>
             <div className="p-6 border-t border-border flex gap-3">
-              <Button onClick={saveEditedCard} className="bg-primary-500 hover:bg-primary-600 text-base-950">
+              <Button onClick={saveEditedCard} className="bg-content-primary text-base-950 hover:opacity-90">
                 <Save className="w-4 h-4 mr-2" strokeWidth={1.5} />
                 Save Card
               </Button>

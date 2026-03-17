@@ -11,28 +11,27 @@ export const Button = forwardRef(({
   glow, // destructure out to prevent DOM forwarding
   ...props
 }, ref) => {
-  const baseClasses = "inline-flex items-center justify-center rounded-sm font-medium transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed";
+  const baseClasses = "inline-flex items-center justify-center rounded-sm font-medium transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-base-950 disabled:opacity-50 disabled:cursor-not-allowed";
 
   const variants = {
-    primary: "bg-primary-500 hover:bg-primary-600 text-base-950 shadow-raised hover:shadow-floating focus:ring-primary-500",
-    secondary: "bg-base-800 hover:bg-base-750 text-content-primary border border-border hover:border-border-strong shadow-md hover:shadow-raised focus:ring-primary-500",
-    ghost: "hover:bg-base-850 text-content-secondary hover:text-content-primary focus:ring-primary-500",
-    destructive: "bg-error-600 hover:bg-error-700 text-content-primary shadow-raised hover:shadow-floating focus:ring-error-500",
-    outline: "border-2 border-border-strong hover:border-border text-content-secondary hover:text-content-primary bg-transparent hover:bg-base-850 focus:ring-primary-500",
+    primary: "bg-content-primary text-base-950 hover:opacity-90 focus:ring-content-primary",
+    secondary: "bg-base-800 hover:bg-base-750 text-content-primary border border-border hover:border-border-strong focus:ring-content-muted",
+    ghost: "hover:bg-base-800 text-content-secondary hover:text-content-primary focus:ring-content-muted",
+    destructive: "bg-error-500 hover:bg-error-400 text-white focus:ring-error-500",
+    outline: "border border-border-strong hover:border-content-muted text-content-secondary hover:text-content-primary bg-transparent hover:bg-base-850 focus:ring-content-muted",
   };
 
   const sizes = {
-    sm: "h-9 px-3 text-xs min-w-[2.25rem]",
-    md: "h-10 px-4 py-2 text-sm min-w-[2.5rem]",
-    lg: "h-12 px-6 py-3 text-base min-w-[3rem]",
-    xl: "h-14 px-8 py-4 text-lg min-w-[3.5rem]"
+    sm: "h-8 px-3 text-xs min-w-[2rem]",
+    md: "h-9 px-4 py-2 text-sm min-w-[2.25rem]",
+    lg: "h-10 px-5 py-2.5 text-sm min-w-[2.5rem]",
+    xl: "h-12 px-6 py-3 text-base min-w-[3rem]"
   };
 
   return (
     <motion.button
       ref={ref}
       className={cn(baseClasses, variants[variant], sizes[size], className)}
-      whileHover={{ scale: 1.01 }}
       whileTap={{ scale: 0.98 }}
       {...props}
     >
@@ -46,19 +45,16 @@ Button.displayName = "Button";
 // Card Component
 export const Card = forwardRef(({ className, children, glow, ...props }, ref) => {
   return (
-    <motion.div
+    <div
       ref={ref}
       className={cn(
-        "rounded-md border border-border bg-base-850 shadow-subtle transition-all duration-300",
+        "rounded-md border border-border bg-base-850 transition-colors duration-150",
         className
       )}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.4 }}
       {...props}
     >
       {children}
-    </motion.div>
+    </div>
   );
 });
 
@@ -97,7 +93,7 @@ export const Input = forwardRef(({
         type={type}
         ref={ref}
         className={cn(
-          "w-full rounded-sm border border-border-strong bg-base-800 px-3 py-2.5 text-content-primary placeholder-content-muted shadow-sm transition-all duration-300 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 disabled:cursor-not-allowed disabled:opacity-50",
+          "w-full rounded-sm border border-border-strong bg-base-800 px-3 py-2.5 text-content-primary placeholder-content-muted transition-colors duration-150 focus:border-content-muted focus:outline-none focus:ring-1 focus:ring-content-muted/20 disabled:cursor-not-allowed disabled:opacity-50",
           Icon && "pl-12",
           multiline && "min-h-[100px] resize-y",
           className
@@ -112,26 +108,26 @@ export const Input = forwardRef(({
 Input.displayName = "Input";
 
 // Badge Component
-export const Badge = forwardRef(({ 
-  className, 
-  variant = "default", 
-  children, 
-  ...props 
+export const Badge = forwardRef(({
+  className,
+  variant = "default",
+  children,
+  ...props
 }, ref) => {
   const variants = {
-    default: "bg-base-800 text-content-primary border-border",
-    primary: "bg-primary-900 text-primary-400 border-primary-500",
-    secondary: "bg-base-800 text-content-primary border-border",
-    success: "bg-success-700 text-success-200 border-success-600",
-    warning: "bg-warning-700 text-warning-200 border-warning-600",
-    destructive: "bg-error-700 text-error-200 border-error-600",
+    default: "bg-base-800 text-content-secondary border-border",
+    primary: "bg-base-800 text-content-muted border-transparent",
+    secondary: "bg-base-800 text-content-secondary border-border",
+    success: "bg-success-900 text-success-400 border-transparent",
+    warning: "bg-warning-900 text-warning-400 border-transparent",
+    destructive: "bg-error-900 text-error-400 border-transparent",
   };
 
   return (
     <span
       ref={ref}
       className={cn(
-        "inline-flex items-center rounded-sm border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-base-950 focus:ring-offset-2",
+        "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium",
         variants[variant],
         className
       )}
@@ -330,7 +326,7 @@ CardHeader.displayName = "CardHeader";
 // CardTitle Component
 export const CardTitle = forwardRef(({ className, children, ...props }, ref) => {
   return (
-    <h3 ref={ref} className={cn("text-2xl font-display font-semibold leading-none tracking-tight text-content-primary", className)} {...props}>
+    <h3 ref={ref} className={cn("text-lg font-display font-semibold leading-none tracking-tight text-content-primary", className)} {...props}>
       {children}
     </h3>
   );
@@ -344,7 +340,7 @@ export const Textarea = forwardRef(({ className, ...props }, ref) => {
     <textarea
       ref={ref}
       className={cn(
-        "flex min-h-[80px] w-full rounded-sm border border-border-strong bg-base-800 px-3 py-2 text-sm text-content-primary placeholder-content-muted shadow-sm transition-all duration-300 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 disabled:cursor-not-allowed disabled:opacity-50",
+        "flex min-h-[80px] w-full rounded-sm border border-border-strong bg-base-800 px-3 py-2 text-sm text-content-primary placeholder-content-muted transition-colors duration-150 focus:border-content-muted focus:outline-none focus:ring-1 focus:ring-content-muted/20 disabled:cursor-not-allowed disabled:opacity-50",
         className
       )}
       {...props}
@@ -368,7 +364,7 @@ export const Progress = forwardRef(({ className, value = 0, max = 100, ...props 
       {...props}
     >
       <div
-        className="h-full w-full flex-1 bg-primary-500 transition-all duration-300 ease-in-out"
+        className="h-full w-full flex-1 bg-content-primary transition-all duration-300 ease-in-out"
         style={{ transform: `translateX(-${100 - percentage}%)` }}
       />
     </div>

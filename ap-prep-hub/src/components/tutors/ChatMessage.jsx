@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, User as UserIcon } from 'lucide-react';
+import { Bot, User as UserIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { PerformanceIndicator } from './PerformanceIndicator';
 
@@ -52,13 +52,13 @@ const ChatMessageComponent = ({ message }) => {
       className={`flex items-end gap-3 ${isUser ? "justify-end" : "justify-start"}`}
     >
       {!isUser && (
-        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary-500 flex items-center justify-center shadow-raised">
-          <Sparkles strokeWidth={1.5} className="w-5 h-5 text-base-950" />
+        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-base-800 border border-border flex items-center justify-center shadow-raised">
+          <Bot strokeWidth={1.5} className="w-5 h-5 text-content-primary" />
         </div>
       )}
       <div className={`max-w-md rounded-md px-5 py-4 shadow-sm ${
         isUser
-          ? "bg-primary-500 text-base-950"
+          ? "bg-base-750 text-content-primary border border-border"
           : "bg-base-800 border border-border text-content-primary"
       }`}>
         <div className="prose prose-sm max-w-none break-words leading-relaxed">
@@ -66,7 +66,7 @@ const ChatMessageComponent = ({ message }) => {
         </div>
         <div className="flex items-center justify-between mt-3">
           <div className={`text-xs opacity-70 ${
-            isUser ? 'text-base-950' : 'text-content-muted'
+            isUser ? 'text-content-muted' : 'text-content-muted'
           }`}>
             {message.timestamp && format(message.timestamp.toDate(), "h:mm a")}
             {message.cached && (

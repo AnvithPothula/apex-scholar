@@ -85,7 +85,7 @@ const CalculatorPad = ({ onClose }) => {
           className="w-full mb-3 px-3 py-2 rounded-md bg-base-800 border border-border text-content-primary"
         />
         <div className="flex gap-2">
-          <button onClick={calculate} className="px-4 py-2 bg-primary-600 hover:bg-primary-700 rounded-md text-base-950" aria-label="Calculate">
+          <button onClick={calculate} className="px-4 py-2 bg-content-primary hover:opacity-90 rounded-md text-base-950" aria-label="Calculate">
             Calculate
           </button>
           <button onClick={() => { setExpr(''); setResult(''); setError(''); }} className="px-4 py-2 bg-base-800 hover:bg-base-750 rounded-md text-content-primary" aria-label="Clear">

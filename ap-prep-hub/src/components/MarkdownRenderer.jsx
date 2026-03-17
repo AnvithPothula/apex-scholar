@@ -46,13 +46,13 @@ const mdComponents = {
   strong: ({ children }) => <strong className="font-semibold text-content-primary">{children}</strong>,
   em: ({ children }) => <em className="italic text-content-primary">{children}</em>,
   blockquote: ({ children }) => (
-    <blockquote className="border-l-2 border-primary-500 pl-4 italic my-2 text-content-secondary">
+    <blockquote className="border-l-2 border-content-muted pl-4 italic my-2 text-content-secondary">
       {children}
     </blockquote>
   ),
   code: ({ inline, children }) => {
     if (inline) {
-      return <code className="bg-base-800 px-1 py-0.5 rounded-sm text-sm font-mono text-primary-400">{children}</code>;
+      return <code className="bg-base-800 px-1 py-0.5 rounded-sm text-sm font-mono text-content-muted">{children}</code>;
     }
     return (
       <pre className="bg-base-900 p-3 rounded-sm overflow-x-auto my-2 border border-border">
@@ -61,7 +61,7 @@ const mdComponents = {
     );
   },
   a: ({ children, href }) => (
-    <a href={href} className="text-primary-400 hover:text-primary-500 underline" target="_blank" rel="noopener noreferrer">
+    <a href={href} className="text-content-muted hover:text-content-primary underline" target="_blank" rel="noopener noreferrer">
       {children}
     </a>
   ),

@@ -1062,7 +1062,7 @@ const PracticeTests = () => {
       return Object.entries(breakdown).map(([part, score]) => (
         <div key={part} className="flex justify-between">
           <span className="text-content-secondary capitalize">{part.replace('_', ' ')}:</span>
-          <span className="text-primary-400 font-medium">{renderSafeValue(score)} pts</span>
+          <span className="text-content-primary font-medium">{renderSafeValue(score)} pts</span>
         </div>
       ));
     }
@@ -1072,7 +1072,7 @@ const PracticeTests = () => {
       return breakdown.parts.map(({ name, score }) => (
         <div key={name} className="flex justify-between">
           <span className="text-content-secondary capitalize">{name.replace('_', ' ')}:</span>
-          <span className="text-primary-400 font-medium">{score} pts</span>
+          <span className="text-content-primary font-medium">{score} pts</span>
         </div>
       ));
     }
@@ -1093,7 +1093,7 @@ const PracticeTests = () => {
       return (
         <div key={part} className="flex justify-between">
           <span className="text-content-secondary capitalize">{part.replace('_', ' ')}:</span>
-          <span className="text-primary-400 font-medium">{scoreString} pts</span>
+          <span className="text-content-primary font-medium">{scoreString} pts</span>
         </div>
       );
     });
@@ -5035,9 +5035,9 @@ Provide a clear, educational response that helps the student understand why ${co
           className="text-center"
         >
           <div className="relative mb-8">
-            <div className="w-32 h-32 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+            <div className="w-32 h-32 border-4 border-content-muted border-t-transparent rounded-full animate-spin mx-auto"></div>
             <div className="absolute inset-0 flex items-center justify-center">
-              <Brain strokeWidth={1.5} className="w-12 h-12 text-primary-400" />
+              <Brain strokeWidth={1.5} className="w-12 h-12 text-content-primary" />
             </div>
           </div>
           
@@ -5055,7 +5055,7 @@ Provide a clear, educational response that helps the student understand why ${co
               <span>Analyzing multiple choice answers</span>
             </div>
             <div className="flex items-center justify-center gap-2 text-content-muted">
-              <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+              <div className="w-4 h-4 border-2 border-content-muted border-t-transparent rounded-full animate-spin"></div>
               <span>Scoring written responses with AI</span>
             </div>
             <div className="flex items-center justify-center gap-2 text-content-muted">
@@ -5155,7 +5155,7 @@ Provide a clear, educational response that helps the student understand why ${co
                           </div>
                           <div>
                             <span className="text-content-muted">AP Score: </span>
-                            <span className="text-primary-400 font-bold">{test.results?.apScore || 'N/A'}</span>
+                            <span className="text-content-primary font-bold">{test.results?.apScore || 'N/A'}</span>
                           </div>
                           <div>
                             <span className="text-content-muted">Questions: </span>
@@ -5170,7 +5170,7 @@ Provide a clear, educational response that helps the student understand why ${co
                         </div>
                       </div>
                       <div className="text-center ml-6">
-                        <div className="text-3xl font-bold text-primary-400 mb-1">
+                        <div className="text-3xl font-bold text-content-primary mb-1">
                           {test.results?.apScore || 'N/A'}
                         </div>
                         <p className="text-xs text-content-muted">AP Score</p>
@@ -5201,10 +5201,10 @@ Provide a clear, educational response that helps the student understand why ${co
             className="text-center mb-6 sm:mb-8 md:mb-12"
           >
             <div className="flex items-center justify-center gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4 md:mb-6">
-              <div className="p-2 sm:p-3 md:p-4 bg-primary-500 rounded-sm md:rounded-md shadow-raised">
+              <div className="p-2 sm:p-3 md:p-4 bg-base-750 rounded-sm md:rounded-md shadow-raised">
                 <Brain strokeWidth={1.5} className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-content-primary" />
               </div>
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold font-display text-primary-400">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold font-display text-content-primary">
                 AI Practice Tests
               </h1>
             </div>
@@ -5230,7 +5230,7 @@ Provide a clear, educational response that helps the student understand why ${co
             >
               <Card className="p-8">
                 <h2 className="text-2xl font-bold text-content-primary mb-6 flex items-center gap-3">
-                  <Settings strokeWidth={1.5} className="w-6 h-6 text-primary-400" />
+                  <Settings strokeWidth={1.5} className="w-6 h-6 text-content-primary" />
                   Test Configuration
                 </h2>
 
@@ -5272,7 +5272,7 @@ Provide a clear, educational response that helps the student understand why ${co
                             }}
                             className={`p-4 rounded-lg border cursor-pointer transition-all ${
                               selectedSection === section.id
-                                ? 'border-primary-500 bg-primary-900'
+                                ? 'border-content-muted bg-base-800'
                                 : 'border-border-strong hover:border-border-strong bg-base-800'
                             }`}
                           >
@@ -5318,7 +5318,7 @@ Provide a clear, educational response that helps the student understand why ${co
                                 onClick={() => setSelectedSubSection(subSection.id)}
                                 className={`p-4 rounded-lg border cursor-pointer transition-all ${
                                   selectedSubSection === subSection.id
-                                    ? 'border-primary-500 bg-primary-900'
+                                    ? 'border-content-muted bg-base-800'
                                     : 'border-border-strong hover:border-border-strong bg-base-800'
                                 }`}
                               >
@@ -5376,14 +5376,14 @@ Provide a clear, educational response that helps the student understand why ${co
                             }}
                             className={`p-3 rounded-lg border cursor-pointer transition-all ${
                               selectedUnits.includes(unit.name)
-                                ? 'border-primary-500 bg-primary-900'
+                                ? 'border-content-muted bg-base-800'
                                 : 'border-border-strong hover:border-border-strong bg-base-800'
                             }`}
                           >
                             <div className="flex items-center space-x-2">
                               <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
                                 selectedUnits.includes(unit.name)
-                                  ? 'border-primary-500 bg-primary-500'
+                                  ? 'border-content-primary bg-content-primary'
                                   : 'border-border-strong'
                               }`}>
                                 {selectedUnits.includes(unit.name) && (
@@ -5447,7 +5447,7 @@ Provide a clear, educational response that helps the student understand why ${co
                           onClick={() => setUseDefaultTime(false)}
                           className={`p-3 rounded-lg border cursor-pointer transition-all ${
                             !useDefaultTime
-                              ? 'border-primary-500 bg-primary-900'
+                              ? 'border-content-muted bg-base-800'
                               : 'border-border-strong hover:border-border-strong bg-base-800'
                           }`}
                         >
@@ -5505,7 +5505,7 @@ Provide a clear, educational response that helps the student understand why ${co
                           onClick={() => setUseDefaultQuestionCount(false)}
                           className={`p-3 rounded-lg border cursor-pointer transition-all ${
                             !useDefaultQuestionCount
-                              ? 'border-primary-500 bg-primary-900'
+                              ? 'border-content-muted bg-base-800'
                               : 'border-border-strong hover:border-border-strong bg-base-800'
                           }`}
                         >
@@ -5545,7 +5545,7 @@ Provide a clear, educational response that helps the student understand why ${co
        return !selectedSubject || !selectedSection || 
                              (hasSubSections && !selectedSubSection) || isGeneratingTest;
                     })()}
-                    className="w-full py-4 text-lg bg-primary-500 hover:bg-primary-600"
+                    className="w-full py-4 text-lg"
                   >
                     {isGeneratingTest ? (
                       <div className="flex items-center gap-3">
@@ -5590,7 +5590,7 @@ Provide a clear, educational response that helps the student understand why ${co
                 </h3>
                 <div className="space-y-4">
                   <div className="flex items-start gap-3">
-                    <Target strokeWidth={1.5} className="w-5 h-5 text-primary-400 mt-0.5" />
+                    <Target strokeWidth={1.5} className="w-5 h-5 text-content-secondary mt-0.5" />
                     <div>
                       <h4 className="font-medium text-content-primary mb-3">Adaptive Questions</h4>
                       <p className="text-sm text-content-muted">AI generates questions tailored to your difficulty level</p>
@@ -5604,7 +5604,7 @@ Provide a clear, educational response that helps the student understand why ${co
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
-                    <TrendingUp strokeWidth={1.5} className="w-5 h-5 text-primary-400 mt-0.5" />
+                    <TrendingUp strokeWidth={1.5} className="w-5 h-5 text-content-secondary mt-0.5" />
                     <div>
                       <h4 className="font-medium text-content-primary mb-3">Detailed Analytics</h4>
                       <p className="text-sm text-content-muted">Comprehensive score breakdown and improvement insights</p>
@@ -5632,7 +5632,7 @@ Provide a clear, educational response that helps the student understand why ${co
                       variant="ghost"
                       size="sm"
                       onClick={() => setCurrentView('history')}
-                      className="text-primary-400 hover:text-primary-400"
+                      className="text-content-secondary hover:text-content-primary"
                     >
                       View All
                     </Button>
@@ -5666,7 +5666,7 @@ Provide a clear, educational response that helps the student understand why ${co
                             </p>
                           </div>
                           <div className="text-right">
-                            <div className="text-lg font-bold text-primary-400">
+                            <div className="text-lg font-bold text-content-primary">
                               {test.results?.apScore}
                             </div>
                             <p className="text-xs text-content-muted">AP Score</p>
@@ -5707,7 +5707,6 @@ Provide a clear, educational response that helps the student understand why ${co
             </p>
             <Button
               onClick={resetTest}
-              className="bg-primary-500 hover:bg-primary-600"
             >
               <RotateCw strokeWidth={1.5} className="w-5 h-5 mr-2" />
               Try Again
@@ -5740,7 +5739,6 @@ Provide a clear, educational response that helps the student understand why ${co
               </Button>
               <Button
                 onClick={resetTest}
-                className="bg-primary-500 hover:bg-primary-600"
               >
                 <RotateCw strokeWidth={1.5} className="w-5 h-5 mr-2" />
                 Restart Test
@@ -5786,7 +5784,7 @@ Provide a clear, educational response that helps the student understand why ${co
                           setAutoSyncEnabled(newValue);
                           console.log(`✅ Auto-sync ${newValue ? 'enabled' : 'disabled'} by user`);
                         }}
-                        className="w-4 h-4 rounded border-border-strong bg-base-800 text-primary-500 focus:ring-primary-500 focus:ring-2"
+                        className="w-4 h-4 rounded border-border-strong bg-base-800 text-content-primary focus:ring-content-muted focus:ring-2"
                       />
                       <span className="text-sm text-content-secondary">Enable auto-sync</span>
                     </label>
@@ -5807,7 +5805,7 @@ Provide a clear, educational response that helps the student understand why ${co
                         type="checkbox"
                         checked={isMobile}
                         onChange={(e) => setIsMobile(e.target.checked)}
-                        className="w-4 h-4 rounded border-border-strong bg-base-800 text-primary-500 focus:ring-primary-500 focus:ring-2"
+                        className="w-4 h-4 rounded border-border-strong bg-base-800 text-content-primary focus:ring-content-muted focus:ring-2"
                       />
                       <span className="text-sm text-content-secondary">Force mobile layout</span>
                     </label>
@@ -5820,7 +5818,7 @@ Provide a clear, educational response that helps the student understand why ${co
               <div className="p-6 border-t border-border">
                 <button
                   onClick={() => setShowSettings(false)}
-                  className="w-full bg-primary-500 hover:bg-primary-600 text-base-950 py-2 px-4 rounded-lg transition-colors"
+                  className="w-full bg-content-primary hover:opacity-90 text-base-950 py-2 px-4 rounded-lg transition-colors"
                 >
                   Save Settings
                 </button>
@@ -5874,7 +5872,7 @@ Provide a clear, educational response that helps the student understand why ${co
             {/* Progress Bar */}
             <div className="w-full bg-base-800 rounded-full h-2">
               <div 
-                className="bg-primary-500 h-2 rounded-full transition-all duration-300" 
+                className="bg-content-primary h-2 rounded-full transition-all duration-300" 
                 style={{ 
                   width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` 
                 }}
@@ -5920,7 +5918,7 @@ Provide a clear, educational response that helps the student understand why ${co
                 {/* Question */}
                 <div className="mb-8">
                   <div className="flex items-start gap-4 mb-6">
-                    <div className="p-3 bg-primary-500 rounded-lg text-base-950 font-bold text-lg min-w-[3rem] text-center">
+                    <div className="p-3 bg-base-750 rounded-lg text-content-primary font-bold text-lg min-w-[3rem] text-center">
                       {currentQuestionIndex + 1}
                     </div>
                     <div className="flex-1">
@@ -6041,7 +6039,7 @@ Provide a clear, educational response that helps the student understand why ${co
                                       onClick={() => setSelectedDBQDocument(selectedDBQDocument === index ? null : index)}
                                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                                         selectedDBQDocument === index
-                                          ? 'bg-primary-500 text-base-950 ring-2 ring-primary-500'
+                                          ? 'bg-content-primary text-base-950 ring-2 ring-content-primary'
                                           : 'bg-base-800 text-content-secondary hover:bg-base-750 border border-border-strong'
                                       }`}
                                     >
@@ -6051,9 +6049,9 @@ Provide a clear, educational response that helps the student understand why ${co
                                 </div>
                                 
                                 {selectedDBQDocument !== null && (
-                                  <div className="border-l-4 border-primary-500 pl-4 bg-base-850/50 p-4 rounded">
+                                  <div className="border-l-4 border-content-muted pl-4 bg-base-850/50 p-4 rounded">
                                     <div className="mb-3">
-                                      <span className="font-bold text-primary-400">
+                                      <span className="font-bold text-content-primary">
                                         Document {String.fromCharCode(65 + selectedDBQDocument)}
                                       </span>
                                       {currentQuestion.documents[selectedDBQDocument].source && (
@@ -6125,9 +6123,9 @@ Provide a clear, educational response that helps the student understand why ${co
                           <h4 className="font-medium text-content-secondary mb-4 text-xl">Choose ONE of the following prompts:</h4>
                           <div className="space-y-4">
                             {currentQuestion.promptOptions.map((prompt, index) => (
-                              <div key={index} className="p-4 bg-base-850/50 rounded border-l-4 border-primary-500">
+                              <div key={index} className="p-4 bg-base-850/50 rounded border-l-4 border-content-muted">
                                 <div className="mb-2">
-                                  <span className="font-bold text-primary-400">Prompt {index + 1}:</span>
+                                  <span className="font-bold text-content-primary">Prompt {index + 1}:</span>
                                 </div>
                                 <div className="text-content-secondary leading-relaxed">
                                   {prompt}
@@ -6173,13 +6171,13 @@ Provide a clear, educational response that helps the student understand why ${co
                             onClick={() => handleAnswerSelect(currentQuestion.id, index)}
                             className={`w-full text-left ${isMobile ? 'p-3' : 'p-4'} rounded-lg border-2 transition-all ${
                               isSelected
-                                ? 'border-primary-500 bg-primary-900 text-primary-400'
+                                ? 'border-content-muted bg-base-800 text-content-primary'
                                 : 'border-border-strong bg-base-800 text-content-secondary hover:border-border-strong hover:bg-base-800'
                             }`}
                           >
                             <div className={`flex items-start ${isMobile ? 'gap-2' : 'gap-3'}`}>
                               <span className={`font-bold ${isMobile ? 'text-base' : 'text-lg'} min-w-[1.5rem] ${
-                                isSelected ? 'text-primary-400' : 'text-content-muted'
+                                isSelected ? 'text-content-primary' : 'text-content-muted'
                               }`}>
                                 {String.fromCharCode(65 + index)}.
                               </span>
@@ -6193,7 +6191,7 @@ Provide a clear, educational response that helps the student understand why ${co
                                 } />
                               </span>
                               {isSelected && (
-                                <CheckCircle strokeWidth={1.5} className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} text-primary-400 flex-shrink-0 mt-0.5`} />
+                                <CheckCircle strokeWidth={1.5} className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} text-content-primary flex-shrink-0 mt-0.5`} />
                               )}
                             </div>
                           </motion.button>
@@ -6225,7 +6223,7 @@ Provide a clear, educational response that helps the student understand why ${co
                             currentQuestion?.type === 'leq' ? 'Develop an argument with a clear thesis statement...' :
                             'Write your response here...'
                           }
-                          className={`w-full bg-base-800 border border-border-strong rounded-lg text-content-primary placeholder-content-muted focus:border-primary-500 focus:ring-2 focus:ring-primary-500 resize-none ${
+                          className={`w-full bg-base-800 border border-border-strong rounded-lg text-content-primary placeholder-content-muted focus:border-content-muted focus:ring-2 focus:ring-content-muted resize-none ${
                             isMobile ? 'h-48 p-3 text-sm' : 'h-64 p-4'
                           }`}
                           style={{ minHeight: isMobile ? '12rem' : '16rem' }}
@@ -6308,7 +6306,7 @@ Provide a clear, educational response that helps the student understand why ${co
                               onClick={() => setCurrentQuestionIndex(index)}
                               className={`w-10 h-10 rounded-full text-sm font-medium transition-all relative flex-shrink-0 ${
                                 isCurrent
-                                  ? 'bg-primary-500 text-base-950 ring-2 ring-primary-500 ring-offset-2 ring-offset-base-850'
+                                  ? 'bg-content-primary text-base-950 ring-2 ring-content-primary ring-offset-2 ring-offset-base-850'
                                   : isAnswered
                                   ? 'bg-success-500 text-base-950 hover:bg-success-500'
                                   : 'bg-base-800 text-content-secondary hover:bg-base-750 border border-border-strong'
@@ -6366,7 +6364,7 @@ Provide a clear, educational response that helps the student understand why ${co
               transition={{ delay: 0.1 }}
             >
               <Card className="p-3 sm:p-4 md:p-6 text-center">
-                <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-primary-400 mb-1 md:mb-2">
+                <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-content-primary mb-1 md:mb-2">
                   {safeTestResults.apScore}
                 </div>
                 <p className="text-content-secondary mb-1">Predicted AP Score</p>
@@ -6398,7 +6396,7 @@ Provide a clear, educational response that helps the student understand why ${co
               transition={{ delay: 0.3 }}
             >
               <Card className="p-3 sm:p-4 md:p-6 text-center">
-                <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-primary-400 mb-1 md:mb-2">
+                <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-content-primary mb-1 md:mb-2">
                   {safeTestResults.timeSpent}
                 </div>
                 <p className="text-content-secondary mb-1">Minutes Used</p>
@@ -6433,7 +6431,7 @@ Provide a clear, educational response that helps the student understand why ${co
             >
               <Card className="p-6">
                 <h2 className="text-xl font-bold text-content-primary mb-4 flex items-center gap-3">
-                  <TrendingUp strokeWidth={1.5} className="w-5 h-5 text-primary-400" />
+                  <TrendingUp strokeWidth={1.5} className="w-5 h-5 text-content-primary" />
                   Section Performance
                 </h2>
                 <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -6446,7 +6444,7 @@ Provide a clear, educational response that helps the student understand why ${co
                            section === 'saq' ? 'Short Answer' : 
                            section}
                         </h3>
-                        <div className="text-2xl font-bold text-primary-400 mb-1">
+                        <div className="text-2xl font-bold text-content-primary mb-1">
                           {data.percentage}%
                         </div>
                         <p className="text-sm text-content-muted">
@@ -6454,7 +6452,7 @@ Provide a clear, educational response that helps the student understand why ${co
                         </p>
                         <div className="w-full bg-base-750 rounded-full h-2 mt-2">
                           <div 
-                            className="bg-primary-500 h-2 rounded-full" 
+                            className="bg-content-primary h-2 rounded-full"
                             style={{ width: `${data.percentage}%` }}
                           ></div>
                         </div>
@@ -6474,7 +6472,7 @@ Provide a clear, educational response that helps the student understand why ${co
           >
             <Card className="p-8">
               <h2 className="text-2xl font-bold text-content-primary mb-6 flex items-center gap-3">
-                <FileQuestion className="w-6 h-6 text-primary-400" />
+                <FileQuestion className="w-6 h-6 text-content-primary" />
                 Question Review
               </h2>
 
@@ -6578,7 +6576,7 @@ Provide a clear, educational response that helps the student understand why ${co
                               {result.breakdown && Object.keys(result.breakdown).length > 0 && (
                                 <div>
                                   <h4 className="font-medium text-content-primary mb-2">Score Breakdown:</h4>
-                                  <div className="p-4 bg-primary-900 border border-primary-500/30 rounded-lg">
+                                  <div className="p-4 bg-base-800 border border-border-strong rounded-lg">
                                     <div className="grid grid-cols-2 gap-4 mb-3">
                                       {renderBreakdownSafely(result.breakdown)}
                                     </div>
@@ -6632,7 +6630,7 @@ Provide a clear, educational response that helps the student understand why ${co
                               {question.sampleAnswer && (
                                 <div>
                                   <h4 className="font-medium text-content-primary mb-2">Sample Answer:</h4>
-                                  <div className="p-4 bg-primary-900 border border-primary-500/30 rounded-lg">
+                                  <div className="p-4 bg-base-800 border border-border-strong rounded-lg">
                                     <MarkdownRenderer content={renderSafeValue(question.sampleAnswer)} />
                                   </div>
                                 </div>
@@ -6646,7 +6644,7 @@ Provide a clear, educational response that helps the student understand why ${co
                                 return (
                                   <div>
                                     <h4 className="font-medium text-content-primary mb-2">Scoring Rubric:</h4>
-                                    <div className="p-4 bg-primary-900 border border-primary-500/30 rounded-lg space-y-2">
+                                    <div className="p-4 bg-base-800 border border-border-strong rounded-lg space-y-2">
                                       <div className="text-content-secondary text-sm mb-1">
                                         Total Points: {merged.totalPoints}
                                       </div>
@@ -6719,8 +6717,8 @@ Provide a clear, educational response that helps the student understand why ${co
                                 </div>
                                 
                                 {tutorResponse && (
-                                  <div className="p-4 bg-primary-900 border border-primary-500/30 rounded-lg">
-                                    <h5 className="font-medium text-primary-400 mb-2 flex items-center gap-2">
+                                  <div className="p-4 bg-base-800 border border-border-strong rounded-lg">
+                                    <h5 className="font-medium text-content-primary mb-2 flex items-center gap-2">
                                       <Brain strokeWidth={1.5} className="w-4 h-4" />
                                       AI Tutor Response:
                                     </h5>
@@ -6733,7 +6731,7 @@ Provide a clear, educational response that helps the student understand why ${co
                                 variant="ghost"
                                 onClick={() => { setTutorResponse(''); setTutorQuestion(''); setAskingTutor(question.id); }}
                                 size="sm"
-                                className="text-primary-400 hover:text-primary-400"
+                                className="text-content-secondary hover:text-content-primary"
                               >
                                 <HelpCircle strokeWidth={1.5} className="w-4 h-4 mr-2" />
                                 Ask Tutor About This Question
@@ -6758,7 +6756,6 @@ Provide a clear, educational response that helps the student understand why ${co
           >
             <Button
               onClick={resetTest}
-              className="bg-primary-500 hover:bg-primary-600"
             >
               <RotateCw strokeWidth={1.5} className="w-5 h-5 mr-2" />
               Take Another Test
