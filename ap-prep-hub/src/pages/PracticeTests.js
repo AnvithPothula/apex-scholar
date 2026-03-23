@@ -1719,9 +1719,20 @@ Format as JSON:
             subsection: selectedSubSection || null
           });
 
+          // Check payload size — Firestore limit is 1MB
+          const payloadStr = JSON.stringify(sanitizedData);
+          if (payloadStr.length > 900000) {
+            // Trim question data to fit
+            sanitizedData.questions = sanitizedData.questions.map(q => ({
+              id: q.id, type: q.type, question: (q.question || '').substring(0, 500),
+              options: (q.options || []).map(o => ({ text: (o.text || '').substring(0, 200), correct: o.correct })),
+              correctAnswer: q.correctAnswer
+            }));
+          }
           await addDoc(collection(db, 'practiceTests'), sanitizedData);
+          console.log('Test saved to history successfully');
         } catch (error) {
-          console.error('Error saving test results:', error);
+          console.error('Error saving test results:', error, error?.code, error?.message);
         }
       }
       
@@ -2903,7 +2914,7 @@ Format as JSON:
     // Remove any Unicode issues and normalize whitespace
     cleanedText = cleanedText
       .replace(/[\u2018\u2019]/g, "'") // Replace smart quotes
-      .replace(/[\u201C\u201D]/g, '"') // Replace smart double quotes
+      .replace(/[\u201C\u201D]/g, "'") // Replace smart double quotes with safe single quotes
       .replace(/\u2013|\u2014/g, '-') // Replace em/en dashes
       .replace(/\u00A0/g, ' ') // Replace non-breaking spaces
       .replace(/\r\n/g, '\n') // Normalize line endings
@@ -2920,8 +2931,18 @@ Format as JSON:
   // IMPORTANT: Do not apply fixLaTeXInText to raw JSON text; it can corrupt JSON escapes like \n
   // We'll clean LaTeX fields AFTER parsing, on individual question fields.
     
+    // Pre-process: fix invalid JSON escape sequences BEFORE any parse attempt.
+    // Inside JSON strings, only \" \\ \/ \b \f \n \r \t \uXXXX are valid.
+    // The AI often produces \( \) \[ \] and LaTeX like \frac which break parsing.
+    // We walk through the string and fix escapes only inside JSON string literals.
+    cleanedText = cleanedText.replace(/"(?:[^"\\]|\\.)*"/g, (match) => {
+      // Inside each JSON string value, fix invalid escape sequences
+      return match
+        .replace(/\\(?!["\\/bfnrtu])/g, '\\\\'); // Escape bare backslashes that aren't valid JSON escapes
+    });
+
     console.log('Cleaned text length:', cleanedText.length);
-    
+
     // Try direct parsing first
     try {
       const parsed = JSON.parse(cleanedText);
@@ -3538,8 +3559,12 @@ Format as JSON:
   const fixLaTeXInText = (text) => {
     if (typeof text !== 'string') return text;
     
+    // Phase 0: Strip form-feed characters (ASCII 0x0C) that corrupt LaTeX
+    // eslint-disable-next-line no-control-regex
+    let result = text.replace(/\x0c+/g, '');
+
     // Phase 1: Fix malformed fraction/function stuttering (safe on all text)
-    let result = text
+    result = result
       .replace(/\\f\\f\\f\\frac/g, '\\frac')
       .replace(/\\f\\f\\frac/g, '\\frac')
       .replace(/\f\f\f\\frac/g, '\\frac')
@@ -3549,6 +3574,7 @@ Format as JSON:
       .replace(/\\\\\\\\frac/g, '\\frac')
       .replace(/\\\\\\frac/g, '\\frac')
       .replace(/\\\\frac/g, '\\frac')
+      .replace(/\\f(frac|sqrt|sin|cos|tan|lim|int|sum|log|ln|cdot|times|div|pm|mp|leq|geq|neq|approx|infty|alpha|beta|gamma|delta|theta|pi)/g, '\\$1')
       .replace(/f+\\(frac|sqrt|sin|cos|tan|lim|int|sum)/g, '\\$1')
       .replace(/\\\\\\\\/g, '\\\\')
       .replace(/\\\\\\/g, '\\\\')
@@ -4569,17 +4595,18 @@ Generate EXACTLY ${mcqCount + frqCount} questions - no extras!`;
     }
     
     // Use the API to generate questions based on the section instructions
-    const prompt = `You are an expert ${subject} question generator. ${sectionInstructions}
+    const prompt = `[Batch starting at ID ${startId}, seed: ${Date.now()}]
+You are an expert ${subject} question generator. ${sectionInstructions}
 
 CRITICAL INSTRUCTIONS - FOLLOW EXACTLY:
 1. Return ONLY valid JSON array starting with [ and ending with ]
-2. Generate EXACTLY ${numQuestions} complete questions
+2. Generate EXACTLY ${numQuestions} complete, UNIQUE questions (different from any previous batch)
 3. Each question MUST be complete with ALL required fields
 4. NO explanatory text before or after the JSON
 5. Ensure all JSON objects are properly closed with }
 6. End the response with ] to close the array
 7. Use proper LaTeX formatting: \\frac{}{}, \\sin(), \\cos(), \\lim_{}, etc.
-8. Each MCQ MUST have exactly 4 options with exactly one correct answer
+8. Each MCQ MUST have exactly 4 options with exactly one marked "correct": true (boolean, not string). The other 3 must have "correct": false. Randomize which option is correct.
 9. Avoid invalid escape characters that break JSON parsing
 
 VALIDATION CHECKLIST:
@@ -4598,11 +4625,11 @@ Generate ${numQuestions} questions now:`;
     console.log('🔍 Sending prompt to AI:', prompt.substring(0, 200) + '...');
 
     // Adjust token limits based on question type complexity
-    let maxTokens = 2500; // Default for MCQ and SAQ
+    let maxTokens = 8192; // Default for MCQ and SAQ — needs enough room for 6 questions as JSON
     if (section === 'dbq') {
-      maxTokens = 8000; // DBQ with documents
+      maxTokens = 8192; // DBQ with documents
     } else if (section === 'leq') {
-      maxTokens = 2000; // LEQ
+      maxTokens = 4096; // LEQ
     }
 
     try {
@@ -4624,7 +4651,16 @@ Generate ${numQuestions} questions now:`;
       }
       
       console.log(`Batch parsing: Received ${generatedText.length} characters from AI`);
-      
+
+      // Early truncation detection — don't waste time on repair cycles for clearly incomplete responses
+      const trimmedEnd = generatedText.trimEnd().replace(/`+$/, '').trimEnd();
+      if (!trimmedEnd.endsWith(']') && !trimmedEnd.endsWith('}')) {
+        console.warn('⚠️ AI response appears truncated (does not end with ] or }). Length:', generatedText.length);
+        if (generatedText.length < 800) {
+          throw new Error('AI response was truncated — too short to contain valid questions. Response length: ' + generatedText.length);
+        }
+      }
+
       // Use geminiService's robust JSON parsing first, fall back to parseAIResponse
       let questions;
       const jsonResult = geminiService.parseJSON(generatedText, true);
@@ -4678,38 +4714,82 @@ Generate ${numQuestions} questions now:`;
             return opt;
           });
           
-          // Ensure exactly one correct answer
-          const correctCount = q.options.filter(opt => opt.correct === true).length;
+          // Normalize correct field: handle string "true", isCorrect, etc.
+          q.options.forEach((opt, index) => {
+            if (opt.correct === 'true' || opt.correct === 'True') opt.correct = true;
+            else if (opt.correct === 'false' || opt.correct === 'False') opt.correct = false;
+            if (opt.isCorrect === true || opt.isCorrect === 'true') { opt.correct = true; delete opt.isCorrect; }
+          });
+
+          // If no option has correct=true, try to infer from question-level correctAnswer
+          let correctCount = q.options.filter(opt => opt.correct === true).length;
+          if (correctCount === 0 && q.correctAnswer !== undefined && q.correctAnswer !== null) {
+            let idx = q.correctAnswer;
+            // Handle letter-based answers ("A", "B", etc.)
+            if (typeof idx === 'string') {
+              const letter = idx.toUpperCase().charAt(0);
+              if (letter >= 'A' && letter <= 'D') idx = letter.charCodeAt(0) - 65;
+              else idx = parseInt(idx, 10);
+            }
+            if (typeof idx === 'number' && idx >= 0 && idx < q.options.length) {
+              q.options[idx].correct = true;
+              correctCount = 1;
+            }
+          }
+
           if (correctCount !== 1) {
-            // If no correct answer, mark the first as correct
             if (correctCount === 0 && q.options.length > 0) {
               q.options[0].correct = true;
               q.correctAnswer = 0;
-            }
-            // If multiple correct answers, keep only the first
-            else if (correctCount > 1) {
+            } else if (correctCount > 1) {
               let foundCorrect = false;
               q.options.forEach((opt, index) => {
-                if (opt.correct && foundCorrect) {
-                  opt.correct = false;
-                } else if (opt.correct && !foundCorrect) {
-                  foundCorrect = true;
-                  q.correctAnswer = index;
-                }
+                if (opt.correct && foundCorrect) opt.correct = false;
+                else if (opt.correct && !foundCorrect) { foundCorrect = true; q.correctAnswer = index; }
               });
             }
           }
-          
+
           // Ensure all options have required fields
           q.options.forEach(opt => {
             if (!opt.hasOwnProperty('text')) opt.text = 'Option text';
             if (!opt.hasOwnProperty('correct')) opt.correct = false;
           });
+
+          // Shuffle options so correct answer isn't always A
+          const correctIdx = q.options.findIndex(opt => opt.correct === true);
+          if (correctIdx >= 0 && q.options.length > 1) {
+            for (let i = q.options.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [q.options[i], q.options[j]] = [q.options[j], q.options[i]];
+            }
+            q.correctAnswer = q.options.findIndex(opt => opt.correct === true);
+          }
         }
         
+        // For FRQ questions: extract (a), (b), (c) parts from question text if parts array is empty
+        if (q.type !== 'mcq' && (!q.parts || q.parts.length === 0)) {
+          const partPattern = /\(([a-z])\)\s*/g;
+          const questionText = q.question || '';
+          const matches = [...questionText.matchAll(partPattern)];
+          if (matches.length >= 2) {
+            const parts = [];
+            let stem = questionText.substring(0, matches[0].index).trim();
+            for (let pi = 0; pi < matches.length; pi++) {
+              const start = matches[pi].index + matches[pi][0].length;
+              const end = pi + 1 < matches.length ? matches[pi + 1].index : questionText.length;
+              parts.push(questionText.substring(start, end).trim());
+            }
+            if (stem) {
+              q.question = stem;
+              q.parts = parts;
+            }
+          }
+        }
+
         return q;
       });
-      
+
       // Validate and clean up the questions
       const validQuestions = repairedQuestions.filter(q => {
         if (!q || !q.question) {
@@ -5771,9 +5851,9 @@ Provide a clear, educational response that helps the student understand why ${co
                 </button>
               </div>
               <div className="p-6 space-y-6">
-                {/* Auto-sync Settings */}
+                {/* Auto-save Settings */}
                 <div>
-                  <h4 className="text-sm font-medium text-content-primary mb-3">Auto-sync Settings</h4>
+                  <h4 className="text-sm font-medium text-content-primary mb-3">Auto-save</h4>
                   <div className="space-y-3">
                     <label className="flex items-center gap-3">
                       <input
@@ -5782,14 +5862,13 @@ Provide a clear, educational response that helps the student understand why ${co
                         onChange={(e) => {
                           const newValue = e.target.checked;
                           setAutoSyncEnabled(newValue);
-                          console.log(`✅ Auto-sync ${newValue ? 'enabled' : 'disabled'} by user`);
                         }}
                         className="w-4 h-4 rounded border-border-strong bg-base-800 text-content-primary focus:ring-content-muted focus:ring-2"
                       />
-                      <span className="text-sm text-content-secondary">Enable auto-sync</span>
+                      <span className="text-sm text-content-secondary">Auto-save progress</span>
                     </label>
                     <p className="text-xs text-content-muted ml-7">
-                      Automatically save your progress and settings
+                      Automatically save your test progress and settings so you can resume later
                     </p>
                   </div>
                 </div>
@@ -5836,7 +5915,7 @@ Provide a clear, educational response that helps the student understand why ${co
                   {selectedSubject} - {selectedSection.toUpperCase()}
                 </h1>
                 <Badge variant="secondary" className="text-xs sm:text-sm whitespace-nowrap flex-shrink-0">
-                  <span className="hidden sm:inline">Question </span>{currentQuestionIndex + 1}/{questions.length}
+                  <span className="hidden sm:inline">Question </span>{currentQuestionIndex + 1} / {questions.length}
                 </Badge>
               </div>
               
@@ -6140,11 +6219,11 @@ Provide a clear, educational response that helps the student understand why ${co
                       {currentQuestion?.parts && currentQuestion.parts.length > 0 && (
                         <div className="mt-4 p-4 bg-base-800 rounded-lg">
                           <h4 className="font-medium text-content-secondary mb-2">Question Parts:</h4>
-                          <div className="space-y-2">
+                          <div className="space-y-4">
                             {currentQuestion.parts.map((part, index) => (
-                              <div key={index} className="text-content-muted text-sm flex">
-                                <span className="font-medium mr-2">{String.fromCharCode(97 + index)}.)</span>
-                                <span>{part}</span>
+                              <div key={index} className="text-content-secondary text-sm flex">
+                                <span className="font-semibold mr-2 text-content-primary flex-shrink-0">({String.fromCharCode(97 + index)})</span>
+                                <div className="flex-1"><LaTeXRenderer content={part} /></div>
                               </div>
                             ))}
                           </div>
@@ -6538,7 +6617,7 @@ Provide a clear, educational response that helps the student understand why ${co
                                     <div className="flex items-start justify-between">
                                       <div className="flex-1">
                                         <span className="font-bold mr-2">{String.fromCharCode(65 + i)}.</span>
-                                        <div className="prose prose-sm max-w-none inline"><MarkdownRenderer content={renderSafeValue(option)} /></div>
+                                        <div className="prose prose-sm max-w-none inline"><LaTeXRenderer content={renderSafeValue(option)} /></div>
                                       </div>
                                       {label && (
                                         <span className="text-xs font-medium ml-2 px-2 py-1 rounded bg-black/20">

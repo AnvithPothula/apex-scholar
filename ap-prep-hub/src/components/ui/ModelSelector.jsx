@@ -30,7 +30,7 @@ const GEMINI_ONLY = [
  *   compact  — if true, shows icon-only on mobile (default false)
  *   className — extra container classes
  */
-export default function ModelSelector({ value, onChange, compact = false, className = '' }) {
+export default function ModelSelector({ value, onChange, compact = false, className = '', dropUp = false }) {
   const [open, setOpen] = useState(false);
   const [hasPuter, setHasPuter] = useState(false);
   const ref = useRef(null);
@@ -113,7 +113,7 @@ export default function ModelSelector({ value, onChange, compact = false, classN
       </button>
 
       {open && (
-        <div className="absolute right-0 z-50 mt-1 w-72 bg-base-800 border border-border rounded-md shadow-floating overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+        <div className={`absolute right-0 z-50 w-72 bg-base-800 border border-border rounded-md shadow-floating overflow-hidden animate-in fade-in duration-150 ${dropUp ? 'bottom-full mb-1 slide-in-from-bottom-2' : 'mt-1 slide-in-from-top-2'}`}>
           <div className="px-3 py-2 border-b border-border-subtle">
             <p className="text-xs font-medium text-content-muted">
               {hasPuter ? 'AI Models (via Puter — free & unlimited)' : 'AI Model'}

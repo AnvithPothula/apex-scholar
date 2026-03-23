@@ -67,6 +67,7 @@ class DataService {
       const deckRef = await addDoc(collection(this.db, 'flashcardDecks'), {
         userId,
         ...deckData,
+        creatorName: deckData.creatorName || '',
         isPublic: deckData.isPublic || false,
         createdAt: serverTimestamp(),
         lastStudied: null,
@@ -153,6 +154,27 @@ class DataService {
       const snapshot = await getDocs(q);
       let decks = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 
+      // Batch-fetch creator display names for decks missing creatorName
+      const missingUserIds = [...new Set(decks.filter(d => !d.creatorName && d.userId).map(d => d.userId))];
+      if (missingUserIds.length > 0) {
+        const nameMap = {};
+        // Firestore 'in' queries support up to 30 items
+        for (let i = 0; i < missingUserIds.length; i += 30) {
+          const batch = missingUserIds.slice(i, i + 30);
+          try {
+            const usersSnapshot = await getDocs(query(collection(this.db, 'users'), where('__name__', 'in', batch)));
+            usersSnapshot.docs.forEach(doc => {
+              const data = doc.data();
+              nameMap[doc.id] = data.displayName || data.name || 'Anonymous';
+            });
+          } catch (_) { /* ignore fetch errors */ }
+        }
+        decks = decks.map(d => ({
+          ...d,
+          creatorName: d.creatorName || nameMap[d.userId] || 'Anonymous'
+        }));
+      }
+
       // Client-side filtering for search term and subject
       if (searchTerm) {
         const lower = searchTerm.toLowerCase();
@@ -160,7 +182,8 @@ class DataService {
           (d.title || '').toLowerCase().includes(lower) ||
           (d.topic || '').toLowerCase().includes(lower) ||
           (d.description || '').toLowerCase().includes(lower) ||
-          (d.subject || '').toLowerCase().includes(lower)
+          (d.subject || '').toLowerCase().includes(lower) ||
+          (d.creatorName || '').toLowerCase().includes(lower)
         );
       }
       if (subjectFilter) {

@@ -242,7 +242,7 @@ class GeminiService {
     // Normalize unicode and whitespace
     cleaned = cleaned
       .replace(/[\u2018\u2019]/g, "'")
-      .replace(/[\u201C\u201D]/g, '"')
+      .replace(/[\u201C\u201D]/g, "'")
       .replace(/\u2013|\u2014/g, '-')
       .replace(/\u00A0/g, ' ')
       .replace(/\r\n/g, '\n')
@@ -471,7 +471,7 @@ class GeminiService {
    * Generate a hash for request deduplication
    */
   _hashRequest(prompt, options = {}) {
-    const key = `${prompt.substring(0, 100)}_${options.temperature || 0}_${options.maxTokens || 0}_${options.model || ''}`;
+    const key = `${prompt}_${options.temperature || 0}_${options.maxTokens || 0}_${options.model || ''}`;
     // Simple hash function
     let hash = 0;
     for (let i = 0; i < key.length; i++) {
@@ -965,7 +965,7 @@ class GeminiService {
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       generationConfig: {
         temperature: options.temperature ?? 0.3,
-        maxOutputTokens: options.maxTokens ?? 2048
+        maxOutputTokens: options.maxTokens ?? 8192
       }
     };
     const t1 = Date.now();
@@ -1021,8 +1021,20 @@ class GeminiService {
       throw new Error(`Google fallback failed: ${res.status} ${t}`);
     }
     const data = await res.json();
-    if (this.debug) console.debug('[AI] Google.generateContent success', { ms: Date.now() - t1 });
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const candidate = data?.candidates?.[0];
+    const finishReason = candidate?.finishReason;
+    const usageMeta = data?.usageMetadata;
+    if (this.debug) console.debug('[AI] Google.generateContent success', {
+      ms: Date.now() - t1,
+      finishReason,
+      promptTokens: usageMeta?.promptTokenCount,
+      outputTokens: usageMeta?.candidatesTokenCount,
+      totalTokens: usageMeta?.totalTokenCount
+    });
+    if (finishReason && finishReason !== 'STOP' && finishReason !== 'END_TURN') {
+      console.warn(`[AI] Google response finishReason: ${finishReason} — response may be truncated or blocked`);
+    }
+    const text = candidate?.content?.parts?.[0]?.text || '';
     if (!text) throw new Error('Empty response from Google fallback');
     return text;
   }

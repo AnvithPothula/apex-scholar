@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, Play, Trash2, Clock, BookOpen, CheckCircle, X, Edit3, Save, ChevronDown, Globe, Lock, Copy, Users } from 'lucide-react';
+import { Plus, Search, Play, Trash2, Clock, BookOpen, CheckCircle, X, Edit3, Save, ChevronDown, Globe, Lock, Copy, Users, User } from 'lucide-react';
 import { Button, Card, Input } from '../components/ui/UIComponents';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -138,7 +138,8 @@ const FlashcardsPage = () => {
         difficulty: 'Medium',
         description: createDescription || `AI-generated flashcards for ${createTopic}`,
         progress: 0,
-        isPublic: isPublicDeck
+        isPublic: isPublicDeck,
+        creatorName: user.displayName || 'Anonymous'
       };
 
       // Save to Firebase
@@ -279,7 +280,8 @@ const FlashcardsPage = () => {
         description: createDescription || `Manually created flashcards`,
         progress: 0,
         isManual: true,
-        isPublic: isPublicDeck
+        isPublic: isPublicDeck,
+        creatorName: user.displayName || 'Anonymous'
       };
 
       // Save to Firebase
@@ -335,6 +337,7 @@ const FlashcardsPage = () => {
 
   const handleCopyPublicDeck = async (deck) => {
     if (!user) return;
+    if (deck.userId === user.uid) return; // Can't copy your own deck
     setCopyingDeckId(deck.id);
     try {
       const newId = await dataService.copyPublicDeckToUser(user.uid, deck);
@@ -1091,7 +1094,20 @@ const FlashcardsPage = () => {
                       <p className="text-sm text-content-muted mb-3 line-clamp-2">
                         {deck.description}
                       </p>
-                      <div className="flex items-center gap-4 text-xs text-content-muted">
+                      <div className="flex items-center gap-4 text-xs text-content-muted flex-wrap">
+                        {deck.creatorName && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPublicSearchQuery(deck.creatorName);
+                            }}
+                            className="flex items-center gap-1 hover:text-content-primary transition-colors"
+                            title={`View all decks by ${deck.creatorName}`}
+                          >
+                            <User className="w-3 h-3" strokeWidth={1.5} />
+                            <span>{deck.creatorName}</span>
+                          </button>
+                        )}
                         <div className="flex items-center gap-1">
                           <BookOpen className="w-3 h-3" strokeWidth={1.5} />
                           <span>{deck.cardCount || deck.cards?.length || 0} cards</span>
@@ -1105,21 +1121,23 @@ const FlashcardsPage = () => {
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => handleCopyPublicDeck(deck)}
-                        disabled={copyingDeckId === deck.id}
-                        className="flex-1 bg-content-primary text-base-950 hover:opacity-90"
-                      >
-                        {copyingDeckId === deck.id ? (
-                          <div className="w-4 h-4 border-2 border-base-950 border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          <>
-                            <Copy className="w-4 h-4 mr-2" strokeWidth={1.5} />
-                            Copy to My Decks
-                          </>
-                        )}
-                      </Button>
+                      {deck.userId !== user?.uid && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleCopyPublicDeck(deck)}
+                          disabled={copyingDeckId === deck.id}
+                          className="flex-1 bg-content-primary text-base-950 hover:opacity-90"
+                        >
+                          {copyingDeckId === deck.id ? (
+                            <div className="w-4 h-4 border-2 border-base-950 border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <>
+                              <Copy className="w-4 h-4 mr-2" strokeWidth={1.5} />
+                              Copy to My Decks
+                            </>
+                          )}
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="outline"

@@ -7,7 +7,6 @@ import {
   User,
   BookOpen,
   ChevronLeft,
-  Sparkles,
   TrendingUp,
   Plus,
   Paperclip,
@@ -966,11 +965,39 @@ const AITutors = () => {
             }
           }
         } catch (_) {
-          // JSON parse failed — strip any JSON-looking blocks so user doesn't see raw JSON
-          aiMessage.content = response
-            .replace(/```(?:json)?\s*[\s\S]*?```/g, '')
-            .replace(/\{[\s\S]*"question"[\s\S]*"choices"[\s\S]*\}/g, '')
-            .trim() || 'I generated a practice question but had trouble formatting it. Please try again!';
+          // JSON parse failed — try to parse plain text MCQ format (A. B. C. D.)
+          try {
+            const lines = response.replace(/```(?:json)?\s*[\s\S]*?```/g, '').trim().split('\n').map(l => l.trim()).filter(Boolean);
+            const choicePattern = /^([A-D])[.)]\s*(.+)/i;
+            const questionLines = [];
+            const parsedChoices = [];
+            for (const line of lines) {
+              const m = line.match(choicePattern);
+              if (m) {
+                parsedChoices.push(m[2].trim());
+              } else if (parsedChoices.length === 0) {
+                questionLines.push(line);
+              }
+            }
+            if (parsedChoices.length >= 2 && questionLines.length > 0) {
+              const mcq = {
+                question: questionLines.join(' ').replace(/^\*+|\*+$/g, '').trim(),
+                choices: parsedChoices,
+                correctIndex: 0, // unknown from plain text
+                explanations: parsedChoices.map(() => '')
+              };
+              aiMessage.responseType = 'mcq';
+              aiMessage.mcq = mcq;
+              aiMessage.content = mcq.question;
+            } else {
+              aiMessage.content = response
+                .replace(/```(?:json)?\s*[\s\S]*?```/g, '')
+                .replace(/\{[\s\S]*"question"[\s\S]*"choices"[\s\S]*\}/g, '')
+                .trim() || 'I generated a practice question but had trouble formatting it. Please try again!';
+            }
+          } catch (__) {
+            aiMessage.content = 'I generated a practice question but had trouble formatting it. Please try again!';
+          }
         }
       }
       
@@ -1116,7 +1143,11 @@ ${curriculumData.examFormat ? `EXAM: ${curriculumData.examFormat.duration} — $
 
   const modeDirective = mode === 'Practice MCQ'
     ? `MODE: Practice MCQ.
-Output STRICT JSON with keys: question (string), choices (array of 4 strings), correctIndex (0-3), explanations (array of 4 strings). No prose before or after JSON.`
+RESPOND WITH ONLY A JSON OBJECT. Start your response with { and end with }. No greetings, no markdown, no code fences, no explanation.
+Example format:
+{"question": "What is X?", "choices": ["First option", "Second option", "Third option", "Fourth option"], "correctIndex": 2, "explanations": ["Why A is wrong", "Why B is wrong", "Why C is correct", "Why D is wrong"]}
+Rules: "choices" must have exactly 4 strings. "correctIndex" is 0-3. "explanations" has 4 strings. Randomize which choice is correct (do NOT always make index 0 correct).
+YOUR ENTIRE RESPONSE MUST BE VALID JSON. NO OTHER TEXT.`
     : mode === 'Walkthrough'
     ? `MODE: Step-by-step walkthrough with short steps and $LaTeX$ for math.`
     : mode === 'Summarize Attachment'
@@ -1773,12 +1804,12 @@ Please check your internet connection and try again. In the meantime:
       )}
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Enhanced Header */}
         <motion.div
           initial={{ y: -50, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.3 }}
           className="bg-base-850 border-b border-border shadow-raised"
         >
           <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4">
@@ -1907,14 +1938,14 @@ Please check your internet connection and try again. In the meantime:
           )}
 
           {/* Messages */}
-          <AnimatePresence mode="popLayout">
+          <AnimatePresence>
             {messages.map((message, index) => (
               <motion.div
                 key={message.id}
-                initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                transition={{ duration: 0.4 }}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
                 className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div className={`flex gap-3 max-w-4xl ${message.type === 'user' ? 'flex-row-reverse' : ''}`}>
@@ -2059,7 +2090,7 @@ Please check your internet connection and try again. In the meantime:
       <motion.div
         initial={{ y: 50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.6 }}
+        transition={{ duration: 0.3 }}
         className="bg-base-850 border-t border-border shadow-raised safe-bottom"
       >
         <div className="max-w-4xl mx-auto p-3 sm:p-4 md:p-6">
@@ -2120,6 +2151,7 @@ Please check your internet connection and try again. In the meantime:
                 value={selectedModel}
                 onChange={(m) => { setSelectedModel(m); saveSelectedModel(m); }}
                 compact
+                dropUp
               />
               <Button
                 variant="ghost" 

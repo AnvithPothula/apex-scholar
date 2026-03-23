@@ -33,6 +33,40 @@ const LaTeXRenderer = ({ content, inline = false }) => {
   const [katexLoaded, setKatexLoaded] = useState(!!InlineMath);
   const [loadError, setLoadError] = useState(null);
 
+  // Process basic markdown (bold, italic) in text segments
+  const processMarkdown = useCallback((text) => {
+    if (typeof text !== 'string' || !text) return text;
+    // Split on bold (** or __) and italic (* or _) patterns
+    // Process bold first, then italic
+    const parts = [];
+    // Pattern: **bold**, *italic*, ***bold-italic***
+    const mdPattern = /(\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|\*(.+?)\*)/g;
+    let lastIndex = 0;
+    let match;
+    while ((match = mdPattern.exec(text)) !== null) {
+      // Add text before this match
+      if (match.index > lastIndex) {
+        parts.push(<React.Fragment key={`md-text-${lastIndex}`}>{text.substring(lastIndex, match.index)}</React.Fragment>);
+      }
+      if (match[2]) {
+        // ***bold-italic***
+        parts.push(<strong key={`md-bi-${match.index}`}><em>{match[2]}</em></strong>);
+      } else if (match[3]) {
+        // **bold**
+        parts.push(<strong key={`md-b-${match.index}`}>{match[3]}</strong>);
+      } else if (match[4]) {
+        // *italic*
+        parts.push(<em key={`md-i-${match.index}`}>{match[4]}</em>);
+      }
+      lastIndex = match.index + match[0].length;
+    }
+    // Add remaining text
+    if (lastIndex < text.length) {
+      parts.push(<React.Fragment key={`md-text-${lastIndex}`}>{text.substring(lastIndex)}</React.Fragment>);
+    }
+    return parts.length > 0 ? parts : text;
+  }, []);
+
   // Detect if content contains LaTeX
   const hasLatex = useCallback((text) => {
     if (typeof text !== 'string') return false;
@@ -50,9 +84,9 @@ const LaTeXRenderer = ({ content, inline = false }) => {
 
   if (!content) return null;
 
-  // If no LaTeX in content, just return plain text
+  // If no LaTeX in content, still process basic markdown (bold/italic)
   if (!hasLatex(content)) {
-    return inline ? <span>{content}</span> : <div>{content}</div>;
+    return inline ? <span>{processMarkdown(content)}</span> : <div>{processMarkdown(content)}</div>;
   }
 
   // Show loading state while KaTeX loads
@@ -102,8 +136,8 @@ const LaTeXRenderer = ({ content, inline = false }) => {
           return <span key={`inline-error-${index}-${part.length}`} className="text-error-400">[LaTeX Error: {part}]</span>;
         }
       } else {
-        // Regular text
-        return <span key={`text-${index}-${part.length}`}>{part}</span>;
+        // Regular text — process basic markdown (bold/italic)
+        return <span key={`text-${index}-${part.length}`}>{processMarkdown(part)}</span>;
       }
     }).filter(Boolean);
   };

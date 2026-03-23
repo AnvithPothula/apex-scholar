@@ -61,13 +61,17 @@ class BackgroundSyncManager {
       // Add to active users
       this.activeUsers.add(userId);
 
-      // Auto-sync every 30 minutes (balances freshness vs. Netlify request quotas)
-      assignmentSync.startAutoSync(userId, 30);
+      // Check if auto-sync is enabled in user settings before starting
+      const syncStatus = await assignmentSync.getSyncStatus(userId);
+      if (syncStatus.hasAutoSync) {
+        assignmentSync.startAutoSync(userId, 30);
+        console.log(`✅ Background auto-sync started for user: ${userId}`);
+      } else {
+        console.log(`⏸️ Auto-sync disabled for user: ${userId}, skipping`);
+      }
 
-      // Perform initial sync if needed
+      // Perform initial sync if needed (one-time, not recurring)
       this.performInitialSyncIfNeeded(userId);
-
-      console.log(`✅ Background sync started for user: ${userId}`);
     } catch (error) {
       console.error(`❌ Error starting background sync for user ${userId}:`, error);
     }
