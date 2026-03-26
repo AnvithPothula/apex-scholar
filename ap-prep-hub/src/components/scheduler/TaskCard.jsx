@@ -5,7 +5,7 @@ import { formatDistanceToNow, isPast } from 'date-fns';
 import { Card, Badge, Button, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../ui/UIComponents';
 import { getDifficultyColor } from '../../utils/helpers';
 
-export function TaskCard({ task, onEdit, onDelete, onComplete }) {
+export const TaskCard = React.memo(function TaskCard({ task, onEdit, onDelete, onComplete }) {
   // Fix: Better date handling for both Firestore timestamps and regular dates
   const getTaskDate = () => {
     if (!task.deadline) return null;
@@ -82,4 +82,4 @@ export function TaskCard({ task, onEdit, onDelete, onComplete }) {
       </Card>
     </motion.div>
   );
-}
+});

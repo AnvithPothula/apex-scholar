@@ -13,6 +13,7 @@ import {
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import { auth, db } from '../config/firebase';
 import { getFirebaseErrorMessage } from '../utils/firebaseErrorMessages';
+import errorLogger from '../utils/errorLogger';
 
 const AVATAR_GRADIENTS = [
   'linear-gradient(135deg, #14b8a6, #2dd4bf)',  // Teal
@@ -51,7 +52,7 @@ export const AuthProvider = ({ children }) => {
         // signInWithRedirect and cleared here once the result is processed.
         const isReturningFromRedirect = (() => {
             try { return sessionStorage.getItem('apex.auth.pendingRedirect') === 'true'; }
-            catch { return false; }
+            catch (e) { errorLogger.debug('sessionStorage read failed', { error: e?.message }); return false; }
         })();
 
         if (isReturningFromRedirect) {
@@ -64,7 +65,7 @@ export const AuthProvider = ({ children }) => {
             if (!redirectChecked) {
                 console.warn("⚠️ Auth initialization timeout - forcing loading complete");
                 redirectChecked = true;
-                try { sessionStorage.removeItem('apex.auth.pendingRedirect'); } catch {}
+                try { sessionStorage.removeItem('apex.auth.pendingRedirect'); } catch (e) { errorLogger.debug('sessionStorage write failed', { error: e?.message }); }
                 if (lastAuthUser === null || lastAuthUser === undefined) {
                     setUser(null);
                     setLoading(false);
@@ -96,7 +97,7 @@ export const AuthProvider = ({ children }) => {
                 console.error("❌ Redirect result error:", error.code, error.message);
             } finally {
                 redirectChecked = true;
-                try { sessionStorage.removeItem('apex.auth.pendingRedirect'); } catch {}
+                try { sessionStorage.removeItem('apex.auth.pendingRedirect'); } catch (e) { errorLogger.debug('sessionStorage write failed', { error: e?.message }); }
 
                 // If getRedirectResult returned a user, onAuthStateChanged WILL
                 // fire with that user imminently — do NOT set loading=false here
@@ -234,7 +235,7 @@ export const AuthProvider = ({ children }) => {
                 try {
                     // Set a flag so the page that loads after the redirect
                     // knows to wait for the auth result before giving up.
-                    try { sessionStorage.setItem('apex.auth.pendingRedirect', 'true'); } catch {}
+                    try { sessionStorage.setItem('apex.auth.pendingRedirect', 'true'); } catch (e) { errorLogger.debug('sessionStorage write failed', { error: e?.message }); }
                     await signInWithRedirect(auth, provider);
                     return null; // Page will redirect
                 } catch (redirectError) {

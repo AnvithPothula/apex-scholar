@@ -1,4 +1,6 @@
 import apiKeyManager from './APIKeyManager';
+import errorLogger from '../utils/errorLogger';
+import JSONParser from './ai/jsonParser';
 
 // Small utility: wait for a promise with timeout
 const withTimeout = (promise, ms, errMsg = 'Timed out') => {
@@ -96,9 +98,10 @@ const sanitizeForPrompt = (input, options = {}) => {
     /"\s*OR\s+"?\d+"?\s*=\s*"?\d+/gi,
     /--\s*$/gm,
     
-    // Command injection patterns
-    /\$\([^)]+\)/g, // $(command)
-    /`[^`]+`/g, // `command` - but preserve markdown code blocks
+    // Command injection patterns — only match shell-like execution, not math/markdown
+    /\$\(\s*(curl|wget|bash|sh|rm|cat|eval|exec|sudo|chmod|chown|kill|nc|ncat|python|node|ruby|perl)\b[^)]*\)/gi, // $(command) — only dangerous shell commands
+    // Note: single backticks (inline code) are preserved for markdown; triple backticks
+    // handled below when allowMarkdown=false
   ];
   
   for (const pattern of injectionPatterns) {
@@ -148,11 +151,12 @@ class GeminiService {
       ? process.env.REACT_APP_GEMINI_MODEL.trim()
       : 'claude-sonnet-4';
     this.debug = (process.env.REACT_APP_AI_DEBUG || '').toLowerCase() !== 'false';
+    this._jsonParser = new JSONParser({ debug: this.debug });
     this._workingModel = null;
     this._workingModelSupportsMM = false;
     // User-selected model (from ModelSelector UI) — takes priority over everything
     this._userModel = null;
-    try { this._userModel = localStorage.getItem('apex.ai.userModel') || null; } catch {}
+    try { this._userModel = localStorage.getItem('apex.ai.userModel') || null; } catch (e) { errorLogger.debug('localStorage read failed (userModel)', { error: e?.message }); }
     this._lastPuterFailureAt = 0; // for backoff on repeated failures
     this._rateLimitUntil = 0; // Timestamp until which we should not make requests
     this._puterAuthBroken = false; // Track if Puter auth is in a broken/stuck state
@@ -221,200 +225,11 @@ class GeminiService {
   }
 
   /**
-   * Robust JSON extraction and parsing with multiple fallback strategies
-   * Handles malformed JSON, code blocks, and partial responses
+   * Delegate JSON extraction to the shared JSONParser instance.
+   * @see {JSONParser} in ./ai/jsonParser.js for the full pipeline.
    */
   _extractJSON(text, expectArray = false) {
-    if (!text || typeof text !== 'string') {
-      return { success: false, data: null, error: 'Empty or invalid input' };
-    }
-
-    // Step 1: Clean the response
-    let cleaned = text
-      .replace(/^```json\s*/gi, '')
-      .replace(/^```\s*/gi, '')
-      .replace(/\s*```\s*$/gi, '')
-      .replace(/```json\n?|\n?```/g, '')
-      .replace(/```\n?|\n?```/g, '')
-      .replace(/^`+|`+$/g, '')
-      .trim();
-
-    // Normalize unicode and whitespace
-    cleaned = cleaned
-      .replace(/[\u2018\u2019]/g, "'")
-      .replace(/[\u201C\u201D]/g, "'")
-      .replace(/\u2013|\u2014/g, '-')
-      .replace(/\u00A0/g, ' ')
-      .replace(/\r\n/g, '\n')
-      .replace(/\r/g, '\n');
-
-    // Step 2: Try direct parsing
-    try {
-      const parsed = JSON.parse(cleaned);
-      if (expectArray && !Array.isArray(parsed)) {
-        return { success: false, data: null, error: 'Expected array but got object' };
-      }
-      return { success: true, data: parsed, error: null };
-    } catch (e) {
-      // Continue with repair strategies
-    }
-
-    // Step 3: Find JSON bounds using brace matching
-    const startChar = expectArray ? '[' : '{';
-    const endChar = expectArray ? ']' : '}';
-    const startIdx = cleaned.indexOf(startChar);
-    if (startIdx === -1) {
-      return { success: false, data: null, error: `No ${startChar} found in response` };
-    }
-
-    // Count braces to find matching end
-    let braceCount = 0;
-    let inString = false;
-    let escapeNext = false;
-    let endIdx = -1;
-
-    for (let i = startIdx; i < cleaned.length; i++) {
-      const char = cleaned[i];
-
-      if (escapeNext) {
-        escapeNext = false;
-        continue;
-      }
-
-      if (char === '\\') {
-        escapeNext = true;
-        continue;
-      }
-
-      if (char === '"') {
-        inString = !inString;
-        continue;
-      }
-
-      if (!inString) {
-        if (char === startChar) braceCount++;
-        if (char === endChar) {
-          braceCount--;
-          if (braceCount === 0) {
-            endIdx = i;
-            break;
-          }
-        }
-      }
-    }
-
-    if (endIdx === -1) {
-      // Try to repair truncated JSON
-      return this._repairTruncatedJSON(cleaned.slice(startIdx), expectArray);
-    }
-
-    const candidate = cleaned.slice(startIdx, endIdx + 1);
-
-    // Step 4: Try parsing extracted JSON
-    try {
-      return { success: true, data: JSON.parse(candidate), error: null };
-    } catch (e) {
-      // Step 5: Apply common fixes
-      return this._repairJSON(candidate, expectArray);
-    }
-  }
-
-  /**
-   * Attempt to repair common JSON issues
-   */
-  _repairJSON(text, expectArray = false) {
-    const repairs = [
-      // Remove trailing commas
-      t => t.replace(/,\s*([}\]])/g, '$1'),
-      // Fix unescaped quotes in strings (tricky - basic attempt)
-      t => t.replace(/([^\\])"([^":,{}[\]]+)":/g, '$1"$2":'),
-      // Remove control characters
-      t => t.replace(/[\x00-\x1F\x7F]/g, ' '), // eslint-disable-line no-control-regex
-      // Fix double commas
-      t => t.replace(/,,+/g, ','),
-      // Remove empty array elements
-      t => t.replace(/\[\s*,/g, '[').replace(/,\s*\]/g, ']'),
-      // Fix invalid escape sequences that aren't valid JSON
-      t => t.replace(/\\([^"\\/bfnrtu])/g, '$1'),
-      // Fix missing quotes on keys (basic)
-      t => t.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":'),
-    ];
-
-    let repaired = text;
-    for (const repair of repairs) {
-      try {
-        repaired = repair(repaired);
-        const parsed = JSON.parse(repaired);
-        if (this.debug) console.debug('[AI] JSON repaired successfully');
-        return { success: true, data: parsed, error: null };
-      } catch (e) {
-        // Continue trying repairs
-      }
-    }
-
-    return { success: false, data: null, error: 'Could not repair JSON' };
-  }
-
-  /**
-   * Attempt to repair truncated JSON by closing open structures
-   */
-  _repairTruncatedJSON(text, expectArray = false) {
-    if (this.debug) console.debug('[AI] Attempting to repair truncated JSON');
-
-    let repaired = text.trim();
-
-    // Count unclosed braces/brackets
-    let openBraces = 0;
-    let openBrackets = 0;
-    let inString = false;
-    let escapeNext = false;
-
-    for (const char of repaired) {
-      if (escapeNext) {
-        escapeNext = false;
-        continue;
-      }
-      if (char === '\\') {
-        escapeNext = true;
-        continue;
-      }
-      if (char === '"') {
-        inString = !inString;
-        continue;
-      }
-      if (!inString) {
-        if (char === '{') openBraces++;
-        if (char === '}') openBraces--;
-        if (char === '[') openBrackets++;
-        if (char === ']') openBrackets--;
-      }
-    }
-
-    // If we're in a string, close it
-    if (inString) {
-      repaired += '"';
-    }
-
-    // Remove any trailing incomplete key-value pairs
-    repaired = repaired.replace(/,\s*"[^"]*"\s*:\s*$/g, '');
-    repaired = repaired.replace(/,\s*"[^"]*"\s*$/g, '');
-    repaired = repaired.replace(/,\s*$/g, '');
-
-    // Close unclosed structures
-    for (let i = 0; i < openBraces; i++) {
-      repaired += '}';
-    }
-    for (let i = 0; i < openBrackets; i++) {
-      repaired += ']';
-    }
-
-    try {
-      const parsed = JSON.parse(repaired);
-      if (this.debug) console.debug('[AI] Truncated JSON repaired successfully');
-      return { success: true, data: parsed, error: null, wasRepaired: true };
-    } catch (e) {
-      return { success: false, data: null, error: 'Could not repair truncated JSON: ' + e.message };
-    }
+    return this._jsonParser.parse(text, expectArray);
   }
 
   /**
@@ -685,7 +500,7 @@ class GeminiService {
       if (!puter.authToken && document.querySelector && document.querySelector('puter-dialog')) {
         return true;
       }
-    } catch (_) { /* ignore */ }
+    } catch (e) { errorLogger.debug('isPuterAuthStuck check failed', { error: e?.message }); }
     return false;
   }
 
@@ -706,7 +521,7 @@ class GeminiService {
         puter.puterAuthState.authGranted = null;
         if (puter.puterAuthState.resolver) {
           // Reject any pending auth promise so callers don't hang forever
-          try { puter.puterAuthState.resolver.reject?.(new Error('Auth reset due to stuck state')); } catch (_) {}
+          try { puter.puterAuthState.resolver.reject?.(new Error('Auth reset due to stuck state')); } catch (e) { errorLogger.debug('Failed to reject stuck auth resolver', { error: e?.message }); }
         }
         puter.puterAuthState.resolver = null;
       }
@@ -714,7 +529,7 @@ class GeminiService {
       // 2. Remove stale <puter-dialog> elements from the DOM
       if (document.querySelectorAll) {
         document.querySelectorAll('puter-dialog').forEach(el => {
-          try { el.remove(); } catch (_) {}
+          try { el.remove(); } catch (e) { errorLogger.debug('Failed to remove puter-dialog element', { error: e?.message }); }
         });
       }
 
@@ -723,14 +538,17 @@ class GeminiService {
       //    Only the in-memory stuck state needs resetting here.
       try {
         localStorage.removeItem('puter.app.id');
-      } catch (_) {}
+      } catch (e) { errorLogger.debug('localStorage remove failed (puter.app.id)', { error: e?.message }); }
 
       // 4. Use the SDK's built-in reset if available
       if (typeof puter.resetAuthToken === 'function') {
-        try { puter.resetAuthToken(); } catch (_) {}
+        try { puter.resetAuthToken(); } catch (e) { errorLogger.debug('puter.resetAuthToken() failed', { error: e?.message }); }
       } else {
         puter.authToken = null;
       }
+
+      // Clear our own auth flag so we don't keep trying Puter with stale auth
+      try { localStorage.removeItem('apex.puter.authenticated'); } catch (e) { errorLogger.debug('localStorage remove failed (apex.puter.authenticated)', { error: e?.message }); }
 
       this._puterAuthResetCount++;
       console.warn('[AI] Reset stuck Puter auth state (reset #' + this._puterAuthResetCount + ')');
@@ -785,7 +603,7 @@ class GeminiService {
    */
   setUserModel(modelValue) {
     this._userModel = modelValue || null;
-    try { localStorage.setItem('apex.ai.userModel', modelValue || ''); } catch {}
+    try { localStorage.setItem('apex.ai.userModel', modelValue || ''); } catch (e) { errorLogger.debug('localStorage write failed (userModel)', { error: e?.message }); }
     if (this.debug) console.debug('[AI] User model set to:', modelValue);
   }
 
@@ -825,16 +643,13 @@ class GeminiService {
           }
         }
 
-        // KEY CHECK: Only use Puter if the user is already authenticated.
-        // If they're NOT authenticated, calling puter.ai.chat() would trigger
-        // the Puter auth popup (account creation, CAPTCHA, etc.), which is
-        // confusing and disruptive. Instead, return null so the caller falls
-        // through to the Google API — no popup, no extra steps.
+        // Check if the user is authenticated with Puter.
+        // We check multiple signals because the SDK's internal state can be
+        // unreliable (e.g. WebSocket failures can clear authToken from memory
+        // even though the user previously authenticated successfully).
         let hasAuth = !!(window.puter.authToken || window.puter.auth?.isSignedIn?.());
 
-        // Fallback: the SDK may not have restored the token to memory yet
-        // (e.g. right after page load). Check localStorage for a persisted
-        // Puter token and, if found, nudge the SDK so it picks it up.
+        // Signal 2: Check localStorage for a persisted Puter auth token
         if (!hasAuth) {
           try {
             const lsToken = localStorage.getItem('puter.auth.token');
@@ -851,7 +666,20 @@ class GeminiService {
               hasAuth = true;
               if (this.debug) console.debug('[AI] Restored Puter auth token from localStorage');
             }
-          } catch (_) { /* localStorage blocked */ }
+          } catch (e) { errorLogger.debug('localStorage access blocked', { error: e?.message }); }
+        }
+
+        // Signal 3: Our own flag from a previous successful Puter call.
+        // The SDK's WebSocket failures can wipe auth state from memory, but
+        // if we previously authenticated and used Puter successfully, trust that.
+        if (!hasAuth) {
+          try {
+            const prevAuth = localStorage.getItem('apex.puter.authenticated');
+            if (prevAuth === 'true') {
+              hasAuth = true;
+              if (this.debug) console.debug('[AI] Puter previously authenticated (apex.puter.authenticated flag)');
+            }
+          } catch (e) { errorLogger.debug('localStorage access blocked', { error: e?.message }); }
         }
 
         if (!hasAuth) {
@@ -859,12 +687,12 @@ class GeminiService {
           return null;
         }
 
-        // Mark as permanently authenticated so PuterAuthPrompt never shows
-        try { localStorage.setItem('apex.puter.authenticated', 'true'); } catch (_) {}
+        // Mark as permanently authenticated so we remember for next time
+        try { localStorage.setItem('apex.puter.authenticated', 'true'); } catch (e) { errorLogger.debug('localStorage write failed (puter auth flag)', { error: e?.message }); }
 
         return window.puter;
       }
-    } catch (_) { /* ignore */ }
+    } catch (e) { errorLogger.debug('getPuter() failed', { error: e?.message }); }
     return null;
   }
 

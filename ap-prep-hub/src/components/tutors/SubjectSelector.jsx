@@ -372,4 +372,4 @@ function getSubjectColor(subjectId) {
   return 'bg-content-primary';
 }
 
-export default SubjectSelector;
+export default React.memo(SubjectSelector);

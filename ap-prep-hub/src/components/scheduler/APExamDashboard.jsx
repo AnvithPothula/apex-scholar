@@ -210,4 +210,4 @@ const APExamDashboard = () => {
   );
 };
 
-export default APExamDashboard;
+export default React.memo(APExamDashboard);

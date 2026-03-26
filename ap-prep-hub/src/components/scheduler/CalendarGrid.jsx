@@ -49,7 +49,10 @@ const WeekViewTask = ({ task, onTaskClick }) => {
                 zIndex: 20,
             }}
             className={`p-2 rounded-sm text-xs font-medium cursor-pointer transition-all duration-200 overflow-hidden shadow-raised hover:shadow-floating ${getDifficultyColor(task.difficulty)}`}
+            role="button"
+            tabIndex={0}
             onClick={(e) => { e.stopPropagation(); onTaskClick(task); }}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onTaskClick(task); } }}
         >
             <div data-filename="pages/ViewCode" data-linenumber="1065" data-visual-selector-id="pages/ViewCode1065" className="flex flex-col h-full justify-between">
                 <span data-filename="pages/ViewCode" data-linenumber="1066" data-visual-selector-id="pages/ViewCode1066" className="font-bold text-content-primary leading-tight">{task.name}</span>

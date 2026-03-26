@@ -60,16 +60,16 @@ service cloud.firestore {
       allow create: if request.auth != null &&
                       request.auth.uid == request.resource.data.userId;
 
-      // Messages within conversations
+      // Messages within conversations — scoped to conversation owner
       match /messages/{messageId} {
-        allow read, write: if request.auth != null;
-        allow create: if request.auth != null;
+        allow read, write: if request.auth != null &&
+                             request.auth.uid == get(/databases/$(database)/documents/conversations/$(conversationId)).data.userId;
       }
 
-      // MCQ responses within conversations
+      // MCQ responses within conversations — scoped to conversation owner
       match /mcqResponses/{responseId} {
-        allow read, write: if request.auth != null;
-        allow create: if request.auth != null;
+        allow read, write: if request.auth != null &&
+                             request.auth.uid == get(/databases/$(database)/documents/conversations/$(conversationId)).data.userId;
       }
     }
 
@@ -155,13 +155,24 @@ service cloud.firestore {
       allow write: if false; // Only admins can write (implement admin check if needed)
     }
 
+    // Admin list — add admin UIDs as documents in this collection
+    // e.g., /admins/{uid} with any field
+    function isAdmin() {
+      return request.auth != null &&
+             exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
     // Reviews - any authenticated user can create; admins can read/delete
     match /reviews/{reviewId} {
       allow create: if request.auth != null &&
                       request.auth.uid == request.resource.data.userId;
-      allow read, delete: if request.auth != null &&
-                      (request.auth.uid == 'b0eUycwZDHcmrkoeSEiD69QSbK32' ||
-                       request.auth.uid == 'A0yRGP86ZTahByzS0ALYeKAXOn52');
+      allow read, delete: if isAdmin();
+    }
+
+    // Admin collection - only admins can read, no one can write via client
+    match /admins/{adminId} {
+      allow read: if request.auth != null && request.auth.uid == adminId;
+      allow write: if false;
     }
 
     // Deny all other access by default

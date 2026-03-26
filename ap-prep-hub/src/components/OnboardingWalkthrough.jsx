@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowRight, ArrowLeft, X, Brain, FileQuestion, Zap, Calculator, Calendar, Settings, Sparkles } from 'lucide-react';
+import errorLogger from '../utils/errorLogger';
 
 const ONBOARDING_KEY = 'apex.onboarding.completed';
 
@@ -55,14 +56,14 @@ export default function OnboardingWalkthrough() {
   useEffect(() => {
     try {
       if (localStorage.getItem(ONBOARDING_KEY) === 'true') return;
-    } catch {}
+    } catch (e) { errorLogger.debug('localStorage read failed (onboarding)', { error: e?.message }); }
     // Show after a short delay to let the page render first
     const timer = setTimeout(() => setVisible(true), 2000);
     return () => clearTimeout(timer);
   }, []);
 
   const handleDismiss = useCallback(() => {
-    try { localStorage.setItem(ONBOARDING_KEY, 'true'); } catch {}
+    try { localStorage.setItem(ONBOARDING_KEY, 'true'); } catch (e) { errorLogger.debug('localStorage write failed (onboarding)', { error: e?.message }); }
     setVisible(false);
   }, []);
 
@@ -132,6 +133,7 @@ export default function OnboardingWalkthrough() {
             {STEPS.map((_, i) => (
               <button
                 key={i}
+                aria-label={`Go to step ${i + 1}`}
                 onClick={() => setStep(i)}
                 className={`w-2 h-2 rounded-full transition-all ${
                   i === step ? 'bg-content-primary w-4' : 'bg-base-750 hover:bg-base-800'

@@ -69,4 +69,4 @@ const MCQCard = ({ mcq, onSelect, disabled }) => {
   );
 };
 
-export default MCQCard;
+export default React.memo(MCQCard);

@@ -25,6 +25,10 @@ export function Layout({ children }) {
 
     return (
         <div className="min-h-screen bg-base-950 text-content-primary">
+            {/* Skip to main content link for keyboard/screen reader users */}
+            <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-[60] focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:bg-base-800 focus:text-content-primary focus:rounded-md focus:border focus:border-border-strong">
+                Skip to main content
+            </a>
             <header className="sticky top-0 z-50 border-b border-border bg-base-900/95 backdrop-blur-sm">
                 <div className="max-w-screen-xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
                     <div className="flex items-center justify-between h-14 sm:h-16">
@@ -45,9 +49,11 @@ export function Layout({ children }) {
                         </Link>
                         
                         {/* Mobile-optimized navigation */}
-                        <nav className="flex space-x-0.5 sm:space-x-1 md:space-x-1.5 lg:space-x-2">
-                            <Link 
-                                to={createPageUrl("AITutors")} 
+                        <nav aria-label="Main navigation" className="flex space-x-0.5 sm:space-x-1 md:space-x-1.5 lg:space-x-2">
+                            <Link
+                                to={createPageUrl("AITutors")}
+                                aria-label="AI Tutors"
+                                aria-current={isActiveTab("AITutors") ? "page" : undefined}
                                 className={cn(
                                     "px-2 sm:px-2.5 md:px-3 lg:px-4 py-1.5 sm:py-2 flex items-center space-x-1 md:space-x-1.5 font-medium transition-all duration-200 text-xs sm:text-sm",
                                     isActiveTab("AITutors") ? "text-content-primary border-b-2 border-content-primary" : "text-content-muted hover:text-content-primary"
@@ -56,8 +62,10 @@ export function Layout({ children }) {
                                 <Brain strokeWidth={1.5} size={14} className="sm:w-4 sm:h-4 flex-shrink-0" />
                                 <span className="hidden md:inline">Tutors</span>
                             </Link>
-                            <Link 
-                                to={createPageUrl("PracticeTests")} 
+                            <Link
+                                to={createPageUrl("PracticeTests")}
+                                aria-label="Practice Tests"
+                                aria-current={isActiveTab("PracticeTests") ? "page" : undefined}
                                 className={cn(
                                     "px-2 sm:px-2.5 md:px-3 lg:px-4 py-1.5 sm:py-2 flex items-center space-x-1 md:space-x-1.5 font-medium transition-all duration-200 text-xs sm:text-sm",
                                     isActiveTab("PracticeTests") ? "text-content-primary border-b-2 border-content-primary" : "text-content-muted hover:text-content-primary"
@@ -66,8 +74,10 @@ export function Layout({ children }) {
                                 <FileQuestion strokeWidth={1.5} size={14} className="sm:w-4 sm:h-4 flex-shrink-0" />
                                 <span className="hidden md:inline">Tests</span>
                             </Link>
-                            <Link 
-                                to={createPageUrl("Flashcards")} 
+                            <Link
+                                to={createPageUrl("Flashcards")}
+                                aria-label="Flashcards"
+                                aria-current={isActiveTab("Flashcards") ? "page" : undefined}
                                 className={cn(
                                     "px-2 sm:px-2.5 md:px-3 lg:px-4 py-1.5 sm:py-2 flex items-center space-x-1 md:space-x-1.5 font-medium transition-all duration-200 text-xs sm:text-sm",
                                     isActiveTab("Flashcards") ? "text-content-primary border-b-2 border-content-primary" : "text-content-muted hover:text-content-primary"
@@ -76,8 +86,10 @@ export function Layout({ children }) {
                                 <Zap strokeWidth={1.5} size={14} className="sm:w-4 sm:h-4 flex-shrink-0" />
                                 <span className="hidden md:inline">Cards</span>
                             </Link>
-                            <Link 
-                                to={createPageUrl("Solver")} 
+                            <Link
+                                to={createPageUrl("Solver")}
+                                aria-label="Problem Solver"
+                                aria-current={isActiveTab("Solver") ? "page" : undefined}
                                 className={cn(
                                     "px-2 sm:px-2.5 md:px-3 lg:px-4 py-1.5 sm:py-2 flex items-center space-x-1 md:space-x-1.5 font-medium transition-all duration-200 text-xs sm:text-sm",
                                     isActiveTab("Solver") ? "text-content-primary border-b-2 border-content-primary" : "text-content-muted hover:text-content-primary"
@@ -86,8 +98,10 @@ export function Layout({ children }) {
                                 <Calculator strokeWidth={1.5} size={14} className="sm:w-4 sm:h-4 flex-shrink-0" />
                                 <span className="hidden md:inline">Solver</span>
                             </Link>
-                            <Link 
-                                to={createPageUrl("SmartScheduler")} 
+                            <Link
+                                to={createPageUrl("SmartScheduler")}
+                                aria-label="Smart Scheduler"
+                                aria-current={isActiveTab("SmartScheduler") ? "page" : undefined}
                                 className={cn(
                                     "px-2 sm:px-2.5 md:px-3 lg:px-4 py-1.5 sm:py-2 flex items-center space-x-1 md:space-x-1.5 font-medium transition-all duration-200 text-xs sm:text-sm",
                                     isActiveTab("SmartScheduler") ? "text-content-primary border-b-2 border-content-primary" : "text-content-muted hover:text-content-primary"
@@ -151,7 +165,7 @@ export function Layout({ children }) {
                     </div>
                 </div>
             </header>
-            <main className="relative">{children}</main>
+            <main id="main-content" className="relative">{children}</main>
 
             {/* Feedback Modal */}
             {showFeedbackModal && (

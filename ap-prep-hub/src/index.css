@@ -31,7 +31,7 @@
     --color-text-primary: #ededef;
     --color-text-secondary: #a0a0a8;
     --color-text-muted: #6e6e76;
-    --color-text-disabled: #3e3e44;
+    --color-text-disabled: #5a5a62;
 
     /* ---- Primary Accent: Teal (used sparingly) ---- */
     --color-primary-400: #2dd4bf;
@@ -305,6 +305,12 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* Toast slide-in animation */
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
 }
 
 /* Smooth scrolling */

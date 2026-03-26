@@ -66,6 +66,7 @@ import {
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import geminiService, { RateLimitError } from '../services/geminiService';
+import errorLogger from '../utils/errorLogger';
 
 const AITutors = () => {
   const { subject: urlSubject } = useParams();
@@ -97,7 +98,7 @@ const AITutors = () => {
     (async () => {
       try {
         await geminiService.prewarm({ multimodal: true });
-      } catch (_) { /* ignore */ }
+      } catch (e) { errorLogger.debug('AI prewarm failed', { error: e?.message }); }
       if (cancelled) return;
     })();
     return () => { cancelled = true; };
@@ -1242,7 +1243,7 @@ RESPONSE STRUCTURE: Direct analysis → 2-3 key concepts → AP application → 
                   messageParts.push({ text: `[Extracted from PDF ${file.name}]:\n${extracted}` });
                 }
               }
-            } catch (_) { /* ignore extraction errors */ }
+            } catch (e) { errorLogger.debug('PDF extraction failed', { file: file.name, error: e?.message }); }
             messageParts.push({ text: `[Document uploaded: ${file.name}. Analyze in the context of AP ${subjectName}.]` });
           }
         }

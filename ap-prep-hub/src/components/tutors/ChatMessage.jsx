@@ -7,17 +7,6 @@ import { PerformanceIndicator } from './PerformanceIndicator';
 const ChatMessageComponent = ({ message }) => {
   const isUser = message.role === "user";
   
-  // Simple HTML sanitization for safety
-  const sanitizeText = (text) => {
-    if (!text) return "";
-    return text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-  };
-  
   const renderMathInText = (text) => {
     if (!text) return "";
     const parts = text.split(/(\$\$[^$]+\$\$|\$[^$]+\$)/g);
@@ -36,11 +25,17 @@ const ChatMessageComponent = ({ message }) => {
           </span>
         );
       }
+      // Render newlines as <br /> using React elements (no dangerouslySetInnerHTML)
+      const lines = part.split('\n');
       return (
-        <span 
-          key={`text-${index}-${part.length}`} 
-          dangerouslySetInnerHTML={{ __html: sanitizeText(part).replace(/\n/g, '<br />') }} 
-        />
+        <span key={`text-${index}-${part.length}`}>
+          {lines.map((line, i) => (
+            <React.Fragment key={i}>
+              {line}
+              {i < lines.length - 1 && <br />}
+            </React.Fragment>
+          ))}
+        </span>
       );
     });
   };

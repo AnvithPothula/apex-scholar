@@ -3,6 +3,7 @@ import { Plus, Calendar, Brain } from "lucide-react";
 import { isSameDay, format } from "date-fns";
 import { addDoc, collection, query, orderBy, onSnapshot, updateDoc, deleteDoc, doc, serverTimestamp, getDoc, setDoc, Timestamp } from "firebase/firestore";
 import { useAuth } from "../contexts/AuthContext";
+import errorLogger from "../utils/errorLogger";
 import { db } from "../config/firebase";
 import { TaskCard } from "../components/scheduler/TaskCard.jsx";
 import { TaskModal } from "../components/scheduler/TaskModal.jsx";
@@ -1122,7 +1123,7 @@ export default function SmartScheduler() {
                                           const startStr = item.startTime && !isNaN(start) ? format(start, 'h:mm a') : '';
                                           const endStr = item.endTime && !isNaN(end) ? format(end, 'h:mm a') : '';
                                           return `${startStr}${startStr && endStr ? ' - ' : ''}${endStr}`;
-                                        } catch { return ''; }
+                                        } catch (e) { errorLogger.debug('Date format failed', { error: e?.message }); return ''; }
                                       })()}
                                       {item.duration && ` (${item.duration} min)`}
                                     </p>

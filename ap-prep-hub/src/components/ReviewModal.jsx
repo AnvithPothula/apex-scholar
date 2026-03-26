@@ -70,6 +70,7 @@ export default function ReviewModal({ onClose }) {
                                 <button
                                     key={star}
                                     type="button"
+                                    aria-label={`Rate ${star} star${star > 1 ? 's' : ''}`}
                                     onClick={() => setRating(star)}
                                     onMouseEnter={() => setHoveredStar(star)}
                                     onMouseLeave={() => setHoveredStar(0)}

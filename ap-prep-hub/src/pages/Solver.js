@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Camera, Brain, ChevronRight, CheckCircle, Clock } from 'lucide-react';
 import { Button, Card, Badge, Textarea } from '../components/ui/UIComponents';
 import CustomDropdown from '../components/ui/CustomDropdown';
+import errorLogger from '../utils/errorLogger';
 import { useAuth } from '../contexts/AuthContext';
 import { AP_SUBJECTS } from '../constants/subjects';
 import geminiService, { RateLimitError } from '../services/geminiService';
@@ -167,7 +168,7 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
         // Prefer fenced json blocks
         const fenced = txt.match(/```json\s*([\s\S]*?)```/i);
         if (fenced && fenced[1]) {
-          try { return JSON.parse(fenced[1]); } catch(_) {}
+          try { return JSON.parse(fenced[1]); } catch(e) { errorLogger.debug('JSON parse failed (fenced block)', { error: e?.message }); }
         }
 
         // Remove any code fences for parsing
@@ -229,14 +230,14 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
                 .replace(/\n/g, ' ')     // Replace newlines with spaces
                 .replace(/\t/g, ' ');    // Replace tabs with spaces
               return JSON.parse(fixed);
-            } catch(_) {}
+            } catch(e) { errorLogger.debug('JSON parse failed (fixed candidate)', { error: e?.message }); }
           }
         }
 
         // Last resort: try to parse the whole thing
         try {
           return JSON.parse(stripped.trim());
-        } catch(_) {}
+        } catch(e) { errorLogger.debug('JSON parse failed (stripped)', { error: e?.message }); }
 
         return null;
       };

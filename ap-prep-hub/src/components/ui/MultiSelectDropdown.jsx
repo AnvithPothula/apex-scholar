@@ -50,14 +50,17 @@ export default function MultiSelectDropdown({ options = [], selected = [], onCha
   return (
     <div ref={ref} className="relative w-full">
       {/* Trigger / Tags */}
-      <button
-        type="button"
-        className={`w-full min-h-[44px] px-3 py-2 bg-base-800 border rounded-lg text-left flex flex-wrap items-center gap-1.5 transition-all ${
+      <div
+        role="button"
+        tabIndex={0}
+        className={`w-full min-h-[44px] px-3 py-2 bg-base-800 border rounded-lg text-left flex flex-wrap items-center gap-1.5 transition-all cursor-pointer ${
           open ? 'border-content-muted ring-2 ring-content-muted/30' : 'border-border-strong hover:border-border'
         }`}
         onClick={() => { setOpen(o => !o); setTimeout(() => inputRef.current?.focus(), 50); }}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(o => !o); setTimeout(() => inputRef.current?.focus(), 50); } }}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-label={placeholder}
       >
         {selected.length === 0 ? (
           <span className="text-content-muted text-sm">{placeholder}</span>
@@ -80,7 +83,7 @@ export default function MultiSelectDropdown({ options = [], selected = [], onCha
           ))
         )}
         <ChevronDown className={`w-4 h-4 text-content-muted ml-auto flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth={1.5} />
-      </button>
+      </div>
 
       {/* Dropdown */}
       {open && (

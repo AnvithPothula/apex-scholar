@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ChevronDown, Cpu, Sparkles, Zap, Crown, LogIn } from 'lucide-react';
 import geminiService from '../../services/geminiService';
+import errorLogger from '../../utils/errorLogger';
 
 /**
  * AI model definitions — Puter models (free, unlimited) plus Google Gemini fallback.
@@ -160,7 +161,7 @@ export default function ModelSelector({ value, onChange, compact = false, classN
                   try {
                     localStorage.removeItem('apex.puter.skipped');
                     localStorage.removeItem('apex.puter.skippedAt');
-                  } catch {}
+                  } catch (e) { errorLogger.debug('localStorage write failed (puter skip clear)', { error: e?.message }); }
                   window.dispatchEvent(new CustomEvent('apex:requestPuterAuth'));
                 }}
                 className="w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-base-800 hover:bg-content-primary/30 border border-content-muted/40 rounded-lg text-xs text-content-muted font-medium transition-colors"
@@ -189,7 +190,7 @@ export function getDefaultModel() {
       }
       return saved;
     }
-  } catch {}
+  } catch (e) { errorLogger.debug('localStorage read failed (model selector)', { error: e?.message }); }
   // Default: only offer Puter models if user is authenticated (not just SDK loaded)
   const hasPuter = !!geminiService.getPuter();
   return hasPuter ? 'claude-sonnet-4' : 'gemini-2.0-flash';
@@ -199,7 +200,7 @@ export function getDefaultModel() {
 export function saveSelectedModel(modelValue) {
   try {
     localStorage.setItem('apex.ai.userModel', modelValue);
-  } catch {}
+  } catch (e) { errorLogger.debug('localStorage write failed (model selector)', { error: e?.message }); }
   // Also update the geminiService live
   geminiService.setUserModel(modelValue);
 }

@@ -210,8 +210,9 @@ const DrawingCanvas = ({ onDrawingChange, initialDrawing = null, disabled = fals
           </div>
 
           <div className="flex items-center gap-2">
-            <label className="text-sm text-content-muted">Size:</label>
+            <label htmlFor="line-width" className="text-sm text-content-muted">Size:</label>
             <input
+              id="line-width"
               type="range"
               min="1"
               max="10"
@@ -229,6 +230,7 @@ const DrawingCanvas = ({ onDrawingChange, initialDrawing = null, disabled = fals
               {colors.map(color => (
                 <button
                   key={color}
+                  aria-label={`Select ${color} color`}
                   className={`w-6 h-6 rounded border-2 ${
                     currentColor === color ? 'border-content-primary' : 'border-border-strong'
                   }`}

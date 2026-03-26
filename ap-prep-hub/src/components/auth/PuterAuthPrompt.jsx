@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Sparkles, Shield, Clock, ArrowRight, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
+import errorLogger from '../../utils/errorLogger';
 
 /**
  * PuterAuthPrompt — shown after Firebase login if the user hasn't
@@ -29,10 +30,10 @@ function isPuterAuthenticated() {
     const token = localStorage.getItem('puter.auth.token');
     if (token && token.length > 10) {
       // While we're here, set our permanent flag so future checks are instant
-      try { localStorage.setItem(AUTH_KEY, 'true'); } catch {}
+      try { localStorage.setItem(AUTH_KEY, 'true'); } catch (e) { errorLogger.debug('localStorage write failed (puter auth)', { error: e?.message }); }
       return true;
     }
-  } catch {}
+  } catch (e) { errorLogger.debug('isPuterAuthenticated check failed', { error: e?.message }); }
   return false;
 }
 
@@ -41,7 +42,7 @@ function wasRecentlySkipped() {
     if (localStorage.getItem(SKIP_KEY) !== 'true') return false;
     const ts = parseInt(localStorage.getItem(SKIP_TS) || '0', 10);
     return (Date.now() - ts) < RE_PROMPT_MS;
-  } catch { return false; }
+  } catch (e) { errorLogger.debug('wasRecentlySkipped check failed', { error: e?.message }); return false; }
 }
 
 export default function PuterAuthPrompt() {
@@ -162,7 +163,7 @@ export default function PuterAuthPrompt() {
 
       // If we get here the user completed auth.
       // Set our permanent flag so the prompt never shows again
-      try { localStorage.setItem(AUTH_KEY, 'true'); } catch {}
+      try { localStorage.setItem(AUTH_KEY, 'true'); } catch (e) { errorLogger.debug('localStorage write failed (puter auth)', { error: e?.message }); }
       setAuthState('success');
       // Reload model selector defaults after Puter becomes available
       window.dispatchEvent(new CustomEvent('apex:puterAuthComplete'));
@@ -175,7 +176,7 @@ export default function PuterAuthPrompt() {
       } else if (typeof err === 'string') {
         msg = err;
       } else {
-        try { msg = JSON.stringify(err); } catch { msg = ''; }
+        try { msg = JSON.stringify(err); } catch (e) { msg = ''; }
       }
       // "User cancelled" is not a real error — they just closed the popup
       if (msg.toLowerCase().includes('cancel') || msg.toLowerCase().includes('closed')) {
@@ -193,7 +194,7 @@ export default function PuterAuthPrompt() {
     try {
       localStorage.setItem(SKIP_KEY, 'true');
       localStorage.setItem(SKIP_TS, String(Date.now()));
-    } catch { /* storage full / blocked — fine */ }
+    } catch (e) { errorLogger.debug('localStorage write failed (puter skip)', { error: e?.message }); }
     setVisible(false);
   }, []);
 

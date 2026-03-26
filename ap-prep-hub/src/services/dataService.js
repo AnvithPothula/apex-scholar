@@ -1,4 +1,5 @@
 import { db } from '../config/firebase';
+import errorLogger from '../utils/errorLogger';
 import { 
   collection, 
   doc, 
@@ -167,7 +168,7 @@ class DataService {
               const data = doc.data();
               nameMap[doc.id] = data.displayName || data.name || 'Anonymous';
             });
-          } catch (_) { /* ignore fetch errors */ }
+          } catch (e) { errorLogger.debug('Batch user name fetch failed', { error: e?.message }); }
         }
         decks = decks.map(d => ({
           ...d,

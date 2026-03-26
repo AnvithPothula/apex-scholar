@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import errorLogger from '../utils/errorLogger';
 
 const ThemeContext = createContext();
 
@@ -9,7 +10,7 @@ export function ThemeProvider({ children }) {
     try {
       const stored = localStorage.getItem(THEME_KEY);
       if (stored === 'light' || stored === 'dark') return stored;
-    } catch {}
+    } catch (e) { errorLogger.debug('localStorage read failed (theme)', { error: e?.message }); }
     // Default to dark (original theme)
     return 'dark';
   });
@@ -25,7 +26,7 @@ export function ThemeProvider({ children }) {
     }
     try {
       localStorage.setItem(THEME_KEY, theme);
-    } catch {}
+    } catch (e) { errorLogger.debug('localStorage write failed (theme)', { error: e?.message }); }
   }, [theme]);
 
   const toggleTheme = useCallback(() => {

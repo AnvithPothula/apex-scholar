@@ -14,8 +14,13 @@ class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    // Log the error to console for debugging
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    // Log via centralized error logger
+    try {
+      const errorLogger = require('../utils/errorLogger').default;
+      errorLogger.report(error, { component: 'ErrorBoundary', componentStack: errorInfo?.componentStack });
+    } catch {
+      console.error('ErrorBoundary caught an error:', error, errorInfo);
+    }
 
     this.setState({
       error: error,
@@ -37,7 +42,7 @@ class ErrorBoundary extends React.Component {
               <AlertTriangle className="w-16 h-16 text-error-400 mx-auto mb-4" strokeWidth={1.5} />
               <h2 className="text-2xl font-bold text-content-primary mb-2">Oops! Something went wrong</h2>
               <p className="text-content-secondary text-sm">
-                The scheduler encountered an unexpected error. Don't worry, your data is safe.
+                Something unexpected happened. Don't worry, your data is safe.
               </p>
             </div>
 
