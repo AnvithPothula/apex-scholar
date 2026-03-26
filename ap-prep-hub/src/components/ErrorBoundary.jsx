@@ -14,9 +14,14 @@ class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    // Log the error to console for debugging
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
-    
+    // Log via centralized error logger
+    try {
+      const errorLogger = require('../utils/errorLogger').default;
+      errorLogger.report(error, { component: 'ErrorBoundary', componentStack: errorInfo?.componentStack });
+    } catch {
+      console.error('ErrorBoundary caught an error:', error, errorInfo);
+    }
+
     this.setState({
       error: error,
       errorInfo: errorInfo
@@ -31,26 +36,26 @@ class ErrorBoundary extends React.Component {
     if (this.state.hasError) {
       // Fallback UI
       return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-slate-800/90 backdrop-blur-sm rounded-2xl p-8 border border-slate-700 text-center">
+        <div className="min-h-screen bg-base-950 flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-base-850 rounded-md p-8 border border-border text-center">
             <div className="mb-6">
-              <AlertTriangle className="w-16 h-16 text-red-400 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-slate-100 mb-2">Oops! Something went wrong</h2>
-              <p className="text-slate-300 text-sm">
-                The scheduler encountered an unexpected error. Don't worry, your data is safe.
+              <AlertTriangle className="w-16 h-16 text-error-400 mx-auto mb-4" strokeWidth={1.5} />
+              <h2 className="text-2xl font-bold text-content-primary mb-2">Oops! Something went wrong</h2>
+              <p className="text-content-secondary text-sm">
+                Something unexpected happened. Don't worry, your data is safe.
               </p>
             </div>
-            
+
             <div className="space-y-4">
-              <Button 
+              <Button
                 onClick={this.handleRetry}
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                className="w-full bg-content-primary hover:bg-content-primary text-base-950"
               >
-                <RefreshCw className="w-4 h-4 mr-2" />
+                <RefreshCw className="w-4 h-4 mr-2" strokeWidth={1.5} />
                 Try Again
               </Button>
-              
-              <Button 
+
+              <Button
                 variant="outline"
                 onClick={() => window.location.reload()}
                 className="w-full"
@@ -58,13 +63,13 @@ class ErrorBoundary extends React.Component {
                 Reload Page
               </Button>
             </div>
-            
+
             {process.env.NODE_ENV === 'development' && this.state.error && (
               <details className="mt-6 text-left">
-                <summary className="text-slate-400 text-sm cursor-pointer hover:text-slate-300">
+                <summary className="text-content-muted text-sm cursor-pointer hover:text-content-secondary">
                   Developer Info (Click to expand)
                 </summary>
-                <div className="mt-2 p-3 bg-slate-900/50 rounded-lg text-xs text-red-300 font-mono overflow-auto max-h-40">
+                <div className="mt-2 p-3 bg-base-900/50 rounded-lg text-xs text-error-300 font-mono overflow-auto max-h-40">
                   <div className="mb-2">
                     <strong>Error:</strong> {this.state.error && this.state.error.toString()}
                   </div>

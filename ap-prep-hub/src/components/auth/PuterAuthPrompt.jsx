@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Sparkles, Shield, Clock, ArrowRight, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
+import errorLogger from '../../utils/errorLogger';
 
 /**
  * PuterAuthPrompt — shown after Firebase login if the user hasn't
@@ -29,10 +30,10 @@ function isPuterAuthenticated() {
     const token = localStorage.getItem('puter.auth.token');
     if (token && token.length > 10) {
       // While we're here, set our permanent flag so future checks are instant
-      try { localStorage.setItem(AUTH_KEY, 'true'); } catch {}
+      try { localStorage.setItem(AUTH_KEY, 'true'); } catch (e) { errorLogger.debug('localStorage write failed (puter auth)', { error: e?.message }); }
       return true;
     }
-  } catch {}
+  } catch (e) { errorLogger.debug('isPuterAuthenticated check failed', { error: e?.message }); }
   return false;
 }
 
@@ -41,7 +42,7 @@ function wasRecentlySkipped() {
     if (localStorage.getItem(SKIP_KEY) !== 'true') return false;
     const ts = parseInt(localStorage.getItem(SKIP_TS) || '0', 10);
     return (Date.now() - ts) < RE_PROMPT_MS;
-  } catch { return false; }
+  } catch (e) { errorLogger.debug('wasRecentlySkipped check failed', { error: e?.message }); return false; }
 }
 
 export default function PuterAuthPrompt() {
@@ -162,7 +163,7 @@ export default function PuterAuthPrompt() {
 
       // If we get here the user completed auth.
       // Set our permanent flag so the prompt never shows again
-      try { localStorage.setItem(AUTH_KEY, 'true'); } catch {}
+      try { localStorage.setItem(AUTH_KEY, 'true'); } catch (e) { errorLogger.debug('localStorage write failed (puter auth)', { error: e?.message }); }
       setAuthState('success');
       // Reload model selector defaults after Puter becomes available
       window.dispatchEvent(new CustomEvent('apex:puterAuthComplete'));
@@ -175,7 +176,7 @@ export default function PuterAuthPrompt() {
       } else if (typeof err === 'string') {
         msg = err;
       } else {
-        try { msg = JSON.stringify(err); } catch { msg = ''; }
+        try { msg = JSON.stringify(err); } catch (e) { msg = ''; }
       }
       // "User cancelled" is not a real error — they just closed the popup
       if (msg.toLowerCase().includes('cancel') || msg.toLowerCase().includes('closed')) {
@@ -193,24 +194,24 @@ export default function PuterAuthPrompt() {
     try {
       localStorage.setItem(SKIP_KEY, 'true');
       localStorage.setItem(SKIP_TS, String(Date.now()));
-    } catch { /* storage full / blocked — fine */ }
+    } catch (e) { errorLogger.debug('localStorage write failed (puter skip)', { error: e?.message }); }
     setVisible(false);
   }, []);
 
   if (!visible) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
-      <div className="bg-slate-800 rounded-2xl max-w-lg w-full border border-slate-700 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[60]">
+      <div className="bg-base-850 rounded-md max-w-lg w-full border border-border shadow-floating overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border-b border-slate-700 px-6 py-5">
+        <div className="bg-content-primary/10 border-b border-border px-6 py-5">
           <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-blue-500/20">
-                <Sparkles className="w-6 h-6 text-blue-400" />
+              <div className="p-2 rounded-sm bg-content-primary/20">
+                <Sparkles className="w-6 h-6 text-content-muted" strokeWidth={1.5} />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-white">Enable AI Features</h2>
-                <p className="text-sm text-slate-400 mt-0.5">One-time setup — takes about 30 seconds</p>
+                <h2 className="text-lg font-bold text-content-primary">Enable AI Features</h2>
+                <p className="text-sm text-content-muted mt-0.5">One-time setup — takes about 30 seconds</p>
               </div>
             </div>
         </div>
@@ -219,15 +220,15 @@ export default function PuterAuthPrompt() {
         <div className="px-6 py-5 space-y-4">
           {authState === 'success' ? (
             <div className="flex flex-col items-center py-4 gap-3">
-              <CheckCircle className="w-12 h-12 text-green-400" />
-              <p className="text-green-300 font-semibold text-lg">You're all set!</p>
-              <p className="text-slate-400 text-sm">AI features are now fully enabled.</p>
+              <CheckCircle className="w-12 h-12 text-success-400" strokeWidth={1.5} />
+              <p className="text-success-300 font-semibold text-lg">You're all set!</p>
+              <p className="text-content-muted text-sm">AI features are now fully enabled.</p>
             </div>
           ) : (
             <>
-              <p className="text-slate-300 text-sm leading-relaxed">
-                Apex Scholar uses <strong className="text-blue-400">Puter</strong> to provide free, 
-                unlimited access to advanced AI models. We <strong className="text-white">strongly recommend</strong> connecting 
+              <p className="text-content-secondary text-sm leading-relaxed">
+                Apex Scholar uses <strong className="text-content-muted">Puter</strong> to provide free,
+                unlimited access to advanced AI models. We <strong className="text-content-primary">strongly recommend</strong> connecting
                 your account — it only takes a moment and dramatically improves your experience.
               </p>
 
@@ -238,18 +239,18 @@ export default function PuterAuthPrompt() {
               </div>
 
               {/* Important note */}
-              <div className="bg-amber-900/20 border border-amber-700/40 rounded-xl px-4 py-3 flex gap-3 items-start">
-                <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-amber-200/90 leading-relaxed">
-                  <strong>Please note:</strong> A new tab will open to complete the setup. 
-                  It may take a moment to load — <strong>do not close the tab</strong> while it's working. 
+              <div className="bg-warning-900/20 border border-warning-700/40 rounded-sm px-4 py-3 flex gap-3 items-start">
+                <AlertTriangle className="w-5 h-5 text-warning-400 flex-shrink-0 mt-0.5" strokeWidth={1.5} />
+                <div className="text-sm text-warning-200/90 leading-relaxed">
+                  <strong>Please note:</strong> A new tab will open to complete the setup.
+                  It may take a moment to load — <strong>do not close the tab</strong> while it's working.
                   If you're asked to create a Puter account, it's free and quick.
-                  <br /><span className="text-amber-300/70 text-xs mt-1 block">Puter sign-in is per-device — you may need to connect again on other devices.</span>
+                  <br /><span className="text-warning-300/70 text-xs mt-1 block">Puter sign-in is per-device — you may need to connect again on other devices.</span>
                 </div>
               </div>
 
               {errorMsg && (
-                <div className="bg-red-900/20 border border-red-700/40 rounded-xl px-4 py-3 text-sm text-red-300">
+                <div className="bg-error-900/20 border border-error-700/40 rounded-sm px-4 py-3 text-sm text-error-300">
                   {errorMsg}
                 </div>
               )}
@@ -263,18 +264,18 @@ export default function PuterAuthPrompt() {
             <button
               onClick={handleSkip}
               disabled={authState === 'loading'}
-              className="flex-1 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-slate-300 rounded-xl text-sm font-medium transition-colors"
+              className="flex-1 px-4 py-2.5 bg-base-800 hover:bg-base-750 disabled:opacity-50 text-content-secondary rounded-sm text-sm font-medium transition-colors"
             >
               Skip for now
             </button>
             <button
               onClick={handleContinue}
               disabled={authState === 'loading'}
-              className="flex-[2] px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 disabled:opacity-70 text-white rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20"
+              className="flex-[2] px-4 py-2.5 bg-content-primary hover:opacity-90 disabled:opacity-70 text-base-950 rounded-sm text-sm font-semibold transition-all flex items-center justify-center gap-2 shadow-raised"
             >
               {authState === 'loading' ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin" strokeWidth={1.5} />
                   Connecting — don't close this tab…
                 </>
               ) : authState === 'error' ? (
@@ -282,7 +283,7 @@ export default function PuterAuthPrompt() {
               ) : (
                 <>
                   Continue with Puter
-                  <ArrowRight className="w-4 h-4" />
+                  <ArrowRight className="w-4 h-4" strokeWidth={1.5} />
                 </>
               )}
             </button>
@@ -296,10 +297,10 @@ export default function PuterAuthPrompt() {
 function Benefit({ icon: Icon, text }) {
   return (
     <div className="flex items-center gap-3">
-      <div className="p-1.5 rounded-lg bg-slate-700/60">
-        <Icon className="w-4 h-4 text-blue-400" />
+      <div className="p-1.5 rounded-lg bg-base-800/60">
+        <Icon className="w-4 h-4 text-content-muted" strokeWidth={1.5} />
       </div>
-      <span className="text-slate-300 text-sm">{text}</span>
+      <span className="text-content-secondary text-sm">{text}</span>
     </div>
   );
 }

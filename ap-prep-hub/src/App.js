@@ -2,10 +2,14 @@
 import React, { useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Layout } from './components/Layout.jsx';
 import { LoginPage } from './components/auth/LoginPage';
 import { SchoologyCallback } from './components/auth/SchoologyCallback';
+import ErrorBoundary from './components/ErrorBoundary';
+import { ToastProvider } from './contexts/ToastContext';
+import ToastContainer from './components/ui/Toast';
 // eslint-disable-next-line import/first
 const AITutors = lazy(() => import('./pages/AITutors'));
 // eslint-disable-next-line import/first
@@ -31,6 +35,8 @@ function App() {
   }, []);
 
   return (
+    <ThemeProvider>
+    <ToastProvider>
     <AuthProvider>
       <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
@@ -38,17 +44,20 @@ function App() {
           <Route path="/schoology-callback" element={<SchoologyCallback />} />
           <Route path="/*" element={<ProtectedRoute><MainApp /></ProtectedRoute>} />
         </Routes>
+        <ToastContainer />
       </Router>
     </AuthProvider>
+    </ToastProvider>
+    </ThemeProvider>
   );
 }
 
 // Main App with Layout
 function MainApp() {
   return (
-    <Suspense fallback={<div className="p-6 text-slate-300">Loading…</div>}>
+    <Suspense fallback={<div className="p-6 text-content-secondary">Loading…</div>}>
       <Routes>
-        <Route element={<Layout><Suspense fallback={<div className="p-6 text-slate-300">Loading…</div>}><Outlet /></Suspense></Layout>}>
+        <Route element={<Layout><ErrorBoundary><Suspense fallback={<div className="p-6 text-content-secondary">Loading…</div>}><Outlet /></Suspense></ErrorBoundary></Layout>}>
           <Route index element={<Navigate to={createPageUrl("AITutors")} replace />} />
           <Route path={createPageUrl("AITutors")} element={<AITutors />} />
           <Route path={createPageUrl("AITutors", ":subject")} element={<AITutors />} />

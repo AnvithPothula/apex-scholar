@@ -6,7 +6,15 @@
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import schoologyCalendar from './schoologyCalendar';
-import CryptoJS from 'crypto-js';
+// HMAC-SHA1 using Web Crypto API (replaces deprecated crypto-js)
+async function hmacSHA1Base64(message, key) {
+  const encoder = new TextEncoder();
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw', encoder.encode(key), { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']
+  );
+  const signature = await crypto.subtle.sign('HMAC', cryptoKey, encoder.encode(message));
+  return btoa(String.fromCharCode(...new Uint8Array(signature)));
+}
 
 class SchoologyAPIService {
   constructor() {
@@ -55,7 +63,7 @@ class SchoologyAPIService {
       };
 
       // Generate signature for request token
-      const signature = this.generateSignature('POST', requestTokenEndpoint, oauthParams);
+      const signature = await this.generateSignature('POST', requestTokenEndpoint, oauthParams);
       oauthParams.oauth_signature = signature;
 
       // Make request token call
@@ -126,7 +134,7 @@ class SchoologyAPIService {
       };
 
       // Generate signature
-      const signature = this.generateSignature('POST', accessTokenEndpoint, oauthParams, requestTokenSecret);
+      const signature = await this.generateSignature('POST', accessTokenEndpoint, oauthParams, requestTokenSecret);
       oauthParams.oauth_signature = signature;
 
       // Make access token request
@@ -236,7 +244,7 @@ class SchoologyAPIService {
       };
 
       // Create signature
-      const signature = this.generateSignature(method, `${this.baseURL}${endpoint}`, oauthParams, tokens.accessTokenSecret);
+      const signature = await this.generateSignature(method, `${this.baseURL}${endpoint}`, oauthParams, tokens.accessTokenSecret);
       oauthParams.oauth_signature = signature;
 
       // Create Authorization header
@@ -440,10 +448,7 @@ class SchoologyAPIService {
            Math.random().toString(36).substring(2, 15);
   }
 
-  generateSignature(method, url, params, tokenSecret = '') {
-    // This is a simplified signature generation
-    // In production, use a proper OAuth 1.0a library
-    
+  async generateSignature(method, url, params, tokenSecret = '') {
     const sortedParams = Object.keys(params)
       .sort()
       .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
@@ -451,8 +456,8 @@ class SchoologyAPIService {
 
     const baseString = `${method.toUpperCase()}&${encodeURIComponent(url)}&${encodeURIComponent(sortedParams)}`;
     const signingKey = `${encodeURIComponent(this.consumerSecret)}&${encodeURIComponent(tokenSecret)}`;
-    
-    return CryptoJS.HmacSHA1(baseString, signingKey).toString(CryptoJS.enc.Base64);
+
+    return hmacSHA1Base64(baseString, signingKey);
   }
 }
 

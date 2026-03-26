@@ -61,13 +61,20 @@ class AssignmentSyncService {
       dueSource = 'defaulted to 11:59 PM today (no due date found)';
     }
 
-    // Validate the deadline and ensure it has a time component
+    // Validate the deadline
     if (isNaN(deadline.getTime())) {
       deadline = new Date();
       deadline.setHours(23, 59, 59, 999);
       dueSource = 'defaulted to 11:59 PM today (invalid due date)';
-    } else {
-      // If the deadline only has date (time is 00:00:00), default to 11:59 PM
+    } else if (dueSource === 'defaulted to current time') {
+      // Only apply midnight→11:59 PM for non-calendar sources (direct API timestamps).
+      // Calendar assignments already handle this in processAssignmentEvent.
+      if (deadline.getHours() === 0 && deadline.getMinutes() === 0 && deadline.getSeconds() === 0) {
+        deadline.setHours(23, 59, 59, 999);
+        dueSource += ' (time defaulted to 11:59 PM)';
+      }
+    } else if (!dueSource.startsWith('from calendar')) {
+      // For non-calendar sources (Schoology API), apply midnight→11:59 PM as safety net
       if (deadline.getHours() === 0 && deadline.getMinutes() === 0 && deadline.getSeconds() === 0) {
         deadline.setHours(23, 59, 59, 999);
         dueSource += ' (time defaulted to 11:59 PM)';
@@ -578,8 +585,13 @@ class AssignmentSyncService {
   // logging removed to keep console clean during sync operations
     }
 
-    // Save auto-sync settings to Firebase for persistence
+    // Save auto-sync settings to Firebase for persistence (only if user is still authenticated)
     try {
+      const { auth } = await import('../config/firebase');
+      if (!auth.currentUser || auth.currentUser.uid !== userId) {
+        // User is no longer authenticated or UID mismatch — skip Firestore write
+        return;
+      }
       const userTokensRef = doc(db, 'users', userId, 'integrations', 'schoology');
       const tokenDoc = await getDoc(userTokensRef);
       if (tokenDoc.exists()) {
@@ -587,11 +599,9 @@ class AssignmentSyncService {
           autoSync: false,
           autoSyncStopped: new Date()
         });
-  // logging removed to keep console clean during sync operations
       }
     } catch (error) {
-      console.error('Error saving auto-sync disabled state:', error);
-      // Don't fail the entire operation if Firebase save fails
+      // Silently ignore — this is a best-effort persistence during cleanup
     }
   }
 
@@ -668,6 +678,12 @@ class AssignmentSyncService {
       if (!userId) {
         console.error('❌ Invalid userId for saveSyncSettings');
         return { success: false, error: 'Invalid user ID' };
+      }
+
+      // Verify user is still authenticated before writing
+      const { auth } = await import('../config/firebase');
+      if (!auth.currentUser || auth.currentUser.uid !== userId) {
+        return { success: false, error: 'User not authenticated' };
       }
 
       const userTokensRef = doc(db, 'users', userId, 'integrations', 'schoology');

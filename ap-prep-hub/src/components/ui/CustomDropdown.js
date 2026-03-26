@@ -21,7 +21,9 @@ const CustomDropdown = ({
   const [selectedOption, setSelectedOption] = useState(
     value ? options.find(opt => opt.value === value) : null
   );
+  const [focusedIndex, setFocusedIndex] = useState(-1);
   const dropdownRef = useRef(null);
+  const optionRefs = useRef([]);
 
   // Update selected option when value prop changes
   useEffect(() => {
@@ -53,8 +55,61 @@ const CustomDropdown = ({
   const handleToggle = () => {
     if (!disabled) {
       setIsOpen(!isOpen);
+      if (!isOpen) setFocusedIndex(-1);
     }
   };
+
+  const handleKeyDown = (e) => {
+    if (disabled) return;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        if (!isOpen) {
+          setIsOpen(true);
+          setFocusedIndex(0);
+        } else {
+          setFocusedIndex(prev => Math.min(prev + 1, options.length - 1));
+        }
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        if (isOpen) {
+          setFocusedIndex(prev => Math.max(prev - 1, 0));
+        }
+        break;
+      case 'Enter':
+      case ' ':
+        e.preventDefault();
+        if (isOpen && focusedIndex >= 0 && focusedIndex < options.length) {
+          handleSelect(options[focusedIndex]);
+        } else if (!isOpen) {
+          setIsOpen(true);
+          setFocusedIndex(0);
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setIsOpen(false);
+        setFocusedIndex(-1);
+        break;
+      case 'Home':
+        if (isOpen) { e.preventDefault(); setFocusedIndex(0); }
+        break;
+      case 'End':
+        if (isOpen) { e.preventDefault(); setFocusedIndex(options.length - 1); }
+        break;
+      default:
+        break;
+    }
+  };
+
+  // Scroll focused option into view
+  useEffect(() => {
+    if (focusedIndex >= 0 && optionRefs.current[focusedIndex]) {
+      optionRefs.current[focusedIndex].scrollIntoView({ block: 'nearest' });
+    }
+  }, [focusedIndex]);
 
   return (
     <div 
@@ -64,52 +119,57 @@ const CustomDropdown = ({
       <button
         type="button"
         className={`
-          w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-lg 
-          text-left focus:outline-none focus:ring-2 focus:ring-blue-500 
+          w-full px-4 py-3 bg-base-800 border border-border-strong rounded-lg
+          text-left focus:outline-none focus:ring-2 focus:ring-content-muted
           focus:border-transparent transition-all duration-200 flex justify-between items-center
-          ${disabled 
-            ? 'opacity-50 cursor-not-allowed bg-slate-700/30' 
-            : 'hover:bg-slate-700/50 cursor-pointer'
+          ${disabled
+            ? 'opacity-50 cursor-not-allowed bg-base-800/30'
+            : 'hover:bg-base-750 cursor-pointer'
           }
-          ${isOpen ? 'ring-2 ring-blue-500 border-transparent' : ''}
+          ${isOpen ? 'ring-2 ring-content-muted border-transparent' : ''}
         `}
         onClick={handleToggle}
+        onKeyDown={handleKeyDown}
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
+        aria-activedescendant={isOpen && focusedIndex >= 0 ? `dropdown-option-${focusedIndex}` : undefined}
       >
-        <span className={selectedOption ? 'text-slate-200' : 'text-slate-400'}>
+        <span className={selectedOption ? 'text-content-primary' : 'text-content-muted'}>
           {selectedOption ? selectedOption.label : placeholder}
         </span>
         <svg
           className={`
-            w-5 h-5 transition-transform duration-200 text-slate-400
+            w-5 h-5 transition-transform duration-200 text-content-muted
             ${isOpen ? 'transform rotate-180' : ''}
           `}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
         >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
 
       {isOpen && !disabled && (
-        <div className="absolute z-50 w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+        <div className="absolute z-50 w-full mt-1 bg-base-800 border border-border rounded-lg shadow-floating max-h-60 overflow-y-auto">
           {options.length === 0 ? (
-            <div className="px-4 py-3 text-slate-400 text-sm">
+            <div className="px-4 py-3 text-content-muted text-sm">
               No options available
             </div>
           ) : (
             options.map((option, index) => (
               <button
                 key={option.value || index}
+                ref={el => optionRefs.current[index] = el}
+                id={`dropdown-option-${index}`}
                 type="button"
                 className={`
-                  w-full px-4 py-3 text-left hover:bg-slate-700 focus:bg-slate-700 
-                  focus:outline-none transition-colors duration-150 text-slate-200
-                  ${selectedOption?.value === option.value ? 'bg-slate-700 text-blue-400' : ''}
-                  ${index === options.length - 1 ? '' : 'border-b border-slate-700'}
+                  w-full px-4 py-3 text-left hover:bg-base-750 focus:bg-base-750
+                  focus:outline-none transition-colors duration-150 text-content-primary
+                  ${selectedOption?.value === option.value ? 'bg-base-750 text-content-muted' : ''}
+                  ${focusedIndex === index ? 'bg-base-750 ring-1 ring-inset ring-content-muted' : ''}
+                  ${index === options.length - 1 ? '' : 'border-b border-border-subtle'}
                 `}
                 onClick={() => handleSelect(option)}
                 role="option"

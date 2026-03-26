@@ -27,10 +27,10 @@ export function MessageInput({ onSendMessage, isLoading }) {
           value={message} 
           onChange={(e) => setMessage(e.target.value)} 
           onKeyPress={handleKeyPress} 
-          className="min-h-[60px] max-h-48 resize-none pr-12 border-2 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 rounded-xl" 
+          className="min-h-[60px] max-h-48 resize-none pr-12 border-2 border-border-strong focus:border-content-muted focus:ring-1 focus:ring-content-muted/20 transition-all duration-200 rounded-sm" 
           disabled={isLoading} 
         />
-        <div className="absolute right-3 bottom-3 text-xs text-slate-400">
+        <div className="absolute right-3 bottom-3 text-xs text-content-muted">
           Press Enter to send, Shift+Enter for new line
         </div>
       </div>
@@ -38,9 +38,9 @@ export function MessageInput({ onSendMessage, isLoading }) {
         onClick={handleSend} 
         disabled={!message.trim() || isLoading} 
         size="lg" 
-        className="h-[60px] px-6 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl"
+        className="h-[60px] px-6 bg-content-primary text-base-950 hover:opacity-90 transition-all duration-200 shadow-raised hover:shadow-floating rounded-sm"
       >
-        <Send className="w-5 h-5" />
+        <Send strokeWidth={1.5} className="w-5 h-5" />
       </Button>
     </div>
   );

@@ -131,13 +131,21 @@ class SchoologyCalendarService {
       event.isAssignmentByUrl = this.isAssignmentUrl(event.url);
       
     } else if (line.startsWith('DTSTART')) {
-      // Handle both DTSTART: and DTSTART;VALUE=DATE: formats
+      // Handle DTSTART:, DTSTART;VALUE=DATE:, and DTSTART;TZID=...: formats
       const colonIndex = line.indexOf(':');
       if (colonIndex !== -1) {
         const dateStr = line.substring(colonIndex + 1);
         event.rawStartDate = dateStr;
-        const parsedDate = this.parseICalDate(dateStr);
-        
+
+        // Extract TZID if present (e.g., DTSTART;TZID=America/Chicago:20260304T235900)
+        const params = line.substring(0, colonIndex);
+        const tzidMatch = params.match(/TZID=([^;:]+)/i);
+        if (tzidMatch) {
+          event.startTzid = tzidMatch[1];
+        }
+
+        const parsedDate = this.parseICalDate(dateStr, event.startTzid);
+
         if (parsedDate) {
           event.startDate = parsedDate;
           // Set initial due date to start date (will be overridden by end date if available)
@@ -145,13 +153,21 @@ class SchoologyCalendarService {
         }
       }
     } else if (line.startsWith('DTEND')) {
-      // Handle both DTEND: and DTEND;VALUE=DATE: formats
+      // Handle DTEND:, DTEND;VALUE=DATE:, and DTEND;TZID=...: formats
       const colonIndex = line.indexOf(':');
       if (colonIndex !== -1) {
         const dateStr = line.substring(colonIndex + 1);
         event.rawEndDate = dateStr;
-        const parsedDate = this.parseICalDate(dateStr);
-        
+
+        // Extract TZID if present
+        const params = line.substring(0, colonIndex);
+        const tzidMatch = params.match(/TZID=([^;:]+)/i);
+        if (tzidMatch) {
+          event.endTzid = tzidMatch[1];
+        }
+
+        const parsedDate = this.parseICalDate(dateStr, event.endTzid);
+
         if (parsedDate) {
           event.endDate = parsedDate;
           // Use end date as the due date (this is typically when assignment is due)
@@ -169,8 +185,10 @@ class SchoologyCalendarService {
 
   /**
    * Parse iCal date format to JavaScript Date
+   * @param {string} dateStr - iCal date string (e.g., 20250825T140000Z, 20250825T140000, 20250825)
+   * @param {string} [tzid] - Optional IANA timezone name (e.g., "America/Chicago")
    */
-  parseICalDate(dateStr) {
+  parseICalDate(dateStr, tzid) {
     try {
       
       
@@ -185,19 +203,37 @@ class SchoologyCalendarService {
       // Handle different iCal date formats with timezone awareness
       if (cleanDateStr.includes('T')) {
         // DateTime format: 20250825T140000Z or 20250825T140000
-        let isoStr;
         if (cleanDateStr.endsWith('Z')) {
-          // UTC time: 20250825T140000Z
-          isoStr = cleanDateStr.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z/, '$1-$2-$3T$4:$5:$6Z');
+          // UTC time: 20250825T140000Z — TZID is irrelevant
+          const isoStr = cleanDateStr.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z/, '$1-$2-$3T$4:$5:$6Z');
+          const date = new Date(isoStr);
+          if (!isNaN(date.getTime())) {
+            return date;
+          }
         } else {
-          // Local time: 20250825T140000 - interpret in user's timezone
-          isoStr = cleanDateStr.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/, '$1-$2-$3T$4:$5:$6');
-        }
-        
-        const date = new Date(isoStr);
-        if (!isNaN(date.getTime())) {
-          
-          return date;
+          // Local/wall-clock time: 20250825T140000
+          const match = cleanDateStr.match(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/);
+          if (match) {
+            const [, y, mo, d, h, mi, s] = match.map(Number);
+
+            // If TZID is provided, interpret the wall-clock time in that timezone
+            if (tzid) {
+              try {
+                const date = this._dateInTimezone(y, mo, d, h, mi, s, tzid);
+                if (date && !isNaN(date.getTime())) {
+                  return date;
+                }
+              } catch (tzError) {
+                console.warn('TZID conversion failed, falling back to local time:', tzError);
+              }
+            }
+            // No TZID or TZID conversion failed — interpret in browser's local timezone
+            const isoStr = `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}T${String(h).padStart(2,'0')}:${String(mi).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+            const date = new Date(isoStr);
+            if (!isNaN(date.getTime())) {
+              return date;
+            }
+          }
         }
       } else if (cleanDateStr.length === 8 && /^\d{8}$/.test(cleanDateStr)) {
         // Date only format: 20250825 - create in user's timezone
@@ -239,6 +275,38 @@ class SchoologyCalendarService {
       console.warn('❌ Failed to parse iCal date:', dateStr, error);
       return null;
     }
+  }
+
+  /**
+   * Convert wall-clock components in a specific IANA timezone to a JS Date (UTC).
+   * Example: _dateInTimezone(2026, 3, 4, 23, 59, 0, 'America/Chicago')
+   * → Date representing 2026-03-05T05:59:00Z (CST is UTC-6)
+   */
+  _dateInTimezone(year, month, day, hour, minute, second, timezone) {
+    // Step 1: Create a UTC date with the target wall-clock components
+    const utcEstimate = Date.UTC(year, month - 1, day, hour, minute, second);
+
+    // Step 2: Format that UTC instant in the target timezone to see what wall-clock it maps to
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour12: false
+    });
+
+    const parts = formatter.formatToParts(new Date(utcEstimate));
+    const get = (type) => parseInt(parts.find(p => p.type === type)?.value || '0', 10);
+
+    let tzHour = get('hour');
+    if (tzHour === 24) tzHour = 0; // some locales use 24 for midnight
+
+    const tzWall = Date.UTC(get('year'), get('month') - 1, get('day'), tzHour, get('minute'), get('second'));
+
+    // Step 3: The difference tells us the timezone's UTC offset at that instant
+    const offsetMs = utcEstimate - tzWall;
+
+    // Step 4: Shift the estimate by the offset so the target timezone shows the desired wall-clock
+    return new Date(utcEstimate + offsetMs);
   }
 
   /**
@@ -337,39 +405,71 @@ class SchoologyCalendarService {
     let title = event.title;
     if (!title || title.trim() === '' || title === 'undefined' || title === null || title === 'null') {
       title = `Schoology Assignment ${event.id || Date.now()}`;
-  
+
     } else {
       title = title.trim(); // Clean up any whitespace
     }
-    
+
     // Determine the best due date based on available information
     let dueDate;
     let dueDateSource = 'unknown';
-    
+
     // Priority order: 1) End date, 2) Start date, 3) fallback to today 11:59 PM
     if (event.endDate) {
       dueDate = new Date(event.endDate);
       dueDateSource = 'end date from calendar';
-      
-      // RFC 5545: date-only DTEND is exclusive — subtract 1 day to get the actual due date
-      if (event.rawEndDate && !event.rawEndDate.includes('T')) {
+
+      const isDateOnly = event.rawEndDate && !event.rawEndDate.includes('T');
+
+      if (isDateOnly) {
+        // RFC 5545: date-only DTEND is exclusive — subtract 1 day, set to 11:59 PM
         dueDate.setDate(dueDate.getDate() - 1);
-        dueDateSource = 'end date from calendar (adjusted for exclusive DTEND)';
-      }
-      
-      // If it's a date-only event (midnight), set to 11:59 PM in user's timezone
-      if (dueDate.getHours() === 0 && dueDate.getMinutes() === 0 && dueDate.getSeconds() === 0) {
         dueDate.setHours(23, 59, 59, 999);
-        dueDateSource = `end date from calendar (time set to 11:59 PM ${getUserTimezone()})`;
+        dueDateSource = `end date (exclusive DTEND → 11:59 PM previous day, ${getUserTimezone()})`;
+      } else {
+        // Datetime DTEND — check for midnight and early-morning edge cases
+        const endHour = dueDate.getHours();
+        const endMin = dueDate.getMinutes();
+        const endSec = dueDate.getSeconds();
+
+        if (endHour === 0 && endMin === 0 && endSec === 0) {
+          // Midnight datetime DTEND: treat as end-of-previous-day (11:59 PM)
+          // This handles iCal entries like DTEND:20260305T000000 which mean
+          // the event/assignment ends at the boundary of March 4 → March 5
+          dueDate.setDate(dueDate.getDate() - 1);
+          dueDate.setHours(23, 59, 59, 999);
+          dueDateSource = `end date (midnight DTEND → 11:59 PM previous day, ${getUserTimezone()})`;
+        } else if (endHour < 6 && event.startDate) {
+          // Early morning DTEND (12:00 AM – 5:59 AM): likely a timezone artifact
+          // or Schoology encoding "end of day" as just-past-midnight.
+          // If DTSTART is late evening on the previous calendar day, use DTSTART
+          // as the actual due time since it better represents the deadline.
+          const startDate = new Date(event.startDate);
+          const startHour = startDate.getHours();
+          const startDay = startDate.toDateString();
+          const endDay = dueDate.toDateString();
+
+          if (startDay !== endDay && startHour >= 20) {
+            // DTSTART is evening on the previous day — use it as the due time
+            dueDate = new Date(startDate);
+            dueDateSource = `start date (DTEND early AM ${endHour}:${String(endMin).padStart(2,'0')}, using late-PM DTSTART instead)`;
+          } else if (startDay === endDay && startHour >= 20) {
+            // Same calendar day but DTSTART is evening — use it
+            dueDate = new Date(startDate);
+            dueDateSource = `start date (DTEND early AM, using late-PM DTSTART instead)`;
+          }
+          // else: keep DTEND as-is (genuinely early-morning due time)
+        }
+        // else: normal datetime DTEND with a meaningful time — use as-is
       }
     } else if (event.startDate) {
       dueDate = new Date(event.startDate);
       dueDateSource = 'start date from calendar';
-      
-      // If it's a date-only event (midnight), set to 11:59 PM in user's timezone
+
+      // If it's midnight, set to 11:59 PM (date-only DTSTART or midnight marker)
       if (dueDate.getHours() === 0 && dueDate.getMinutes() === 0 && dueDate.getSeconds() === 0) {
         dueDate.setHours(23, 59, 59, 999);
-        dueDateSource = `start date from calendar (time set to 11:59 PM ${getUserTimezone()})`;
+        dueDateSource = `start date (midnight → 11:59 PM, ${getUserTimezone()})`;
       }
     } else {
       // Last resort: default to 11:59 PM today in user's timezone
@@ -377,7 +477,6 @@ class SchoologyCalendarService {
       dueDate = new Date();
       dueDate.setHours(23, 59, 59, 999);
       dueDateSource = `defaulted to 11:59 PM today in ${userTimezone} (no date found)`;
-  // Intentionally no console logs here to keep output clean
     }
     
     // Convert to timestamp (seconds, not milliseconds, to match Schoology format)

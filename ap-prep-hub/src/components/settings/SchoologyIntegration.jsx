@@ -4,12 +4,12 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  RefreshCw, 
-  CheckCircle, 
-  XCircle, 
-  Settings, 
-  Clock, 
+import {
+  RefreshCw,
+  CheckCircle,
+  XCircle,
+  Settings,
+  Clock,
   BookOpen,
   AlertCircle,
   Loader
@@ -67,14 +67,14 @@ export function SchoologyIntegration() {
       if (window.confirm('Are you sure you want to disconnect Schoology? This will stop automatic assignment syncing.')) {
         await schoologyAPI.disconnect(user.uid);
         assignmentSync.stopAutoSync(user.uid);
-        
+
         // Update local state
         setIsConnected(false);
         setAutoSync(false);
         setLastSync(null);
         setSyncResults(null);
         setCalendarUrl(''); // Clear the calendar URL input
-        
+
         // Reload integration status to ensure consistency
         await loadIntegrationStatus();
       }
@@ -99,7 +99,7 @@ export function SchoologyIntegration() {
       if (result.success) {
         setSyncResults(result);
         setLastSync(result.lastSync);
-        
+
         // Show success message with detailed breakdown
         let message = '';
         if (result.syncedCount > 0) {
@@ -107,15 +107,15 @@ export function SchoologyIntegration() {
         } else {
           message = 'No new assignments found to sync.';
         }
-        
+
         if (result.skippedCount > 0) {
           message += `\n${result.skippedCount} assignments were skipped (already exist).`;
         }
-        
+
         if (result.pastDueCount > 0) {
           message += `\n${result.pastDueCount} assignments were skipped (past due date).`;
         }
-        
+
         alert(message);
       } else {
         setError(result.error || 'Sync failed');
@@ -131,19 +131,19 @@ export function SchoologyIntegration() {
   const handleAutoSyncToggle = async () => {
     try {
       const newAutoSyncState = !autoSync;
-      
+
       if (newAutoSyncState) {
         // Starting auto-sync
         await assignmentSync.startAutoSync(user.uid, syncInterval);
         setAutoSync(true);
-        console.log('✅ Auto-sync enabled');
+        console.log('Auto-sync enabled');
       } else {
         // Stopping auto-sync
         await assignmentSync.stopAutoSync(user.uid);
         setAutoSync(false);
-        console.log('🔴 Auto-sync disabled');
+        console.log('Auto-sync disabled');
       }
-      
+
       // Save the auto-sync preference to prevent reset on page leave
       await assignmentSync.saveSyncSettings(user.uid, {
         isConnected,
@@ -151,7 +151,7 @@ export function SchoologyIntegration() {
         syncInterval,
         lastSync
       });
-      
+
     } catch (error) {
       console.error('Error toggling auto-sync:', error);
       setError('Failed to update auto-sync settings');
@@ -162,7 +162,7 @@ export function SchoologyIntegration() {
 
   const handleIntervalChange = async (newInterval) => {
     setSyncInterval(newInterval);
-    
+
     // If auto-sync is enabled, restart with new interval and save to Firebase
     if (autoSync) {
       await assignmentSync.stopAutoSync(user.uid);
@@ -175,26 +175,26 @@ export function SchoologyIntegration() {
       setIsSettingCalendar(true);
       setError(null);
 
-      console.log('🔗 Setting calendar URL:', calendarUrl);
+      console.log('Setting calendar URL:', calendarUrl);
 
       await schoologyAPI.setCalendarUrl(user.uid, calendarUrl);
-      
-      console.log('✅ Calendar URL set, now testing sync...');
-      
+
+      console.log('Calendar URL set, now testing sync...');
+
       // Test sync with calendar
       const syncResult = await assignmentSync.manualSync(user.uid, {
         daysBack: 7,
         includeCompleted: false
       });
 
-      console.log('📊 Sync result:', syncResult);
+      console.log('Sync result:', syncResult);
 
       setSyncResults(syncResult);
       setLastSync(new Date());
       setIsConnected(true); // Update connection status
-      
+
       alert(`Calendar URL configured successfully!\n\nFound ${syncResult.totalAssignments} assignments from your calendar.\nSynced ${syncResult.syncedCount} new assignments, skipped ${syncResult.skippedCount} existing assignments.`);
-      
+
     } catch (error) {
       console.error('Error setting calendar URL:', error);
       setError('Failed to configure calendar: ' + error.message);
@@ -205,11 +205,11 @@ export function SchoologyIntegration() {
 
   if (isLoading && !syncResults) {
     return (
-      <Card className="bg-slate-800/60 border-slate-700">
+      <Card className="bg-base-850/60 border-border">
         <CardContent className="p-6">
           <div className="flex items-center justify-center">
-            <Loader className="w-6 h-6 animate-spin text-blue-400" />
-            <span className="ml-2 text-slate-300">Loading Schoology integration...</span>
+            <Loader className="w-6 h-6 animate-spin text-content-muted" strokeWidth={1.5} />
+            <span className="ml-2 text-content-secondary">Loading Schoology integration...</span>
           </div>
         </CardContent>
       </Card>
@@ -218,10 +218,10 @@ export function SchoologyIntegration() {
 
   return (
     <>
-      <Card className="bg-slate-800/60 border-slate-700">
+      <Card className="bg-base-850/60 border-border">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-slate-100">
-          <BookOpen className="w-5 h-5" />
+        <CardTitle className="flex items-center gap-2 text-content-primary">
+          <BookOpen className="w-5 h-5" strokeWidth={1.5} />
           Schoology Integration
         </CardTitle>
       </CardHeader>
@@ -232,23 +232,23 @@ export function SchoologyIntegration() {
             <div className="flex items-center gap-3">
               {isConnected ? (
                 <>
-                  <CheckCircle className="w-5 h-5 text-green-400" />
-                  <span className="text-slate-200">Calendar Feed Connected</span>
+                  <CheckCircle className="w-5 h-5 text-success-400" strokeWidth={1.5} />
+                  <span className="text-content-primary">Calendar Feed Connected</span>
                 </>
               ) : (
                 <>
-                  <XCircle className="w-5 h-5 text-red-400" />
-                  <span className="text-slate-200">No calendar feed configured</span>
+                  <XCircle className="w-5 h-5 text-error-400" strokeWidth={1.5} />
+                  <span className="text-content-primary">No calendar feed configured</span>
                 </>
               )}
             </div>
-            
+
             {isConnected && (
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={handleDisconnect}
                 disabled={isLoading}
-                className="text-red-400 border-red-400 hover:bg-red-400/10"
+                className="text-error-400 border-error-400 hover:bg-error-400/10"
               >
                 Disconnect
               </Button>
@@ -256,43 +256,43 @@ export function SchoologyIntegration() {
           </div>
 
           {error && (
-            <div className="p-3 bg-red-900/30 border border-red-600 rounded-lg">
+            <div className="p-3 bg-error-900/30 border border-error-600 rounded-lg">
               <div className="flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-red-400" />
-                <span className="text-red-300">{error}</span>
+                <AlertCircle className="w-4 h-4 text-error-400" strokeWidth={1.5} />
+                <span className="text-error-300">{error}</span>
               </div>
             </div>
           )}
         </div>
 
         {/* Calendar Feed Configuration */}
-        <div className="space-y-4 border-t border-slate-600 pt-4">
+        <div className="space-y-4 border-t border-border-strong pt-4">
           <div className="flex items-center gap-2 mb-2">
-            <Clock className="w-4 h-4 text-slate-300" />
-            <h3 className="font-medium text-slate-200">Calendar Feed Setup</h3>
+            <Clock className="w-4 h-4 text-content-secondary" strokeWidth={1.5} />
+            <h3 className="font-medium text-content-primary">Calendar Feed Setup</h3>
           </div>
-          
+
           <div className="space-y-2">
-            <h4 className="font-medium text-slate-200">Calendar URL</h4>
-            <p className="text-sm text-slate-400">
+            <h4 className="font-medium text-content-primary">Calendar URL</h4>
+            <p className="text-sm text-content-muted">
               Add your Schoology calendar feed URL. Only calendar items with assignment links will be synced.
             </p>
-            
+
             <div className="flex gap-2">
               <input
                 type="url"
                 value={calendarUrl}
                 onChange={(e) => setCalendarUrl(e.target.value)}
                 placeholder="webcal://yourschool.schoology.com/calendar/feed/ical/..."
-                className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 px-3 py-2 bg-base-800 border border-border rounded-md text-content-primary placeholder:text-content-muted focus:outline-none focus:ring-2 focus:ring-content-muted"
               />
               <Button
                 onClick={handleSetCalendarUrl}
                 disabled={!calendarUrl.trim() || isSettingCalendar}
-                className="bg-blue-600 hover:bg-blue-700"
+                className="bg-content-primary hover:opacity-90"
               >
                 {isSettingCalendar ? (
-                  <Loader className="w-4 h-4 animate-spin" />
+                  <Loader className="w-4 h-4 animate-spin" strokeWidth={1.5} />
                 ) : (
                   'Set URL'
                 )}
@@ -300,15 +300,15 @@ export function SchoologyIntegration() {
             </div>
           </div>
 
-          <div className="p-3 bg-yellow-900/30 border border-yellow-600 rounded-lg">
-            <h5 className="font-medium text-yellow-300 mb-1">How to get your calendar URL (you have to go to the schoology website):</h5>
-            <ol className="text-sm text-yellow-200 space-y-1">
+          <div className="p-3 bg-warning-900/30 border border-warning-600 rounded-lg">
+            <h5 className="font-medium text-warning-300 mb-1">How to get your calendar URL (you have to go to the schoology website):</h5>
+            <ol className="text-sm text-warning-200 space-y-1">
               <li>1. Go to Schoology → Settings</li>
               <li>2. Scroll to "Share Your Schoology Calendar"</li>
               <li>3. Click "Enable" and copy the iCal link</li>
               <li>4. Paste the URL above</li>
             </ol>
-            <p className="text-xs text-yellow-200 mt-2">
+            <p className="text-xs text-warning-200 mt-2">
               URL should look like: webcal://school.yourdistrict.com/calendar/feed/ical/...
             </p>
           </div>
@@ -316,29 +316,29 @@ export function SchoologyIntegration() {
 
         {/* Sync Settings */}
         {isConnected && (
-          <div className="space-y-4 border-t border-slate-600 pt-4">
+          <div className="space-y-4 border-t border-border-strong pt-4">
             <div className="flex items-center gap-2 mb-2">
-              <Settings className="w-4 h-4 text-slate-300" />
-              <h3 className="font-medium text-slate-200">Sync Settings</h3>
+              <Settings className="w-4 h-4 text-content-secondary" strokeWidth={1.5} />
+              <h3 className="font-medium text-content-primary">Sync Settings</h3>
             </div>
-            
+
             {/* Manual Sync */}
             <div className="flex items-center justify-between">
               <div>
-                <h4 className="font-medium text-slate-200">Manual Sync</h4>
-                <p className="text-sm text-slate-400">Sync assignments on demand</p>
+                <h4 className="font-medium text-content-primary">Manual Sync</h4>
+                <p className="text-sm text-content-muted">Sync assignments on demand</p>
               </div>
-              <Button 
+              <Button
                 onClick={handleManualSync}
                 disabled={isSyncing}
                 variant="outline"
                 className="min-w-24"
               >
                 {isSyncing ? (
-                  <Loader className="w-4 h-4 animate-spin" />
+                  <Loader className="w-4 h-4 animate-spin" strokeWidth={1.5} />
                 ) : (
                   <>
-                    <RefreshCw className="w-4 h-4 mr-2" />
+                    <RefreshCw className="w-4 h-4 mr-2" strokeWidth={1.5} />
                     Sync Now
                   </>
                 )}
@@ -348,8 +348,8 @@ export function SchoologyIntegration() {
             {/* Auto Sync Toggle */}
             <div className="flex items-center justify-between">
               <div>
-                <h4 className="font-medium text-slate-200">Automatic Sync</h4>
-                <p className="text-sm text-slate-400">Automatically check for new assignments</p>
+                <h4 className="font-medium text-content-primary">Automatic Sync</h4>
+                <p className="text-sm text-content-muted">Automatically check for new assignments</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
@@ -358,14 +358,14 @@ export function SchoologyIntegration() {
                   onChange={handleAutoSyncToggle}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-slate-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                <div className="w-11 h-6 bg-base-750 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-content-muted rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-content-primary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-content-primary"></div>
               </label>
             </div>
 
             {/* Sync Interval */}
             {autoSync && (
               <div>
-                <h4 className="font-medium text-slate-200 mb-2">Sync Frequency</h4>
+                <h4 className="font-medium text-content-primary mb-2">Sync Frequency</h4>
                 <div className="flex gap-2">
                   {[1, 5, 15, 30, 60].map((interval) => (
                     <Button
@@ -379,7 +379,7 @@ export function SchoologyIntegration() {
                     </Button>
                   ))}
                 </div>
-                <p className="text-xs text-slate-400 mt-2">
+                <p className="text-xs text-content-muted mt-2">
                   Real-time sync (1min) recommended for immediate assignment updates
                 </p>
               </div>
@@ -389,18 +389,18 @@ export function SchoologyIntegration() {
 
         {/* Sync Status */}
         {isConnected && lastSync && (
-          <div className="space-y-4 border-t border-slate-600 pt-4">
+          <div className="space-y-4 border-t border-border-strong pt-4">
             <div className="flex items-center gap-2 mb-2">
-              <Clock className="w-4 h-4 text-slate-300" />
-              <h3 className="font-medium text-slate-200">Sync Status</h3>
+              <Clock className="w-4 h-4 text-content-secondary" strokeWidth={1.5} />
+              <h3 className="font-medium text-content-primary">Sync Status</h3>
             </div>
-            
+
             <div>
-              <h4 className="font-medium text-slate-200">Last Sync</h4>
-              <p className="text-sm text-slate-400">
+              <h4 className="font-medium text-content-primary">Last Sync</h4>
+              <p className="text-sm text-content-muted">
                 {lastSync.toLocaleString()} (Local Time)
               </p>
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs text-content-muted mt-1">
                 Note: Times shown in your local timezone
               </p>
             </div>

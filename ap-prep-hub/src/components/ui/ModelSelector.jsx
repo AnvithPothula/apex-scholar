@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ChevronDown, Cpu, Sparkles, Zap, Crown, LogIn } from 'lucide-react';
 import geminiService from '../../services/geminiService';
+import errorLogger from '../../utils/errorLogger';
 
 /**
  * AI model definitions — Puter models (free, unlimited) plus Google Gemini fallback.
@@ -30,24 +31,23 @@ const GEMINI_ONLY = [
  *   compact  — if true, shows icon-only on mobile (default false)
  *   className — extra container classes
  */
-export default function ModelSelector({ value, onChange, compact = false, className = '' }) {
+export default function ModelSelector({ value, onChange, compact = false, className = '', dropUp = false }) {
   const [open, setOpen] = useState(false);
   const [hasPuter, setHasPuter] = useState(false);
   const ref = useRef(null);
 
   // Detect Puter availability (poll briefly on mount)
+  // IMPORTANT: Only use geminiService.getPuter() which checks AUTHENTICATION,
+  // not just SDK presence. window.puter.ai existing doesn't mean user is authed.
   useEffect(() => {
     let cancelled = false;
     const check = () => {
-      // Check if user is authenticated with Puter
       const puter = geminiService.getPuter();
       if (puter) { if (!cancelled) setHasPuter(true); return true; }
-      // Also check if SDK is loaded but user not yet authed
-      if (window.puter && window.puter.ai) { if (!cancelled) setHasPuter(true); return true; }
       return false;
     };
     if (check()) return;
-    // Poll for up to 6s
+    // Poll for up to 6s (token may take a moment to restore from localStorage)
     let attempts = 0;
     const iv = setInterval(() => {
       if (check() || ++attempts >= 6) clearInterval(iv);
@@ -67,6 +67,19 @@ export default function ModelSelector({ value, onChange, compact = false, classN
     window.addEventListener('apex:puterAuthComplete', handleAuthComplete);
     return () => window.removeEventListener('apex:puterAuthComplete', handleAuthComplete);
   }, [value, onChange]);
+
+  // Handle Puter auth being cleared (from Developer Settings)
+  useEffect(() => {
+    const handleAuthCleared = () => {
+      setHasPuter(false);
+      // Force switch to Gemini fallback since Puter models are no longer available
+      if (onChange) {
+        onChange('gemini-2.0-flash');
+      }
+    };
+    window.addEventListener('apex:puterAuthCleared', handleAuthCleared);
+    return () => window.removeEventListener('apex:puterAuthCleared', handleAuthCleared);
+  }, [onChange]);
 
   // Close on outside click
   useEffect(() => {
@@ -91,19 +104,19 @@ export default function ModelSelector({ value, onChange, compact = false, classN
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg bg-slate-700/80 hover:bg-slate-600/80 border border-slate-600 text-xs sm:text-sm text-slate-200 transition-colors"
+        className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg bg-base-800 hover:bg-base-750 border border-border text-xs sm:text-sm text-content-primary transition-colors"
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        <Cpu className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
+        <Cpu className="w-3.5 h-3.5 text-content-muted flex-shrink-0" strokeWidth={1.5} />
         <span className={compact ? 'hidden sm:inline' : ''}>{selected.label}</span>
-        <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`w-3 h-3 text-content-muted transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth={1.5} />
       </button>
 
       {open && (
-        <div className="absolute right-0 z-50 mt-1 w-72 bg-slate-800 border border-slate-600 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
-          <div className="px-3 py-2 border-b border-slate-700">
-            <p className="text-xs font-medium text-slate-400">
+        <div className={`absolute right-0 z-50 w-72 bg-base-800 border border-border rounded-md shadow-floating overflow-hidden animate-in fade-in duration-150 ${dropUp ? 'bottom-full mb-1 slide-in-from-bottom-2' : 'mt-1 slide-in-from-top-2'}`}>
+          <div className="px-3 py-2 border-b border-border-subtle">
+            <p className="text-xs font-medium text-content-muted">
               {hasPuter ? 'AI Models (via Puter — free & unlimited)' : 'AI Model'}
             </p>
           </div>
@@ -119,25 +132,25 @@ export default function ModelSelector({ value, onChange, compact = false, classN
                   onClick={() => handleSelect(model)}
                   className={`flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors ${
                     isSelected
-                      ? 'bg-blue-600/20 text-blue-300'
-                      : 'text-slate-300 hover:bg-slate-700/60'
+                      ? 'bg-base-800 text-content-muted'
+                      : 'text-content-secondary hover:bg-base-750'
                   }`}
                 >
-                  <Icon className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'text-blue-400' : 'text-slate-500'}`} />
+                  <Icon className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'text-content-muted' : 'text-content-muted'}`} strokeWidth={1.5} />
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium truncate">{model.label}</div>
-                    <div className="text-xs text-slate-500 truncate">{model.description}</div>
+                    <div className="text-xs text-content-muted truncate">{model.description}</div>
                   </div>
                   {isSelected && (
-                    <div className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />
+                    <div className="w-2 h-2 rounded-full bg-content-muted flex-shrink-0" />
                   )}
                 </li>
               );
             })}
           </ul>
           {!hasPuter && (
-            <div className="px-3 py-2.5 border-t border-slate-700 bg-slate-800/50 space-y-2">
-              <p className="text-xs text-amber-400/80">
+            <div className="px-3 py-2.5 border-t border-border-subtle bg-base-850 space-y-2">
+              <p className="text-xs text-warning-400/80">
                 Connect Puter for 7+ free AI models including Claude & GPT-4
               </p>
               <button
@@ -148,12 +161,12 @@ export default function ModelSelector({ value, onChange, compact = false, classN
                   try {
                     localStorage.removeItem('apex.puter.skipped');
                     localStorage.removeItem('apex.puter.skippedAt');
-                  } catch {}
+                  } catch (e) { errorLogger.debug('localStorage write failed (puter skip clear)', { error: e?.message }); }
                   window.dispatchEvent(new CustomEvent('apex:requestPuterAuth'));
                 }}
-                className="w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 rounded-lg text-xs text-blue-300 font-medium transition-colors"
+                className="w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-base-800 hover:bg-content-primary/30 border border-content-muted/40 rounded-lg text-xs text-content-muted font-medium transition-colors"
               >
-                <LogIn className="w-3.5 h-3.5" />
+                <LogIn className="w-3.5 h-3.5" strokeWidth={1.5} />
                 Connect Puter Account
               </button>
             </div>
@@ -169,17 +182,17 @@ export function getDefaultModel() {
   try {
     const saved = localStorage.getItem('apex.ai.userModel');
     if (saved) {
-      // If saved model is a Puter model but Puter isn't available, fall back to Gemini
+      // If saved model is a Puter model but Puter isn't authenticated, fall back to Gemini
       const isPuterModel = PUTER_MODELS.some(m => m.value === saved);
       if (isPuterModel) {
-        const hasPuter = !!(geminiService.getPuter() || (window.puter && window.puter.ai));
+        const hasPuter = !!geminiService.getPuter();
         if (!hasPuter) return 'gemini-2.0-flash';
       }
       return saved;
     }
-  } catch {}
-  // Default: check if Puter is available
-  const hasPuter = !!(geminiService.getPuter() || (window.puter && window.puter.ai));
+  } catch (e) { errorLogger.debug('localStorage read failed (model selector)', { error: e?.message }); }
+  // Default: only offer Puter models if user is authenticated (not just SDK loaded)
+  const hasPuter = !!geminiService.getPuter();
   return hasPuter ? 'claude-sonnet-4' : 'gemini-2.0-flash';
 }
 
@@ -187,7 +200,7 @@ export function getDefaultModel() {
 export function saveSelectedModel(modelValue) {
   try {
     localStorage.setItem('apex.ai.userModel', modelValue);
-  } catch {}
+  } catch (e) { errorLogger.debug('localStorage write failed (model selector)', { error: e?.message }); }
   // Also update the geminiService live
   geminiService.setUserModel(modelValue);
 }

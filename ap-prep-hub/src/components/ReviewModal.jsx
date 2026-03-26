@@ -44,25 +44,25 @@ export default function ReviewModal({ onClose }) {
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-slate-800 rounded-xl p-6 max-w-md w-full border border-slate-700">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+            <div className="bg-base-850 rounded-md p-6 max-w-md w-full border border-border shadow-floating">
                 <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-bold text-white flex items-center">
-                        <Star className="w-5 h-5 mr-2 text-yellow-500" />
+                    <h2 className="text-xl font-bold text-content-primary flex items-center">
+                        <Star className="w-5 h-5 mr-2 text-warning-500" strokeWidth={1.5} />
                         Rate Apex Scholar
                     </h2>
                     <button
                         onClick={onClose}
-                        className="text-slate-400 hover:text-white transition-colors"
+                        className="text-content-muted hover:text-content-primary transition-colors"
                     >
-                        <X className="w-5 h-5" />
+                        <X className="w-5 h-5" strokeWidth={1.5} />
                     </button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-5">
                     {/* Star Rating */}
                     <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-3">
+                        <label className="block text-sm font-medium text-content-secondary mb-3">
                             How would you rate your experience?
                         </label>
                         <div className="flex justify-center gap-2">
@@ -70,6 +70,7 @@ export default function ReviewModal({ onClose }) {
                                 <button
                                     key={star}
                                     type="button"
+                                    aria-label={`Rate ${star} star${star > 1 ? 's' : ''}`}
                                     onClick={() => setRating(star)}
                                     onMouseEnter={() => setHoveredStar(star)}
                                     onMouseLeave={() => setHoveredStar(0)}
@@ -78,15 +79,16 @@ export default function ReviewModal({ onClose }) {
                                     <Star
                                         className={`w-9 h-9 transition-colors ${
                                             star <= (hoveredStar || rating)
-                                                ? 'text-yellow-400 fill-yellow-400'
-                                                : 'text-slate-500'
+                                                ? 'text-warning-400 fill-warning-400'
+                                                : 'text-content-muted'
                                         }`}
+                                        strokeWidth={1.5}
                                     />
                                 </button>
                             ))}
                         </div>
                         {rating > 0 && (
-                            <p className="text-center text-sm text-slate-400 mt-2">
+                            <p className="text-center text-sm text-content-muted mt-2">
                                 {['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent'][rating]}
                             </p>
                         )}
@@ -94,7 +96,7 @@ export default function ReviewModal({ onClose }) {
 
                     {/* Review Text */}
                     <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                        <label className="block text-sm font-medium text-content-secondary mb-2">
                             Tell us more (optional)
                         </label>
                         <textarea
@@ -102,10 +104,10 @@ export default function ReviewModal({ onClose }) {
                             onChange={(e) => setReviewText(e.target.value)}
                             rows={4}
                             maxLength={1000}
-                            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-slate-100 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all resize-none"
+                            className="w-full bg-base-800 border border-border rounded-lg px-3 py-2 text-content-primary focus:border-content-muted focus:ring-2 focus:ring-content-muted/20 transition-all resize-none"
                             placeholder="What do you like? What could be improved?"
                         />
-                        <p className="text-xs text-slate-500 mt-1 text-right">
+                        <p className="text-xs text-content-muted mt-1 text-right">
                             {reviewText.length}/1000
                         </p>
                     </div>
@@ -114,10 +116,10 @@ export default function ReviewModal({ onClose }) {
                     {submitStatus && (
                         <div className={`p-3 rounded-lg text-sm ${
                             submitStatus.includes('Thank you')
-                                ? 'bg-green-900/30 border border-green-600 text-green-300'
+                                ? 'bg-success-900/30 border border-success-600 text-success-300'
                                 : submitStatus.includes('Failed') || submitStatus.includes('Please select')
-                                ? 'bg-red-900/30 border border-red-600 text-red-300'
-                                : 'bg-blue-900/30 border border-blue-600 text-blue-300'
+                                ? 'bg-error-900/30 border border-error-600 text-error-300'
+                                : 'bg-base-800/30 border border-border text-content-muted'
                         }`}>
                             {submitStatus}
                         </div>
@@ -128,23 +130,23 @@ export default function ReviewModal({ onClose }) {
                         <button
                             type="button"
                             onClick={onClose}
-                            className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors"
+                            className="flex-1 px-4 py-2 bg-base-800 hover:bg-base-750 text-content-secondary rounded-lg transition-colors"
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
                             disabled={isSubmitting}
-                            className="flex-1 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="flex-1 px-4 py-2 bg-warning-600 hover:bg-warning-700 text-content-primary rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {isSubmitting ? (
                                 <>
-                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                    <div className="w-4 h-4 border-2 border-content-primary border-t-transparent rounded-full animate-spin"></div>
                                     Submitting...
                                 </>
                             ) : (
                                 <>
-                                    <Send className="w-4 h-4" />
+                                    <Send className="w-4 h-4" strokeWidth={1.5} />
                                     Submit Review
                                 </>
                             )}

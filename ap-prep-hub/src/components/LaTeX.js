@@ -10,7 +10,7 @@ const LaTeX = ({ children, block = false, ...props }) => {
     return <InlineMath math={children} {...props} />;
   } catch (error) {
     // If LaTeX parsing fails, just render the raw text
-    return <span className="text-red-400 font-mono">{children}</span>;
+    return <span className="text-error-400 font-mono">{children}</span>;
   }
 };
 

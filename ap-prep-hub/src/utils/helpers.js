@@ -1,8 +1,9 @@
 import { clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 import { formatDateInUserTimezone, formatTimeInUserTimezone } from './timezone';
 
-// Utility function for conditional class names (using clsx)
-export const cn = clsx;
+// Utility function for conditional class names (clsx + tailwind-merge)
+export const cn = (...inputs) => twMerge(clsx(inputs));
 
 export const createPageUrl = (pageName, param = '') => `/${pageName}${param ? `/${param}` : ''}`;
 
@@ -18,10 +19,10 @@ export const formatTime = (date) => {
 
 export const getDifficultyColor = (difficulty) => {
     switch (difficulty) {
-        case 'Easy': return 'bg-green-900/50 text-green-300 border-green-700';
-        case 'Medium': return 'bg-yellow-900/50 text-yellow-300 border-yellow-700';
-        case 'Hard': return 'bg-red-900/50 text-red-300 border-red-700';
-        default: return 'bg-slate-800/50 text-slate-300 border-slate-600';
+        case 'Easy': return 'bg-success-900 text-success-400 border-success-500';
+        case 'Medium': return 'bg-warning-900 text-warning-400 border-warning-500';
+        case 'Hard': return 'bg-error-900 text-error-400 border-error-500';
+        default: return 'bg-base-800 text-content-secondary border-border';
     }
 };
 

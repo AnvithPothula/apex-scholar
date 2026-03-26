@@ -71,10 +71,10 @@ const CalculatorPad = ({ onClose }) => {
 
   return (
     <div role="dialog" aria-label="Calculator" className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-slate-800 border border-slate-600 rounded-xl p-4 w-full max-w-md">
+      <div className="bg-base-850 border border-border rounded-sm p-4 w-full max-w-md">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-slate-100 font-semibold">Calculator</h2>
-          <button onClick={onClose} className="text-slate-300 hover:text-white" aria-label="Close calculator">✕</button>
+          <h2 className="text-content-primary font-semibold">Calculator</h2>
+          <button onClick={onClose} className="text-content-secondary hover:text-content-primary" aria-label="Close calculator">✕</button>
         </div>
         <input
           aria-label="Expression"
@@ -82,23 +82,23 @@ const CalculatorPad = ({ onClose }) => {
           onChange={(e) => setExpr(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') calculate(); }}
           placeholder="e.g., (2+3)*4^2 / 8"
-          className="w-full mb-3 px-3 py-2 rounded-md bg-slate-700 border border-slate-600 text-slate-100"
+          className="w-full mb-3 px-3 py-2 rounded-md bg-base-800 border border-border text-content-primary"
         />
         <div className="flex gap-2">
-          <button onClick={calculate} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-white" aria-label="Calculate">
+          <button onClick={calculate} className="px-4 py-2 bg-content-primary hover:opacity-90 rounded-md text-base-950" aria-label="Calculate">
             Calculate
           </button>
-          <button onClick={() => { setExpr(''); setResult(''); setError(''); }} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-md text-slate-100" aria-label="Clear">
+          <button onClick={() => { setExpr(''); setResult(''); setError(''); }} className="px-4 py-2 bg-base-800 hover:bg-base-750 rounded-md text-content-primary" aria-label="Clear">
             Clear
           </button>
         </div>
         {result && (
-          <div className="mt-3 p-2 bg-emerald-900/20 text-emerald-200 border border-emerald-700 rounded">Result: {result}</div>
+          <div className="mt-3 p-2 bg-success-900/20 text-success-200 border border-success-700 rounded">Result: {result}</div>
         )}
         {error && (
-          <div className="mt-3 p-2 bg-red-900/20 text-red-200 border border-red-700 rounded">{error}</div>
+          <div className="mt-3 p-2 bg-error-900/20 text-error-200 border border-error-700 rounded">{error}</div>
         )}
-        <p className="mt-3 text-xs text-slate-400">Supports + - * / ^ and parentheses. Press Enter to evaluate.</p>
+        <p className="mt-3 text-xs text-content-muted">Supports + - * / ^ and parentheses. Press Enter to evaluate.</p>
       </div>
     </div>
   );

@@ -40,7 +40,7 @@ const ApexScholarLogo = ({
         }}
       />
       {showText && (
-        <span className="font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+        <span className="text-content-primary font-display font-semibold">
           Apex Scholar
         </span>
       )}

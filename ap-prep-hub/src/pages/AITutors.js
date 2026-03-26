@@ -7,7 +7,6 @@ import {
   User,
   BookOpen,
   ChevronLeft,
-  Sparkles,
   TrendingUp,
   Plus,
   Paperclip,
@@ -67,6 +66,7 @@ import {
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import geminiService, { RateLimitError } from '../services/geminiService';
+import errorLogger from '../utils/errorLogger';
 
 const AITutors = () => {
   const { subject: urlSubject } = useParams();
@@ -98,7 +98,7 @@ const AITutors = () => {
     (async () => {
       try {
         await geminiService.prewarm({ multimodal: true });
-      } catch (_) { /* ignore */ }
+      } catch (e) { errorLogger.debug('AI prewarm failed', { error: e?.message }); }
       if (cancelled) return;
     })();
     return () => { cancelled = true; };
@@ -117,9 +117,15 @@ const AITutors = () => {
           ...doc.data(),
           timestamp: doc.data().timestamp?.toDate() || new Date()
         }));
-        
+
         console.log('Messages loaded for conversation', conversationId, ':', messagesList.length, 'messages');
         setMessages(messagesList);
+      }, (error) => {
+        if (error.code === 'permission-denied') {
+          errorLogger.debug('Messages listener detached (auth transition)', { error: error.message });
+        } else {
+          console.error('Error in messages listener:', error);
+        }
       });
 
       return unsubscribe;
@@ -258,22 +264,29 @@ const AITutors = () => {
           createdAt: doc.data().createdAt?.toDate() || new Date(),
           updatedAt: doc.data().updatedAt?.toDate() || new Date()
         }));
-        
+
         console.log('Loaded conversations for subject:', subject, 'Count:', conversationsList.length);
         setConversations(conversationsList);
-        
+
         // If conversations exist, open the most recent one
         if (conversationsList.length > 0) {
           console.log('Existing conversations found, opening the most recent one...');
           const mostRecentConversation = conversationsList[0];
           console.log('Opening most recent conversation:', mostRecentConversation.name);
-          
+
           // Always open the most recent conversation when switching subjects
           setActiveConversationId(mostRecentConversation.id);
         } else {
           // No conversations exist, create a new one
           console.log('No conversations found, creating new one...');
           await createFirstConversation(subject);
+        }
+      }, (error) => {
+        // Silently handle permission errors during auth transitions
+        if (error.code === 'permission-denied') {
+          errorLogger.debug('Conversations listener detached (auth transition)', { error: error.message });
+        } else {
+          console.error('Error in conversations listener:', error);
         }
       });
 
@@ -331,12 +344,19 @@ const AITutors = () => {
   // Initialize conversations when user or subject changes
   useEffect(() => {
     let unsubscribe = null;
+    let cancelled = false;
     if (user && selectedSubject) {
       loadConversations(user.uid, selectedSubject).then(unsub => {
-        unsubscribe = unsub;
+        if (cancelled) {
+          // Effect already cleaned up — tear down the new listener immediately
+          if (unsub) unsub();
+        } else {
+          unsubscribe = unsub;
+        }
       });
     }
     return () => {
+      cancelled = true;
       if (unsubscribe) unsubscribe();
     };
   }, [user, selectedSubject, loadConversations]);
@@ -654,8 +674,8 @@ const AITutors = () => {
   // Redirect to login if not authenticated
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
-        <div className="text-slate-300">Loading...</div>
+      <div className="min-h-screen bg-base-950 flex items-center justify-center">
+        <div className="text-content-secondary">Loading...</div>
       </div>
     );
   }
@@ -724,6 +744,13 @@ const AITutors = () => {
       // Persist suggestions for welcome messages so they survive page reload
       if (Array.isArray(message.suggestions) && message.suggestions.length > 0) {
         messageData.suggestions = message.suggestions;
+      }
+      // Persist MCQ data so it survives page reload
+      if (message.responseType) {
+        messageData.responseType = message.responseType;
+      }
+      if (message.mcq) {
+        messageData.mcq = message.mcq;
       }
       
       console.log('Saving message to Firebase...', { conversationId, messageId: messageData.id });
@@ -950,6 +977,15 @@ const AITutors = () => {
             const jsonStr = cleaned.substring(firstBrace, lastBrace + 1);
             const mcq = JSON.parse(jsonStr);
             if (mcq && mcq.question && Array.isArray(mcq.choices) && mcq.choices.length >= 2) {
+              // Ensure correctIndex is always a number (AI may return it as a string)
+              if (mcq.correctIndex !== undefined && mcq.correctIndex !== null) {
+                mcq.correctIndex = parseInt(mcq.correctIndex, 10);
+                if (isNaN(mcq.correctIndex)) mcq.correctIndex = 0;
+              }
+              // Ensure explanations is an array (AI may omit or return wrong type)
+              if (!Array.isArray(mcq.explanations)) {
+                mcq.explanations = mcq.choices.map(() => '');
+              }
               aiMessage.responseType = 'mcq';
               aiMessage.mcq = mcq;
               // Replace content with just the question text (hide raw JSON from display)
@@ -957,11 +993,39 @@ const AITutors = () => {
             }
           }
         } catch (_) {
-          // JSON parse failed — strip any JSON-looking blocks so user doesn't see raw JSON
-          aiMessage.content = response
-            .replace(/```(?:json)?\s*[\s\S]*?```/g, '')
-            .replace(/\{[\s\S]*"question"[\s\S]*"choices"[\s\S]*\}/g, '')
-            .trim() || 'I generated a practice question but had trouble formatting it. Please try again!';
+          // JSON parse failed — try to parse plain text MCQ format (A. B. C. D.)
+          try {
+            const lines = response.replace(/```(?:json)?\s*[\s\S]*?```/g, '').trim().split('\n').map(l => l.trim()).filter(Boolean);
+            const choicePattern = /^([A-D])[.)]\s*(.+)/i;
+            const questionLines = [];
+            const parsedChoices = [];
+            for (const line of lines) {
+              const m = line.match(choicePattern);
+              if (m) {
+                parsedChoices.push(m[2].trim());
+              } else if (parsedChoices.length === 0) {
+                questionLines.push(line);
+              }
+            }
+            if (parsedChoices.length >= 2 && questionLines.length > 0) {
+              const mcq = {
+                question: questionLines.join(' ').replace(/^\*+|\*+$/g, '').trim(),
+                choices: parsedChoices,
+                correctIndex: 0, // unknown from plain text
+                explanations: parsedChoices.map(() => '')
+              };
+              aiMessage.responseType = 'mcq';
+              aiMessage.mcq = mcq;
+              aiMessage.content = mcq.question;
+            } else {
+              aiMessage.content = response
+                .replace(/```(?:json)?\s*[\s\S]*?```/g, '')
+                .replace(/\{[\s\S]*"question"[\s\S]*"choices"[\s\S]*\}/g, '')
+                .trim() || 'I generated a practice question but had trouble formatting it. Please try again!';
+            }
+          } catch (__) {
+            aiMessage.content = 'I generated a practice question but had trouble formatting it. Please try again!';
+          }
         }
       }
       
@@ -1107,16 +1171,42 @@ ${curriculumData.examFormat ? `EXAM: ${curriculumData.examFormat.duration} — $
 
   const modeDirective = mode === 'Practice MCQ'
     ? `MODE: Practice MCQ.
-Output STRICT JSON with keys: question (string), choices (array of 4 strings), correctIndex (0-3), explanations (array of 4 strings). No prose before or after JSON.`
+RESPOND WITH ONLY A JSON OBJECT. Start your response with { and end with }. No greetings, no markdown, no code fences, no explanation.
+Example format:
+{"question": "What is X?", "choices": ["First option", "Second option", "Third option", "Fourth option"], "correctIndex": 2, "explanations": ["Why A is wrong", "Why B is wrong", "Why C is correct", "Why D is wrong"]}
+Rules: "choices" must have exactly 4 strings. "correctIndex" is 0-3. "explanations" has 4 strings matching each choice. Randomize which choice is correct (do NOT always make index 0 correct).
+Make the question AP exam-level difficulty. Include plausible distractors that test common misconceptions.
+YOUR ENTIRE RESPONSE MUST BE VALID JSON. NO OTHER TEXT.`
     : mode === 'Walkthrough'
-    ? `MODE: Step-by-step walkthrough with short steps and $LaTeX$ for math.`
+    ? `MODE: Step-by-step walkthrough.
+Break the solution into clear, numbered steps. Each step should:
+1. State what you're doing and why
+2. Show the work with $LaTeX$ for any math
+3. Be concise — one key action per step
+End with a brief summary of the approach and the final answer.
+Use $$display math$$ for important equations and $inline$ for references.`
     : mode === 'Summarize Attachment'
-    ? `MODE: Summarize the attached files first (key ideas, formulas, exam relevance), then answer the user's prompt.`
-    : `MODE: Clear explanation of the concept with examples and exam alignment.`;
+    ? `MODE: Summarize the attached files.
+First provide a structured summary:
+- **Key Ideas**: Main concepts covered
+- **Important Formulas/Facts**: Any equations, definitions, or key terms
+- **AP Exam Relevance**: How this material connects to exam topics and common question types
+Then answer the user's specific question if they asked one.`
+    : `MODE: Clear explanation.
+Explain the concept thoroughly with:
+1. A clear definition or description
+2. One or two concrete examples (use AP exam-style scenarios when possible)
+3. How this connects to the AP exam — what types of questions test this concept
+4. Common mistakes or misconceptions to avoid
+Use $LaTeX$ for any mathematical expressions.`;
 
   const critiqueDirective = checkMySteps
-    ? `Critique Mode ON: If the user shares steps, briefly check for correctness and point out specific fixes before providing the final answer.`
-    : `Critique Mode OFF.`;
+    ? `Critique Mode ON: The student wants you to check their work.
+1. Go through each step they provide and mark it as correct or incorrect
+2. For incorrect steps, explain the specific error and show the correct approach
+3. Point out any missing steps or logical gaps
+4. Give an overall assessment: is their approach valid? Would they earn full marks on the AP exam?`
+    : '';
 
   const citationsBlock = citations.length > 0
     ? `
@@ -1202,7 +1292,7 @@ RESPONSE STRUCTURE: Direct analysis → 2-3 key concepts → AP application → 
                   messageParts.push({ text: `[Extracted from PDF ${file.name}]:\n${extracted}` });
                 }
               }
-            } catch (_) { /* ignore extraction errors */ }
+            } catch (e) { errorLogger.debug('PDF extraction failed', { file: file.name, error: e?.message }); }
             messageParts.push({ text: `[Document uploaded: ${file.name}. Analyze in the context of AP ${subjectName}.]` });
           }
         }
@@ -1245,7 +1335,7 @@ RESPONSE STRUCTURE: Direct analysis → 2-3 key concepts → AP application → 
             threshold: "BLOCK_MEDIUM_AND_ABOVE"
           }
         ],
-        timeoutMs: 60000 // 60 second timeout for Claude/GPT complex prompts
+        timeoutMs: 45000 // 45 second timeout
       };
       console.log("Calling enhanced Gemini API with curriculum focus and file analysis...", {
         messagePartsCount: messageParts.length,
@@ -1491,41 +1581,41 @@ Please check your internet connection and try again. In the meantime:
     // Create thematic color mapping based on subject area
     const colorMap = {
       // Sciences - GREEN
-      'biology': 'from-green-500 to-emerald-600',
-      'chemistry': 'from-green-600 to-green-700',
-      'physics': 'from-emerald-500 to-green-600',
-      'environmental': 'from-green-400 to-emerald-500',
-      'psychology': 'from-green-500 to-teal-600',
+      'biology': 'from-success-500 to-emerald-600',
+      'chemistry': 'from-success-600 to-success-700',
+      'physics': 'from-emerald-500 to-success-600',
+      'environmental': 'from-success-400 to-emerald-500',
+      'psychology': 'from-success-500 to-teal-600',
       
       // Math - RED
-      'calculus': 'from-red-500 to-red-600',
-      'statistics': 'from-red-600 to-red-700',
-      'precalculus': 'from-red-400 to-red-500',
+      'calculus': 'from-error-500 to-error-600',
+      'statistics': 'from-error-600 to-error-700',
+      'precalculus': 'from-error-400 to-error-500',
       
       // Computer Science - GREEN (as it's often considered STEM/Science)
-      'computer': 'from-green-600 to-emerald-700',
-      'programming': 'from-emerald-600 to-green-700',
+      'computer': 'from-success-600 to-emerald-700',
+      'programming': 'from-emerald-600 to-success-700',
       
       // English & Literature - BLUE
       'english': 'from-blue-500 to-blue-600',
-      'literature': 'from-blue-600 to-indigo-600',
+      'literature': 'from-blue-600 to-blue-700',
       'language': 'from-blue-400 to-blue-500',
-      'composition': 'from-blue-500 to-indigo-500',
+      'composition': 'from-blue-500 to-blue-600',
       'chinese': 'from-blue-500 to-blue-600',
       'french': 'from-blue-400 to-blue-500',
-      'german': 'from-blue-600 to-indigo-600',
+      'german': 'from-blue-600 to-blue-700',
       'italian': 'from-blue-500 to-blue-600',
-      'japanese': 'from-blue-400 to-indigo-500',
+      'japanese': 'from-blue-400 to-blue-500',
       'spanish': 'from-blue-500 to-blue-600',
-      'latin': 'from-blue-600 to-indigo-600',
+      'latin': 'from-blue-600 to-blue-700',
       
       // History & Social Sciences - ORANGE
       'history': 'from-orange-500 to-orange-600',
       'government': 'from-orange-600 to-orange-700',
-      'politics': 'from-orange-500 to-red-500',
+      'politics': 'from-orange-500 to-error-500',
       'geography': 'from-orange-400 to-orange-500',
       'humanGeography': 'from-orange-500 to-orange-600',
-      'worldHistory': 'from-orange-600 to-red-600',
+      'worldHistory': 'from-orange-600 to-error-600',
       'usHistory': 'from-orange-500 to-orange-600',
       'europeanHistory': 'from-orange-500 to-orange-600',
       
@@ -1535,15 +1625,15 @@ Please check your internet connection and try again. In the meantime:
       'microeconomics': 'from-orange-500 to-orange-600',
       
       // Arts - Keep creative colors (not in main 4 categories)
-      'art': 'from-purple-500 to-pink-600',
-      'studio': 'from-pink-500 to-purple-600',
-      'drawing': 'from-gray-500 to-slate-600',
-      'design': 'from-violet-500 to-purple-600',
-      'music': 'from-indigo-500 to-purple-600',
-      
+      'art': 'from-purple-500 to-purple-600',
+      'studio': 'from-purple-500 to-purple-600',
+      'drawing': 'from-gray-500 to-gray-600',
+      'design': 'from-purple-500 to-purple-600',
+      'music': 'from-purple-500 to-purple-600',
+
       // Other
-      'research': 'from-slate-600 to-gray-700',
-      'seminar': 'from-blue-500 to-purple-600'
+      'research': 'from-gray-600 to-gray-700',
+      'seminar': 'from-gray-500 to-gray-600'
     };
     
     // Find matching color by checking if subject ID contains key terms
@@ -1556,20 +1646,20 @@ Please check your internet connection and try again. In the meantime:
     }
     
     // Specific overrides for exact matches
-    if (subjectLower.includes('ap physics 1')) return 'from-green-500 to-emerald-600';
-    if (subjectLower.includes('ap physics 2')) return 'from-emerald-500 to-green-600';
-    if (subjectLower.includes('mechanics')) return 'from-green-600 to-emerald-700';
-    if (subjectLower.includes('electricity') || subjectLower.includes('magnetism')) return 'from-green-500 to-green-700';
+    if (subjectLower.includes('ap physics 1')) return 'from-success-500 to-emerald-600';
+    if (subjectLower.includes('ap physics 2')) return 'from-emerald-500 to-success-600';
+    if (subjectLower.includes('mechanics')) return 'from-success-600 to-emerald-700';
+    if (subjectLower.includes('electricity') || subjectLower.includes('magnetism')) return 'from-success-500 to-success-700';
     if (subjectLower.includes('comparative')) return 'from-orange-500 to-orange-600';
     
     // Default fallback
-    return 'from-blue-500 to-purple-600';
+    return 'from-gray-500 to-gray-600';
   };
 
   // Early return for subject selection
   if (!selectedSubject) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <div className="min-h-screen bg-base-950">
         <SubjectSelector
           subjects={subjects}
           selectedSubject={selectedSubject}
@@ -1585,7 +1675,7 @@ Please check your internet connection and try again. In the meantime:
   const subjectSuggestions = getSubjectSuggestions(selectedSubject);
 
   return (
-    <div className="h-[calc(100vh-3.5rem)] sm:h-[calc(100vh-4rem)] flex bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative">
+    <div className="h-[calc(100vh-3.5rem)] sm:h-[calc(100vh-4rem)] flex bg-base-950 relative">
       {/* Mobile Sidebar Overlay */}
       {showMobileSidebar && (
         <div 
@@ -1597,21 +1687,21 @@ Please check your internet connection and try again. In the meantime:
       {/* Conversation Sidebar - Hidden on mobile by default, always visible on desktop */}
       {selectedSubject && (
         <div
-          className={`fixed md:relative z-50 md:z-auto w-72 sm:w-80 h-full bg-slate-800/95 md:bg-slate-800/90 backdrop-blur-xl border-r border-slate-700 flex flex-col transition-transform duration-300 ease-in-out md:translate-x-0 md:opacity-100 ${showMobileSidebar ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0 md:translate-x-0 md:opacity-100'}`}
+          className={`fixed md:relative z-50 md:z-auto w-72 sm:w-80 h-full bg-base-850 md:bg-base-850 border-r border-border flex flex-col transition-transform duration-300 ease-in-out md:translate-x-0 md:opacity-100 ${showMobileSidebar ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0 md:translate-x-0 md:opacity-100'}`}
         >
           {/* Sidebar Header */}
-          <div className="p-3 sm:p-4 border-b border-slate-700">
+          <div className="p-3 sm:p-4 border-b border-border">
             <div className="flex items-center justify-between">
-              <h3 className="text-base sm:text-lg font-semibold text-slate-200">Conversations</h3>
+              <h3 className="text-base sm:text-lg font-semibold text-content-primary">Conversations</h3>
               <div className="flex items-center gap-1">
                 {/* Close button for mobile */}
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowMobileSidebar(false)}
-                  className="text-slate-300 hover:text-slate-100 md:hidden"
+                  className="text-content-secondary hover:text-content-primary md:hidden"
                 >
-                  <X className="w-4 h-4" />
+                  <X strokeWidth={1.5} className="w-4 h-4" />
                 </Button>
                 <Button
                   variant="ghost"
@@ -1621,13 +1711,13 @@ Please check your internet connection and try again. In the meantime:
                     e.stopPropagation();
                     handleNewConversation();
                   }}
-                  className="text-slate-300 hover:text-slate-100"
+                  className="text-content-secondary hover:text-content-primary"
                 >
-                  <Plus className="w-4 h-4" />
+                  <Plus strokeWidth={1.5} className="w-4 h-4" />
                 </Button>
               </div>
             </div>
-            <p className="text-sm text-slate-400 mt-1">
+            <p className="text-sm text-content-muted mt-1">
               {getCurriculumData(selectedSubject)?.name || selectedSubject}
             </p>
           </div>
@@ -1641,8 +1731,8 @@ Please check your internet connection and try again. In the meantime:
                 animate={{ opacity: 1, y: 0 }}
                 className={`group relative p-3 rounded-lg cursor-pointer transition-all duration-200 ${
                   activeConversationId === conversation.id
-                    ? 'bg-blue-600/20 border border-blue-500/30'
-                    : 'bg-slate-700/50 hover:bg-slate-700/80'
+                    ? 'bg-base-800 border border-border-strong'
+                    : 'bg-base-800 hover:bg-base-800'
                 }`}
                 onClick={() => {
                   if (!editingConversationId) {
@@ -1664,7 +1754,7 @@ Please check your internet connection and try again. In the meantime:
                               cancelEditingConversation();
                             }
                           }}
-                          className="text-sm bg-slate-600 border-slate-500 text-slate-200"
+                          className="text-sm bg-base-750 border-border-strong text-content-primary"
                           autoFocus
                         />
                         <div className="flex gap-1">
@@ -1675,9 +1765,9 @@ Please check your internet connection and try again. In the meantime:
                               e.stopPropagation();
                               handleRenameConversation(conversation.id, editingName);
                             }}
-                            className="h-6 px-2 text-green-400 hover:text-green-300"
+                            className="h-6 px-2 text-success-400 hover:text-success-400"
                           >
-                            <Check className="w-3 h-3" />
+                            <Check strokeWidth={1.5} className="w-3 h-3" />
                           </Button>
                           <Button
                             size="sm"
@@ -1686,21 +1776,21 @@ Please check your internet connection and try again. In the meantime:
                               e.stopPropagation();
                               cancelEditingConversation();
                             }}
-                            className="h-6 px-2 text-red-400 hover:text-red-300"
+                            className="h-6 px-2 text-error-400 hover:text-error-400"
                           >
-                            <X className="w-3 h-3" />
+                            <X strokeWidth={1.5} className="w-3 h-3" />
                           </Button>
                         </div>
                       </div>
                     ) : (
                       <>
-                        <h4 className="text-sm font-medium text-slate-200 truncate">
+                        <h4 className="text-sm font-medium text-content-primary truncate">
                           {conversation.name}
                         </h4>
-                        <p className="text-xs text-slate-400 mt-1 line-clamp-2">
+                        <p className="text-xs text-content-muted mt-1 line-clamp-2">
                           {conversation.lastMessage || 'New conversation'}
                         </p>
-                        <p className="text-xs text-slate-500 mt-1">
+                        <p className="text-xs text-content-muted mt-1">
                           {conversation.createdAt.toLocaleDateString()}
                         </p>
                       </>
@@ -1719,9 +1809,9 @@ Please check your internet connection and try again. In the meantime:
                             showConversationMenu === conversation.id ? null : conversation.id
                           );
                         }}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0 text-slate-400 hover:text-slate-200"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0 text-content-muted hover:text-content-primary"
                       >
-                        <MoreVertical className="w-3 h-3" />
+                        <MoreVertical strokeWidth={1.5} className="w-3 h-3" />
                       </Button>
 
                       {/* Dropdown Menu */}
@@ -1729,7 +1819,7 @@ Please check your internet connection and try again. In the meantime:
                         <motion.div
                           initial={{ opacity: 0, scale: 0.95 }}
                           animate={{ opacity: 1, scale: 1 }}
-                          className="absolute right-0 top-6 z-50 bg-slate-800 border border-slate-600 rounded-lg shadow-lg py-1 min-w-[120px]"
+                          className="absolute right-0 top-6 z-50 bg-base-850 border border-border-strong rounded-lg shadow-raised py-1 min-w-[120px]"
                           data-conversation-menu
                         >
                           <button
@@ -1737,9 +1827,9 @@ Please check your internet connection and try again. In the meantime:
                               e.stopPropagation();
                               startEditingConversation(conversation.id, conversation.name);
                             }}
-                            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
+                            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-content-primary hover:bg-base-800 transition-colors"
                           >
-                            <Edit3 className="w-3 h-3" />
+                            <Edit3 strokeWidth={1.5} className="w-3 h-3" />
                             Rename
                           </button>
                           <button
@@ -1747,9 +1837,9 @@ Please check your internet connection and try again. In the meantime:
                               e.stopPropagation();
                               confirmDeleteConversation(conversation.id);
                             }}
-                            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-400 hover:bg-slate-700 transition-colors"
+                            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-error-400 hover:bg-base-800 transition-colors"
                           >
-                            <Trash2 className="w-3 h-3" />
+                            <Trash2 strokeWidth={1.5} className="w-3 h-3" />
                             Delete
                           </button>
                         </motion.div>
@@ -1764,13 +1854,13 @@ Please check your internet connection and try again. In the meantime:
       )}
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Enhanced Header */}
         <motion.div
           initial={{ y: -50, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.6 }}
-          className="bg-slate-800/90 backdrop-blur-xl border-b border-slate-700 shadow-lg"
+          transition={{ duration: 0.3 }}
+          className="bg-base-850 border-b border-border shadow-raised"
         >
           <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4">
             <div className="flex items-center justify-between gap-2">
@@ -1780,9 +1870,9 @@ Please check your internet connection and try again. In the meantime:
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowMobileSidebar(true)}
-                  className="text-slate-300 hover:text-slate-100 md:hidden flex-shrink-0 p-2"
+                  className="text-content-secondary hover:text-content-primary md:hidden flex-shrink-0 p-2"
                 >
-                  <BookOpen className="w-5 h-5" />
+                  <BookOpen strokeWidth={1.5} className="w-5 h-5" />
                 </Button>
                 <Button
                   variant="ghost"
@@ -1795,23 +1885,23 @@ Please check your internet connection and try again. In the meantime:
                     }
                     navigate('/AITutors');
                   }}
-                  className="text-slate-300 hover:text-slate-100 hidden sm:flex"
+                  className="text-content-secondary hover:text-content-primary hidden sm:flex"
                 >
-                  <ChevronLeft className="w-4 h-4 mr-1 sm:mr-2" />
+                  <ChevronLeft strokeWidth={1.5} className="w-4 h-4 mr-1 sm:mr-2" />
                   <span className="hidden md:inline">Back to Subjects</span>
                   <span className="md:hidden">Back</span>
                 </Button>
                 
                 <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-                  <div className={`p-2 sm:p-3 bg-gradient-to-br ${subjectColor} rounded-lg sm:rounded-xl shadow-lg flex-shrink-0`}>
-                    <SubjectIcon className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
+                  <div className={`p-2 sm:p-3 bg-gradient-to-br ${subjectColor} rounded-lg sm:rounded-sm shadow-raised flex-shrink-0`}>
+                    <SubjectIcon className="w-4 h-4 sm:w-6 sm:h-6 text-content-primary" />
                   </div>
                   <div className="min-w-0">
-                    <h1 className="text-base sm:text-xl md:text-2xl font-bold text-slate-100 truncate">
+                    <h1 className="text-base sm:text-xl md:text-2xl font-bold font-display text-content-primary truncate">
                       {getCurriculumData(selectedSubject)?.name || selectedSubject}
                     </h1>
-                    <p className="text-xs sm:text-sm text-slate-300 flex items-center gap-1 sm:gap-2">
-                      <Bot className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-400 flex-shrink-0" />
+                    <p className="text-xs sm:text-sm text-content-secondary flex items-center gap-1 sm:gap-2">
+                      <Bot strokeWidth={1.5} className="w-3 h-3 sm:w-4 sm:h-4 text-content-muted flex-shrink-0" />
                       <span className="hidden sm:inline">AI Tutor • Ready to help</span>
                       <span className="sm:hidden">AI Tutor</span>
                     </p>
@@ -1820,7 +1910,7 @@ Please check your internet connection and try again. In the meantime:
               </div>
               
               <div className="flex items-center gap-2 sm:gap-6 flex-shrink-0">
-                <Badge variant="primary" className="bg-emerald-800 text-emerald-200 border-emerald-600 text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1 hidden sm:inline-flex">
+                <Badge variant="primary" className="bg-base-800 text-content-secondary border-border text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1 hidden sm:inline-flex">
                   Active Session
                 </Badge>
                 {/* Mobile back button */}
@@ -1828,9 +1918,9 @@ Please check your internet connection and try again. In the meantime:
                   variant="ghost"
                   size="sm"
                   onClick={() => navigate('/AITutors')}
-                  className="text-slate-300 hover:text-slate-100 sm:hidden p-2"
+                  className="text-content-secondary hover:text-content-primary sm:hidden p-2"
                 >
-                  <ChevronLeft className="w-5 h-5" />
+                  <ChevronLeft strokeWidth={1.5} className="w-5 h-5" />
                 </Button>
               </div>
             </div>
@@ -1840,7 +1930,7 @@ Please check your internet connection and try again. In the meantime:
         {/* Diagnostics output removed */}
 
       {/* Mode Selector — sticky bar */}
-      <div className="bg-slate-800/90 backdrop-blur-xl border-b border-slate-700/50 z-10">
+      <div className="bg-base-850 border-b border-border z-10">
         <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 py-2">
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2" role="group" aria-label="Tutor modes">
             {['Explain','Practice MCQ','Walkthrough','Summarize Attachment'].map((m) => (
@@ -1850,13 +1940,13 @@ Please check your internet connection and try again. In the meantime:
                 size="sm"
                 aria-pressed={selectedMode === m}
                 onClick={() => setSelectedMode(m)}
-                className={`text-xs sm:text-sm px-2 sm:px-3 py-1.5 ${selectedMode === m ? 'bg-blue-700 text-white' : 'text-slate-300 hover:text-slate-100'}`}
+                className={`text-xs sm:text-sm px-2 sm:px-3 py-1.5 ${selectedMode === m ? 'bg-base-800 text-content-primary border border-border-strong border-b-2 border-b-content-muted' : 'text-content-secondary hover:text-content-primary'}`}
               >
                 <span className="hidden sm:inline">{m}</span>
                 <span className="sm:hidden">{m === 'Practice MCQ' ? 'MCQ' : m === 'Summarize Attachment' ? 'Summarize' : m}</span>
               </Button>
             ))}
-            <label className="ml-1 sm:ml-2 inline-flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-slate-300">
+            <label className="ml-1 sm:ml-2 inline-flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-content-secondary">
               <input type="checkbox" checked={checkMySteps} onChange={(e) => setCheckMySteps(e.target.checked)} className="w-3 h-3 sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">Check my steps</span>
               <span className="sm:hidden">Check</span>
@@ -1875,11 +1965,10 @@ Please check your internet connection and try again. In the meantime:
               animate={{ opacity: 1, y: 0 }}
               className="mb-8"
             >
-              <Card className="bg-gradient-to-br from-slate-800 to-slate-700 border-slate-600">
+              <Card className="bg-base-850 border-border-strong">
                 <CardContent className="p-6">
                   <div className="text-center mb-4">
-                    <Sparkles className="w-8 h-8 text-blue-400 mx-auto mb-2" />
-                    <h3 className="font-semibold text-slate-200">Quick Start Suggestions</h3>
+                    <h3 className="font-semibold text-content-primary">Quick Start Suggestions</h3>
                   </div>
                   <div className="space-y-2">
                     {subjectSuggestions.map((suggestion, index) => (
@@ -1887,7 +1976,7 @@ Please check your internet connection and try again. In the meantime:
                         key={index}
                         variant="ghost"
                         onClick={() => handleSuggestionClick(suggestion)}
-                        className="text-left justify-start h-auto p-3 text-sm text-slate-300 hover:bg-slate-700 hover:text-slate-100 w-full"
+                        className="text-left justify-start h-auto p-3 text-sm text-content-secondary hover:bg-base-800 hover:text-content-primary w-full"
                       >
                         {suggestion}
                       </Button>
@@ -1899,28 +1988,28 @@ Please check your internet connection and try again. In the meantime:
           )}
 
           {/* Messages */}
-          <AnimatePresence mode="popLayout">
+          <AnimatePresence>
             {messages.map((message, index) => (
               <motion.div
                 key={message.id}
-                initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                transition={{ duration: 0.4 }}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
                 className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div className={`flex gap-3 max-w-4xl ${message.type === 'user' ? 'flex-row-reverse' : ''}`}>
                   {/* Avatar */}
                   <div className="flex-shrink-0">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                      message.type === 'user' 
-                        ? 'bg-gradient-to-br from-blue-500 to-purple-600' 
-                        : 'bg-gradient-to-br from-emerald-500 to-teal-600'
+                    <div className={`w-10 h-10 rounded-sm flex items-center justify-center ${
+                      message.type === 'user'
+                        ? 'bg-base-750'
+                        : 'bg-base-800 border border-border'
                     }`}>
                       {message.type === 'user' ? (
-                        <User className="w-5 h-5 text-white" />
+                        <User strokeWidth={1.5} className="w-5 h-5 text-content-primary" />
                       ) : (
-                        <Bot className="w-5 h-5 text-white" />
+                        <Bot strokeWidth={1.5} className="w-5 h-5 text-content-primary" />
                       )}
                     </div>
                   </div>
@@ -1929,13 +2018,13 @@ Please check your internet connection and try again. In the meantime:
                   <div className="flex-1 max-w-2xl">
                     <Card className={`${
                       message.type === 'user'
-                        ? 'bg-gradient-to-br from-blue-500 to-purple-600 text-white border-none'
-                        : 'bg-slate-800/80 backdrop-blur-sm border border-slate-600/50'
+                        ? 'bg-base-750 text-content-primary border border-border'
+                        : 'bg-base-850 border border-border-strong'
                     }`}>
                       <CardContent className="p-4">
                         {message.type === 'user' ? (
                           <div>
-                            <p className="text-sm leading-relaxed whitespace-pre-wrap text-white">
+                            <p className="text-sm leading-relaxed whitespace-pre-wrap text-content-primary">
                               {message.content}
                             </p>
                             
@@ -1943,14 +2032,14 @@ Please check your internet connection and try again. In the meantime:
                             {message.files && message.files.length > 0 && (
                               <div className="mt-3 space-y-2">
                                 {message.files.map((file, index) => (
-                                  <div key={index} className="flex items-center gap-2 p-2 bg-white/10 rounded-lg">
+                                  <div key={index} className="flex items-center gap-2 p-2 bg-base-850/50 rounded-lg">
                                     {file.category === 'image' ? (
-                                      <Image className="w-4 h-4 text-blue-200" />
+                                      <Image strokeWidth={1.5} className="w-4 h-4 text-content-muted" />
                                     ) : (
-                                      <FileText className="w-4 h-4 text-blue-200" />
+                                      <FileText strokeWidth={1.5} className="w-4 h-4 text-content-muted" />
                                     )}
-                                    <span className="text-xs text-blue-100">{file.name}</span>
-                                    <span className="text-xs text-blue-200">
+                                    <span className="text-xs text-content-muted">{file.name}</span>
+                                    <span className="text-xs text-content-muted">
                                       ({Math.round(file.size / 1024)}KB)
                                     </span>
                                   </div>
@@ -1981,14 +2070,14 @@ Please check your internet connection and try again. In the meantime:
                             <MarkdownRenderer 
                               content={message.content}
                               className={`text-sm leading-relaxed ${
-                                message.type === 'user' ? 'text-white' : 'text-slate-200'
+                                message.type === 'user' ? 'text-base-950' : 'text-content-primary'
                               }`}
                             />
                           )
                         )}
                         
                         <div className={`text-xs mt-2 ${
-                          message.type === 'user' ? 'text-blue-100' : 'text-slate-400'
+                          message.type === 'user' ? 'text-content-muted' : 'text-content-muted'
                         }`}>
                           {message.timestamp.toLocaleTimeString([], { 
                             hour: '2-digit', 
@@ -2012,27 +2101,26 @@ Please check your internet connection and try again. In the meantime:
                 exit={{ opacity: 0, y: -20 }}
                 className="flex gap-3"
               >
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
-                  <Bot className="w-5 h-5 text-white" />
+                <div className="w-10 h-10 rounded-sm bg-base-800 border border-border flex items-center justify-center">
+                  <Bot strokeWidth={1.5} className="w-5 h-5 text-content-primary" />
                 </div>
-                <Card className="bg-slate-800/80 backdrop-blur-sm border border-slate-600/50">
+                <Card className="bg-base-850 border border-border-strong">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-1">
-                      <Sparkles className="w-4 h-4 text-emerald-400 animate-pulse" />
-                      <span className="text-sm text-slate-300">AI Tutor is thinking...</span>
+                      <span className="text-sm text-content-secondary">Thinking...</span>
                       <div className="flex gap-1 ml-2">
                         <motion.div
-                          className="w-1.5 h-1.5 bg-emerald-500 rounded-full"
+                          className="w-1.5 h-1.5 bg-content-muted rounded-full"
                           animate={{ opacity: [1, 0.3, 1] }}
                           transition={{ duration: 1, repeat: Infinity, delay: 0 }}
                         />
                         <motion.div
-                          className="w-1.5 h-1.5 bg-emerald-500 rounded-full"
+                          className="w-1.5 h-1.5 bg-content-muted rounded-full"
                           animate={{ opacity: [1, 0.3, 1] }}
                           transition={{ duration: 1, repeat: Infinity, delay: 0.2 }}
                         />
                         <motion.div
-                          className="w-1.5 h-1.5 bg-emerald-500 rounded-full"
+                          className="w-1.5 h-1.5 bg-content-muted rounded-full"
                           animate={{ opacity: [1, 0.3, 1] }}
                           transition={{ duration: 1, repeat: Infinity, delay: 0.4 }}
                         />
@@ -2052,18 +2140,18 @@ Please check your internet connection and try again. In the meantime:
       <motion.div
         initial={{ y: 50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.6 }}
-        className="bg-slate-800/90 backdrop-blur-xl border-t border-slate-700 shadow-lg safe-bottom"
+        transition={{ duration: 0.3 }}
+        className="bg-base-850 border-t border-border shadow-raised safe-bottom"
       >
         <div className="max-w-4xl mx-auto p-3 sm:p-4 md:p-6">
           {/* Display uploaded files */}
           {uploadedFiles.length > 0 && (
-            <div className="mb-3 sm:mb-4 p-2 sm:p-3 bg-slate-700/50 rounded-lg border border-slate-600">
+            <div className="mb-3 sm:mb-4 p-2 sm:p-3 bg-base-800 rounded-lg border border-border-strong">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs sm:text-sm text-slate-300 font-medium">Attached:</span>
+                <span className="text-xs sm:text-sm text-content-secondary font-medium">Attached:</span>
                 <button
                   onClick={() => setUploadedFiles([])}
-                  className="text-xs text-slate-400 hover:text-slate-200"
+                  className="text-xs text-content-muted hover:text-content-primary"
                 >
                   Clear
                 </button>
@@ -2072,22 +2160,22 @@ Please check your internet connection and try again. In the meantime:
                 {uploadedFiles.map((file, index) => (
                   <div
                     key={file.id}
-                    className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-slate-600/50 rounded-lg border border-slate-500"
+                    className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-base-750 rounded-lg border border-border-strong"
                   >
                     {file.category === 'image' ? (
-                      <Image className="w-3 h-3 sm:w-4 sm:h-4 text-blue-400" />
+                      <Image strokeWidth={1.5} className="w-3 h-3 sm:w-4 sm:h-4 text-content-muted" />
                     ) : (
-                      <FileText className="w-3 h-3 sm:w-4 sm:h-4 text-green-400" />
+                      <FileText strokeWidth={1.5} className="w-3 h-3 sm:w-4 sm:h-4 text-success-400" />
                     )}
-                    <span className="text-xs sm:text-sm text-slate-200 truncate max-w-[100px] sm:max-w-none">{file.name}</span>
-                    <span className="text-xs text-slate-400 hidden sm:inline">
+                    <span className="text-xs sm:text-sm text-content-primary truncate max-w-[100px] sm:max-w-none">{file.name}</span>
+                    <span className="text-xs text-content-muted hidden sm:inline">
                       ({Math.round(file.size / 1024)}KB)
                     </span>
                     <button
                       onClick={() => handleFileRemove(file.id)}
-                      className="ml-1 sm:ml-2 text-slate-400 hover:text-red-400"
+                      className="ml-1 sm:ml-2 text-content-muted hover:text-error-400"
                     >
-                      <X className="w-3 h-3" />
+                      <X strokeWidth={1.5} className="w-3 h-3" />
                     </button>
                   </div>
                 ))}
@@ -2113,15 +2201,16 @@ Please check your internet connection and try again. In the meantime:
                 value={selectedModel}
                 onChange={(m) => { setSelectedModel(m); saveSelectedModel(m); }}
                 compact
+                dropUp
               />
               <Button
                 variant="ghost" 
                 size="sm"
                 onClick={handleFileSelect}
-                className="text-slate-300 hover:text-slate-100 p-2 sm:p-2.5"
+                className="text-content-secondary hover:text-content-primary p-2 sm:p-2.5"
                 title="Attach file"
               >
-                <Paperclip className="w-4 h-4 sm:w-5 sm:h-5" />
+                <Paperclip strokeWidth={1.5} className="w-4 h-4 sm:w-5 sm:h-5" />
               </Button>
               
               <Button
@@ -2132,19 +2221,18 @@ Please check your internet connection and try again. In the meantime:
                   handleSendMessage();
                 }}
                 disabled={(!currentMessage.trim() && uploadedFiles.length === 0) || isTyping}
-                className="px-3 sm:px-6 py-2 sm:py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                glow
+                className="px-3 sm:px-6 py-2 sm:py-2.5 bg-content-primary text-base-950 hover:opacity-90"
               >
-                <Send className="w-4 h-4 sm:w-5 sm:h-5" />
+                <Send strokeWidth={1.5} className="w-4 h-4 sm:w-5 sm:h-5" />
               </Button>
             </div>
           </div>
           
-          <div className="hidden sm:flex items-center justify-between mt-3 sm:mt-4 text-xs text-slate-400">
+          <div className="hidden sm:flex items-center justify-between mt-3 sm:mt-4 text-xs text-content-muted">
             <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
               <span>Enter to send • Shift+Enter for new line</span>
               <span className="flex items-center gap-1">
-                <TrendingUp className="w-3 h-3" />
+                <TrendingUp strokeWidth={1.5} className="w-3 h-3" />
                 Powered by AI
               </span>
             </div>

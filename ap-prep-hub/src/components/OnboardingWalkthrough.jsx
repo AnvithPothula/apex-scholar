@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowRight, ArrowLeft, X, Brain, FileQuestion, Zap, Calculator, Calendar, Settings, Sparkles } from 'lucide-react';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '../config/firebase';
+import { useAuth } from '../contexts/AuthContext';
+import errorLogger from '../utils/errorLogger';
 
 const ONBOARDING_KEY = 'apex.onboarding.completed';
 
@@ -8,63 +12,90 @@ const STEPS = [
     icon: Sparkles,
     title: 'Welcome to Apex Scholar!',
     description: 'Your AI-powered AP exam prep platform. Let\'s take a quick tour of the key features.',
-    color: 'from-blue-500 to-purple-500'
+    color: 'bg-base-750'
   },
   {
     icon: Brain,
     title: 'AI Tutors',
     description: 'Chat with expert AI tutors for any AP subject. Choose modes like Explain, Practice MCQ, Walkthrough, or upload files for analysis.',
-    color: 'from-blue-500 to-cyan-500'
+    color: 'bg-base-750'
   },
   {
     icon: FileQuestion,
     title: 'Practice Tests',
     description: 'Generate full-length AP practice tests with real exam format, timed sections, and detailed scoring analysis.',
-    color: 'from-purple-500 to-pink-500'
+    color: 'bg-base-750'
   },
   {
     icon: Zap,
     title: 'Flashcards',
     description: 'AI-generated flashcards with spaced repetition to help you memorize key concepts efficiently.',
-    color: 'from-amber-500 to-orange-500'
+    color: 'bg-base-750'
   },
   {
     icon: Calculator,
     title: 'Problem Solver',
     description: 'Upload or type any problem — get step-by-step solutions with LaTeX-rendered math.',
-    color: 'from-green-500 to-emerald-500'
+    color: 'bg-base-750'
   },
   {
     icon: Calendar,
     title: 'Smart Scheduler',
     description: 'AI creates an optimized study schedule based on your subjects, deadlines, and study preferences.',
-    color: 'from-rose-500 to-red-500'
+    color: 'bg-base-750'
   },
   {
     icon: Settings,
     title: 'Personalize Your Experience',
     description: 'Head to Settings to select your AP subjects, customize your AI tutor\'s style, and set study preferences. You\'re all set — let\'s get that 5!',
-    color: 'from-slate-500 to-slate-600'
+    color: 'bg-base-750'
   }
 ];
 
 export default function OnboardingWalkthrough() {
+  const { user } = useAuth();
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState(0);
 
   useEffect(() => {
+    // Check localStorage first (fast)
     try {
       if (localStorage.getItem(ONBOARDING_KEY) === 'true') return;
-    } catch {}
-    // Show after a short delay to let the page render first
-    const timer = setTimeout(() => setVisible(true), 2000);
-    return () => clearTimeout(timer);
-  }, []);
+    } catch (e) { errorLogger.debug('localStorage read failed (onboarding)', { error: e?.message }); }
+
+    // Also check Firestore (persistent across devices/clears)
+    let cancelled = false;
+    let timer = null;
+    const checkFirestore = async () => {
+      if (user?.uid) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists() && userDoc.data().onboardingCompleted) {
+            // Sync to localStorage so future checks are fast
+            try { localStorage.setItem(ONBOARDING_KEY, 'true'); } catch (e) { /* ignore */ }
+            return;
+          }
+        } catch (e) { errorLogger.debug('Firestore onboarding check failed', { error: e?.message }); }
+      }
+      // Show after a short delay to let the page render first
+      if (!cancelled) {
+        timer = setTimeout(() => setVisible(true), 2000);
+      }
+    };
+    checkFirestore();
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
+  }, [user]);
 
   const handleDismiss = useCallback(() => {
-    try { localStorage.setItem(ONBOARDING_KEY, 'true'); } catch {}
+    // Persist to localStorage
+    try { localStorage.setItem(ONBOARDING_KEY, 'true'); } catch (e) { errorLogger.debug('localStorage write failed (onboarding)', { error: e?.message }); }
+    // Persist to Firestore (survives localStorage clears and works across devices)
+    if (user?.uid) {
+      setDoc(doc(db, 'users', user.uid), { onboardingCompleted: true }, { merge: true })
+        .catch(e => errorLogger.debug('Firestore onboarding write failed', { error: e?.message }));
+    }
     setVisible(false);
-  }, []);
+  }, [user]);
 
   const handleNext = () => {
     if (step === STEPS.length - 1) {
@@ -85,34 +116,34 @@ export default function OnboardingWalkthrough() {
   const isLast = step === STEPS.length - 1;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[70] animate-in fade-in duration-300">
-      <div className="bg-slate-800 rounded-2xl max-w-md w-full border border-slate-700 shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[70] animate-in fade-in duration-300">
+      <div className="bg-base-850 rounded-md max-w-md w-full border border-border shadow-floating overflow-hidden">
         {/* Progress bar */}
-        <div className="h-1 bg-slate-700">
+        <div className="h-1 bg-base-800">
           <div
-            className={`h-full bg-gradient-to-r ${current.color} transition-all duration-500`}
+            className={`h-full ${current.color} transition-all duration-500`}
             style={{ width: `${((step + 1) / STEPS.length) * 100}%` }}
           />
         </div>
 
         {/* Header with skip */}
         <div className="flex justify-between items-center px-6 pt-4">
-          <span className="text-xs text-slate-400">{step + 1} of {STEPS.length}</span>
+          <span className="text-xs text-content-muted">{step + 1} of {STEPS.length}</span>
           <button
             onClick={handleDismiss}
-            className="text-slate-500 hover:text-slate-300 transition-colors text-xs flex items-center gap-1"
+            className="text-content-muted hover:text-content-secondary transition-colors text-xs flex items-center gap-1"
           >
-            Skip tour <X className="w-3 h-3" />
+            Skip tour <X className="w-3 h-3" strokeWidth={1.5} />
           </button>
         </div>
 
         {/* Content */}
         <div className="px-6 py-6 text-center">
-          <div className={`mx-auto w-16 h-16 rounded-2xl bg-gradient-to-br ${current.color} flex items-center justify-center mb-4 shadow-lg`}>
-            <Icon className="w-8 h-8 text-white" />
+          <div className={`mx-auto w-16 h-16 rounded-md ${current.color} flex items-center justify-center mb-4 shadow-raised`}>
+            <Icon className="w-8 h-8 text-base-950" strokeWidth={1.5} />
           </div>
-          <h2 className="text-xl font-bold text-white mb-2">{current.title}</h2>
-          <p className="text-slate-300 text-sm leading-relaxed">{current.description}</p>
+          <h2 className="text-xl font-bold text-content-primary mb-2">{current.title}</h2>
+          <p className="text-content-secondary text-sm leading-relaxed">{current.description}</p>
         </div>
 
         {/* Footer */}
@@ -121,10 +152,10 @@ export default function OnboardingWalkthrough() {
             onClick={handlePrev}
             disabled={step === 0}
             className={`flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-              step === 0 ? 'text-slate-600 cursor-not-allowed' : 'text-slate-300 hover:bg-slate-700'
+              step === 0 ? 'text-base-750 cursor-not-allowed' : 'text-content-secondary hover:bg-base-800'
             }`}
           >
-            <ArrowLeft className="w-4 h-4" /> Back
+            <ArrowLeft className="w-4 h-4" strokeWidth={1.5} /> Back
           </button>
 
           {/* Dots */}
@@ -132,9 +163,10 @@ export default function OnboardingWalkthrough() {
             {STEPS.map((_, i) => (
               <button
                 key={i}
+                aria-label={`Go to step ${i + 1}`}
                 onClick={() => setStep(i)}
                 className={`w-2 h-2 rounded-full transition-all ${
-                  i === step ? 'bg-blue-400 w-4' : 'bg-slate-600 hover:bg-slate-500'
+                  i === step ? 'bg-content-primary w-4' : 'bg-base-750 hover:bg-base-800'
                 }`}
               />
             ))}
@@ -144,11 +176,11 @@ export default function OnboardingWalkthrough() {
             onClick={handleNext}
             className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
               isLast
-                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
-                : 'bg-slate-700 text-slate-200 hover:bg-slate-600'
+                ? 'bg-content-primary text-base-950 shadow-raised'
+                : 'bg-base-800 text-content-primary hover:bg-base-750'
             }`}
           >
-            {isLast ? 'Get Started' : 'Next'} <ArrowRight className="w-4 h-4" />
+            {isLast ? 'Get Started' : 'Next'} <ArrowRight className="w-4 h-4" strokeWidth={1.5} />
           </button>
         </div>
       </div>

@@ -3,8 +3,8 @@ import React from "react";
 export const Dialog = ({ open, onOpenChange, children }) => {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40" onClick={onOpenChange}>
-      <div className="bg-white rounded-lg shadow-lg max-w-lg w-full" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onOpenChange} onKeyDown={(e) => { if (e.key === 'Escape') onOpenChange(); }}>
+      <div role="dialog" aria-modal="true" className="bg-base-850 border border-border rounded-md shadow-floating max-w-lg w-full" onClick={e => e.stopPropagation()}>
         {children}
       </div>
     </div>

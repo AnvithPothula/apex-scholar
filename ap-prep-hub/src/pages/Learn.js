@@ -1491,7 +1491,7 @@ const Learn = () => {
       setSelectedUnit(null);
     } else {
       // Navigate to flashcards for subjects without curriculum
-      navigate('/flashcards');
+      navigate('/Flashcards');
     }
   };
 
@@ -1530,7 +1530,7 @@ const Learn = () => {
   // Topic Detail View
   if (selectedTopic) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100">
+      <div className="min-h-screen bg-base-950 text-content-primary">
         <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
           {/* Header */}
           <motion.div
@@ -1546,10 +1546,10 @@ const Learn = () => {
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Topics
             </Button>
-            <h1 className="text-3xl font-bold text-slate-100 mb-2">
+            <h1 className="text-3xl font-bold text-content-primary mb-2">
               {typeof selectedTopic === 'string' ? selectedTopic : selectedTopic.name}
             </h1>
-            <div className="flex items-center gap-4 text-sm text-slate-400">
+            <div className="flex items-center gap-4 text-sm text-content-muted">
               <span>{selectedSubject}</span>
               <span>•</span>
               <span>{selectedUnit.title}</span>
@@ -1566,13 +1566,13 @@ const Learn = () => {
             >
               {/* Overview */}
               <Card className="p-6">
-                <h2 className="text-xl font-semibold text-slate-200 mb-4">Overview</h2>
-                <p className="text-slate-300 leading-relaxed">{selectedTopic.content.overview}</p>
+                <h2 className="text-xl font-semibold text-content-primary mb-4">Overview</h2>
+                <p className="text-content-secondary leading-relaxed">{selectedTopic.content.overview}</p>
               </Card>
 
               {/* Key Points */}
               <Card className="p-6">
-                <h2 className="text-xl font-semibold text-slate-200 mb-4">Key Concepts</h2>
+                <h2 className="text-xl font-semibold text-content-primary mb-4">Key Concepts</h2>
                 <div className="space-y-3">
                   {selectedTopic.content.keyPoints.map((point, index) => (
                     <motion.div
@@ -1582,8 +1582,8 @@ const Learn = () => {
                       transition={{ delay: 0.1 * index }}
                       className="flex items-start gap-3"
                     >
-                      <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                      <span className="text-slate-300">{point}</span>
+                      <CheckCircle className="w-5 h-5 text-success-400 flex-shrink-0 mt-0.5" />
+                      <span className="text-content-secondary">{point}</span>
                     </motion.div>
                   ))}
                 </div>
@@ -1591,7 +1591,7 @@ const Learn = () => {
 
               {/* Examples */}
               <Card className="p-6">
-                <h2 className="text-xl font-semibold text-slate-200 mb-4">Examples & Applications</h2>
+                <h2 className="text-xl font-semibold text-content-primary mb-4">Examples & Applications</h2>
                 <div className="space-y-4">
                   {selectedTopic.content.examples.map((example, index) => (
                     <motion.div
@@ -1599,9 +1599,9 @@ const Learn = () => {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.1 * index }}
-                      className="p-4 bg-blue-600/10 border border-blue-500/20 rounded-lg"
+                      className="p-4 bg-base-800 border border-border-strong rounded-lg"
                     >
-                      <p className="text-slate-300">{example}</p>
+                      <p className="text-content-secondary">{example}</p>
                     </motion.div>
                   ))}
                 </div>
@@ -1609,25 +1609,25 @@ const Learn = () => {
 
               {/* Study Actions */}
               <Card className="p-6">
-                <h2 className="text-xl font-semibold text-slate-200 mb-4">Study This Topic</h2>
+                <h2 className="text-xl font-semibold text-content-primary mb-4">Study This Topic</h2>
                 <div className="grid md:grid-cols-3 gap-4">
                   <Button 
-                    onClick={() => navigate('/flashcards')}
-                    className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700"
+                    onClick={() => navigate('/Flashcards')}
+                    className="flex items-center justify-center gap-2 bg-success-600 hover:bg-success-700"
                   >
                     <Zap className="w-4 h-4" />
                     Create Flashcards
                   </Button>
                   <Button 
-                    onClick={() => navigate('/solver')}
-                    className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700"
+                    onClick={() => navigate('/Solver')}
+                    className="flex items-center justify-center gap-2"
                   >
                     <Target className="w-4 h-4" />
                     Practice Problems
                   </Button>
                   <Button 
-                    onClick={() => navigate('/ai-tutors')}
-                    className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700"
+                    onClick={() => navigate('/AITutors')}
+                    className="flex items-center justify-center gap-2"
                   >
                     <BookOpen className="w-4 h-4" />
                     Ask AI Tutor
@@ -1645,27 +1645,27 @@ const Learn = () => {
               transition={{ delay: 0.1 }}
             >
               <Card className="p-6 text-center">
-                <p className="text-slate-400 mb-6">
+                <p className="text-content-muted mb-6">
                   This topic is part of your curriculum. Use the study tools below to explore it further.
                 </p>
                 <div className="grid md:grid-cols-3 gap-4">
                   <Button 
-                    onClick={() => navigate('/flashcards')}
-                    className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700"
+                    onClick={() => navigate('/Flashcards')}
+                    className="flex items-center justify-center gap-2 bg-success-600 hover:bg-success-700"
                   >
                     <Zap className="w-4 h-4" />
                     Create Flashcards
                   </Button>
                   <Button 
-                    onClick={() => navigate('/solver')}
-                    className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700"
+                    onClick={() => navigate('/Solver')}
+                    className="flex items-center justify-center gap-2"
                   >
                     <Target className="w-4 h-4" />
                     Practice Problems
                   </Button>
                   <Button 
-                    onClick={() => navigate('/ai-tutors')}
-                    className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700"
+                    onClick={() => navigate('/AITutors')}
+                    className="flex items-center justify-center gap-2"
                   >
                     <BookOpen className="w-4 h-4" />
                     Ask AI Tutor
@@ -1682,7 +1682,7 @@ const Learn = () => {
   // Curriculum Detail View
   if (selectedUnit) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100">
+      <div className="min-h-screen bg-base-950 text-content-primary">
         <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
           {/* Header */}
           <motion.div
@@ -1698,10 +1698,10 @@ const Learn = () => {
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Units
             </Button>
-            <h1 className="text-3xl font-bold text-slate-100 mb-2">
+            <h1 className="text-3xl font-bold text-content-primary mb-2">
               {selectedUnit.title}
             </h1>
-            <div className="flex items-center gap-4 text-sm text-slate-400">
+            <div className="flex items-center gap-4 text-sm text-content-muted">
               <span>{selectedSubject}</span>
               <Badge variant="outline">{selectedUnit.examWeight}</Badge>
             </div>
@@ -1714,7 +1714,7 @@ const Learn = () => {
             transition={{ delay: 0.1 }}
           >
             <Card className="p-6">
-              <h2 className="text-xl font-semibold text-slate-200 mb-4">Topics Covered</h2>
+              <h2 className="text-xl font-semibold text-content-primary mb-4">Topics Covered</h2>
               <div className="grid gap-3">
                 {selectedUnit.topics.map((topic, index) => (
                   <motion.div
@@ -1722,15 +1722,15 @@ const Learn = () => {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.1 * index }}
-                    className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-lg hover:bg-slate-700/50 transition-colors cursor-pointer group"
+                    className="flex items-center gap-3 p-3 bg-base-850 rounded-lg hover:bg-base-800 transition-colors cursor-pointer group"
                     onClick={() => handleTopicClick(topic)}
                   >
-                    <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
-                    <span className="text-slate-200 group-hover:text-blue-400 transition-colors">
+                    <CheckCircle className="w-5 h-5 text-success-400 flex-shrink-0" />
+                    <span className="text-content-primary group-hover:text-content-primary transition-colors">
                       {typeof topic === 'string' ? topic : topic.name}
                     </span>
                     {typeof topic === 'object' && topic.content && (
-                      <Badge variant="outline" className="ml-auto text-xs bg-blue-500/20 text-blue-300">
+                      <Badge variant="outline" className="ml-auto text-xs bg-base-800 text-content-secondary">
                         Interactive
                       </Badge>
                     )}
@@ -1747,43 +1747,43 @@ const Learn = () => {
             transition={{ delay: 0.2 }}
             className="mt-8"
           >
-            <h2 className="text-xl font-semibold text-slate-200 mb-4">Study This Unit</h2>
+            <h2 className="text-xl font-semibold text-content-primary mb-4">Study This Unit</h2>
             <div className="grid md:grid-cols-3 gap-4">
-              <Card className="p-4 hover:bg-slate-800/50 transition-colors cursor-pointer group"
-                    onClick={() => navigate('/flashcards')}>
+              <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
+                    onClick={() => navigate('/Flashcards')}>
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="p-2 bg-green-500/20 rounded-lg group-hover:bg-green-500/30 transition-colors">
-                    <Zap className="w-5 h-5 text-green-400" />
+                  <div className="p-2 bg-success-500/20 rounded-lg group-hover:bg-success-500/30 transition-colors">
+                    <Zap className="w-5 h-5 text-success-400" />
                   </div>
-                  <h3 className="font-semibold text-slate-200">Create Flashcards</h3>
+                  <h3 className="font-semibold text-content-primary">Create Flashcards</h3>
                 </div>
-                <p className="text-sm text-slate-400">
+                <p className="text-sm text-content-muted">
                   Generate AI flashcards for this unit
                 </p>
               </Card>
 
-              <Card className="p-4 hover:bg-slate-800/50 transition-colors cursor-pointer group"
-                    onClick={() => navigate('/flashcards')}>
+              <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
+                    onClick={() => navigate('/Flashcards')}>
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="p-2 bg-green-500/20 rounded-lg group-hover:bg-green-500/30 transition-colors">
-                    <Zap className="w-5 h-5 text-green-400" />
+                  <div className="p-2 bg-success-500/20 rounded-lg group-hover:bg-success-500/30 transition-colors">
+                    <Zap className="w-5 h-5 text-success-400" />
                   </div>
-                  <h3 className="font-semibold text-slate-200">Create Flashcards</h3>
+                  <h3 className="font-semibold text-content-primary">Create Flashcards</h3>
                 </div>
-                <p className="text-sm text-slate-400">
+                <p className="text-sm text-content-muted">
                   Generate AI flashcards for this unit
                 </p>
               </Card>
 
-              <Card className="p-4 hover:bg-slate-800/50 transition-colors cursor-pointer group"
-                    onClick={() => navigate('/solver')}>
+              <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
+                    onClick={() => navigate('/Solver')}>
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="p-2 bg-blue-500/20 rounded-lg group-hover:bg-blue-500/30 transition-colors">
-                    <Target className="w-5 h-5 text-blue-400" />
+                  <div className="p-2 bg-base-800 rounded-lg group-hover:bg-base-750 transition-colors">
+                    <Target className="w-5 h-5 text-content-secondary" />
                   </div>
-                  <h3 className="font-semibold text-slate-200">Get Help</h3>
+                  <h3 className="font-semibold text-content-primary">Get Help</h3>
                 </div>
-                <p className="text-sm text-slate-400">
+                <p className="text-sm text-content-muted">
                   Solve problems with AI assistance
                 </p>
               </Card>
@@ -1798,7 +1798,7 @@ const Learn = () => {
   if (selectedSubject) {
     const curriculum = CURRICULUM_DATA[selectedSubject];
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100">
+      <div className="min-h-screen bg-base-950 text-content-primary">
         <div className="max-w-6xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
           {/* Header */}
           <motion.div
@@ -1815,14 +1815,14 @@ const Learn = () => {
               Back to Subjects
             </Button>
             <div className="flex items-center gap-4 mb-6">
-              <div className="p-4 bg-gradient-to-br from-green-600 to-blue-600 rounded-2xl shadow-lg">
-                <BookOpen className="w-8 h-8 text-white" />
+              <div className="p-4 bg-base-750 rounded-md shadow-raised">
+                <BookOpen className="w-8 h-8 text-content-primary" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-slate-100">
+                <h1 className="text-3xl font-bold text-content-primary">
                   {selectedSubject} Curriculum
                 </h1>
-                <p className="text-slate-400">
+                <p className="text-content-muted">
                   Complete curriculum breakdown with all units and topics
                 </p>
               </div>
@@ -1837,54 +1837,54 @@ const Learn = () => {
             className="mb-8"
           >
             <div className="grid md:grid-cols-4 gap-4">
-              <Card className="p-4 hover:bg-slate-800/50 transition-colors cursor-pointer group"
-                    onClick={() => navigate('/flashcards')}>
+              <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
+                    onClick={() => navigate('/Flashcards')}>
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="p-2 bg-green-500/20 rounded-lg group-hover:bg-green-500/30 transition-colors">
-                    <Zap className="w-5 h-5 text-green-400" />
+                  <div className="p-2 bg-success-500/20 rounded-lg group-hover:bg-success-500/30 transition-colors">
+                    <Zap className="w-5 h-5 text-success-400" />
                   </div>
-                  <h3 className="font-semibold text-slate-200">Study Cards</h3>
+                  <h3 className="font-semibold text-content-primary">Study Cards</h3>
                 </div>
-                <p className="text-sm text-slate-400">
+                <p className="text-sm text-content-muted">
                   AI-generated flashcards for this subject
                 </p>
               </Card>
 
-              <Card className="p-4 hover:bg-slate-800/50 transition-colors cursor-pointer group"
-                    onClick={() => navigate('/flashcards')}>
+              <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
+                    onClick={() => navigate('/Flashcards')}>
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="p-2 bg-green-500/20 rounded-lg group-hover:bg-green-500/30 transition-colors">
-                    <Zap className="w-5 h-5 text-green-400" />
+                  <div className="p-2 bg-success-500/20 rounded-lg group-hover:bg-success-500/30 transition-colors">
+                    <Zap className="w-5 h-5 text-success-400" />
                   </div>
-                  <h3 className="font-semibold text-slate-200">Study Cards</h3>
+                  <h3 className="font-semibold text-content-primary">Study Cards</h3>
                 </div>
-                <p className="text-sm text-slate-400">
+                <p className="text-sm text-content-muted">
                   AI-generated flashcards for this subject
                 </p>
               </Card>
 
-              <Card className="p-4 hover:bg-slate-800/50 transition-colors cursor-pointer group"
-                    onClick={() => navigate('/solver')}>
+              <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
+                    onClick={() => navigate('/Solver')}>
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="p-2 bg-blue-500/20 rounded-lg group-hover:bg-blue-500/30 transition-colors">
-                    <Target className="w-5 h-5 text-blue-400" />
+                  <div className="p-2 bg-base-800 rounded-lg group-hover:bg-base-750 transition-colors">
+                    <Target className="w-5 h-5 text-content-secondary" />
                   </div>
-                  <h3 className="font-semibold text-slate-200">Problem Solver</h3>
+                  <h3 className="font-semibold text-content-primary">Problem Solver</h3>
                 </div>
-                <p className="text-sm text-slate-400">
+                <p className="text-sm text-content-muted">
                   Get help with {selectedSubject} problems
                 </p>
               </Card>
 
-              <Card className="p-4 hover:bg-slate-800/50 transition-colors cursor-pointer group"
-                    onClick={() => navigate('/progress')}>
+              <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
+                    onClick={() => navigate('/SmartScheduler')}>
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="p-2 bg-yellow-500/20 rounded-lg group-hover:bg-yellow-500/30 transition-colors">
-                    <TrendingUp className="w-5 h-5 text-yellow-400" />
+                  <div className="p-2 bg-warning-500/20 rounded-lg group-hover:bg-warning-500/30 transition-colors">
+                    <TrendingUp className="w-5 h-5 text-warning-400" />
                   </div>
-                  <h3 className="font-semibold text-slate-200">Track Progress</h3>
+                  <h3 className="font-semibold text-content-primary">Track Progress</h3>
                 </div>
-                <p className="text-sm text-slate-400">
+                <p className="text-sm text-content-muted">
                   View your {selectedSubject} progress
                 </p>
               </Card>
@@ -1897,7 +1897,7 @@ const Learn = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <h2 className="text-2xl font-bold text-slate-100 mb-6">Course Units</h2>
+            <h2 className="text-2xl font-bold text-content-primary mb-6">Course Units</h2>
             <div className="grid md:grid-cols-2 gap-6">
               {curriculum.units.map((unit, index) => (
                 <motion.div
@@ -1909,18 +1909,18 @@ const Learn = () => {
                   className="cursor-pointer"
                   onClick={() => handleUnitClick(unit)}
                 >
-                  <Card className="p-6 h-full hover:bg-slate-800/50 transition-all duration-200 group border-slate-700 hover:border-slate-600">
+                  <Card className="p-6 h-full hover:bg-base-850 transition-all duration-200 group border-border hover:border-border-strong">
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-lg font-bold text-slate-100 group-hover:text-blue-400 transition-colors">
+                          <h3 className="text-lg font-bold text-content-primary group-hover:text-content-primary transition-colors">
                             {unit.title}
                           </h3>
                           <Badge variant="outline" className="text-xs">
                             {unit.examWeight}
                           </Badge>
                         </div>
-                        <p className="text-sm text-slate-400 mb-4">
+                        <p className="text-sm text-content-muted mb-4">
                           {unit.topics.length} topics covered
                         </p>
                       </div>
@@ -1929,19 +1929,19 @@ const Learn = () => {
                     {/* Topics Preview */}
                     <div className="space-y-2 mb-4">
                       {unit.topics.slice(0, 3).map((topic, topicIndex) => (
-                        <div key={topicIndex} className="flex items-center gap-2 text-sm text-slate-300">
-                          <CheckCircle className="w-3 h-3 text-green-400 flex-shrink-0" />
+                        <div key={topicIndex} className="flex items-center gap-2 text-sm text-content-secondary">
+                          <CheckCircle className="w-3 h-3 text-success-400 flex-shrink-0" />
                           <span className="truncate">{typeof topic === 'string' ? topic : topic.name}</span>
                         </div>
                       ))}
                       {unit.topics.length > 3 && (
-                        <div className="text-sm text-slate-400">
+                        <div className="text-sm text-content-muted">
                           +{unit.topics.length - 3} more topics
                         </div>
                       )}
                     </div>
 
-                    <div className="flex items-center text-blue-400 text-sm">
+                    <div className="flex items-center text-content-secondary text-sm">
                       View Unit Details <ChevronRight className="w-4 h-4 ml-1" />
                     </div>
                   </Card>
@@ -1955,7 +1955,7 @@ const Learn = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100">
+    <div className="min-h-screen bg-base-950 text-content-primary">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
         {/* Header */}
         <motion.div
@@ -1964,14 +1964,14 @@ const Learn = () => {
           className="text-center mb-12"
         >
           <div className="flex items-center justify-center gap-4 mb-6">
-            <div className="p-4 bg-gradient-to-br from-green-600 to-blue-600 rounded-2xl shadow-lg">
-              <Book className="w-8 h-8 text-white" />
+            <div className="p-4 bg-base-750 rounded-md shadow-raised">
+              <Book className="w-8 h-8 text-content-primary" />
             </div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">
+            <h1 className="text-4xl font-bold text-content-primary font-display">
               AP Learning Hub
             </h1>
           </div>
-          <p className="text-lg text-slate-300 max-w-3xl mx-auto">
+          <p className="text-lg text-content-secondary max-w-3xl mx-auto">
             Master any AP subject with AI-powered learning. Get personalized diagnostics, 
             practice tests, and study tools tailored to your learning style.
           </p>
@@ -1984,42 +1984,42 @@ const Learn = () => {
           transition={{ delay: 0.1 }}
           className="mb-8"
         >
-          <Card className="p-6 bg-gradient-to-r from-purple-600/20 to-blue-600/20 border-purple-500/30">
+          <Card className="p-6 bg-base-850 border-border">
             <div className="grid md:grid-cols-4 gap-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-500/20 rounded-lg">
-                  <Brain className="w-5 h-5 text-purple-400" />
+                <div className="p-2 bg-base-800 rounded-lg">
+                  <Brain className="w-5 h-5 text-content-secondary" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-slate-200">AI Diagnostics</h3>
-                  <p className="text-sm text-slate-400">Adaptive assessments</p>
+                  <h3 className="font-semibold text-content-primary">AI Diagnostics</h3>
+                  <p className="text-sm text-content-muted">Adaptive assessments</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-500/20 rounded-lg">
-                  <Target className="w-5 h-5 text-blue-400" />
+                <div className="p-2 bg-base-800 rounded-lg">
+                  <Target className="w-5 h-5 text-content-secondary" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-slate-200">Smart Practice</h3>
-                  <p className="text-sm text-slate-400">Personalized questions</p>
+                  <h3 className="font-semibold text-content-primary">Smart Practice</h3>
+                  <p className="text-sm text-content-muted">Personalized questions</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-500/20 rounded-lg">
-                  <TrendingUp className="w-5 h-5 text-green-400" />
+                <div className="p-2 bg-success-500/20 rounded-lg">
+                  <TrendingUp className="w-5 h-5 text-success-400" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-slate-200">Progress Tracking</h3>
-                  <p className="text-sm text-slate-400">Detailed analytics</p>
+                  <h3 className="font-semibold text-content-primary">Progress Tracking</h3>
+                  <p className="text-sm text-content-muted">Detailed analytics</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-yellow-500/20 rounded-lg">
-                  <Award className="w-5 h-5 text-yellow-400" />
+                <div className="p-2 bg-warning-500/20 rounded-lg">
+                  <Award className="w-5 h-5 text-warning-400" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-slate-200">Score Prediction</h3>
-                  <p className="text-sm text-slate-400">AP score forecasting</p>
+                  <h3 className="font-semibold text-content-primary">Score Prediction</h3>
+                  <p className="text-sm text-content-muted">AP score forecasting</p>
                 </div>
               </div>
             </div>
@@ -2037,7 +2037,7 @@ const Learn = () => {
             <div className="flex flex-col md:flex-row gap-4">
               {/* Search */}
               <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-content-muted" />
                 <Input
                   placeholder="Search AP subjects..."
                   value={searchQuery}
@@ -2054,7 +2054,7 @@ const Learn = () => {
                     variant={selectedCategory === category ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setSelectedCategory(category)}
-                    className={selectedCategory === category ? 'bg-blue-600 hover:bg-blue-700' : ''}
+                    className={selectedCategory === category ? '' : ''}
                   >
                     {category}
                   </Button>
@@ -2063,7 +2063,7 @@ const Learn = () => {
             </div>
 
             {/* Results Count */}
-            <div className="mt-4 text-sm text-slate-400">
+            <div className="mt-4 text-sm text-content-muted">
               {filteredSubjects.length} subject{filteredSubjects.length !== 1 ? 's' : ''} found
             </div>
           </Card>
@@ -2077,66 +2077,66 @@ const Learn = () => {
           className="mb-8"
         >
           <div className="grid md:grid-cols-4 gap-4">
-            <Card className="p-4 hover:bg-slate-800/50 transition-colors cursor-pointer group"
-                  onClick={() => navigate('/flashcards')}>
+            <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
+                  onClick={() => navigate('/Flashcards')}>
               <div className="flex items-center gap-3 mb-3">
-                <div className="p-2 bg-green-500/20 rounded-lg group-hover:bg-green-500/30 transition-colors">
-                  <Zap className="w-5 h-5 text-green-400" />
+                <div className="p-2 bg-success-500/20 rounded-lg group-hover:bg-success-500/30 transition-colors">
+                  <Zap className="w-5 h-5 text-success-400" />
                 </div>
-                <h3 className="font-semibold text-slate-200">AI Flashcards</h3>
+                <h3 className="font-semibold text-content-primary">AI Flashcards</h3>
               </div>
-              <p className="text-sm text-slate-400 mb-3">
+              <p className="text-sm text-content-muted mb-3">
                 Get instant flashcard generation for any AP subject. Create personalized study cards.
               </p>
-              <div className="flex items-center text-green-400 text-sm">
+              <div className="flex items-center text-success-400 text-sm">
                 Create Cards <ChevronRight className="w-4 h-4 ml-1" />
               </div>
             </Card>
 
-            <Card className="p-4 hover:bg-slate-800/50 transition-colors cursor-pointer group"
-                  onClick={() => navigate('/practice-tests')}>
+            <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
+                  onClick={() => navigate('/PracticeTests')}>
               <div className="flex items-center gap-3 mb-3">
-                <div className="p-2 bg-blue-500/20 rounded-lg group-hover:bg-blue-500/30 transition-colors">
-                  <FileText className="w-5 h-5 text-blue-400" />
+                <div className="p-2 bg-base-800 rounded-lg group-hover:bg-base-750 transition-colors">
+                  <FileText className="w-5 h-5 text-content-secondary" />
                 </div>
-                <h3 className="font-semibold text-slate-200">Practice Tests</h3>
+                <h3 className="font-semibold text-content-primary">Practice Tests</h3>
               </div>
-              <p className="text-sm text-slate-400 mb-3">
+              <p className="text-sm text-content-muted mb-3">
                 Take full-length AP practice tests with AI-generated questions and instant feedback.
               </p>
-              <div className="flex items-center text-blue-400 text-sm">
+              <div className="flex items-center text-content-secondary text-sm">
                 Start Practice <ChevronRight className="w-4 h-4 ml-1" />
               </div>
             </Card>
 
-            <Card className="p-4 hover:bg-slate-800/50 transition-colors cursor-pointer group"
-                  onClick={() => navigate('/flashcards')}>
+            <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
+                  onClick={() => navigate('/Flashcards')}>
               <div className="flex items-center gap-3 mb-3">
-                <div className="p-2 bg-green-500/20 rounded-lg group-hover:bg-green-500/30 transition-colors">
-                  <Zap className="w-5 h-5 text-green-400" />
+                <div className="p-2 bg-success-500/20 rounded-lg group-hover:bg-success-500/30 transition-colors">
+                  <Zap className="w-5 h-5 text-success-400" />
                 </div>
-                <h3 className="font-semibold text-slate-200">AI Flashcards</h3>
+                <h3 className="font-semibold text-content-primary">AI Flashcards</h3>
               </div>
-              <p className="text-sm text-slate-400 mb-3">
+              <p className="text-sm text-content-muted mb-3">
                 Create personalized flashcard decks with AI assistance and smart spaced repetition.
               </p>
-              <div className="flex items-center text-green-400 text-sm">
+              <div className="flex items-center text-success-400 text-sm">
                 Create Cards <ChevronRight className="w-4 h-4 ml-1" />
               </div>
             </Card>
 
-            <Card className="p-4 hover:bg-slate-800/50 transition-colors cursor-pointer group"
-                  onClick={() => navigate('/progress')}>
+            <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
+                  onClick={() => navigate('/SmartScheduler')}>
               <div className="flex items-center gap-3 mb-3">
-                <div className="p-2 bg-yellow-500/20 rounded-lg group-hover:bg-yellow-500/30 transition-colors">
-                  <TrendingUp className="w-5 h-5 text-yellow-400" />
+                <div className="p-2 bg-warning-500/20 rounded-lg group-hover:bg-warning-500/30 transition-colors">
+                  <TrendingUp className="w-5 h-5 text-warning-400" />
                 </div>
-                <h3 className="font-semibold text-slate-200">Progress Tracking</h3>
+                <h3 className="font-semibold text-content-primary">Progress Tracking</h3>
               </div>
-              <p className="text-sm text-slate-400 mb-3">
+              <p className="text-sm text-content-muted mb-3">
                 Track your learning journey with detailed analytics and performance insights.
               </p>
-              <div className="flex items-center text-yellow-400 text-sm">
+              <div className="flex items-center text-warning-400 text-sm">
                 View Progress <ChevronRight className="w-4 h-4 ml-1" />
               </div>
             </Card>
@@ -2159,13 +2159,13 @@ const Learn = () => {
                 whileHover={{ scale: 1.02 }}
                 className="cursor-pointer"
               >
-                <Card className="p-6 h-full hover:bg-slate-800/50 transition-all duration-200 group border-slate-700 hover:border-slate-600">
+                <Card className="p-6 h-full hover:bg-base-850 transition-all duration-200 group border-border hover:border-border-strong">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
-                      <h3 className="text-lg font-bold text-slate-100 mb-2 group-hover:text-blue-400 transition-colors">
+                      <h3 className="text-lg font-bold text-content-primary mb-2 group-hover:text-content-primary transition-colors">
                         {subject.name}
                       </h3>
-                      <p className="text-sm text-slate-400 leading-relaxed mb-4">
+                      <p className="text-sm text-content-muted leading-relaxed mb-4">
                         {subject.description || `Master the essential concepts and skills for ${subject.name}. Practice with real AP-style questions and get instant feedback.`}
                       </p>
                     </div>
@@ -2173,11 +2173,11 @@ const Learn = () => {
 
                   {/* Quick Stats */}
                   <div className="grid grid-cols-2 gap-4 mb-4 text-xs">
-                    <div className="flex items-center gap-2 text-slate-400">
+                    <div className="flex items-center gap-2 text-content-muted">
                       <Users className="w-4 h-4" />
                       <span>Popular Subject</span>
                     </div>
-                    <div className="flex items-center gap-2 text-slate-400">
+                    <div className="flex items-center gap-2 text-content-muted">
                       <Clock className="w-4 h-4" />
                       <span>3-4 Hours/Week</span>
                     </div>
@@ -2191,7 +2191,7 @@ const Learn = () => {
                         e.stopPropagation();
                         handleSubjectClick(key);
                       }}
-                      className="flex-1 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700"
+                      className="flex-1"
                     >
                       <BookOpen className="w-4 h-4 mr-2" />
                       {CURRICULUM_DATA[key] ? 'Curriculum' : 'Study'}
@@ -2201,9 +2201,9 @@ const Learn = () => {
                       variant="outline"
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate('/flashcards');
+                        navigate('/Flashcards');
                       }}
-                      className="flex-1 hover:bg-slate-700"
+                      className="flex-1 hover:bg-base-800"
                     >
                       <Zap className="w-4 h-4 mr-2" />
                       Study
@@ -2217,9 +2217,9 @@ const Learn = () => {
           {/* No Results Message */}
           {filteredSubjects.length === 0 && (
             <div className="text-center py-12">
-              <Search className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-slate-300 mb-2">No subjects found</h3>
-              <p className="text-slate-400 mb-6">
+              <Search className="w-16 h-16 text-content-muted mx-auto mb-4" />
+              <h3 className="text-xl font-bold text-content-secondary mb-2">No subjects found</h3>
+              <p className="text-content-muted mb-6">
                 Try adjusting your search query or category filter.
               </p>
               <Button
@@ -2243,18 +2243,17 @@ const Learn = () => {
             transition={{ delay: 0.6 }}
             className="mt-12 text-center"
           >
-            <Card className="p-8 bg-gradient-to-r from-purple-600/10 to-blue-600/10 border-purple-500/30">
-              <h2 className="text-2xl font-bold text-slate-100 mb-4">
+            <Card className="p-8 bg-base-850 border-border">
+              <h2 className="text-2xl font-bold text-content-primary mb-4">
                 Unlock Your Full Learning Potential
               </h2>
-              <p className="text-lg text-slate-300 mb-6 max-w-2xl mx-auto">
+              <p className="text-lg text-content-secondary mb-6 max-w-2xl mx-auto">
                 Sign up for free to track your progress, save your practice sessions, 
                 and get personalized study recommendations powered by AI.
               </p>
               <Button
-                onClick={() => navigate('/auth')}
-                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 px-8 py-3 text-lg"
-                glow
+                onClick={() => navigate('/login')}
+                className="px-8 py-3 text-lg"
               >
                 Get Started Free
               </Button>

@@ -1,32 +1,38 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { 
-    onAuthStateChanged, 
-    GoogleAuthProvider, 
-    signInWithPopup, 
+import {
+    onAuthStateChanged,
+    GoogleAuthProvider,
+    signInWithPopup,
     signInWithRedirect,
     getRedirectResult,
     browserLocalPersistence,
     setPersistence,
-    createUserWithEmailAndPassword, 
-    signInWithEmailAndPassword 
+    createUserWithEmailAndPassword,
+    signInWithEmailAndPassword,
+    sendPasswordResetEmail,
+    updatePassword as firebaseUpdatePassword,
+    updateEmail as firebaseUpdateEmail,
+    EmailAuthProvider,
+    reauthenticateWithCredential
 } from "firebase/auth";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import { auth, db } from '../config/firebase';
 import { getFirebaseErrorMessage } from '../utils/firebaseErrorMessages';
+import errorLogger from '../utils/errorLogger';
 
 const AVATAR_GRADIENTS = [
-  'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-  'linear-gradient(135deg, #10b981, #14b8a6)',
-  'linear-gradient(135deg, #f97316, #ef4444)',
-  'linear-gradient(135deg, #ec4899, #f43f5e)',
-  'linear-gradient(135deg, #8b5cf6, #6366f1)',
-  'linear-gradient(135deg, #06b6d4, #3b82f6)',
-  'linear-gradient(135deg, #f59e0b, #f97316)',
-  'linear-gradient(135deg, #d946ef, #8b5cf6)',
-  'linear-gradient(135deg, #14b8a6, #06b6d4)',
-  'linear-gradient(135deg, #f43f5e, #ec4899)',
-  'linear-gradient(135deg, #6366f1, #2563eb)',
-  'linear-gradient(135deg, #84cc16, #22c55e)',
+  'linear-gradient(135deg, #14b8a6, #2dd4bf)',  // Teal
+  'linear-gradient(135deg, #f59e0b, #fbbf24)',  // Amber
+  'linear-gradient(135deg, #22c55e, #4ade80)',  // Green
+  'linear-gradient(135deg, #ef4444, #f87171)',  // Red
+  'linear-gradient(135deg, #3b82f6, #60a5fa)',  // Blue
+  'linear-gradient(135deg, #0d9488, #14b8a6)',  // Deep teal
+  'linear-gradient(135deg, #eab308, #facc15)',  // Gold
+  'linear-gradient(135deg, #0f766e, #0d9488)',  // Dark teal
+  'linear-gradient(135deg, #22c55e, #14b8a6)',  // Green-teal
+  'linear-gradient(135deg, #f59e0b, #ef4444)',  // Amber-red
+  'linear-gradient(135deg, #3b82f6, #14b8a6)',  // Blue-teal
+  'linear-gradient(135deg, #4ade80, #22c55e)',  // Light green
 ];
 
 export { AVATAR_GRADIENTS };
@@ -51,7 +57,7 @@ export const AuthProvider = ({ children }) => {
         // signInWithRedirect and cleared here once the result is processed.
         const isReturningFromRedirect = (() => {
             try { return sessionStorage.getItem('apex.auth.pendingRedirect') === 'true'; }
-            catch { return false; }
+            catch (e) { errorLogger.debug('sessionStorage read failed', { error: e?.message }); return false; }
         })();
 
         if (isReturningFromRedirect) {
@@ -64,7 +70,7 @@ export const AuthProvider = ({ children }) => {
             if (!redirectChecked) {
                 console.warn("⚠️ Auth initialization timeout - forcing loading complete");
                 redirectChecked = true;
-                try { sessionStorage.removeItem('apex.auth.pendingRedirect'); } catch {}
+                try { sessionStorage.removeItem('apex.auth.pendingRedirect'); } catch (e) { errorLogger.debug('sessionStorage write failed', { error: e?.message }); }
                 if (lastAuthUser === null || lastAuthUser === undefined) {
                     setUser(null);
                     setLoading(false);
@@ -96,7 +102,7 @@ export const AuthProvider = ({ children }) => {
                 console.error("❌ Redirect result error:", error.code, error.message);
             } finally {
                 redirectChecked = true;
-                try { sessionStorage.removeItem('apex.auth.pendingRedirect'); } catch {}
+                try { sessionStorage.removeItem('apex.auth.pendingRedirect'); } catch (e) { errorLogger.debug('sessionStorage write failed', { error: e?.message }); }
 
                 // If getRedirectResult returned a user, onAuthStateChanged WILL
                 // fire with that user imminently — do NOT set loading=false here
@@ -234,7 +240,7 @@ export const AuthProvider = ({ children }) => {
                 try {
                     // Set a flag so the page that loads after the redirect
                     // knows to wait for the auth result before giving up.
-                    try { sessionStorage.setItem('apex.auth.pendingRedirect', 'true'); } catch {}
+                    try { sessionStorage.setItem('apex.auth.pendingRedirect', 'true'); } catch (e) { errorLogger.debug('sessionStorage write failed', { error: e?.message }); }
                     await signInWithRedirect(auth, provider);
                     return null; // Page will redirect
                 } catch (redirectError) {
@@ -282,15 +288,60 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    const value = { 
-        user, 
-        loading, 
+    const resetPassword = async (email) => {
+        try {
+            await sendPasswordResetEmail(auth, email);
+        } catch (error) {
+            console.error("❌ Password reset error:", error);
+            throw new Error(getFirebaseErrorMessage(error));
+        }
+    };
+
+    const reauthenticate = async (currentPassword) => {
+        const firebaseUser = auth.currentUser;
+        if (!firebaseUser || !firebaseUser.email) {
+            throw new Error("No authenticated user found. Please sign in again.");
+        }
+        const credential = EmailAuthProvider.credential(firebaseUser.email, currentPassword);
+        await reauthenticateWithCredential(firebaseUser, credential);
+    };
+
+    const changePassword = async (currentPassword, newPassword) => {
+        try {
+            await reauthenticate(currentPassword);
+            await firebaseUpdatePassword(auth.currentUser, newPassword);
+        } catch (error) {
+            console.error("❌ Change password error:", error);
+            throw new Error(getFirebaseErrorMessage(error));
+        }
+    };
+
+    const changeEmail = async (currentPassword, newEmail) => {
+        try {
+            await reauthenticate(currentPassword);
+            await firebaseUpdateEmail(auth.currentUser, newEmail);
+            // Update Firestore user doc too
+            const userRef = doc(db, "users", auth.currentUser.uid);
+            await updateDoc(userRef, { email: newEmail });
+            setUser(prev => ({ ...prev, email: newEmail }));
+        } catch (error) {
+            console.error("❌ Change email error:", error);
+            throw new Error(getFirebaseErrorMessage(error));
+        }
+    };
+
+    const value = {
+        user,
+        loading,
         connectionError,
-        logout, 
-        updateUserProfile, 
-        signInWithGoogle, 
-        signUpWithEmail, 
-        signInWithEmail 
+        logout,
+        updateUserProfile,
+        signInWithGoogle,
+        signUpWithEmail,
+        signInWithEmail,
+        resetPassword,
+        changePassword,
+        changeEmail
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

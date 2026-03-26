@@ -6,9 +6,10 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Loader, CheckCircle, XCircle } from 'lucide-react';
-import { schoologyAPI } from '../../services/schoologyAPI';
-import { assignmentSync } from '../../services/assignmentSync';
+// import { schoologyAPI } from '../../services/schoologyAPI';
+// import { assignmentSync } from '../../services/assignmentSync';
 import { Card, CardContent, Button } from '../ui/UIComponents';
+import { createPageUrl } from '../../utils/helpers';
 
 export function SchoologyCallback() {
   const [searchParams] = useSearchParams();
@@ -39,37 +40,17 @@ export function SchoologyCallback() {
           throw new Error('User session not found');
         }
 
-        setMessage('Exchanging OAuth tokens...');
-
-        // In a production environment, you would:
-        // 1. Send the oauth_token and oauth_verifier to your backend
-        // 2. Exchange them for access tokens using Schoology's API
-        // 3. Store the tokens securely
-
-        // For demo purposes, we'll simulate successful token exchange
-        const accessToken = `access_${oauthToken}_${Date.now()}`;
-        const accessTokenSecret = `secret_${oauthVerifier}_${Date.now()}`;
-
-        // Store the tokens
-        await schoologyAPI.handleOAuthCallback(userId, accessToken, accessTokenSecret);
-
-        setMessage('Schoology connected successfully! Performing initial sync...');
-
-        // Perform initial sync
-        const syncResult = await assignmentSync.manualSync(userId, {
-          daysBack: 7,
-          includeCompleted: false
-        });
+        // Schoology OAuth token exchange requires a backend server for security.
+        // Client-only apps cannot safely complete the OAuth handshake.
+        setStatus('error');
+        setMessage('Schoology integration requires a backend server for secure OAuth token exchange. This feature is not yet available in the client-only version.');
 
         // Clean up session storage
         sessionStorage.removeItem('schoology_oauth_user');
 
-        setStatus('success');
-        setMessage(`Successfully connected and synced ${syncResult.syncedCount} assignments!`);
-
         // Redirect to settings after 3 seconds
         setTimeout(() => {
-          navigate('/settings', { replace: true });
+          navigate(createPageUrl('Settings'), { replace: true });
         }, 3000);
 
       } catch (error) {
@@ -86,37 +67,37 @@ export function SchoologyCallback() {
   }, [searchParams, navigate]);
 
   const handleRetry = () => {
-    navigate('/settings', { replace: true });
+    navigate(createPageUrl('Settings'), { replace: true });
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md bg-slate-800/60 border-slate-700">
+    <div className="min-h-screen bg-base-950 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md bg-base-850 border-border">
         <CardContent className="p-6 text-center">
           <div className="mb-6">
             {status === 'processing' && (
-              <Loader className="w-12 h-12 animate-spin text-blue-400 mx-auto" />
+              <Loader className="w-12 h-12 animate-spin text-content-muted mx-auto" />
             )}
             {status === 'success' && (
-              <CheckCircle className="w-12 h-12 text-green-400 mx-auto" />
+              <CheckCircle className="w-12 h-12 text-success-400 mx-auto" />
             )}
             {status === 'error' && (
-              <XCircle className="w-12 h-12 text-red-400 mx-auto" />
+              <XCircle className="w-12 h-12 text-error-400 mx-auto" />
             )}
           </div>
 
-          <h2 className="text-xl font-semibold text-slate-100 mb-4">
+          <h2 className="text-xl font-semibold text-content-primary mb-4">
             {status === 'processing' && 'Connecting to Schoology'}
             {status === 'success' && 'Connection Successful!'}
             {status === 'error' && 'Connection Failed'}
           </h2>
 
-          <p className="text-slate-300 mb-6">
+          <p className="text-content-secondary mb-6">
             {message}
           </p>
 
           {status === 'success' && (
-            <div className="text-sm text-slate-400 mb-4">
+            <div className="text-sm text-content-muted mb-4">
               Redirecting to settings in a few seconds...
             </div>
           )}
@@ -125,18 +106,18 @@ export function SchoologyCallback() {
             <div className="space-y-3">
               <Button 
                 onClick={handleRetry}
-                className="w-full bg-blue-600 hover:bg-blue-700"
+                className="w-full bg-content-primary hover:bg-content-primary text-base-950"
               >
                 Return to Settings
               </Button>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-content-muted">
                 You can try connecting again from the Settings page.
               </p>
             </div>
           )}
 
           {status === 'processing' && (
-            <div className="text-sm text-slate-400">
+            <div className="text-sm text-content-muted">
               This may take a few moments...
             </div>
           )}

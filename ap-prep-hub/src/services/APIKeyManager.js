@@ -56,7 +56,9 @@ class APIKeyManager {
    */
   getCurrentUrl() {
     const key = this.apiKeys[this.currentKeyIndex];
-    return `https://generativelanguage.googleapis.com/v1/models/${this.defaultModel}:generateContent?key=${key}`;
+    // gemini-2.5-* models require v1beta endpoint
+    const apiVersion = this.defaultModel.startsWith('gemini-2.5') ? 'v1beta' : 'v1';
+    return `https://generativelanguage.googleapis.com/${apiVersion}/models/${this.defaultModel}:generateContent?key=${key}`;
   }
 
   /**
@@ -65,7 +67,8 @@ class APIKeyManager {
   getGenerateContentUrl(modelName) {
     const key = this.apiKeys[this.currentKeyIndex];
     const model = (modelName || this.defaultModel).replace(/^models\//, '');
-    return `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${key}`;
+    const apiVersion = model.startsWith('gemini-2.5') ? 'v1beta' : 'v1';
+    return `https://generativelanguage.googleapis.com/${apiVersion}/models/${model}:generateContent?key=${key}`;
   }
 
   /**
