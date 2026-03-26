@@ -6,8 +6,8 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Loader, CheckCircle, XCircle } from 'lucide-react';
-import { schoologyAPI } from '../../services/schoologyAPI';
-import { assignmentSync } from '../../services/assignmentSync';
+// import { schoologyAPI } from '../../services/schoologyAPI';
+// import { assignmentSync } from '../../services/assignmentSync';
 import { Card, CardContent, Button } from '../ui/UIComponents';
 import { createPageUrl } from '../../utils/helpers';
 

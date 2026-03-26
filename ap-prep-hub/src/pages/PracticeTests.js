@@ -971,7 +971,7 @@ Format as JSON:
     }
 
     return () => clearInterval(timerRef.current);
-  }, [testStarted, testPaused]); // Timer only starts/stops based on test state; time-up is handled by separate effect
+  }, [testStarted, testPaused, timeRemaining]); // Timer only starts/stops based on test state; time-up is handled by separate effect
 
   // Separate effect for time-up detection (avoids side effects inside state updater)
   useEffect(() => {

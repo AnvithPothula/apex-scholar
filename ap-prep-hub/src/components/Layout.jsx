@@ -20,7 +20,7 @@ export function Layout({ children }) {
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [showReviewModal, setShowReviewModal] = useState(false);
     const [showDevSettings, setShowDevSettings] = useState(false);
-    const { theme, toggleTheme, isDark } = useTheme();
+    const { toggleTheme, isDark } = useTheme();
     const isActiveTab = (pageName) => location.pathname.startsWith(createPageUrl(pageName));
 
     return (

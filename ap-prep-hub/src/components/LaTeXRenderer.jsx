@@ -74,6 +74,9 @@ const LaTeXRenderer = ({ content, inline = false }) => {
     return /\$\$[\s\S]*?\$\$|\$[^$\n]*?\$/.test(text);
   }, []);
 
+  // Pre-process content to wrap bare LaTeX commands in $...$
+  const processed = useMemo(() => preprocessContent(content), [content]);
+
   // Load KaTeX when component mounts and content has LaTeX
   useEffect(() => {
     if (!processed || !hasLatex(processed) || katexLoaded) return;
@@ -82,9 +85,6 @@ const LaTeXRenderer = ({ content, inline = false }) => {
       .then(() => setKatexLoaded(true))
       .catch((error) => setLoadError(error));
   }, [processed, hasLatex, katexLoaded]);
-
-  // Pre-process content to wrap bare LaTeX commands in $...$
-  const processed = useMemo(() => preprocessContent(content), [content]);
 
   if (!processed) return null;
 
