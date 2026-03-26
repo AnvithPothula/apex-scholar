@@ -394,7 +394,7 @@ const DiagnosticTypes = () => {
                   Take Another Diagnostic
                 </Button>
                 <Button
-                  onClick={() => navigate('/practice-tests')}
+                  onClick={() => navigate('/PracticeTests')}
                 >
                   Start Practice Tests
                 </Button>
@@ -825,7 +825,7 @@ const DiagnosticTypes = () => {
                 get personalized study recommendations, and access detailed analytics.
               </p>
               <Button
-                onClick={() => navigate('/auth')}
+                onClick={() => navigate('/login')}
                 className="bg-content-primary hover:bg-content-primary px-8 py-3 text-lg"
               >
                 Get Started Free

@@ -1491,7 +1491,7 @@ const Learn = () => {
       setSelectedUnit(null);
     } else {
       // Navigate to flashcards for subjects without curriculum
-      navigate('/flashcards');
+      navigate('/Flashcards');
     }
   };
 
@@ -1612,21 +1612,21 @@ const Learn = () => {
                 <h2 className="text-xl font-semibold text-content-primary mb-4">Study This Topic</h2>
                 <div className="grid md:grid-cols-3 gap-4">
                   <Button 
-                    onClick={() => navigate('/flashcards')}
+                    onClick={() => navigate('/Flashcards')}
                     className="flex items-center justify-center gap-2 bg-success-600 hover:bg-success-700"
                   >
                     <Zap className="w-4 h-4" />
                     Create Flashcards
                   </Button>
                   <Button 
-                    onClick={() => navigate('/solver')}
+                    onClick={() => navigate('/Solver')}
                     className="flex items-center justify-center gap-2"
                   >
                     <Target className="w-4 h-4" />
                     Practice Problems
                   </Button>
                   <Button 
-                    onClick={() => navigate('/ai-tutors')}
+                    onClick={() => navigate('/AITutors')}
                     className="flex items-center justify-center gap-2"
                   >
                     <BookOpen className="w-4 h-4" />
@@ -1650,21 +1650,21 @@ const Learn = () => {
                 </p>
                 <div className="grid md:grid-cols-3 gap-4">
                   <Button 
-                    onClick={() => navigate('/flashcards')}
+                    onClick={() => navigate('/Flashcards')}
                     className="flex items-center justify-center gap-2 bg-success-600 hover:bg-success-700"
                   >
                     <Zap className="w-4 h-4" />
                     Create Flashcards
                   </Button>
                   <Button 
-                    onClick={() => navigate('/solver')}
+                    onClick={() => navigate('/Solver')}
                     className="flex items-center justify-center gap-2"
                   >
                     <Target className="w-4 h-4" />
                     Practice Problems
                   </Button>
                   <Button 
-                    onClick={() => navigate('/ai-tutors')}
+                    onClick={() => navigate('/AITutors')}
                     className="flex items-center justify-center gap-2"
                   >
                     <BookOpen className="w-4 h-4" />
@@ -1750,7 +1750,7 @@ const Learn = () => {
             <h2 className="text-xl font-semibold text-content-primary mb-4">Study This Unit</h2>
             <div className="grid md:grid-cols-3 gap-4">
               <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
-                    onClick={() => navigate('/flashcards')}>
+                    onClick={() => navigate('/Flashcards')}>
                 <div className="flex items-center gap-3 mb-3">
                   <div className="p-2 bg-success-500/20 rounded-lg group-hover:bg-success-500/30 transition-colors">
                     <Zap className="w-5 h-5 text-success-400" />
@@ -1763,7 +1763,7 @@ const Learn = () => {
               </Card>
 
               <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
-                    onClick={() => navigate('/flashcards')}>
+                    onClick={() => navigate('/Flashcards')}>
                 <div className="flex items-center gap-3 mb-3">
                   <div className="p-2 bg-success-500/20 rounded-lg group-hover:bg-success-500/30 transition-colors">
                     <Zap className="w-5 h-5 text-success-400" />
@@ -1776,7 +1776,7 @@ const Learn = () => {
               </Card>
 
               <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
-                    onClick={() => navigate('/solver')}>
+                    onClick={() => navigate('/Solver')}>
                 <div className="flex items-center gap-3 mb-3">
                   <div className="p-2 bg-base-800 rounded-lg group-hover:bg-base-750 transition-colors">
                     <Target className="w-5 h-5 text-content-secondary" />
@@ -1838,7 +1838,7 @@ const Learn = () => {
           >
             <div className="grid md:grid-cols-4 gap-4">
               <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
-                    onClick={() => navigate('/flashcards')}>
+                    onClick={() => navigate('/Flashcards')}>
                 <div className="flex items-center gap-3 mb-3">
                   <div className="p-2 bg-success-500/20 rounded-lg group-hover:bg-success-500/30 transition-colors">
                     <Zap className="w-5 h-5 text-success-400" />
@@ -1851,7 +1851,7 @@ const Learn = () => {
               </Card>
 
               <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
-                    onClick={() => navigate('/flashcards')}>
+                    onClick={() => navigate('/Flashcards')}>
                 <div className="flex items-center gap-3 mb-3">
                   <div className="p-2 bg-success-500/20 rounded-lg group-hover:bg-success-500/30 transition-colors">
                     <Zap className="w-5 h-5 text-success-400" />
@@ -1864,7 +1864,7 @@ const Learn = () => {
               </Card>
 
               <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
-                    onClick={() => navigate('/solver')}>
+                    onClick={() => navigate('/Solver')}>
                 <div className="flex items-center gap-3 mb-3">
                   <div className="p-2 bg-base-800 rounded-lg group-hover:bg-base-750 transition-colors">
                     <Target className="w-5 h-5 text-content-secondary" />
@@ -1877,7 +1877,7 @@ const Learn = () => {
               </Card>
 
               <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
-                    onClick={() => navigate('/progress')}>
+                    onClick={() => navigate('/SmartScheduler')}>
                 <div className="flex items-center gap-3 mb-3">
                   <div className="p-2 bg-warning-500/20 rounded-lg group-hover:bg-warning-500/30 transition-colors">
                     <TrendingUp className="w-5 h-5 text-warning-400" />
@@ -2078,7 +2078,7 @@ const Learn = () => {
         >
           <div className="grid md:grid-cols-4 gap-4">
             <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
-                  onClick={() => navigate('/flashcards')}>
+                  onClick={() => navigate('/Flashcards')}>
               <div className="flex items-center gap-3 mb-3">
                 <div className="p-2 bg-success-500/20 rounded-lg group-hover:bg-success-500/30 transition-colors">
                   <Zap className="w-5 h-5 text-success-400" />
@@ -2094,7 +2094,7 @@ const Learn = () => {
             </Card>
 
             <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
-                  onClick={() => navigate('/practice-tests')}>
+                  onClick={() => navigate('/PracticeTests')}>
               <div className="flex items-center gap-3 mb-3">
                 <div className="p-2 bg-base-800 rounded-lg group-hover:bg-base-750 transition-colors">
                   <FileText className="w-5 h-5 text-content-secondary" />
@@ -2110,7 +2110,7 @@ const Learn = () => {
             </Card>
 
             <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
-                  onClick={() => navigate('/flashcards')}>
+                  onClick={() => navigate('/Flashcards')}>
               <div className="flex items-center gap-3 mb-3">
                 <div className="p-2 bg-success-500/20 rounded-lg group-hover:bg-success-500/30 transition-colors">
                   <Zap className="w-5 h-5 text-success-400" />
@@ -2126,7 +2126,7 @@ const Learn = () => {
             </Card>
 
             <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
-                  onClick={() => navigate('/progress')}>
+                  onClick={() => navigate('/SmartScheduler')}>
               <div className="flex items-center gap-3 mb-3">
                 <div className="p-2 bg-warning-500/20 rounded-lg group-hover:bg-warning-500/30 transition-colors">
                   <TrendingUp className="w-5 h-5 text-warning-400" />
@@ -2201,7 +2201,7 @@ const Learn = () => {
                       variant="outline"
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate('/flashcards');
+                        navigate('/Flashcards');
                       }}
                       className="flex-1 hover:bg-base-800"
                     >
@@ -2252,7 +2252,7 @@ const Learn = () => {
                 and get personalized study recommendations powered by AI.
               </p>
               <Button
-                onClick={() => navigate('/auth')}
+                onClick={() => navigate('/login')}
                 className="px-8 py-3 text-lg"
               >
                 Get Started Free

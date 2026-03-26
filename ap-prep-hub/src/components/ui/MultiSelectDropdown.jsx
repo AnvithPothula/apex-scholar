@@ -96,7 +96,7 @@ export default function MultiSelectDropdown({ options = [], selected = [], onCha
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search subjects..."
-              className="w-full px-2 py-1.5 bg-base-800 border border-border-strong rounded text-sm text-content-primary placeholder-content-muted focus:outline-none focus:border-content-muted"
+              className="w-full px-2 py-1.5 bg-base-800 border border-border-strong rounded text-sm text-content-primary placeholder:text-content-muted focus:outline-none focus:border-content-muted"
             />
           </div>
           <ul className="max-h-52 overflow-y-auto py-1" role="listbox">

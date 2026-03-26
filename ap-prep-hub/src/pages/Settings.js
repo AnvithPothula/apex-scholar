@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth, AVATAR_GRADIENTS } from '../contexts/AuthContext';
+import { auth } from '../config/firebase';
 import { getAvailableSubjects, getCurriculumData } from '../constants/comprehensiveCurriculum';
 import { setUserTimezonePreference } from '../utils/timezone';
 import BlackoutScheduleManager from '../components/settings/BlackoutScheduleManager';
@@ -14,7 +15,7 @@ import HelpTooltip from '../components/ui/HelpTooltip';
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 
 const Settings = () => {
-  const { user, updateUserProfile } = useAuth();
+  const { user, updateUserProfile, changePassword, changeEmail } = useAuth();
 
   // Define default study preferences
   const getDefaultStudyPreferences = () => ({
@@ -73,6 +74,17 @@ const Settings = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  // Account security state
+  const [accountForm, setAccountForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+    newEmail: '',
+  });
+  const [accountMessage, setAccountMessage] = useState({ text: '', type: '' });
+  const [accountLoading, setAccountLoading] = useState(false);
+  const hasPasswordProvider = auth.currentUser?.providerData?.some(p => p.providerId === 'password');
+  const isGoogleOnly = auth.currentUser?.providerData?.every(p => p.providerId === 'google.com');
   const [isInitialized, setIsInitialized] = useState(false); // Track if initial load is complete
   const saveTimeoutRef = useRef(null); // For debouncing auto-save
   const AUTO_SAVE_DELAY = 1000; // 1 second debounce
@@ -477,7 +489,7 @@ const Settings = () => {
                     onChange={(e) => setAiPersonalization(prev => ({ ...prev, customInstructions: e.target.value.substring(0, 500) }))}
                     rows={3}
                     maxLength={500}
-                    className="w-full bg-base-800 border border-border-strong rounded-sm px-3 py-2 text-sm text-content-primary placeholder-content-muted focus:outline-none focus:ring-2 focus:ring-content-muted focus:border-transparent resize-none"
+                    className="w-full bg-base-800 border border-border-strong rounded-sm px-3 py-2 text-sm text-content-primary placeholder:text-content-muted focus:outline-none focus:ring-2 focus:ring-content-muted focus:border-transparent resize-none"
                   />
                   <p className="text-xs text-content-muted mt-1">{aiPersonalization.customInstructions.length}/500 characters</p>
                 </div>
@@ -783,6 +795,153 @@ const Settings = () => {
                 Use the quick add templates below to easily add common time blocks like sleep time, school hours, or work hours.
               </p>
               <BlackoutScheduleManager blackoutDates={blackoutDates} setBlackoutDates={setBlackoutDates} />
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Account Security */}
+        <div className="mt-6 sm:mt-8">
+          <Card className="bg-base-850 border-border">
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="text-content-primary text-lg sm:text-xl">Account Security</CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 sm:p-6 pt-0">
+              {accountMessage.text && (
+                <div className={`p-3 rounded-md mb-4 border ${
+                  accountMessage.type === 'success'
+                    ? 'bg-success-900 border-success-500/30 text-success-400'
+                    : 'bg-error-900 border-error-500/30 text-error-400'
+                }`}>
+                  <p className="text-sm">{accountMessage.text}</p>
+                </div>
+              )}
+
+              {isGoogleOnly ? (
+                <div className="bg-base-800/30 p-4 rounded-lg">
+                  <p className="text-sm text-content-secondary mb-1">
+                    Signed in with <span className="font-medium text-content-primary">Google</span>
+                  </p>
+                  <p className="text-xs text-content-muted">
+                    Your password and email are managed by your Google account. To change them, visit your{' '}
+                    <a href="https://myaccount.google.com/security" target="_blank" rel="noopener noreferrer"
+                      className="text-content-muted underline hover:text-content-primary transition-colors">
+                      Google Account settings
+                    </a>.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Change Password */}
+                  {hasPasswordProvider && (
+                    <div className="bg-base-800/30 p-4 rounded-lg">
+                      <h3 className="text-md font-semibold text-content-primary mb-3">Change Password</h3>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-sm text-content-secondary mb-1 block">Current Password</label>
+                          <Input
+                            type="password"
+                            value={accountForm.currentPassword}
+                            onChange={(e) => setAccountForm(prev => ({ ...prev, currentPassword: e.target.value }))}
+                            placeholder="Enter current password"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm text-content-secondary mb-1 block">New Password</label>
+                          <Input
+                            type="password"
+                            value={accountForm.newPassword}
+                            onChange={(e) => setAccountForm(prev => ({ ...prev, newPassword: e.target.value }))}
+                            placeholder="Enter new password (min 6 characters)"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm text-content-secondary mb-1 block">Confirm New Password</label>
+                          <Input
+                            type="password"
+                            value={accountForm.confirmPassword}
+                            onChange={(e) => setAccountForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                            placeholder="Confirm new password"
+                          />
+                        </div>
+                        <Button
+                          variant="outline"
+                          disabled={accountLoading || !accountForm.currentPassword || !accountForm.newPassword}
+                          onClick={async () => {
+                            if (accountForm.newPassword.length < 6) {
+                              setAccountMessage({ text: 'Password must be at least 6 characters.', type: 'error' });
+                              return;
+                            }
+                            if (accountForm.newPassword !== accountForm.confirmPassword) {
+                              setAccountMessage({ text: 'New passwords do not match.', type: 'error' });
+                              return;
+                            }
+                            setAccountLoading(true);
+                            setAccountMessage({ text: '', type: '' });
+                            try {
+                              await changePassword(accountForm.currentPassword, accountForm.newPassword);
+                              setAccountMessage({ text: 'Password changed successfully.', type: 'success' });
+                              setAccountForm(prev => ({ ...prev, currentPassword: '', newPassword: '', confirmPassword: '' }));
+                            } catch (err) {
+                              setAccountMessage({ text: err.message, type: 'error' });
+                            } finally {
+                              setAccountLoading(false);
+                            }
+                          }}
+                        >
+                          {accountLoading ? 'Updating...' : 'Update Password'}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Change Email */}
+                  {hasPasswordProvider && (
+                    <div className="bg-base-800/30 p-4 rounded-lg">
+                      <h3 className="text-md font-semibold text-content-primary mb-3">Change Email</h3>
+                      <p className="text-xs text-content-muted mb-3">Current email: {user?.email}</p>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-sm text-content-secondary mb-1 block">Current Password</label>
+                          <Input
+                            type="password"
+                            value={accountForm.currentPassword}
+                            onChange={(e) => setAccountForm(prev => ({ ...prev, currentPassword: e.target.value }))}
+                            placeholder="Enter current password"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm text-content-secondary mb-1 block">New Email</label>
+                          <Input
+                            type="email"
+                            value={accountForm.newEmail}
+                            onChange={(e) => setAccountForm(prev => ({ ...prev, newEmail: e.target.value }))}
+                            placeholder="Enter new email address"
+                          />
+                        </div>
+                        <Button
+                          variant="outline"
+                          disabled={accountLoading || !accountForm.currentPassword || !accountForm.newEmail}
+                          onClick={async () => {
+                            setAccountLoading(true);
+                            setAccountMessage({ text: '', type: '' });
+                            try {
+                              await changeEmail(accountForm.currentPassword, accountForm.newEmail);
+                              setAccountMessage({ text: 'Email updated successfully.', type: 'success' });
+                              setAccountForm(prev => ({ ...prev, currentPassword: '', newEmail: '' }));
+                            } catch (err) {
+                              setAccountMessage({ text: err.message, type: 'error' });
+                            } finally {
+                              setAccountLoading(false);
+                            }
+                          }}
+                        >
+                          {accountLoading ? 'Updating...' : 'Update Email'}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

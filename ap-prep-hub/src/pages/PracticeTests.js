@@ -4645,7 +4645,7 @@ Provide a clear, educational response that helps the student understand why ${co
                             currentQuestion?.type === 'leq' ? 'Develop an argument with a clear thesis statement...' :
                             'Write your response here...'
                           }
-                          className={`w-full bg-base-800 border border-border-strong rounded-lg text-content-primary placeholder-content-muted focus:border-content-muted focus:ring-2 focus:ring-content-muted resize-none ${
+                          className={`w-full bg-base-800 border border-border-strong rounded-lg text-content-primary placeholder:text-content-muted focus:border-content-muted focus:ring-2 focus:ring-content-muted resize-none ${
                             isMobile ? 'h-48 p-3 text-sm' : 'h-64 p-4'
                           }`}
                           style={{ minHeight: isMobile ? '12rem' : '16rem' }}

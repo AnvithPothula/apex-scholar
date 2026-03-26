@@ -54,9 +54,9 @@ const WeekViewTask = ({ task, onTaskClick }) => {
             onClick={(e) => { e.stopPropagation(); onTaskClick(task); }}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onTaskClick(task); } }}
         >
-            <div data-filename="pages/ViewCode" data-linenumber="1065" data-visual-selector-id="pages/ViewCode1065" className="flex flex-col h-full justify-between">
-                <span data-filename="pages/ViewCode" data-linenumber="1066" data-visual-selector-id="pages/ViewCode1066" className="font-bold text-content-primary leading-tight">{task.name}</span>
-                <span data-filename="pages/ViewCode" data-linenumber="1067" data-visual-selector-id="pages/ViewCode1067" className="text-content-secondary">{task.subject}</span>
+            <div className="flex flex-col h-full justify-between">
+                <span className="font-bold text-content-primary leading-tight">{task.name}</span>
+                <span className="text-content-secondary">{task.subject}</span>
             </div>
         </div>
     );
@@ -134,18 +134,18 @@ export default function CalendarGrid({
     const timeSlots = Array.from({ length: 24 }, (_, i) => i);
 
     return (
-      <div data-filename="pages/ViewCode" data-linenumber="1091" data-visual-selector-id="pages/ViewCode1091" className="overflow-x-auto h-full">
-        <div data-filename="pages/ViewCode" data-linenumber="1092" data-visual-selector-id="pages/ViewCode1092" className="grid grid-cols-[auto_repeat(7,minmax(150px,1fr))] min-w-[1200px] h-full">
+      <div className="overflow-x-auto h-full">
+        <div className="grid grid-cols-[auto_repeat(7,minmax(150px,1fr))] min-w-[1200px] h-full">
           {/* Top-left empty cell */}
-          <div data-filename="pages/ViewCode" data-linenumber="1094" data-visual-selector-id="pages/ViewCode1094" className="sticky left-0 top-0 z-30 bg-base-900 border-b border-r border-border-subtle p-2"></div>
+          <div className="sticky left-0 top-0 z-30 bg-base-900 border-b border-r border-border-subtle p-2"></div>
           {/* Days Header */}
           {days.map((d) => {
             const exam = getExamForDate(d);
             const reviewItems = getReviewItemsForDate(d);
             
             return (
-              <div data-filename="pages/ViewCode" data-linenumber="1097" data-visual-selector-id="pages/ViewCode1097" key={d.toISOString()} className="p-4 text-center border-b border-border-subtle bg-base-900 sticky top-0 z-20">
-                <div data-filename="pages/ViewCode" data-linenumber="1098" data-visual-selector-id="pages/ViewCode1098" className="font-semibold text-content-primary flex items-center justify-center gap-2">
+              <div key={d.toISOString()} className="p-4 text-center border-b border-border-subtle bg-base-900 sticky top-0 z-20">
+                <div className="font-semibold text-content-primary flex items-center justify-center gap-2">
                   {format(d, "EEE")}
                   {exam && <div className="w-2 h-2 bg-error-500 rounded-full animate-pulse" title={`AP Exam: ${exam.subject}`}></div>}
                 </div>
@@ -171,9 +171,9 @@ export default function CalendarGrid({
             );
           })}
           {/* Time column */}
-          <div data-filename="pages/ViewCode" data-linenumber="1109" data-visual-selector-id="pages/ViewCode1109" className="sticky left-0 z-20 bg-base-900 border-r border-border-subtle">
+          <div className="sticky left-0 z-20 bg-base-900 border-r border-border-subtle">
             {timeSlots.map((hour) => (
-              <div data-filename="pages/ViewCode" data-linenumber="1111" data-visual-selector-id="pages/ViewCode1111" key={hour} className="h-16 p-2 text-xs text-content-muted border-b border-border-subtle text-right flex items-center justify-end">
+              <div key={hour} className="h-16 p-2 text-xs text-content-muted border-b border-border-subtle text-right flex items-center justify-end">
                 {format(new Date(2000, 0, 1, hour), "ha")}
               </div>
             ))}
@@ -240,7 +240,7 @@ export default function CalendarGrid({
                           ))}
                           
                           {getTasksForDate(day).map((task, index) => (
-                              <Draggable data-filename="pages/ViewCode" data-linenumber="1136" data-visual-selector-id="pages/ViewCode1136" key={task.id} draggableId={task.id} index={index}>
+                              <Draggable key={task.id} draggableId={task.id} index={index}>
                                   {(provided, snapshot) => (
                                       <div
                                           ref={provided.innerRef}
@@ -249,7 +249,7 @@ export default function CalendarGrid({
                                           style={{...provided.draggableProps.style}}
                                           onClick={() => onTaskClick(task)}
                                       >
-                                        <WeekViewTask data-filename="pages/ViewCode" data-linenumber="1145" data-visual-selector-id="pages/ViewCode1145" task={task} onTaskClick={onTaskClick} />
+                                        <WeekViewTask task={task} onTaskClick={onTaskClick} />
                                       </div>
                                   )}
                               </Draggable>
@@ -273,9 +273,9 @@ export default function CalendarGrid({
     const days = eachDayOfInterval({ start: startDate, end: endDate });
 
     return (
-      <div data-filename="pages/ViewCode" data-linenumber="1168" data-visual-selector-id="pages/ViewCode1168" className="grid grid-cols-7">
+      <div className="grid grid-cols-7">
         {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((dayName) => (
-          <div data-filename="pages/ViewCode" data-linenumber="1170" data-visual-selector-id="pages/ViewCode1170" key={dayName} className="p-2 text-center text-xs font-bold text-content-muted border-b border-r border-border-subtle">
+          <div key={dayName} className="p-2 text-center text-xs font-bold text-content-muted border-b border-r border-border-subtle">
             {dayName}
           </div>
         ))}
@@ -301,7 +301,7 @@ export default function CalendarGrid({
                 )}
               </div>
               
-              <div data-filename="pages/ViewCode" data-linenumber="1187" data-visual-selector-id="pages/ViewCode1187" className="space-y-1">
+              <div className="space-y-1">
                 {/* AP Exam Indicator */}
                 {exam && (
                   <motion.div

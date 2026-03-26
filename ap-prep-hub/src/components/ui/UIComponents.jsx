@@ -93,7 +93,7 @@ export const Input = forwardRef(({
         type={type}
         ref={ref}
         className={cn(
-          "w-full rounded-sm border border-border-strong bg-base-800 px-3 py-2.5 text-content-primary placeholder-content-muted transition-colors duration-150 focus:border-content-muted focus:outline-none focus:ring-1 focus:ring-content-muted/20 disabled:cursor-not-allowed disabled:opacity-50",
+          "w-full rounded-sm border border-border-strong bg-base-800 px-3 py-2.5 text-content-primary placeholder:text-content-muted transition-colors duration-150 focus:border-content-muted focus:outline-none focus:ring-1 focus:ring-content-muted/20 disabled:cursor-not-allowed disabled:opacity-50",
           Icon && "pl-12",
           multiline && "min-h-[100px] resize-y",
           className
@@ -340,7 +340,7 @@ export const Textarea = forwardRef(({ className, ...props }, ref) => {
     <textarea
       ref={ref}
       className={cn(
-        "flex min-h-[80px] w-full rounded-sm border border-border-strong bg-base-800 px-3 py-2 text-sm text-content-primary placeholder-content-muted transition-colors duration-150 focus:border-content-muted focus:outline-none focus:ring-1 focus:ring-content-muted/20 disabled:cursor-not-allowed disabled:opacity-50",
+        "flex min-h-[80px] w-full rounded-sm border border-border-strong bg-base-800 px-3 py-2 text-sm text-content-primary placeholder:text-content-muted transition-colors duration-150 focus:border-content-muted focus:outline-none focus:ring-1 focus:ring-content-muted/20 disabled:cursor-not-allowed disabled:opacity-50",
         className
       )}
       {...props}

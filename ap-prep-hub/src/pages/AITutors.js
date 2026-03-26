@@ -117,9 +117,15 @@ const AITutors = () => {
           ...doc.data(),
           timestamp: doc.data().timestamp?.toDate() || new Date()
         }));
-        
+
         console.log('Messages loaded for conversation', conversationId, ':', messagesList.length, 'messages');
         setMessages(messagesList);
+      }, (error) => {
+        if (error.code === 'permission-denied') {
+          errorLogger.debug('Messages listener detached (auth transition)', { error: error.message });
+        } else {
+          console.error('Error in messages listener:', error);
+        }
       });
 
       return unsubscribe;
@@ -258,22 +264,29 @@ const AITutors = () => {
           createdAt: doc.data().createdAt?.toDate() || new Date(),
           updatedAt: doc.data().updatedAt?.toDate() || new Date()
         }));
-        
+
         console.log('Loaded conversations for subject:', subject, 'Count:', conversationsList.length);
         setConversations(conversationsList);
-        
+
         // If conversations exist, open the most recent one
         if (conversationsList.length > 0) {
           console.log('Existing conversations found, opening the most recent one...');
           const mostRecentConversation = conversationsList[0];
           console.log('Opening most recent conversation:', mostRecentConversation.name);
-          
+
           // Always open the most recent conversation when switching subjects
           setActiveConversationId(mostRecentConversation.id);
         } else {
           // No conversations exist, create a new one
           console.log('No conversations found, creating new one...');
           await createFirstConversation(subject);
+        }
+      }, (error) => {
+        // Silently handle permission errors during auth transitions
+        if (error.code === 'permission-denied') {
+          errorLogger.debug('Conversations listener detached (auth transition)', { error: error.message });
+        } else {
+          console.error('Error in conversations listener:', error);
         }
       });
 
@@ -331,12 +344,19 @@ const AITutors = () => {
   // Initialize conversations when user or subject changes
   useEffect(() => {
     let unsubscribe = null;
+    let cancelled = false;
     if (user && selectedSubject) {
       loadConversations(user.uid, selectedSubject).then(unsub => {
-        unsubscribe = unsub;
+        if (cancelled) {
+          // Effect already cleaned up — tear down the new listener immediately
+          if (unsub) unsub();
+        } else {
+          unsubscribe = unsub;
+        }
       });
     }
     return () => {
+      cancelled = true;
       if (unsubscribe) unsubscribe();
     };
   }, [user, selectedSubject, loadConversations]);
@@ -724,6 +744,13 @@ const AITutors = () => {
       // Persist suggestions for welcome messages so they survive page reload
       if (Array.isArray(message.suggestions) && message.suggestions.length > 0) {
         messageData.suggestions = message.suggestions;
+      }
+      // Persist MCQ data so it survives page reload
+      if (message.responseType) {
+        messageData.responseType = message.responseType;
+      }
+      if (message.mcq) {
+        messageData.mcq = message.mcq;
       }
       
       console.log('Saving message to Firebase...', { conversationId, messageId: messageData.id });
@@ -1147,17 +1174,39 @@ ${curriculumData.examFormat ? `EXAM: ${curriculumData.examFormat.duration} — $
 RESPOND WITH ONLY A JSON OBJECT. Start your response with { and end with }. No greetings, no markdown, no code fences, no explanation.
 Example format:
 {"question": "What is X?", "choices": ["First option", "Second option", "Third option", "Fourth option"], "correctIndex": 2, "explanations": ["Why A is wrong", "Why B is wrong", "Why C is correct", "Why D is wrong"]}
-Rules: "choices" must have exactly 4 strings. "correctIndex" is 0-3. "explanations" has 4 strings. Randomize which choice is correct (do NOT always make index 0 correct).
+Rules: "choices" must have exactly 4 strings. "correctIndex" is 0-3. "explanations" has 4 strings matching each choice. Randomize which choice is correct (do NOT always make index 0 correct).
+Make the question AP exam-level difficulty. Include plausible distractors that test common misconceptions.
 YOUR ENTIRE RESPONSE MUST BE VALID JSON. NO OTHER TEXT.`
     : mode === 'Walkthrough'
-    ? `MODE: Step-by-step walkthrough with short steps and $LaTeX$ for math.`
+    ? `MODE: Step-by-step walkthrough.
+Break the solution into clear, numbered steps. Each step should:
+1. State what you're doing and why
+2. Show the work with $LaTeX$ for any math
+3. Be concise — one key action per step
+End with a brief summary of the approach and the final answer.
+Use $$display math$$ for important equations and $inline$ for references.`
     : mode === 'Summarize Attachment'
-    ? `MODE: Summarize the attached files first (key ideas, formulas, exam relevance), then answer the user's prompt.`
-    : `MODE: Clear explanation of the concept with examples and exam alignment.`;
+    ? `MODE: Summarize the attached files.
+First provide a structured summary:
+- **Key Ideas**: Main concepts covered
+- **Important Formulas/Facts**: Any equations, definitions, or key terms
+- **AP Exam Relevance**: How this material connects to exam topics and common question types
+Then answer the user's specific question if they asked one.`
+    : `MODE: Clear explanation.
+Explain the concept thoroughly with:
+1. A clear definition or description
+2. One or two concrete examples (use AP exam-style scenarios when possible)
+3. How this connects to the AP exam — what types of questions test this concept
+4. Common mistakes or misconceptions to avoid
+Use $LaTeX$ for any mathematical expressions.`;
 
   const critiqueDirective = checkMySteps
-    ? `Critique Mode ON: If the user shares steps, briefly check for correctness and point out specific fixes before providing the final answer.`
-    : `Critique Mode OFF.`;
+    ? `Critique Mode ON: The student wants you to check their work.
+1. Go through each step they provide and mark it as correct or incorrect
+2. For incorrect steps, explain the specific error and show the correct approach
+3. Point out any missing steps or logical gaps
+4. Give an overall assessment: is their approach valid? Would they earn full marks on the AP exam?`
+    : '';
 
   const citationsBlock = citations.length > 0
     ? `

@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { preprocessContent } from './MarkdownRenderer';
 
 // Lazy load KaTeX and react-katex only when needed
 let InlineMath = null;
@@ -75,18 +76,21 @@ const LaTeXRenderer = ({ content, inline = false }) => {
 
   // Load KaTeX when component mounts and content has LaTeX
   useEffect(() => {
-    if (!content || !hasLatex(content) || katexLoaded) return;
+    if (!processed || !hasLatex(processed) || katexLoaded) return;
 
     loadKaTeX()
       .then(() => setKatexLoaded(true))
       .catch((error) => setLoadError(error));
-  }, [content, hasLatex, katexLoaded]);
+  }, [processed, hasLatex, katexLoaded]);
 
-  if (!content) return null;
+  // Pre-process content to wrap bare LaTeX commands in $...$
+  const processed = useMemo(() => preprocessContent(content), [content]);
 
-  // If no LaTeX in content, still process basic markdown (bold/italic)
-  if (!hasLatex(content)) {
-    return inline ? <span>{processMarkdown(content)}</span> : <div>{processMarkdown(content)}</div>;
+  if (!processed) return null;
+
+  // If no LaTeX in content after preprocessing, still process basic markdown (bold/italic)
+  if (!hasLatex(processed)) {
+    return inline ? <span>{processMarkdown(processed)}</span> : <div>{processMarkdown(processed)}</div>;
   }
 
   // Show loading state while KaTeX loads
@@ -143,10 +147,10 @@ const LaTeXRenderer = ({ content, inline = false }) => {
   };
 
   if (inline) {
-    return <span className="latex-content">{processContent(content)}</span>;
+    return <span className="latex-content">{processContent(processed)}</span>;
   }
 
-  return <div className="latex-content">{processContent(content)}</div>;
+  return <div className="latex-content">{processContent(processed)}</div>;
 };
 
 export default LaTeXRenderer;

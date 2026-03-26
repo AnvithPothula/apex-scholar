@@ -284,7 +284,7 @@ export function SchoologyIntegration() {
                 value={calendarUrl}
                 onChange={(e) => setCalendarUrl(e.target.value)}
                 placeholder="webcal://yourschool.schoology.com/calendar/feed/ical/..."
-                className="flex-1 px-3 py-2 bg-base-800 border border-border rounded-md text-content-primary placeholder-content-muted focus:outline-none focus:ring-2 focus:ring-content-muted"
+                className="flex-1 px-3 py-2 bg-base-800 border border-border rounded-md text-content-primary placeholder:text-content-muted focus:outline-none focus:ring-2 focus:ring-content-muted"
               />
               <Button
                 onClick={handleSetCalendarUrl}

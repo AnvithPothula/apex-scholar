@@ -139,7 +139,7 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
               <select 
                 value={formData.type} 
                 onChange={(e) => setFormData({...formData, type: e.target.value})}
-                className="flex h-10 w-full rounded-sm border border-border-strong bg-base-800 px-3 py-2 text-sm text-content-primary placeholder-content-muted focus:border-content-muted focus:ring-1 focus:ring-content-muted/20 transition-colors duration-150"
+                className="flex h-10 w-full rounded-sm border border-border-strong bg-base-800 px-3 py-2 text-sm text-content-primary placeholder:text-content-muted focus:border-content-muted focus:ring-1 focus:ring-content-muted/20 transition-colors duration-150"
               >
                 <option value="homework">Homework</option>
                 <option value="test">Test Prep</option>
@@ -154,7 +154,7 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
               <select 
                 value={formData.difficulty} 
                 onChange={(e) => setFormData({...formData, difficulty: e.target.value})}
-                className="flex h-10 w-full rounded-sm border border-border-strong bg-base-800 px-3 py-2 text-sm text-content-primary placeholder-content-muted focus:border-content-muted focus:ring-1 focus:ring-content-muted/20 transition-colors duration-150"
+                className="flex h-10 w-full rounded-sm border border-border-strong bg-base-800 px-3 py-2 text-sm text-content-primary placeholder:text-content-muted focus:border-content-muted focus:ring-1 focus:ring-content-muted/20 transition-colors duration-150"
               >
                 <option value="Easy">Easy</option>
                 <option value="Medium">Medium</option>
@@ -188,7 +188,7 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
               <select 
                 value={formData.priority || 'medium'} 
                 onChange={(e) => setFormData({...formData, priority: e.target.value})}
-                className="flex h-10 w-full rounded-sm border border-border-strong bg-base-800 px-3 py-2 text-sm text-content-primary placeholder-content-muted focus:border-content-muted focus:ring-1 focus:ring-content-muted/20 transition-colors duration-150"
+                className="flex h-10 w-full rounded-sm border border-border-strong bg-base-800 px-3 py-2 text-sm text-content-primary placeholder:text-content-muted focus:border-content-muted focus:ring-1 focus:ring-content-muted/20 transition-colors duration-150"
               >
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>

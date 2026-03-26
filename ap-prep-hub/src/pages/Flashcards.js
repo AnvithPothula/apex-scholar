@@ -892,7 +892,7 @@ const FlashcardsPage = () => {
                             placeholder="Enter the answer..."
                             value={card.answer}
                             onChange={(e) => updateCard(index, 'answer', e.target.value)}
-                            className="w-full bg-base-800 border border-border-strong rounded-lg px-3 py-2 text-content-primary placeholder-content-muted focus:border-content-muted focus:outline-none transition-colors resize-none"
+                            className="w-full bg-base-800 border border-border-strong rounded-lg px-3 py-2 text-content-primary placeholder:text-content-muted focus:border-content-muted focus:outline-none transition-colors resize-none"
                             rows={3}
                           />
                         </div>
@@ -1041,7 +1041,7 @@ const FlashcardsPage = () => {
               <h3 className="text-xl font-bold text-content-secondary mb-2">Sign up to create flashcards</h3>
               <p className="text-content-muted mb-6">Create a free account to build your own custom flashcard decks with AI assistance.</p>
               <Button
-                onClick={() => navigate('/auth')}
+                onClick={() => navigate('/login')}
                 className="bg-content-primary text-base-950 hover:opacity-90"
               >
                 Create Account
@@ -1281,7 +1281,7 @@ const FlashcardsPage = () => {
                 <textarea
                   value={editingCard.question}
                   onChange={(e) => setEditingCard(prev => ({ ...prev, question: e.target.value }))}
-                  className="w-full bg-base-800 border border-border-strong rounded-lg px-3 py-2 text-content-primary placeholder-content-muted focus:border-content-muted focus:outline-none transition-colors resize-none"
+                  className="w-full bg-base-800 border border-border-strong rounded-lg px-3 py-2 text-content-primary placeholder:text-content-muted focus:border-content-muted focus:outline-none transition-colors resize-none"
                   rows={3}
                 />
               </div>
@@ -1290,7 +1290,7 @@ const FlashcardsPage = () => {
                 <textarea
                   value={editingCard.answer}
                   onChange={(e) => setEditingCard(prev => ({ ...prev, answer: e.target.value }))}
-                  className="w-full bg-base-800 border border-border-strong rounded-lg px-3 py-2 text-content-primary placeholder-content-muted focus:border-content-muted focus:outline-none transition-colors resize-none"
+                  className="w-full bg-base-800 border border-border-strong rounded-lg px-3 py-2 text-content-primary placeholder:text-content-muted focus:border-content-muted focus:outline-none transition-colors resize-none"
                   rows={4}
                 />
               </div>

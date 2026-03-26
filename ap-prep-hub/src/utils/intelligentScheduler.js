@@ -99,7 +99,11 @@ class IntelligentScheduler {
     merged.breakLength = Math.max(5, Math.min(30, merged.breakLength || scientificDefaults.breakLength));
     merged.studyStartTime = Math.max(5, Math.min(12, merged.studyStartTime || scientificDefaults.studyStartTime)); // Allow up to noon (12)
     merged.studyEndTime = Math.max(18, Math.min(24, merged.studyEndTime || scientificDefaults.studyEndTime));
-    
+
+    // Derive cognitive load capacity from study hours (~1.5 load units per hour on average)
+    // This separates the "hours available" dimension from the "cognitive load" dimension
+    merged.maxCognitiveLoadPerDay = merged.maxCognitiveLoadPerDay || merged.maxStudyHoursPerDay * 1.5;
+
     debugLog("🧠 Merged user preferences with scientific defaults:", merged);
     return merged;
   }
@@ -1692,7 +1696,7 @@ class IntelligentScheduler {
     // Find days with available peak hours and low cognitive load
     const suitableDays = availableDays.filter(dateKey => {
       const dayData = allocation[dateKey];
-      return dayData.totalCognitiveLoad < this.userPreferences.maxStudyHoursPerDay * 0.6 && // Less than 60% cognitive capacity
+      return dayData.totalCognitiveLoad < this.userPreferences.maxCognitiveLoadPerDay * 0.6 && // Less than 60% cognitive capacity
              dayData.peakHoursUsed < timePreference.preferred.length * 0.5; // Less than 50% peak hours used
     });
     
@@ -1761,9 +1765,9 @@ class IntelligentScheduler {
       const dateKey = availableDays[i];
       const dayData = allocation[dateKey];
       
-      if (dayData.totalCognitiveLoad < this.userPreferences.maxStudyHoursPerDay * 0.8) {
+      if (dayData.totalCognitiveLoad < this.userPreferences.maxCognitiveLoadPerDay * 0.8) {
         const session = sessionPlan.sessions[initialSessionsAllocated] || sessionPlan.sessions[0];
-        
+
         dayData.tasks.push({
           ...task,
           allocatedTime: session.duration / 60,
@@ -1787,7 +1791,7 @@ class IntelligentScheduler {
       if (allocation[reviewDateKey]) {
         const dayData = allocation[reviewDateKey];
         
-        if (dayData.totalCognitiveLoad < this.userPreferences.maxStudyHoursPerDay * 0.9) {
+        if (dayData.totalCognitiveLoad < this.userPreferences.maxCognitiveLoadPerDay * 0.9) {
           dayData.tasks.push({
             ...task,
             allocatedTime: reviewSession.estimatedDuration,
@@ -1828,7 +1832,7 @@ class IntelligentScheduler {
     const deepWorkDays = availableDays.filter(dateKey => {
       const dayData = allocation[dateKey];
       return dayData.sessionCount < 2 && // Low session count for focused work
-             dayData.totalCognitiveLoad < this.userPreferences.maxStudyHoursPerDay * 0.7;
+             dayData.totalCognitiveLoad < this.userPreferences.maxCognitiveLoadPerDay * 0.7;
     });
     
     if (deepWorkDays.length === 0) {
@@ -1902,7 +1906,7 @@ class IntelligentScheduler {
       const dayData = allocation[dateKey];
       // FIXED: Use a more flexible capacity check - allow up to 90% of max capacity instead of hard limits
       const currentLoad = dayData.totalCognitiveLoad || 0;
-      const maxLoad = this.userPreferences.maxStudyHoursPerDay * 0.9; // 90% capacity
+      const maxLoad = this.userPreferences.maxCognitiveLoadPerDay * 0.9; // 90% cognitive capacity
       
       return currentLoad < maxLoad;
     });
@@ -1925,12 +1929,12 @@ class IntelligentScheduler {
       const dateKey = availableDays[dayIndex];
       const dayData = allocation[dateKey];
       
-      if (dayData.totalCognitiveLoad < this.userPreferences.maxStudyHoursPerDay * 0.9) {
+      if (dayData.totalCognitiveLoad < this.userPreferences.maxCognitiveLoadPerDay * 0.9) {
         const sessionsForThisDay = Math.min(sessionsPerDay, sessionsNeeded - sessionsAllocated);
-        
+
         for (let i = 0; i < sessionsForThisDay && sessionsAllocated < sessionsNeeded; i++) {
           const session = sessionPlan.sessions[sessionsAllocated];
-          
+
           dayData.tasks.push({
             ...task,
             allocatedTime: session.duration / 60,
@@ -1979,7 +1983,7 @@ class IntelligentScheduler {
       const currentLoad = dayData.totalCognitiveLoad || 0;
       
       // FIXED: Allow higher loads for urgent tasks but still respect absolute maximum
-      const maxLoad = this.userPreferences.maxStudyHoursPerDay; // Full capacity for urgent tasks
+      const maxLoad = this.userPreferences.maxCognitiveLoadPerDay; // Full cognitive capacity for urgent tasks
       const remainingCapacity = maxLoad - currentLoad;
       
       if (remainingCapacity <= 0.25) { // Minimum 15 minutes needed
@@ -2158,8 +2162,8 @@ class IntelligentScheduler {
     const dayOfWeek = date.getDay();
     const isWeekendDay = dayOfWeek === 0 || dayOfWeek === 6;
     
-    // Base capacity adjusted for day type
-    let baseCapacity = this.userPreferences.maxStudyHoursPerDay;
+    // Base capacity in cognitive load units (not hours)
+    let baseCapacity = this.userPreferences.maxCognitiveLoadPerDay;
     
     // Weekend adjustment (typically lower cognitive capacity due to relaxation)
     if (isWeekendDay && this.userPreferences.weekendStudy) {

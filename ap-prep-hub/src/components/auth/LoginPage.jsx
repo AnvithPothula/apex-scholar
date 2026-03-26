@@ -10,13 +10,14 @@ import ApexScholarLogo from '../ui/ApexScholarLogo';
 export function LoginPage() {
     const navigate = useNavigate();
     const location = useLocation();
-    const { user, loading: authLoading, signInWithGoogle, signUpWithEmail, signInWithEmail } = useAuth();
+    const { user, loading: authLoading, signInWithGoogle, signUpWithEmail, signInWithEmail, resetPassword } = useAuth();
 
     const [isSignUp, setIsSignUp] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [fullName, setFullName] = useState('');
     const [error, setError] = useState('');
+    const [successMessage, setSuccessMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
     const from = location.state?.from?.pathname || "/";
@@ -65,6 +66,24 @@ export function LoginPage() {
             }
         } catch (err) {
             setError(err.message);
+            setIsLoading(false);
+        }
+    };
+
+    const handleForgotPassword = async () => {
+        if (!email.trim()) {
+            setError('Please enter your email address first.');
+            return;
+        }
+        setError('');
+        setSuccessMessage('');
+        setIsLoading(true);
+        try {
+            await resetPassword(email);
+            setSuccessMessage('Password reset email sent. Check your inbox.');
+        } catch (err) {
+            setError(err.message);
+        } finally {
             setIsLoading(false);
         }
     };
@@ -163,7 +182,19 @@ export function LoginPage() {
                             />
                         </div>
                         <div>
-                            <label htmlFor="password" className="block text-sm font-medium mb-1.5 text-content-secondary">Password</label>
+                            <div className="flex items-center justify-between mb-1.5">
+                                <label htmlFor="password" className="block text-sm font-medium text-content-secondary">Password</label>
+                                {!isSignUp && (
+                                    <button
+                                        type="button"
+                                        onClick={handleForgotPassword}
+                                        className="text-xs text-content-muted hover:text-content-primary transition-colors"
+                                        disabled={isLoading}
+                                    >
+                                        Forgot password?
+                                    </button>
+                                )}
+                            </div>
                             <Input
                                 id="password"
                                 type="password"
@@ -174,6 +205,12 @@ export function LoginPage() {
                                 required
                             />
                         </div>
+
+                        {successMessage && (
+                            <div className="p-3 bg-success-900 border border-success-500/30 rounded-md">
+                                <p className="text-sm text-success-400">{successMessage}</p>
+                            </div>
+                        )}
 
                         {error && (
                             <div className="p-3 bg-error-900 border border-error-500/30 rounded-md">

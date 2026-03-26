@@ -1,14 +1,19 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { 
-    onAuthStateChanged, 
-    GoogleAuthProvider, 
-    signInWithPopup, 
+import {
+    onAuthStateChanged,
+    GoogleAuthProvider,
+    signInWithPopup,
     signInWithRedirect,
     getRedirectResult,
     browserLocalPersistence,
     setPersistence,
-    createUserWithEmailAndPassword, 
-    signInWithEmailAndPassword 
+    createUserWithEmailAndPassword,
+    signInWithEmailAndPassword,
+    sendPasswordResetEmail,
+    updatePassword as firebaseUpdatePassword,
+    updateEmail as firebaseUpdateEmail,
+    EmailAuthProvider,
+    reauthenticateWithCredential
 } from "firebase/auth";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import { auth, db } from '../config/firebase';
@@ -283,15 +288,60 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    const value = { 
-        user, 
-        loading, 
+    const resetPassword = async (email) => {
+        try {
+            await sendPasswordResetEmail(auth, email);
+        } catch (error) {
+            console.error("❌ Password reset error:", error);
+            throw new Error(getFirebaseErrorMessage(error));
+        }
+    };
+
+    const reauthenticate = async (currentPassword) => {
+        const firebaseUser = auth.currentUser;
+        if (!firebaseUser || !firebaseUser.email) {
+            throw new Error("No authenticated user found. Please sign in again.");
+        }
+        const credential = EmailAuthProvider.credential(firebaseUser.email, currentPassword);
+        await reauthenticateWithCredential(firebaseUser, credential);
+    };
+
+    const changePassword = async (currentPassword, newPassword) => {
+        try {
+            await reauthenticate(currentPassword);
+            await firebaseUpdatePassword(auth.currentUser, newPassword);
+        } catch (error) {
+            console.error("❌ Change password error:", error);
+            throw new Error(getFirebaseErrorMessage(error));
+        }
+    };
+
+    const changeEmail = async (currentPassword, newEmail) => {
+        try {
+            await reauthenticate(currentPassword);
+            await firebaseUpdateEmail(auth.currentUser, newEmail);
+            // Update Firestore user doc too
+            const userRef = doc(db, "users", auth.currentUser.uid);
+            await updateDoc(userRef, { email: newEmail });
+            setUser(prev => ({ ...prev, email: newEmail }));
+        } catch (error) {
+            console.error("❌ Change email error:", error);
+            throw new Error(getFirebaseErrorMessage(error));
+        }
+    };
+
+    const value = {
+        user,
+        loading,
         connectionError,
-        logout, 
-        updateUserProfile, 
-        signInWithGoogle, 
-        signUpWithEmail, 
-        signInWithEmail 
+        logout,
+        updateUserProfile,
+        signInWithGoogle,
+        signUpWithEmail,
+        signInWithEmail,
+        resetPassword,
+        changePassword,
+        changeEmail
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -991,7 +991,7 @@ const ProgressPage = () => {
                     Create a free account to unlock analytics, AI study recommendations, and achievement tracking.
                   </p>
                   <Button
-                    onClick={() => navigate('/auth')}
+                    onClick={() => navigate('/login')}
                     className="w-full"
                     size="lg"
                   >

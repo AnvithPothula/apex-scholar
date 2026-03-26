@@ -276,7 +276,8 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
         question: questionText || "Problem from uploaded image",
         timestamp: 'Just now',
         solved: true,
-        solution: parsedSolution
+        solution: parsedSolution,
+        image: selectedImage || null // Preserve image for session history
       };
       setAnalysisHistory(prev => [newItem, ...prev]);
 
@@ -598,6 +599,10 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
                   onClick={() => {
                     if (item.solution) {
                       setSolution(item.solution);
+                      // Restore the image if available (within session only)
+                      if (item.image) {
+                        setSelectedImage(item.image);
+                      }
                     }
                   }}
                 >
@@ -606,6 +611,7 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
                       <div className="flex items-center gap-2 mb-1">
                         <Badge variant="secondary" className="text-xs">{item.subject}</Badge>
                         <span className="text-xs text-content-muted">{item.timestamp}</span>
+                        {(item.hasImage || item.image) && <Camera className="w-3.5 h-3.5 text-content-muted" strokeWidth={1.5} />}
                         {item.solved && <CheckCircle className="w-3.5 h-3.5 text-success-400" strokeWidth={1.5} />}
                       </div>
                       <p className="text-sm text-content-secondary truncate">{item.question}</p>

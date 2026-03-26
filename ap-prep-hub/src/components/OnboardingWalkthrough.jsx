@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowRight, ArrowLeft, X, Brain, FileQuestion, Zap, Calculator, Calendar, Settings, Sparkles } from 'lucide-react';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '../config/firebase';
+import { useAuth } from '../contexts/AuthContext';
 import errorLogger from '../utils/errorLogger';
 
 const ONBOARDING_KEY = 'apex.onboarding.completed';
@@ -50,22 +53,49 @@ const STEPS = [
 ];
 
 export default function OnboardingWalkthrough() {
+  const { user } = useAuth();
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState(0);
 
   useEffect(() => {
+    // Check localStorage first (fast)
     try {
       if (localStorage.getItem(ONBOARDING_KEY) === 'true') return;
     } catch (e) { errorLogger.debug('localStorage read failed (onboarding)', { error: e?.message }); }
-    // Show after a short delay to let the page render first
-    const timer = setTimeout(() => setVisible(true), 2000);
-    return () => clearTimeout(timer);
-  }, []);
+
+    // Also check Firestore (persistent across devices/clears)
+    let cancelled = false;
+    let timer = null;
+    const checkFirestore = async () => {
+      if (user?.uid) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists() && userDoc.data().onboardingCompleted) {
+            // Sync to localStorage so future checks are fast
+            try { localStorage.setItem(ONBOARDING_KEY, 'true'); } catch (e) { /* ignore */ }
+            return;
+          }
+        } catch (e) { errorLogger.debug('Firestore onboarding check failed', { error: e?.message }); }
+      }
+      // Show after a short delay to let the page render first
+      if (!cancelled) {
+        timer = setTimeout(() => setVisible(true), 2000);
+      }
+    };
+    checkFirestore();
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
+  }, [user]);
 
   const handleDismiss = useCallback(() => {
+    // Persist to localStorage
     try { localStorage.setItem(ONBOARDING_KEY, 'true'); } catch (e) { errorLogger.debug('localStorage write failed (onboarding)', { error: e?.message }); }
+    // Persist to Firestore (survives localStorage clears and works across devices)
+    if (user?.uid) {
+      setDoc(doc(db, 'users', user.uid), { onboardingCompleted: true }, { merge: true })
+        .catch(e => errorLogger.debug('Firestore onboarding write failed', { error: e?.message }));
+    }
     setVisible(false);
-  }, []);
+  }, [user]);
 
   const handleNext = () => {
     if (step === STEPS.length - 1) {

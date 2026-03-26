@@ -319,11 +319,9 @@ html {
   overflow-x: hidden;
 }
 
-/* Theme transition */
-html,
-html *,
-html *::before,
-html *::after {
+/* Theme transition — scoped to interactive elements only (removed global html * rule for performance) */
+button, a, input, select, textarea,
+nav, aside, header {
   transition: background-color 0.15s ease, border-color 0.15s ease, color 0.1s ease;
 }
 

@@ -21,7 +21,9 @@ const CustomDropdown = ({
   const [selectedOption, setSelectedOption] = useState(
     value ? options.find(opt => opt.value === value) : null
   );
+  const [focusedIndex, setFocusedIndex] = useState(-1);
   const dropdownRef = useRef(null);
+  const optionRefs = useRef([]);
 
   // Update selected option when value prop changes
   useEffect(() => {
@@ -53,8 +55,61 @@ const CustomDropdown = ({
   const handleToggle = () => {
     if (!disabled) {
       setIsOpen(!isOpen);
+      if (!isOpen) setFocusedIndex(-1);
     }
   };
+
+  const handleKeyDown = (e) => {
+    if (disabled) return;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        if (!isOpen) {
+          setIsOpen(true);
+          setFocusedIndex(0);
+        } else {
+          setFocusedIndex(prev => Math.min(prev + 1, options.length - 1));
+        }
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        if (isOpen) {
+          setFocusedIndex(prev => Math.max(prev - 1, 0));
+        }
+        break;
+      case 'Enter':
+      case ' ':
+        e.preventDefault();
+        if (isOpen && focusedIndex >= 0 && focusedIndex < options.length) {
+          handleSelect(options[focusedIndex]);
+        } else if (!isOpen) {
+          setIsOpen(true);
+          setFocusedIndex(0);
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setIsOpen(false);
+        setFocusedIndex(-1);
+        break;
+      case 'Home':
+        if (isOpen) { e.preventDefault(); setFocusedIndex(0); }
+        break;
+      case 'End':
+        if (isOpen) { e.preventDefault(); setFocusedIndex(options.length - 1); }
+        break;
+      default:
+        break;
+    }
+  };
+
+  // Scroll focused option into view
+  useEffect(() => {
+    if (focusedIndex >= 0 && optionRefs.current[focusedIndex]) {
+      optionRefs.current[focusedIndex].scrollIntoView({ block: 'nearest' });
+    }
+  }, [focusedIndex]);
 
   return (
     <div 
@@ -74,9 +129,11 @@ const CustomDropdown = ({
           ${isOpen ? 'ring-2 ring-content-muted border-transparent' : ''}
         `}
         onClick={handleToggle}
+        onKeyDown={handleKeyDown}
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
+        aria-activedescendant={isOpen && focusedIndex >= 0 ? `dropdown-option-${focusedIndex}` : undefined}
       >
         <span className={selectedOption ? 'text-content-primary' : 'text-content-muted'}>
           {selectedOption ? selectedOption.label : placeholder}
@@ -104,11 +161,14 @@ const CustomDropdown = ({
             options.map((option, index) => (
               <button
                 key={option.value || index}
+                ref={el => optionRefs.current[index] = el}
+                id={`dropdown-option-${index}`}
                 type="button"
                 className={`
                   w-full px-4 py-3 text-left hover:bg-base-750 focus:bg-base-750
                   focus:outline-none transition-colors duration-150 text-content-primary
                   ${selectedOption?.value === option.value ? 'bg-base-750 text-content-muted' : ''}
+                  ${focusedIndex === index ? 'bg-base-750 ring-1 ring-inset ring-content-muted' : ''}
                   ${index === options.length - 1 ? '' : 'border-b border-border-subtle'}
                 `}
                 onClick={() => handleSelect(option)}

@@ -9,6 +9,7 @@ import { Loader, CheckCircle, XCircle } from 'lucide-react';
 import { schoologyAPI } from '../../services/schoologyAPI';
 import { assignmentSync } from '../../services/assignmentSync';
 import { Card, CardContent, Button } from '../ui/UIComponents';
+import { createPageUrl } from '../../utils/helpers';
 
 export function SchoologyCallback() {
   const [searchParams] = useSearchParams();
@@ -39,37 +40,17 @@ export function SchoologyCallback() {
           throw new Error('User session not found');
         }
 
-        setMessage('Exchanging OAuth tokens...');
-
-        // In a production environment, you would:
-        // 1. Send the oauth_token and oauth_verifier to your backend
-        // 2. Exchange them for access tokens using Schoology's API
-        // 3. Store the tokens securely
-
-        // For demo purposes, we'll simulate successful token exchange
-        const accessToken = `access_${oauthToken}_${Date.now()}`;
-        const accessTokenSecret = `secret_${oauthVerifier}_${Date.now()}`;
-
-        // Store the tokens
-        await schoologyAPI.handleOAuthCallback(userId, accessToken, accessTokenSecret);
-
-        setMessage('Schoology connected successfully! Performing initial sync...');
-
-        // Perform initial sync
-        const syncResult = await assignmentSync.manualSync(userId, {
-          daysBack: 7,
-          includeCompleted: false
-        });
+        // Schoology OAuth token exchange requires a backend server for security.
+        // Client-only apps cannot safely complete the OAuth handshake.
+        setStatus('error');
+        setMessage('Schoology integration requires a backend server for secure OAuth token exchange. This feature is not yet available in the client-only version.');
 
         // Clean up session storage
         sessionStorage.removeItem('schoology_oauth_user');
 
-        setStatus('success');
-        setMessage(`Successfully connected and synced ${syncResult.syncedCount} assignments!`);
-
         // Redirect to settings after 3 seconds
         setTimeout(() => {
-          navigate('/settings', { replace: true });
+          navigate(createPageUrl('Settings'), { replace: true });
         }, 3000);
 
       } catch (error) {
@@ -86,7 +67,7 @@ export function SchoologyCallback() {
   }, [searchParams, navigate]);
 
   const handleRetry = () => {
-    navigate('/settings', { replace: true });
+    navigate(createPageUrl('Settings'), { replace: true });
   };
 
   return (
