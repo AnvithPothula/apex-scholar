@@ -216,7 +216,7 @@ export const getReviewSchedule = async (subject, examDate) => {
   try {
     // Dynamic import to avoid circular dependency
     const { getCurriculumData } = await import('./comprehensiveCurriculum.js');
-    const curriculum = getCurriculumData(subject);
+    const curriculum = await getCurriculumData(subject);
     const units = curriculum?.units || [];
     
     if (units.length === 0) {

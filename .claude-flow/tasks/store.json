@@ -1,0 +1,766 @@
+{
+  "tasks": {
+    "task-1774578903121-9tae34": {
+      "taskId": "task-1774578903121-9tae34",
+      "type": "bugfix",
+      "description": "Fix unit mismatch in intelligentScheduler.js — cognitive load vs study hours comparison",
+      "priority": "critical",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "immediate",
+        "bug"
+      ],
+      "createdAt": "2026-03-27T02:35:03.121Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T02:36:07.638Z",
+      "result": {
+        "fix": "Multiplied cognitive load by timeRequired so daily load budget accounts for task duration"
+      }
+    },
+    "task-1774578904528-4i6g77": {
+      "taskId": "task-1774578904528-4i6g77",
+      "type": "bugfix",
+      "description": "Add missing 'icon' size variant to Button component in UIComponents.jsx",
+      "priority": "normal",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "immediate",
+        "ui"
+      ],
+      "createdAt": "2026-03-27T02:35:04.528Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T02:36:27.172Z",
+      "result": {
+        "fix": "Already fixed — icon size variant exists at line 29 of UIComponents.jsx"
+      }
+    },
+    "task-1774578905455-qyt4fg": {
+      "taskId": "task-1774578905455-qyt4fg",
+      "type": "bugfix",
+      "description": "Add missing CSS variable definitions (--color-content-primary etc.) in index.css",
+      "priority": "high",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "immediate",
+        "ui"
+      ],
+      "createdAt": "2026-03-27T02:35:05.455Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T02:37:34.955Z",
+      "result": {
+        "fix": "Added --color-content-* aliases pointing to --color-text-* in both dark and light themes"
+      }
+    },
+    "task-1774578906787-2euk27": {
+      "taskId": "task-1774578906787-2euk27",
+      "type": "bugfix",
+      "description": "Fix brittle index-based file removal in FileUpload.jsx — use stable IDs",
+      "priority": "normal",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "short-term",
+        "bug"
+      ],
+      "createdAt": "2026-03-27T02:35:06.787Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T02:37:59.318Z",
+      "result": {
+        "fix": "Already fixed — uses file object matching (name+size+lastModified), not array index"
+      }
+    },
+    "task-1774578908067-s0j1h7": {
+      "taskId": "task-1774578908067-s0j1h7",
+      "type": "bugfix",
+      "description": "Fix toast timer cleanup in ToastContext.js — clear setTimeout on manual dismiss",
+      "priority": "normal",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "short-term",
+        "perf"
+      ],
+      "createdAt": "2026-03-27T02:35:08.067Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T02:38:10.824Z",
+      "result": {
+        "fix": "Already fixed — timers ref tracks setTimeout IDs, removeToast clears them on dismiss"
+      }
+    },
+    "task-1774578909848-unelah": {
+      "taskId": "task-1774578909848-unelah",
+      "type": "refactor",
+      "description": "Add keyboard navigation (onKeyDown) to MultiSelectDropdown.jsx and fix nested button a11y",
+      "priority": "normal",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "medium-term",
+        "a11y"
+      ],
+      "createdAt": "2026-03-27T02:35:09.848Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T02:39:06.141Z",
+      "result": {
+        "fix": "Added arrow key navigation with highlight, Escape to close, Enter to select. Fixed nested button a11y by removing role=button and tabIndex from tag spans inside trigger."
+      }
+    },
+    "task-1774578910881-4d7vt9": {
+      "taskId": "task-1774578910881-4d7vt9",
+      "type": "refactor",
+      "description": "Remove global html * { transition } rule in index.css — apply transitions only to interactive elements",
+      "priority": "normal",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "medium-term",
+        "perf"
+      ],
+      "createdAt": "2026-03-27T02:35:10.881Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T02:39:19.147Z",
+      "result": {
+        "fix": "Already fixed — global html * rule replaced with scoped transitions on interactive elements only"
+      }
+    },
+    "task-1774581191551-tu5145": {
+      "taskId": "task-1774581191551-tu5145",
+      "type": "feature",
+      "description": "Page transitions — wrap routes in AnimatePresence mode=\"wait\" with fade/slide",
+      "priority": "critical",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "tier-1",
+        "animation"
+      ],
+      "createdAt": "2026-03-27T03:13:11.551Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T03:18:10.875Z",
+      "result": {
+        "fix": "Created AnimatedOutlet component with AnimatePresence mode=wait, wired into App.js routes"
+      }
+    },
+    "task-1774581192401-s5nt3l": {
+      "taskId": "task-1774581192401-s5nt3l",
+      "type": "feature",
+      "description": "Staggered list entrances — whileInView + staggerChildren on all card/list views",
+      "priority": "critical",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "tier-1",
+        "animation"
+      ],
+      "createdAt": "2026-03-27T03:13:12.401Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T03:22:19.720Z",
+      "result": {
+        "fix": "Added staggerContainer/staggerItem to SubjectSelector grids and HistoryPanel list"
+      }
+    },
+    "task-1774581193433-ilwgbz": {
+      "taskId": "task-1774581193433-ilwgbz",
+      "type": "feature",
+      "description": "Animated score counters — useSpring for score/XP on results screen",
+      "priority": "high",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "tier-1",
+        "animation"
+      ],
+      "createdAt": "2026-03-27T03:13:13.433Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T03:18:14.030Z",
+      "result": {
+        "fix": "Created AnimatedCounter component with useInView + requestAnimationFrame count-up"
+      }
+    },
+    "task-1774581194214-v75h99": {
+      "taskId": "task-1774581194214-v75h99",
+      "type": "feature",
+      "description": "Skeleton screens — replace all Loading... text with shimmer skeletons",
+      "priority": "high",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "tier-1",
+        "ui"
+      ],
+      "createdAt": "2026-03-27T03:13:14.214Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T03:18:12.702Z",
+      "result": {
+        "fix": "Created PageSkeleton component, replaced all Loading... fallbacks in App.js"
+      }
+    },
+    "task-1774581195238-k9484n": {
+      "taskId": "task-1774581195238-k9484n",
+      "type": "feature",
+      "description": "Answer feedback micro-animations — shake wrong, spring-scale correct",
+      "priority": "high",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "tier-1",
+        "animation"
+      ],
+      "createdAt": "2026-03-27T03:13:15.238Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T03:20:20.326Z",
+      "result": {
+        "fix": "Added shake/pop animations on correct/wrong answers in results review, staggered question list, AnimatedCounter for score display"
+      }
+    },
+    "task-1774581195641-by3sil": {
+      "taskId": "task-1774581195641-by3sil",
+      "type": "feature",
+      "description": "Toast progress bar — shrinking timeout indicator",
+      "priority": "normal",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "tier-1",
+        "ui"
+      ],
+      "createdAt": "2026-03-27T03:13:15.641Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T03:19:04.882Z",
+      "result": {
+        "fix": "Added shrinking progress bar to toasts, AnimatePresence for enter/exit, duration passed through context"
+      }
+    },
+    "task-1774581196969-bk31px": {
+      "taskId": "task-1774581196969-bk31px",
+      "type": "feature",
+      "description": "Subject-colored accent system — per-subject colors for rings/borders/icons",
+      "priority": "high",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "tier-2",
+        "design-system"
+      ],
+      "createdAt": "2026-03-27T03:13:16.969Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T03:18:15.789Z",
+      "result": {
+        "fix": "Created subjectColors.js with per-subject accent/ring/bg/border/glow classes for all 40 subjects"
+      }
+    },
+    "task-1774581198395-6qyqdp": {
+      "taskId": "task-1774581198395-6qyqdp",
+      "type": "feature",
+      "description": "Per-subject SVG progress rings with animated pathLength",
+      "priority": "high",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "tier-2",
+        "ui"
+      ],
+      "createdAt": "2026-03-27T03:13:18.395Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T03:18:17.318Z",
+      "result": {
+        "fix": "Created ProgressRing component with animated SVG pathLength via Framer Motion"
+      }
+    },
+    "task-1774581198724-7iaocu": {
+      "taskId": "task-1774581198724-7iaocu",
+      "type": "feature",
+      "description": "Cmd+K command palette for navigation across 40+ subjects and 6 features",
+      "priority": "high",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "tier-2",
+        "feature"
+      ],
+      "createdAt": "2026-03-27T03:13:18.724Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T03:18:18.595Z",
+      "result": {
+        "fix": "Created CommandPalette with Cmd+K, search across pages + 40 subjects, arrow nav, categories"
+      }
+    },
+    "task-1774581200023-ekzn39": {
+      "taskId": "task-1774581200023-ekzn39",
+      "type": "feature",
+      "description": "Empty states with illustrations + CTAs for all empty views",
+      "priority": "normal",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "tier-2",
+        "ui"
+      ],
+      "createdAt": "2026-03-27T03:13:20.023Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T03:18:20.057Z",
+      "result": {
+        "fix": "Created EmptyState component with dot-grid pattern, icon, title, description, CTA button"
+      }
+    },
+    "task-1774581201078-jsggzr": {
+      "taskId": "task-1774581201078-jsggzr",
+      "type": "feature",
+      "description": "Onboarding refresh — step transitions, progress dots, varied visuals",
+      "priority": "normal",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "tier-2",
+        "ui"
+      ],
+      "createdAt": "2026-03-27T03:13:21.078Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T03:24:11.120Z",
+      "result": {
+        "fix": "Animated step transitions, progress dots, progress bar, varied icon colors per step"
+      }
+    },
+    "task-1774581201888-xt9rjh": {
+      "taskId": "task-1774581201888-xt9rjh",
+      "type": "feature",
+      "description": "Modal animation system — AnimatePresence + focus trap + deduplicate Layout modals",
+      "priority": "normal",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "tier-3",
+        "ui"
+      ],
+      "createdAt": "2026-03-27T03:13:21.888Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T03:22:20.911Z",
+      "result": {
+        "fix": "Added AnimatePresence + overlayVariants/modalVariants to all 3 Layout modals (Credits, Privacy, Feedback)"
+      }
+    },
+    "task-1774581202695-bb4mjn": {
+      "taskId": "task-1774581202695-bb4mjn",
+      "type": "feature",
+      "description": "Glassmorphism subject cards — frosted blur + colored accent glow",
+      "priority": "normal",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "tier-3",
+        "ui"
+      ],
+      "createdAt": "2026-03-27T03:13:22.695Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T03:24:12.467Z",
+      "result": {
+        "fix": "Added backdrop-blur, per-subject colored borders/glows from subjectColors.js to SubjectCard"
+      }
+    },
+    "task-1774581203724-yt2ai9": {
+      "taskId": "task-1774581203724-yt2ai9",
+      "type": "feature",
+      "description": "Celebration moments — confetti/checkmark on test completion, achievement unlock, streak",
+      "priority": "normal",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "tier-3",
+        "animation"
+      ],
+      "createdAt": "2026-03-27T03:13:23.725Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T03:18:20.967Z",
+      "result": {
+        "fix": "Created Confetti component with 30 animated particles, trigger prop"
+      }
+    },
+    "task-1774581204930-urfv2p": {
+      "taskId": "task-1774581204930-urfv2p",
+      "type": "feature",
+      "description": "Mobile bottom tab bar — replace top icons-only nav with labeled bottom tabs",
+      "priority": "normal",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "tier-3",
+        "mobile"
+      ],
+      "createdAt": "2026-03-27T03:13:24.930Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T03:24:13.899Z",
+      "result": {
+        "fix": "Added fixed bottom tab bar with 6 labeled tabs on mobile, hid top nav links below md:"
+      }
+    },
+    "task-1774581205821-tz7rpp": {
+      "taskId": "task-1774581205821-tz7rpp",
+      "type": "feature",
+      "description": "Exam countdown widget — days:hours:minutes to next AP exam",
+      "priority": "normal",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "tier-3",
+        "feature"
+      ],
+      "createdAt": "2026-03-27T03:13:25.821Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T03:24:14.807Z",
+      "result": {
+        "fix": "Created ExamCountdown component with days/hours/minutes, AnimatedCounter, subject accent colors"
+      }
+    },
+    "task-1774581206706-vuo1i3": {
+      "taskId": "task-1774581206706-vuo1i3",
+      "type": "feature",
+      "description": "Layout prop for animated list reordering on filter/sort",
+      "priority": "low",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "tier-4",
+        "animation"
+      ],
+      "createdAt": "2026-03-27T03:13:26.706Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T21:54:14.970Z",
+      "result": {
+        "note": "Layout prop added to HistoryPanel list items"
+      }
+    },
+    "task-1774581207653-49x10n": {
+      "taskId": "task-1774581207653-49x10n",
+      "type": "feature",
+      "description": "Scroll-linked header — condense + blur on scroll with useScroll/useTransform",
+      "priority": "low",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "tier-4",
+        "animation"
+      ],
+      "createdAt": "2026-03-27T03:13:27.653Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T21:54:14.577Z",
+      "result": {
+        "note": "Scroll-linked header with condense + blur implemented in Layout"
+      }
+    },
+    "task-1774581208440-eb3muv": {
+      "taskId": "task-1774581208440-eb3muv",
+      "type": "feature",
+      "description": "Floating label inputs — animate labels on focus",
+      "priority": "low",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "tier-4",
+        "ui"
+      ],
+      "createdAt": "2026-03-27T03:13:28.440Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T21:54:13.640Z",
+      "result": {
+        "note": "FloatingInput component added to UIComponents"
+      }
+    },
+    "task-1774581209436-5w0wl5": {
+      "taskId": "task-1774581209436-5w0wl5",
+      "type": "feature",
+      "description": "Streak calendar heatmap — Duolingo-style day-dot study consistency grid",
+      "priority": "low",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "tier-4",
+        "feature"
+      ],
+      "createdAt": "2026-03-27T03:13:29.436Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T21:54:13.228Z",
+      "result": {
+        "note": "StreakCalendar component created"
+      }
+    },
+    "task-1774581210267-7ob0zb": {
+      "taskId": "task-1774581210267-7ob0zb",
+      "type": "feature",
+      "description": "Dark-first gradient backgrounds — subtle mesh/dot patterns behind hero sections",
+      "priority": "low",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "tier-4",
+        "design"
+      ],
+      "createdAt": "2026-03-27T03:13:30.267Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T21:54:12.413Z",
+      "result": {
+        "note": "page-bg class with dot grid + mesh gradient added to index.css and Layout"
+      }
+    },
+    "task-1774581211109-5vw060": {
+      "taskId": "task-1774581211109-5vw060",
+      "type": "feature",
+      "description": "Inline form validation animations — shake/checkmark on input validation",
+      "priority": "low",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "tier-4",
+        "animation"
+      ],
+      "createdAt": "2026-03-27T03:13:31.109Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T21:54:11.351Z",
+      "result": {
+        "note": "ValidatedInput component + CSS keyframes created in this session"
+      }
+    },
+    "task-1774645312618-pqa346": {
+      "taskId": "task-1774645312618-pqa346",
+      "type": "feature",
+      "description": "Streak calendar heatmap — Duolingo-style day-dot grid component",
+      "priority": "low",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "ui",
+        "tier4"
+      ],
+      "createdAt": "2026-03-27T21:01:52.618Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T21:05:40.858Z",
+      "result": {
+        "note": "Already created in previous session"
+      }
+    },
+    "task-1774645313368-gnq8ea": {
+      "taskId": "task-1774645313368-gnq8ea",
+      "type": "feature",
+      "description": "Scroll-linked header — condense + blur on scroll",
+      "priority": "low",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "ui",
+        "tier4"
+      ],
+      "createdAt": "2026-03-27T21:01:53.368Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T21:05:40.336Z",
+      "result": {
+        "note": "Already implemented in previous session"
+      }
+    },
+    "task-1774645314262-7clsz0": {
+      "taskId": "task-1774645314262-7clsz0",
+      "type": "feature",
+      "description": "Dark-first gradient backgrounds — subtle mesh/dot patterns",
+      "priority": "low",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "ui",
+        "tier4"
+      ],
+      "createdAt": "2026-03-27T21:01:54.262Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T21:06:51.138Z",
+      "result": {
+        "note": "Added page-bg class with dot grid + mesh gradient to index.css and Layout"
+      }
+    },
+    "task-1774645315191-pbush6": {
+      "taskId": "task-1774645315191-pbush6",
+      "type": "feature",
+      "description": "Layout animation for list reordering on filter/sort",
+      "priority": "low",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "ui",
+        "tier4"
+      ],
+      "createdAt": "2026-03-27T21:01:55.191Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T21:06:52.127Z",
+      "result": {
+        "note": "Added layout prop to HistoryPanel list items with spring transition"
+      }
+    },
+    "task-1774645316043-f6ljk9": {
+      "taskId": "task-1774645316043-f6ljk9",
+      "type": "feature",
+      "description": "Inline form validation animations — shake/checkmark",
+      "priority": "low",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "ui",
+        "tier4"
+      ],
+      "createdAt": "2026-03-27T21:01:56.043Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T21:06:52.704Z",
+      "result": {
+        "note": "Added ValidatedInput component with shake animation on error and checkmark pop on valid"
+      }
+    },
+    "task-1774645317009-kvgbvo": {
+      "taskId": "task-1774645317009-kvgbvo",
+      "type": "bugfix",
+      "description": "Fix AI tutor chatbot infinite scroll area + auto-scroll on new messages",
+      "priority": "high",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "bug",
+        "chatbot"
+      ],
+      "createdAt": "2026-03-27T21:01:57.009Z",
+      "startedAt": "2026-03-27T21:05:07.467Z",
+      "completedAt": "2026-03-27T21:05:42.116Z",
+      "result": {
+        "note": "Fixed auto-scroll to only trigger on new messages; added height constraint for mobile bottom bar"
+      }
+    },
+    "task-1774645317850-uckegt": {
+      "taskId": "task-1774645317850-uckegt",
+      "type": "bugfix",
+      "description": "Fix test history showing current date instead of actual test date",
+      "priority": "high",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "bug",
+        "tests"
+      ],
+      "createdAt": "2026-03-27T21:01:57.850Z",
+      "startedAt": "2026-03-27T21:05:07.857Z",
+      "completedAt": "2026-03-27T21:05:42.705Z",
+      "result": {
+        "note": "Fixed serverTimestamp null handling; improved date display format"
+      }
+    },
+    "task-1774645319331-cg6ixu": {
+      "taskId": "task-1774645319331-cg6ixu",
+      "type": "feature",
+      "description": "Create AI-generated public flashcard decks for each subject (unit-based) under Apex Scholar username",
+      "priority": "high",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "feature",
+        "flashcards",
+        "content"
+      ],
+      "createdAt": "2026-03-27T21:01:59.331Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T21:08:46.749Z",
+      "result": {
+        "note": "Created seedPublicDecks.js utility + DeveloperSettings UI trigger. Admin can generate AI flashcard decks for 17 subjects."
+      }
+    },
+    "task-1774646720051-3lymh8": {
+      "taskId": "task-1774646720051-3lymh8",
+      "type": "bugfix",
+      "description": "Fix chatbot scroll v2: use instant scroll, cancel Layout pb-16 with negative margin, add bottom padding to input area for mobile",
+      "priority": "high",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "bug",
+        "chatbot"
+      ],
+      "createdAt": "2026-03-27T21:25:20.051Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T21:25:26.751Z",
+      "result": {
+        "note": "Used instant scrollIntoView, only when near bottom. Added -mb-16 to cancel Layout pb-16. Added pb-16 to input area for mobile bottom bar clearance."
+      }
+    },
+    "task-1774646721329-jcvmok": {
+      "taskId": "task-1774646721329-jcvmok",
+      "type": "bugfix",
+      "description": "Fix test history dates: restore new Date() fallback, revert display to show 'Recent' instead of 'Unknown'",
+      "priority": "high",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "bug",
+        "tests"
+      ],
+      "createdAt": "2026-03-27T21:25:21.329Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T21:25:28.185Z",
+      "result": {
+        "note": "Restored new Date() fallback for missing timestamps. Display format: short date with 'Recent' fallback."
+      }
+    },
+    "task-1774646722766-x6gj9s": {
+      "taskId": "task-1774646722766-x6gj9s",
+      "type": "feature",
+      "description": "Create 20 static pre-built public flashcard decks with 10 cards each for 13 AP subjects under Apex Scholar username",
+      "priority": "high",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "feature",
+        "flashcards"
+      ],
+      "createdAt": "2026-03-27T21:25:22.766Z",
+      "startedAt": null,
+      "completedAt": "2026-03-27T21:25:29.714Z",
+      "result": {
+        "note": "Created 20 static decks for Biology, Chemistry, APUSH, World History, Psychology, Calc AB, Physics 1, CS A, Stats, Human Geo, Macro, Micro, APES, English Lang, US Gov. Each deck has 10 cards."
+      }
+    }
+  },
+  "version": "3.0.0"
+}

@@ -93,7 +93,7 @@ export function FileUpload({ onFileUpload, onFileRemove, uploadedFiles = [] }) {
           <h4 className="text-sm font-medium text-content-primary">Uploaded Files:</h4>
           {uploadedFiles.map((file, index) => (
             <div
-              key={`file-${index}-${file.name}-${file.size}`}
+              key={`file-${file.name}-${file.size}-${file.lastModified}`}
               className="flex items-center justify-between p-3 bg-base-850 rounded-sm border border-border"
             >
               <div className="flex items-center gap-3">
@@ -108,7 +108,7 @@ export function FileUpload({ onFileUpload, onFileRemove, uploadedFiles = [] }) {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => onFileRemove(index)}
+                onClick={() => onFileRemove(file)}
                 className="h-8 w-8 text-content-muted hover:text-error-500"
               >
                 <X strokeWidth={1.5} className="w-4 h-4" />

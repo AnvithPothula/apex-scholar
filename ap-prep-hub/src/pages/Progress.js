@@ -9,6 +9,14 @@ import { cn } from '../utils/helpers';
 import achievementsService from '../services/achievementsService';
 import dataService from '../services/dataService';
 import geminiService from '../services/geminiService';
+import StreakCalendar from '../components/ui/StreakCalendar';
+import ExamCountdown from '../components/ui/ExamCountdown';
+import { SUBJECT_KEY_TO_EXAM_NAME } from '../constants/apExamDates';
+
+// Reverse lookup: exam display name → curriculum key (for ExamCountdown)
+const EXAM_NAME_TO_KEY = Object.fromEntries(
+  Object.entries(SUBJECT_KEY_TO_EXAM_NAME).map(([k, v]) => [v, k])
+);
 
 const ProgressPage = () => {
   const { user } = useAuth();
@@ -61,6 +69,16 @@ const ProgressPage = () => {
         dataService.getUserStats(user.uid)
       ]);
 
+      // Build activity heatmap data for StreakCalendar
+      const activityMap = {};
+      studySessions.forEach(session => {
+        const date = session.timestamp?.toDate?.() || (session.createdAt?.toDate?.()) || null;
+        if (date) {
+          const key = date.toISOString().slice(0, 10);
+          activityMap[key] = (activityMap[key] || 0) + 1;
+        }
+      });
+
       // Process and organize data
       const processedData = {
         overall: {
@@ -75,7 +93,8 @@ const ProgressPage = () => {
         subjects: processSubjectProgress(overallProgress, studySessions),
         weeklyActivity: processWeeklyActivity(studySessions),
         achievements: processAchievements(achievements),
-        recommendations: await generateRecommendations(overallProgress, studySessions)
+        recommendations: await generateRecommendations(overallProgress, studySessions),
+        activityMap,
       };
 
       setProgressData(processedData);
@@ -303,11 +322,11 @@ const ProgressPage = () => {
   // ─── Internal Components ──────────────────────────────────────────
 
   const colorToVar = (bgClass) => ({
-    'bg-content-primary': 'var(--color-content-primary)',
+    'bg-content-primary': 'var(--color-text-primary)',
     'bg-success-500': 'var(--color-success-400)',
     'bg-error-500':   'var(--color-error-400)',
     'bg-warning-500': 'var(--color-warning-400)',
-  }[bgClass] || 'var(--color-content-primary)');
+  }[bgClass] || 'var(--color-text-primary)');
 
   const BentoStatCard = ({ icon: Icon, label, value, change, color = "text-content-primary", iconBg = "bg-base-800" }) => (
     <Card className="p-5 flex flex-col justify-between">
@@ -328,7 +347,7 @@ const ProgressPage = () => {
     </Card>
   );
 
-  const CircularProgressRing = ({ percentage, size = 72, strokeW = 5, color = "var(--color-content-primary)" }) => {
+  const CircularProgressRing = ({ percentage, size = 72, strokeW = 5, color = "var(--color-text-primary)" }) => {
     const r = (size - strokeW) / 2;
     const circ = 2 * Math.PI * r;
     const offset = circ - (percentage / 100) * circ;
@@ -371,8 +390,8 @@ const ProgressPage = () => {
           <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-40" preserveAspectRatio="none">
             <defs>
               <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--color-content-primary)" stopOpacity="0.3" />
-                <stop offset="100%" stopColor="var(--color-content-primary)" stopOpacity="0.02" />
+                <stop offset="0%" stopColor="var(--color-text-primary)" stopOpacity="0.3" />
+                <stop offset="100%" stopColor="var(--color-text-primary)" stopOpacity="0.02" />
               </linearGradient>
             </defs>
 
@@ -399,7 +418,7 @@ const ProgressPage = () => {
             <motion.path
               d={linePath}
               fill="none"
-              stroke="var(--color-content-primary)"
+              stroke="var(--color-text-primary)"
               strokeWidth="0.5"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -414,7 +433,7 @@ const ProgressPage = () => {
               <motion.circle
                 key={i}
                 cx={p.x} cy={p.y} r="1"
-                fill="var(--color-content-primary)"
+                fill="var(--color-text-primary)"
                 initial={{ scale: 0, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: 0.4 + i * 0.08 }}
@@ -695,10 +714,10 @@ const ProgressPage = () => {
                       <p className="text-h3 text-content-secondary font-body">days in a row</p>
                     </div>
                     <div className="mt-4 pt-4 border-t border-border-subtle">
-                      <div className="flex items-center gap-2">
-                        <Flame className="w-4 h-4 text-accent-400" strokeWidth={1.5} />
-                        <span className="text-body-sm text-content-muted">Keep it going tomorrow</span>
-                      </div>
+                      <StreakCalendar
+                        activityData={progressData.activityMap || {}}
+                        currentStreak={progressData.overall.studyStreak}
+                      />
                     </div>
                   </Card>
 
@@ -839,6 +858,14 @@ const ProgressPage = () => {
                                   </Badge>
                                 ))}
                               </div>
+
+                              {/* Exam countdown */}
+                              {EXAM_NAME_TO_KEY[subject.name] && (
+                                <ExamCountdown
+                                  subjectKey={EXAM_NAME_TO_KEY[subject.name]}
+                                  className="mt-3"
+                                />
+                              )}
                             </div>
                           </div>
                         </Card>

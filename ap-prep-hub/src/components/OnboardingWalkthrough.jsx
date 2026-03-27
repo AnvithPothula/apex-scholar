@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, ArrowLeft, X, Brain, FileQuestion, Zap, Calculator, Calendar, Settings, Sparkles } from 'lucide-react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import errorLogger from '../utils/errorLogger';
+import { easeOutExpo } from '../utils/animations';
 
 const ONBOARDING_KEY = 'apex.onboarding.completed';
 
@@ -12,50 +14,76 @@ const STEPS = [
     icon: Sparkles,
     title: 'Welcome to Apex Scholar!',
     description: 'Your AI-powered AP exam prep platform. Let\'s take a quick tour of the key features.',
-    color: 'bg-base-750'
+    iconBg: 'bg-primary-500/20',
+    iconColor: 'text-primary-400',
   },
   {
     icon: Brain,
     title: 'AI Tutors',
     description: 'Chat with expert AI tutors for any AP subject. Choose modes like Explain, Practice MCQ, Walkthrough, or upload files for analysis.',
-    color: 'bg-base-750'
+    iconBg: 'bg-accent-500/20',
+    iconColor: 'text-accent-400',
   },
   {
     icon: FileQuestion,
     title: 'Practice Tests',
     description: 'Generate full-length AP practice tests with real exam format, timed sections, and detailed scoring analysis.',
-    color: 'bg-base-750'
+    iconBg: 'bg-success-500/20',
+    iconColor: 'text-success-400',
   },
   {
     icon: Zap,
     title: 'Flashcards',
     description: 'AI-generated flashcards with spaced repetition to help you memorize key concepts efficiently.',
-    color: 'bg-base-750'
+    iconBg: 'bg-warning-500/20',
+    iconColor: 'text-warning-400',
   },
   {
     icon: Calculator,
     title: 'Problem Solver',
     description: 'Upload or type any problem — get step-by-step solutions with LaTeX-rendered math.',
-    color: 'bg-base-750'
+    iconBg: 'bg-info-500/20',
+    iconColor: 'text-info-400',
   },
   {
     icon: Calendar,
     title: 'Smart Scheduler',
     description: 'AI creates an optimized study schedule based on your subjects, deadlines, and study preferences.',
-    color: 'bg-base-750'
+    iconBg: 'bg-primary-500/20',
+    iconColor: 'text-primary-400',
   },
   {
     icon: Settings,
     title: 'Personalize Your Experience',
     description: 'Head to Settings to select your AP subjects, customize your AI tutor\'s style, and set study preferences. You\'re all set — let\'s get that 5!',
-    color: 'bg-base-750'
+    iconBg: 'bg-success-500/20',
+    iconColor: 'text-success-400',
   }
 ];
+
+// Direction-aware slide variants for step content
+const stepVariants = {
+  enter: (direction) => ({
+    x: direction > 0 ? 40 : -40,
+    opacity: 0,
+  }),
+  center: {
+    x: 0,
+    opacity: 1,
+    transition: { duration: 0.28, ease: easeOutExpo },
+  },
+  exit: (direction) => ({
+    x: direction > 0 ? -40 : 40,
+    opacity: 0,
+    transition: { duration: 0.18, ease: 'easeIn' },
+  }),
+};
 
 export default function OnboardingWalkthrough() {
   const { user } = useAuth();
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState(0);
+  const [direction, setDirection] = useState(1); // 1 = forward, -1 = backward
 
   useEffect(() => {
     // Check localStorage first (fast)
@@ -72,7 +100,7 @@ export default function OnboardingWalkthrough() {
           const userDoc = await getDoc(doc(db, 'users', user.uid));
           if (userDoc.exists() && userDoc.data().onboardingCompleted) {
             // Sync to localStorage so future checks are fast
-            try { localStorage.setItem(ONBOARDING_KEY, 'true'); } catch (e) { /* ignore */ }
+            try { localStorage.setItem(ONBOARDING_KEY, 'true'); } catch (e) { errorLogger.debug('localStorage write failed (onboarding)', { error: e?.message }); }
             return;
           }
         } catch (e) { errorLogger.debug('Firestore onboarding check failed', { error: e?.message }); }
@@ -101,12 +129,21 @@ export default function OnboardingWalkthrough() {
     if (step === STEPS.length - 1) {
       handleDismiss();
     } else {
+      setDirection(1);
       setStep(s => s + 1);
     }
   };
 
   const handlePrev = () => {
-    if (step > 0) setStep(s => s - 1);
+    if (step > 0) {
+      setDirection(-1);
+      setStep(s => s - 1);
+    }
+  };
+
+  const handleDotClick = (i) => {
+    setDirection(i > step ? 1 : -1);
+    setStep(i);
   };
 
   if (!visible) return null;
@@ -114,15 +151,19 @@ export default function OnboardingWalkthrough() {
   const current = STEPS[step];
   const Icon = current.icon;
   const isLast = step === STEPS.length - 1;
+  const progressPct = ((step + 1) / STEPS.length) * 100;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[70] animate-in fade-in duration-300">
       <div className="bg-base-850 rounded-md max-w-md w-full border border-border shadow-floating overflow-hidden">
-        {/* Progress bar */}
+
+        {/* Smooth progress bar */}
         <div className="h-1 bg-base-800">
-          <div
-            className={`h-full ${current.color} transition-all duration-500`}
-            style={{ width: `${((step + 1) / STEPS.length) * 100}%` }}
+          <motion.div
+            className="h-full bg-primary-500"
+            initial={false}
+            animate={{ width: `${progressPct}%` }}
+            transition={{ duration: 0.35, ease: easeOutExpo }}
           />
         </div>
 
@@ -137,13 +178,24 @@ export default function OnboardingWalkthrough() {
           </button>
         </div>
 
-        {/* Content */}
-        <div className="px-6 py-6 text-center">
-          <div className={`mx-auto w-16 h-16 rounded-md ${current.color} flex items-center justify-center mb-4 shadow-raised`}>
-            <Icon className="w-8 h-8 text-base-950" strokeWidth={1.5} />
-          </div>
-          <h2 className="text-xl font-bold text-content-primary mb-2">{current.title}</h2>
-          <p className="text-content-secondary text-sm leading-relaxed">{current.description}</p>
+        {/* Animated content */}
+        <div className="px-6 py-6 text-center overflow-hidden">
+          <AnimatePresence mode="wait" custom={direction}>
+            <motion.div
+              key={step}
+              custom={direction}
+              variants={stepVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+            >
+              <div className={`mx-auto w-16 h-16 rounded-md ${current.iconBg} flex items-center justify-center mb-4 shadow-raised`}>
+                <Icon className={`w-8 h-8 ${current.iconColor}`} strokeWidth={1.5} />
+              </div>
+              <h2 className="text-xl font-bold text-content-primary mb-2">{current.title}</h2>
+              <p className="text-content-secondary text-sm leading-relaxed">{current.description}</p>
+            </motion.div>
+          </AnimatePresence>
         </div>
 
         {/* Footer */}
@@ -158,15 +210,17 @@ export default function OnboardingWalkthrough() {
             <ArrowLeft className="w-4 h-4" strokeWidth={1.5} /> Back
           </button>
 
-          {/* Dots */}
-          <div className="flex gap-1.5">
+          {/* Progress dots */}
+          <div className="flex gap-1.5 items-center">
             {STEPS.map((_, i) => (
               <button
                 key={i}
                 aria-label={`Go to step ${i + 1}`}
-                onClick={() => setStep(i)}
-                className={`w-2 h-2 rounded-full transition-all ${
-                  i === step ? 'bg-content-primary w-4' : 'bg-base-750 hover:bg-base-800'
+                onClick={() => handleDotClick(i)}
+                className={`h-2 rounded-full transition-all duration-300 ${
+                  i === step
+                    ? 'bg-primary-500 w-4'
+                    : 'bg-base-750 hover:bg-base-700 w-2'
                 }`}
               />
             ))}
@@ -176,7 +230,7 @@ export default function OnboardingWalkthrough() {
             onClick={handleNext}
             className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
               isLast
-                ? 'bg-content-primary text-base-950 shadow-raised'
+                ? 'bg-primary-500 text-base-950 shadow-raised hover:bg-primary-400'
                 : 'bg-base-800 text-content-primary hover:bg-base-750'
             }`}
           >

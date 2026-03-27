@@ -3,11 +3,11 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth, AVATAR_GRADIENTS } from '../contexts/AuthContext';
 import { auth } from '../config/firebase';
-import { getAvailableSubjects, getCurriculumData } from '../constants/comprehensiveCurriculum';
+import { getAvailableSubjects, getSubjectName } from '../constants/comprehensiveCurriculum';
 import { setUserTimezonePreference } from '../utils/timezone';
 import BlackoutScheduleManager from '../components/settings/BlackoutScheduleManager';
 import { SchoologyIntegration } from '../components/settings/SchoologyIntegration';
-import { Button, Card, CardHeader, CardTitle, CardContent, Input } from '../components/ui/UIComponents';
+import { Button, Card, CardHeader, CardTitle, CardContent, Input, FloatingInput, ValidatedInput } from '../components/ui/UIComponents';
 import CustomDropdown from '../components/ui/CustomDropdown';
 import MultiSelectDropdown from '../components/ui/MultiSelectDropdown';
 import HelpTooltip from '../components/ui/HelpTooltip';
@@ -333,7 +333,7 @@ const Settings = () => {
         <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-content-primary">
           Settings
           {isSaving && (
-            <span className="ml-3 text-sm font-normal text-content-secondary">
+            <span className="ml-3 text-sm font-normal text-content-secondary" role="status" aria-live="polite">
               <span className="inline-block w-2 h-2 bg-content-secondary rounded-full animate-pulse mr-2"></span>
               Saving...
             </span>
@@ -395,13 +395,10 @@ const Settings = () => {
                   )}
                 </div>
                 <div className="flex-1">
-                  <label htmlFor="displayName" className="text-sm font-medium text-content-secondary mb-1 block">
-                    Display Name
-                  </label>
-                  <Input
+                  <FloatingInput
                     id="displayName"
                     type="text"
-                    placeholder="Enter your name"
+                    label="Display Name"
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
                     onBlur={handleNameSave}
@@ -505,7 +502,7 @@ const Settings = () => {
               <MultiSelectDropdown
                 options={availableSubjects.map(subjectKey => ({
                   value: subjectKey,
-                  label: getCurriculumData(subjectKey)?.name || subjectKey
+                  label: getSubjectName(subjectKey)
                 }))}
                 selected={userSubjects}
                 onChange={setUserSubjects}
@@ -838,29 +835,34 @@ const Settings = () => {
                       <div className="space-y-3">
                         <div>
                           <label className="text-sm text-content-secondary mb-1 block">Current Password</label>
-                          <Input
+                          <ValidatedInput
                             type="password"
                             value={accountForm.currentPassword}
                             onChange={(e) => setAccountForm(prev => ({ ...prev, currentPassword: e.target.value }))}
                             placeholder="Enter current password"
+                            valid={accountForm.currentPassword.length >= 6}
                           />
                         </div>
                         <div>
                           <label className="text-sm text-content-secondary mb-1 block">New Password</label>
-                          <Input
+                          <ValidatedInput
                             type="password"
                             value={accountForm.newPassword}
                             onChange={(e) => setAccountForm(prev => ({ ...prev, newPassword: e.target.value }))}
                             placeholder="Enter new password (min 6 characters)"
+                            error={accountForm.newPassword && accountForm.newPassword.length < 6 ? 'Must be at least 6 characters' : undefined}
+                            valid={accountForm.newPassword.length >= 6}
                           />
                         </div>
                         <div>
                           <label className="text-sm text-content-secondary mb-1 block">Confirm New Password</label>
-                          <Input
+                          <ValidatedInput
                             type="password"
                             value={accountForm.confirmPassword}
                             onChange={(e) => setAccountForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
                             placeholder="Confirm new password"
+                            error={accountForm.confirmPassword && accountForm.confirmPassword !== accountForm.newPassword ? 'Passwords do not match' : undefined}
+                            valid={accountForm.confirmPassword.length >= 6 && accountForm.confirmPassword === accountForm.newPassword}
                           />
                         </div>
                         <Button

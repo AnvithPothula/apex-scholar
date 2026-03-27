@@ -43,7 +43,7 @@ export function SchoologyCallback() {
         // Schoology OAuth token exchange requires a backend server for security.
         // Client-only apps cannot safely complete the OAuth handshake.
         setStatus('error');
-        setMessage('Schoology integration requires a backend server for secure OAuth token exchange. This feature is not yet available in the client-only version.');
+        setMessage('Direct Schoology login is not yet supported. You can still import your Schoology assignments using a Calendar URL in Settings.');
 
         // Clean up session storage
         sessionStorage.removeItem('schoology_oauth_user');
@@ -51,7 +51,7 @@ export function SchoologyCallback() {
         // Redirect to settings after 3 seconds
         setTimeout(() => {
           navigate(createPageUrl('Settings'), { replace: true });
-        }, 3000);
+        }, 5000);
 
       } catch (error) {
         console.error('OAuth callback error:', error);

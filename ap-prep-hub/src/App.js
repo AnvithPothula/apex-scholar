@@ -1,6 +1,7 @@
 /* eslint-disable import/first */
 import React, { useEffect, Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import AnimatedOutlet from './components/ui/AnimatedOutlet';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -8,6 +9,7 @@ import { Layout } from './components/Layout.jsx';
 import { LoginPage } from './components/auth/LoginPage';
 import { SchoologyCallback } from './components/auth/SchoologyCallback';
 import ErrorBoundary from './components/ErrorBoundary';
+import PageSkeleton from './components/ui/PageSkeleton';
 import { ToastProvider } from './contexts/ToastContext';
 import ToastContainer from './components/ui/Toast';
 // eslint-disable-next-line import/first
@@ -55,9 +57,9 @@ function App() {
 // Main App with Layout
 function MainApp() {
   return (
-    <Suspense fallback={<div className="p-6 text-content-secondary">Loading…</div>}>
+    <Suspense fallback={<PageSkeleton />}>
       <Routes>
-        <Route element={<Layout><ErrorBoundary><Suspense fallback={<div className="p-6 text-content-secondary">Loading…</div>}><Outlet /></Suspense></ErrorBoundary></Layout>}>
+        <Route element={<Layout><ErrorBoundary><Suspense fallback={<PageSkeleton />}><AnimatedOutlet /></Suspense></ErrorBoundary></Layout>}>
           <Route index element={<Navigate to={createPageUrl("AITutors")} replace />} />
           <Route path={createPageUrl("AITutors")} element={<AITutors />} />
           <Route path={createPageUrl("AITutors", ":subject")} element={<AITutors />} />

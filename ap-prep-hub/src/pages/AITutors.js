@@ -49,7 +49,7 @@ import SubjectSelector from '../components/tutors/SubjectSelector.jsx';
 import MarkdownRenderer from '../components/MarkdownRenderer.jsx';
 import ModelSelector, { getDefaultModel, saveSelectedModel } from '../components/ui/ModelSelector.jsx';
 import { subjects } from '../constants/subjects';
-import { getCurriculumData } from '../constants/comprehensiveCurriculum';
+import { getCurriculumData, getSubjectName } from '../constants/comprehensiveCurriculum';
 import { 
   collection, 
   addDoc, 
@@ -88,6 +88,7 @@ const AITutors = () => {
   const [showCalculator, setShowCalculator] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [isSwitchingSubjects, setIsSwitchingSubjects] = useState(false);
+  const [subjectSuggestionsState, setSubjectSuggestionsState] = useState([]);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   // Removed diagnostics UI and state
@@ -103,6 +104,18 @@ const AITutors = () => {
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // Load subject suggestions when selectedSubject changes
+  useEffect(() => {
+    let cancelled = false;
+    if (selectedSubject) {
+      getSubjectSuggestions(selectedSubject).then(suggestions => {
+        if (!cancelled) setSubjectSuggestionsState(suggestions);
+      });
+    }
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSubject]);
 
   // Load messages for a specific conversation
   const loadConversationMessages = useCallback(async (conversationId) => {
@@ -204,7 +217,7 @@ const AITutors = () => {
   const createFirstConversation = useCallback(async (subjectId) => {
     if (!user) return;
     
-    const curriculumData = getCurriculumData(subjectId);
+    const curriculumData = await getCurriculumData(subjectId);
     const subjectName = curriculumData?.name || subjectId;
     const sessionNumber = 1;
     
@@ -232,9 +245,9 @@ const AITutors = () => {
         content: `Hello! I'm your specialized AI tutor for ${subjectName}. I'm here to help you master this AP subject with personalized explanations, practice problems, and study strategies tailored to the College Board curriculum. What would you like to learn about today?`,
         timestamp: new Date(),
         createdAt: serverTimestamp(),
-        suggestions: getSubjectSuggestions(subjectId)
+        suggestions: await getSubjectSuggestions(subjectId)
       };
-      
+
       // Save welcome message to Firebase
       await addDoc(collection(db, 'conversations', conversationId, 'messages'), welcomeMessage);
       
@@ -310,7 +323,7 @@ const AITutors = () => {
       await cleanupEmptyConversation(activeConversationId, conversations.length);
     }
     
-    const curriculumData = getCurriculumData(selectedSubject);
+    const curriculumData = await getCurriculumData(selectedSubject);
     const subjectName = curriculumData?.name || selectedSubject;
     const sessionNumber = conversations.length + 1;
     
@@ -334,9 +347,9 @@ const AITutors = () => {
       type: 'ai',
       content: `Hello! I'm your specialized AI tutor for ${subjectName}. I'm here to help you master this AP subject with personalized explanations, practice problems, and study strategies tailored to the College Board curriculum. What would you like to learn about today?`,
       timestamp: new Date(),
-      suggestions: getSubjectSuggestions(selectedSubject)
+      suggestions: await getSubjectSuggestions(selectedSubject)
     };
-    
+
     // Save welcome message to Firebase
     await saveMessage(conversationId, welcomeMessage);
   };
@@ -408,6 +421,9 @@ const AITutors = () => {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
+    // Deps intentionally empty: handler only uses stable refs (inputRef) and state
+    // setters (setSelectedMode), which don't change between renders. Including
+    // handleFileSelect would cause the listener to re-attach on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -420,13 +436,23 @@ const AITutors = () => {
     });
   }, [selectedSubject, messages, isTyping]);
 
-  // Auto scroll to bottom of messages
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  // Scroll to bottom only when user is already near the bottom
+  const chatContainerRef = useRef(null);
 
   useEffect(() => {
-    scrollToBottom();
+    const container = chatContainerRef.current;
+    if (!container) return;
+
+    // Check if user is near bottom before scrolling
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 200;
+
+    if (isNearBottom) {
+      // Use requestAnimationFrame to scroll after DOM update
+      requestAnimationFrame(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
+      });
+    }
   }, [messages, isTyping]);
 
   // Close conversation menu when clicking elsewhere
@@ -613,8 +639,8 @@ const AITutors = () => {
   };
 
   // Remove uploaded file
-  const handleFileRemove = (fileId) => {
-    setUploadedFiles(prev => prev.filter(file => file.id !== fileId));
+  const handleFileRemove = (file) => {
+    setUploadedFiles(prev => prev.filter(f => !(f.name === file.name && f.size === file.size && f.lastModified === file.lastModified)));
   };
 
   const handleSubjectSelect = useCallback(async (subjectId) => {
@@ -856,11 +882,11 @@ const AITutors = () => {
     setShowConversationMenu(null);
   };
 
-  const getSubjectSuggestions = (subjectId) => {
+  const getSubjectSuggestions = async (subjectId) => {
     console.log('Getting suggestions for subject:', subjectId);
-    
+
     // Get curriculum-based suggestions for more accurate tutoring
-    const curriculumData = getCurriculumData(subjectId);
+    const curriculumData = await getCurriculumData(subjectId);
     console.log('Curriculum data:', curriculumData);
     
     if (curriculumData && curriculumData.units) {
@@ -946,7 +972,7 @@ const AITutors = () => {
     setIsTyping(true);
     
     try {
-      const curriculumData = getCurriculumData(selectedSubject);
+      const curriculumData = await getCurriculumData(selectedSubject);
       const subjectName = curriculumData?.name || selectedSubject;
       
       console.log('Generating real AI response for subject:', subjectName);
@@ -1672,10 +1698,10 @@ Please check your internet connection and try again. In the meantime:
   // Get computed values (these are simple lookups, no need for useMemo)
   const SubjectIcon = getSubjectIcon(selectedSubject);
   const subjectColor = getSubjectColor(selectedSubject);
-  const subjectSuggestions = getSubjectSuggestions(selectedSubject);
+  const subjectSuggestions = subjectSuggestionsState;
 
   return (
-    <div className="h-[calc(100vh-3.5rem)] sm:h-[calc(100vh-4rem)] flex bg-base-950 relative">
+    <div className="h-[calc(100vh-3.5rem)] sm:h-[calc(100vh-4rem)] flex bg-base-950 relative -mb-16 md:mb-0">
       {/* Mobile Sidebar Overlay */}
       {showMobileSidebar && (
         <div 
@@ -1718,7 +1744,7 @@ Please check your internet connection and try again. In the meantime:
               </div>
             </div>
             <p className="text-sm text-content-muted mt-1">
-              {getCurriculumData(selectedSubject)?.name || selectedSubject}
+              {getSubjectName(selectedSubject)}
             </p>
           </div>
 
@@ -1898,7 +1924,7 @@ Please check your internet connection and try again. In the meantime:
                   </div>
                   <div className="min-w-0">
                     <h1 className="text-base sm:text-xl md:text-2xl font-bold font-display text-content-primary truncate">
-                      {getCurriculumData(selectedSubject)?.name || selectedSubject}
+                      {getSubjectName(selectedSubject)}
                     </h1>
                     <p className="text-xs sm:text-sm text-content-secondary flex items-center gap-1 sm:gap-2">
                       <Bot strokeWidth={1.5} className="w-3 h-3 sm:w-4 sm:h-4 text-content-muted flex-shrink-0" />
@@ -1956,7 +1982,7 @@ Please check your internet connection and try again. In the meantime:
       </div>
 
       {/* Chat Area */}
-      <div className="flex-1 overflow-y-auto scroll-touch">
+      <div ref={chatContainerRef} className="flex-1 overflow-y-auto scroll-touch">
         <div className="max-w-4xl mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
           {/* Welcome Message */}
           {messages.length === 1 && messages[0].suggestions && (
@@ -2141,7 +2167,7 @@ Please check your internet connection and try again. In the meantime:
         initial={{ y: 50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.3 }}
-        className="bg-base-850 border-t border-border shadow-raised safe-bottom"
+        className="bg-base-850 border-t border-border shadow-raised pb-16 md:pb-0"
       >
         <div className="max-w-4xl mx-auto p-3 sm:p-4 md:p-6">
           {/* Display uploaded files */}
@@ -2172,7 +2198,7 @@ Please check your internet connection and try again. In the meantime:
                       ({Math.round(file.size / 1024)}KB)
                     </span>
                     <button
-                      onClick={() => handleFileRemove(file.id)}
+                      onClick={() => handleFileRemove(file)}
                       className="ml-1 sm:ml-2 text-content-muted hover:text-error-400"
                     >
                       <X strokeWidth={1.5} className="w-3 h-3" />
@@ -2187,7 +2213,7 @@ Please check your internet connection and try again. In the meantime:
             <div className="flex-1">
               <Input
                 ref={inputRef}
-                placeholder={`Ask about ${getCurriculumData(selectedSubject)?.name || selectedSubject}...`}
+                placeholder={`Ask about ${getSubjectName(selectedSubject)}...`}
                 value={currentMessage}
                 onChange={(e) => setCurrentMessage(e.target.value)}
                 onKeyDown={handleKeyPress}

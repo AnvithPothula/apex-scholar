@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { X, CheckCircle, AlertTriangle, AlertCircle, Info } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -16,6 +17,13 @@ const borderMap = {
   info: 'border-l-info-400',
 };
 
+const progressColorMap = {
+  success: 'bg-success-400',
+  error: 'bg-error-400',
+  warning: 'bg-warning-400',
+  info: 'bg-info-400',
+};
+
 export default function ToastContainer() {
   const { toasts, removeToast } = useToast();
 
@@ -27,24 +35,43 @@ export default function ToastContainer() {
       aria-label="Notifications"
       className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 max-w-sm"
     >
-      {toasts.map(toast => (
-        <div
-          key={toast.id}
-          role="alert"
-          className={`flex items-start gap-3 px-4 py-3 bg-base-800 border border-border rounded-md shadow-floating border-l-4 ${borderMap[toast.type] || borderMap.info} animate-in slide-in-from-right`}
-          style={{ animation: 'slideInRight 0.2s ease-out' }}
-        >
-          <div className="flex-shrink-0 mt-0.5">{iconMap[toast.type] || iconMap.info}</div>
-          <p className="text-sm text-content-primary flex-1">{toast.message}</p>
-          <button
-            onClick={() => removeToast(toast.id)}
-            className="flex-shrink-0 text-content-muted hover:text-content-primary transition-colors"
-            aria-label="Dismiss notification"
+      <AnimatePresence mode="popLayout">
+        {toasts.map(toast => (
+          <motion.div
+            key={toast.id}
+            layout
+            initial={{ opacity: 0, x: 80, scale: 0.95 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 80, scale: 0.95 }}
+            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            role="alert"
+            aria-label={`${toast.type} notification: ${toast.message}`}
+            className={`relative overflow-hidden flex items-start gap-3 px-4 py-3 bg-base-800 border border-border rounded-md shadow-floating border-l-4 ${borderMap[toast.type] || borderMap.info}`}
           >
-            <X className="w-3.5 h-3.5" strokeWidth={1.5} />
-          </button>
-        </div>
-      ))}
+            <div className="flex-shrink-0 mt-0.5">{iconMap[toast.type] || iconMap.info}</div>
+            <p className="text-sm text-content-primary flex-1">{toast.message}</p>
+            <button
+              onClick={() => removeToast(toast.id)}
+              className="flex-shrink-0 text-content-muted hover:text-content-primary transition-colors"
+              aria-label="Dismiss notification"
+            >
+              <X className="w-3.5 h-3.5" strokeWidth={1.5} />
+            </button>
+
+            {/* Auto-dismiss progress bar */}
+            {toast.duration > 0 && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-base-750">
+                <div
+                  className={`h-full ${progressColorMap[toast.type] || progressColorMap.info} opacity-60`}
+                  style={{
+                    animation: `toast-shrink ${toast.duration}ms linear forwards`,
+                  }}
+                />
+              </div>
+            )}
+          </motion.div>
+        ))}
+      </AnimatePresence>
     </div>
   );
 }

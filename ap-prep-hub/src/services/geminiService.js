@@ -167,6 +167,9 @@ class GeminiService {
     this._cacheExpiry = 5 * 60 * 1000; // 5 minutes
     this._cacheCleanupInterval = null;
 
+    // Status listeners for UI notification of service state changes
+    this._statusListeners = new Set();
+
     // Start cache cleanup interval
     this._startCacheCleanup();
 
@@ -318,15 +321,16 @@ class GeminiService {
    * Add request to cache
    */
   _addToCache(hash, promise) {
+    // LRU eviction: cap cache at 100 entries
+    if (this._requestCache.size >= 100) {
+      const oldestKey = this._requestCache.keys().next().value;
+      this._requestCache.delete(oldestKey);
+    }
+
     this._requestCache.set(hash, {
       promise,
       timestamp: Date.now()
     });
-
-    // Auto-cleanup this entry after expiry
-    setTimeout(() => {
-      this._requestCache.delete(hash);
-    }, this._cacheExpiry);
   }
   // Normalize payload parts to Google's expected snake_case for inline image data
   _normalizePayloadForGoogle(payload) {
@@ -592,9 +596,31 @@ class GeminiService {
       // so we skip it entirely and go straight to Google fallback
       if (this._puterAuthResetCount >= 3) {
         this._puterAuthBroken = true;
+        this._notifyStatusChange({ puterAvailable: false });
         console.warn('[AI] Puter auth has been reset too many times, marking as broken for this session');
       }
     }
+  }
+
+  /**
+   * Register a listener for service status changes (e.g., Puter auth failures).
+   * Returns an unsubscribe function.
+   */
+  onStatusChange(callback) {
+    this._statusListeners.add(callback);
+    return () => this._statusListeners.delete(callback);
+  }
+
+  /** Notify all status listeners */
+  _notifyStatusChange(status) {
+    for (const listener of this._statusListeners) {
+      try { listener(status); } catch (e) { /* ignore listener errors */ }
+    }
+  }
+
+  /** Check if Puter is currently available */
+  isPuterAvailable() {
+    return !this._puterAuthBroken;
   }
 
   /**
@@ -639,6 +665,7 @@ class GeminiService {
           this._resetPuterAuth();
           if (this._puterAuthResetCount >= 3) {
             this._puterAuthBroken = true;
+            this._notifyStatusChange({ puterAvailable: false });
             return null;
           }
         }

@@ -27,6 +27,7 @@ class APIKeyManager {
       : 'gemini-2.5-flash';
     this.failedKeys = new Set();
     this.keyRetryTimes = new Map(); // Track when keys can be retried
+    this.keyFailureCounts = new Map(); // Track consecutive failures per key for exponential backoff
 
     if (process.env.NODE_ENV === 'development') {
       console.log(`🔑 APIKeyManager: Loaded ${this.apiKeys.length} API key(s) for rotation`);
@@ -92,24 +93,36 @@ class APIKeyManager {
    * Mark the current key as failed and rotate to next available key
    */
   markCurrentKeyFailed(retryAfterSeconds = 300) {
+    // Track consecutive failures for exponential backoff
+    const failCount = (this.keyFailureCounts.get(this.currentKeyIndex) || 0) + 1;
+    this.keyFailureCounts.set(this.currentKeyIndex, failCount);
+
+    // Exponential backoff: 300s, 600s, 1200s, ... capped at 3600s, plus jitter
+    const baseDelay = retryAfterSeconds;
+    const exponentialDelay = Math.min(baseDelay * Math.pow(2, failCount - 1), 3600);
+    const jitter = Math.random() * 30; // 0-30s random jitter
+    const actualDelay = exponentialDelay + jitter;
+
     if (process.env.NODE_ENV === 'development') {
-      console.log(`⚠️ Marking API key ${this.currentKeyIndex + 1} as failed, will retry after ${retryAfterSeconds} seconds`);
+      console.log(`⚠️ Marking API key ${this.currentKeyIndex + 1} as failed (attempt ${failCount}), will retry after ${actualDelay.toFixed(0)} seconds`);
     }
 
     // Mark key as failed with retry time
     this.failedKeys.add(this.currentKeyIndex);
-    const retryTime = Date.now() + (retryAfterSeconds * 1000);
+    const retryTime = Date.now() + (actualDelay * 1000);
     this.keyRetryTimes.set(this.currentKeyIndex, retryTime);
 
-    // Remove from failed set after retry time
+    // Remove from failed set after retry time and reset failure count
+    const keyIndex = this.currentKeyIndex;
     setTimeout(() => {
-      this.failedKeys.delete(this.currentKeyIndex);
-      this.keyRetryTimes.delete(this.currentKeyIndex);
+      this.failedKeys.delete(keyIndex);
+      this.keyRetryTimes.delete(keyIndex);
+      this.keyFailureCounts.delete(keyIndex);
       if (process.env.NODE_ENV === 'development') {
-        console.log(`✅ API key ${this.currentKeyIndex + 1} is now available for retry`);
+        console.log(`✅ API key ${keyIndex + 1} is now available for retry`);
       }
-    }, retryAfterSeconds * 1000);
-    
+    }, actualDelay * 1000);
+
     // Rotate to next available key
     this.rotateToNextKey();
   }
@@ -199,6 +212,7 @@ class APIKeyManager {
     }
     this.failedKeys.clear();
     this.keyRetryTimes.clear();
+    this.keyFailureCounts.clear();
     this.currentKeyIndex = 0;
   }
 }

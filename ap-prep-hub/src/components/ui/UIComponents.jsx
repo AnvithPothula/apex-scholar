@@ -25,7 +25,8 @@ export const Button = forwardRef(({
     sm: "h-8 px-3 text-xs min-w-[2rem]",
     md: "h-9 px-4 py-2 text-sm min-w-[2.25rem]",
     lg: "h-10 px-5 py-2.5 text-sm min-w-[2.5rem]",
-    xl: "h-12 px-6 py-3 text-base min-w-[3rem]"
+    xl: "h-12 px-6 py-3 text-base min-w-[3rem]",
+    icon: "h-8 w-8 p-0"
   };
 
   return (
@@ -106,6 +107,102 @@ export const Input = forwardRef(({
 });
 
 Input.displayName = "Input";
+
+// Floating Label Input Component
+export const FloatingInput = forwardRef(({
+  className,
+  type = "text",
+  label,
+  icon: Icon,
+  onFocus: onFocusProp,
+  onBlur: onBlurProp,
+  onChange: onChangeProp,
+  value,
+  defaultValue,
+  ...props
+}, ref) => {
+  const [focused, setFocused] = useState(false);
+  const [hasValue, setHasValue] = useState(!!value || !!defaultValue);
+  const floated = focused || hasValue;
+
+  // Sync hasValue when controlled value changes
+  useEffect(() => {
+    if (value !== undefined) setHasValue(!!value);
+  }, [value]);
+
+  return (
+    <div className="relative">
+      {Icon && (
+        <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-content-muted z-10">
+          <Icon className="w-5 h-5" strokeWidth={1.5} />
+        </div>
+      )}
+      <input
+        type={type}
+        ref={ref}
+        value={value}
+        defaultValue={defaultValue}
+        className={cn(
+          "peer w-full rounded-sm border border-border-strong bg-base-800 px-3 pt-5 pb-1.5 text-content-primary transition-colors duration-150 focus:border-content-muted focus:outline-none focus:ring-1 focus:ring-content-muted/20 disabled:cursor-not-allowed disabled:opacity-50",
+          Icon && "pl-12",
+          className
+        )}
+        placeholder=" "
+        onFocus={(e) => { setFocused(true); onFocusProp?.(e); }}
+        onBlur={(e) => { setFocused(false); setHasValue(!!e.target.value); onBlurProp?.(e); }}
+        onChange={(e) => { setHasValue(!!e.target.value); onChangeProp?.(e); }}
+        {...props}
+      />
+      {label && (
+        <label
+          className={cn(
+            "absolute left-3 transition-all duration-200 pointer-events-none",
+            Icon && "left-12",
+            floated
+              ? "top-1.5 text-[10px] text-content-muted"
+              : "top-1/2 -translate-y-1/2 text-sm text-content-muted"
+          )}
+        >
+          {label}
+        </label>
+      )}
+    </div>
+  );
+});
+
+FloatingInput.displayName = "FloatingInput";
+
+// Validated Input — wraps Input with shake on error and checkmark on valid
+export const ValidatedInput = forwardRef(({
+  error,
+  valid,
+  className,
+  ...props
+}, ref) => {
+  return (
+    <div className="relative">
+      <Input
+        ref={ref}
+        className={cn(
+          error && 'animate-shake border-error-500 focus:border-error-500 focus:ring-error-500/20',
+          valid && 'border-success-500 focus:border-success-500 focus:ring-success-500/20',
+          className
+        )}
+        {...props}
+      />
+      {valid && (
+        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-success-400 animate-check-pop">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5l3.5 3.5L13 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </span>
+      )}
+      {error && typeof error === 'string' && (
+        <p className="mt-1 text-xs text-error-400">{error}</p>
+      )}
+    </div>
+  );
+});
+
+ValidatedInput.displayName = "ValidatedInput";
 
 // Badge Component
 export const Badge = forwardRef(({
