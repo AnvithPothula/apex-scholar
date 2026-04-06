@@ -2557,11 +2557,11 @@ class IntelligentScheduler {
       
       const dayTasks = allocation[day]?.tasks || allocation[day] || [];
       const currentDayTime = (Array.isArray(dayTasks) ? dayTasks : []).reduce((sum, t) => sum + (t.allocatedTime || 0), 0);
-      const availableTime = Math.max(0, this.userPreferences.maxCognitiveLoadPerDay - currentDayTime);
+      const availableTime = Math.max(0, this.userPreferences.maxStudyHoursPerDay - currentDayTime);
 
       if (availableTime > 0) {
         const sessionTime = Math.min(timeToAllocate, availableTime, 2); // Max 2 hours per session
-        
+
         const newItem = {
           ...task,
           allocatedTime: sessionTime,
@@ -2611,8 +2611,8 @@ class IntelligentScheduler {
       const result = availableDays.find(day => {
         const dayTasks = allocation[day]?.tasks || allocation[day] || [];
         const totalTime = (Array.isArray(dayTasks) ? dayTasks : []).reduce((sum, t) => sum + (t.allocatedTime || 0), 0);
-        const wouldFit = totalTime + remainingTime <= this.userPreferences.maxCognitiveLoadPerDay;
-        debugLog(`   Checking urgent day ${day}: ${totalTime.toFixed(2)}h used + ${remainingTime.toFixed(2)}h needed = ${(totalTime + remainingTime).toFixed(2)}h (max: ${this.userPreferences.maxCognitiveLoadPerDay}h) -> ${wouldFit ? 'fits' : 'too much'}`);
+        const wouldFit = totalTime + remainingTime <= this.userPreferences.maxStudyHoursPerDay;
+        debugLog(`   Checking urgent day ${day}: ${totalTime.toFixed(2)}h used + ${remainingTime.toFixed(2)}h needed = ${(totalTime + remainingTime).toFixed(2)}h (max: ${this.userPreferences.maxStudyHoursPerDay}h) -> ${wouldFit ? 'fits' : 'too much'}`);
         return wouldFit;
       });
       debugLog(`🎯 Urgent task best day result: ${result || 'none found'}`);
@@ -2624,8 +2624,8 @@ class IntelligentScheduler {
       const dayTasks = allocation[day]?.tasks || allocation[day] || [];
       const totalTime = (Array.isArray(dayTasks) ? dayTasks : []).reduce((sum, t) => sum + (t.allocatedTime || 0), 0);
       
-      if (totalTime + remainingTime > this.userPreferences.maxCognitiveLoadPerDay) {
-        debugLog(`   Skipping day ${day}: ${totalTime.toFixed(2)}h + ${remainingTime.toFixed(2)}h = ${(totalTime + remainingTime).toFixed(2)}h > ${this.userPreferences.maxCognitiveLoadPerDay}h max`);
+      if (totalTime + remainingTime > this.userPreferences.maxStudyHoursPerDay) {
+        debugLog(`   Skipping day ${day}: ${totalTime.toFixed(2)}h + ${remainingTime.toFixed(2)}h = ${(totalTime + remainingTime).toFixed(2)}h > ${this.userPreferences.maxStudyHoursPerDay}h max`);
         return best; // Skip days that would exceed capacity
       }
       
@@ -2661,7 +2661,7 @@ class IntelligentScheduler {
   }
 
   calculateDaysNeeded(hours) {
-    const maxHoursPerDay = this.userPreferences.maxCognitiveLoadPerDay;
+    const maxHoursPerDay = this.userPreferences.maxStudyHoursPerDay;
     return Math.ceil(hours / maxHoursPerDay);
   }
 
@@ -2682,7 +2682,7 @@ class IntelligentScheduler {
       const day = availableDays[dayIndex];
       const dayTasks = allocation[day]?.tasks || allocation[day] || [];
       const currentDayTime = (Array.isArray(dayTasks) ? dayTasks : []).reduce((sum, t) => sum + (t.allocatedTime || 0), 0);
-      const availableTime = this.userPreferences.maxCognitiveLoadPerDay - currentDayTime;
+      const availableTime = this.userPreferences.maxStudyHoursPerDay - currentDayTime;
 
       if (availableTime > 0) {
         const sessionTime = Math.min(timeToAllocate, availableTime);

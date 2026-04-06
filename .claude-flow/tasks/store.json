@@ -760,6 +760,140 @@
       "result": {
         "note": "Created 20 static decks for Biology, Chemistry, APUSH, World History, Psychology, Calc AB, Physics 1, CS A, Stats, Human Geo, Macro, Micro, APES, English Lang, US Gov. Each deck has 10 cards."
       }
+    },
+    "task-1774664159023-2n5byv": {
+      "taskId": "task-1774664159023-2n5byv",
+      "type": "bugfix",
+      "description": "Fix scheduler unit mismatch: 4 methods in intelligentScheduler.js compare allocatedTime (hours) against maxCognitiveLoadPerDay (load-units). Replace with maxStudyHoursPerDay at lines 2560, 2614, 2627, 2664, 2685.",
+      "priority": "critical",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "scheduler",
+        "data-correctness"
+      ],
+      "createdAt": "2026-03-28T02:15:59.023Z",
+      "startedAt": null,
+      "completedAt": "2026-03-28T02:27:27.229Z",
+      "result": {
+        "summary": "Replaced maxCognitiveLoadPerDay with maxStudyHoursPerDay at 5 locations in intelligentScheduler.js (lines 2560, 2614-2615, 2627-2628, 2664, 2685)"
+      }
+    },
+    "task-1774664161261-8jxnve": {
+      "taskId": "task-1774664161261-8jxnve",
+      "type": "bugfix",
+      "description": "Fix ConversationSidebar CSS conflicts: remove conflicting h-6/w-6 overrides on icon buttons (lines 79-85) and remove text-sm conflict with text-overline (line 38).",
+      "priority": "low",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "ui",
+        "css"
+      ],
+      "createdAt": "2026-03-28T02:16:01.261Z",
+      "startedAt": null,
+      "completedAt": "2026-03-28T02:27:29.440Z",
+      "result": {
+        "summary": "Removed size=icon from 4 buttons (kept explicit h-6 w-6 p-0), removed text-sm conflict with text-overline on heading"
+      }
+    },
+    "task-1774664162688-3j20kb": {
+      "taskId": "task-1774664162688-3j20kb",
+      "type": "refactor",
+      "description": "Extract processSubjectProgress and processWeeklyActivity from Progress.js component body to module-level pure functions for performance (avoid re-creation on every render).",
+      "priority": "normal",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "performance",
+        "progress"
+      ],
+      "createdAt": "2026-03-28T02:16:02.688Z",
+      "startedAt": null,
+      "completedAt": "2026-03-28T02:27:30.527Z",
+      "result": {
+        "summary": "Extracted formatStudyTime, processSubjectProgress, processWeeklyActivity to module level above ProgressPage component"
+      }
+    },
+    "task-1774664163880-njl0u8": {
+      "taskId": "task-1774664163880-njl0u8",
+      "type": "bugfix",
+      "description": "Improve SchoologyCallback.jsx UX: replace technical error message with user-friendly copy, update heading from \"Connection Failed\" to \"Connection Unavailable\".",
+      "priority": "low",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "ux",
+        "schoology"
+      ],
+      "createdAt": "2026-03-28T02:16:03.880Z",
+      "startedAt": null,
+      "completedAt": "2026-03-28T02:27:31.760Z",
+      "result": {
+        "summary": "Replaced technical error message with user-friendly copy, changed heading from Connection Failed to Connection Unavailable"
+      }
+    },
+    "task-1774668498688-4l46a1": {
+      "taskId": "task-1774668498688-4l46a1",
+      "type": "bugfix",
+      "description": "Change Math subject colors to red and English to blue in subjectColors.js, resolve 3 color collisions with other subjects",
+      "priority": "normal",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "ui",
+        "colors"
+      ],
+      "createdAt": "2026-03-28T03:28:18.689Z",
+      "startedAt": null,
+      "completedAt": "2026-03-28T03:34:12.692Z",
+      "result": {
+        "summary": "Math subjects changed to red family (red-500/400/600, rose-400), English to blue family (blue-500/400). Resolved 3 color collisions: Physics 1 → sky-500, US History → amber-600, US Gov → rose-600."
+      }
+    },
+    "task-1774668499906-tihgqc": {
+      "taskId": "task-1774668499906-tihgqc",
+      "type": "bugfix",
+      "description": "Update AP exam dates to 2026 College Board schedule: add AP_EXAM_DATES_2026 constant, update getCurrentYearExamDates(), add African American Studies to SUBJECT_KEY_TO_EXAM_NAME",
+      "priority": "high",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "exam-dates",
+        "data"
+      ],
+      "createdAt": "2026-03-28T03:28:19.906Z",
+      "startedAt": null,
+      "completedAt": "2026-03-28T03:34:14.621Z",
+      "result": {
+        "summary": "Added AP_EXAM_DATES_2026 with all 38+ exams from official College Board schedule. Updated getCurrentYearExamDates() to return 2026 dates. Added africanAmericanStudies to SUBJECT_KEY_TO_EXAM_NAME."
+      }
+    },
+    "task-1774671986427-p457o0": {
+      "taskId": "task-1774671986427-p457o0",
+      "type": "feature",
+      "description": "Add live ExamCountdown to AP Exam Schedule modal in Smart Scheduler: added subjectKey to getUpcomingExamsSync return, imported and rendered ExamCountdown in each exam card",
+      "priority": "normal",
+      "status": "completed",
+      "progress": 100,
+      "assignedTo": [],
+      "tags": [
+        "scheduler",
+        "ui",
+        "exam-countdown"
+      ],
+      "createdAt": "2026-03-28T04:26:26.427Z",
+      "startedAt": null,
+      "completedAt": "2026-03-28T04:26:30.717Z",
+      "result": {
+        "summary": "Added subjectKey field to getUpcomingExamsSync return in apExamDates.js via reverse lookup map. Imported ExamCountdown into APExamDashboard.jsx and rendered with subject-colored accent bar in each exam card, replacing the static 'X days' badge."
+      }
     }
   },
   "version": "3.0.0"

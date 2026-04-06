@@ -1,39 +1,25 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Plus, Calendar, Brain } from "lucide-react";
-import { isSameDay, format } from "date-fns";
-import { addDoc, collection, query, orderBy, onSnapshot, updateDoc, deleteDoc, doc, serverTimestamp, getDoc, setDoc, Timestamp } from "firebase/firestore";
+import { format } from "date-fns";
+import { addDoc, collection, query, orderBy, onSnapshot, updateDoc, deleteDoc, doc, serverTimestamp, getDoc, setDoc } from "firebase/firestore";
 import { useAuth } from "../contexts/AuthContext";
 import errorLogger from "../utils/errorLogger";
 import { db } from "../config/firebase";
 import { TaskCard } from "../components/scheduler/TaskCard.jsx";
 import { TaskModal } from "../components/scheduler/TaskModal.jsx";
 import APExamDashboard from "../components/scheduler/APExamDashboard.jsx";
+import CalendarGrid from "../components/scheduler/CalendarGrid.jsx";
+import CalendarHeader from "../components/scheduler/CalendarHeader.jsx";
+import BlackoutConflictDialog from "../components/scheduler/BlackoutConflictDialog.jsx";
+import SchedulePreviewDialog from "../components/scheduler/SchedulePreviewDialog.jsx";
+import OverdueTasksBanner from "../components/scheduler/OverdueTasksBanner.jsx";
 import { Button, ScrollArea, Badge } from "../components/ui/UIComponents.jsx";
 import IntelligentScheduler from "../utils/intelligentScheduler";
+import useScheduleGeneration from "../hooks/useScheduleGeneration";
 
 // Gate debug logging behind development mode
 const IS_DEV = process.env.NODE_ENV === 'development';
 const debugLog = IS_DEV ? (...args) => console.log(...args) : () => {}; // eslint-disable-line no-console
-
-// Helper function to convert schedule array back to object format
-const convertArrayToScheduleObject = (scheduleArray) => {
-  const scheduleObject = {};
-  
-  if (!Array.isArray(scheduleArray)) {
-    return {};
-  }
-  
-  scheduleArray.forEach(item => {
-    if (item.date) {
-      if (!scheduleObject[item.date]) {
-        scheduleObject[item.date] = [];
-      }
-      scheduleObject[item.date].push(item);
-    }
-  });
-  
-  return scheduleObject;
-};
 
 export default function SmartScheduler() {
   const { user } = useAuth();
@@ -43,14 +29,8 @@ export default function SmartScheduler() {
   const [aiSchedule, setAiSchedule] = useState([]);
   const [scheduler, setScheduler] = useState(null);
   const [isLoadingPreferences, setIsLoadingPreferences] = useState(true);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [hasAutoTriggered, setHasAutoTriggered] = useState(false);
-  const [blackoutConflicts, setBlackoutConflicts] = useState([]);
-  const [showBlackoutDialog, setShowBlackoutDialog] = useState(false);
-  const [blackoutOverrides, setBlackoutOverrides] = useState([]);
-  const [overdueTasksDialog, setOverdueTasksDialog] = useState({ show: false, tasks: [] });
-  const [newAssignmentsAvailable, setNewAssignmentsAvailable] = useState(false);
-  const lastKnownTaskCountRef = useRef(0);
+  const [scheduleViewMode, setScheduleViewMode] = useState('list'); // 'list' | 'week' | 'month'
+  const [calendarDate, setCalendarDate] = useState(new Date());
   const [userPreferences, setUserPreferences] = useState({
     preferredStudyTimes: ['morning', 'evening'],
     maxStudyHoursPerDay: 8, // Increased from 4 to 8 hours
@@ -306,6 +286,41 @@ export default function SmartScheduler() {
     }
   }, [user, scheduler, deepSanitize]); // Fix: Add proper dependencies
 
+  // Schedule generation hook — encapsulates generation, conflicts, overdue handling, auto-trigger
+  const {
+    isGenerating,
+    blackoutConflicts,
+    showBlackoutDialog,
+    overdueTasksDialog,
+    newAssignmentsAvailable,
+    setNewAssignmentsAvailable,
+    generateIntelligentSchedule,
+    handleBlackoutOverride,
+    processOverdueTaskAction,
+    proceedWithSchedule,
+    deletingTaskRef,
+    scheduleRegenerateRef,
+    setShowBlackoutDialog,
+    setBlackoutConflicts,
+    setBlackoutOverrides,
+    setOverdueTasksDialog,
+    updateIsGenerating,
+    schedulePreview,
+    confirmSchedulePreview,
+    cancelSchedulePreview,
+  } = useScheduleGeneration({
+    tasks,
+    setTasks,
+    scheduler,
+    userPreferences,
+    aiSchedule,
+    setAiSchedule,
+    user,
+    isModalOpen,
+    isLoadingPreferences,
+    saveAiScheduleToFirebase,
+  });
+
   // Remove completed items from schedule and tasks
   const removeCompletedItems = async () => {
     if (!user) {
@@ -366,20 +381,6 @@ export default function SmartScheduler() {
     }
   };
 
-  // Add ref to prevent double confirmation in StrictMode
-  const deletingTaskRef = useRef(null);
-  // Add ref for tracking isGenerating state without causing re-renders
-  const isGeneratingRef = useRef(false);
-  const failedAutoTriggerRef = useRef(false);
-  // Add ref for schedule regeneration function
-  const scheduleRegenerateRef = useRef(null);
-
-  // Helper function to update both state and ref
-  const updateIsGenerating = useCallback((value) => {
-    setIsGenerating(value);
-    isGeneratingRef.current = value;
-  }, []);
-
   const handleDeleteTask = async (taskId) => {
     // Prevent double execution in StrictMode
     if (deletingTaskRef.current === taskId) return;
@@ -436,440 +437,34 @@ export default function SmartScheduler() {
     }
   };
 
-  const handleBlackoutOverride = (conflict, approve) => {
-    if (!conflict) {
-      console.error("No conflict provided to handleBlackoutOverride");
-      return;
-    }
-    
-    if (approve) {
-      setBlackoutOverrides(prev => [...prev, {
-        taskId: conflict.taskId,
-        blackoutRange: conflict.conflictingBlackout?.timeRange || '',
-        blackoutName: conflict.conflictingBlackout?.name || 'Unknown'
-      }]);
-    }
-    
-    // Remove this conflict from the list
-    setBlackoutConflicts(prev => prev.filter(c => c && c.taskId !== conflict.taskId));
-  };
-
-  // Check for overdue tasks and handle them
-  const handleOverdueTasks = useCallback((tasksToCheck) => {
-    const now = new Date();
-    const overdueTasks = tasksToCheck.filter(task => {
-      if (!task.deadline || task.is_completed) return false;
-      const deadline = task.deadline.toDate ? task.deadline.toDate() : new Date(task.deadline);
-      return deadline < now;
+  // Pre-group schedule items by day to avoid per-day .filter() on every render
+  const scheduleByDay = useMemo(() => {
+    const safeSchedule = Array.isArray(aiSchedule) ? aiSchedule : [];
+    const grouped = {};
+    safeSchedule.forEach(item => {
+      if (!item || !item.startTime) return;
+      const itemDate = item.startTime instanceof Date ? item.startTime : new Date(item.startTime);
+      const key = format(itemDate, 'yyyy-MM-dd');
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(item);
     });
+    return grouped;
+  }, [aiSchedule]);
 
-    if (overdueTasks.length > 0) {
-      setOverdueTasksDialog({ show: true, tasks: overdueTasks });
-      return true;
-    }
-    return false;
-  }, []);
-
-  // Process overdue task action
-  const processOverdueTaskAction = useCallback(async (task, action, newDeadline = null) => {
-    if (!user) return;
-    try {
-      if (action === 'delete') {
-        await deleteDoc(doc(db, "users", user.uid, "tasks", task.id));
-        // Remove from local state
-        setTasks(prev => prev.filter(t => t.id !== task.id));
-        
-        // Trigger schedule regeneration after deletion
-        debugLog("🔄 Overdue task deleted, regenerating schedule...");
-        setTimeout(() => {
-          if (scheduleRegenerateRef.current) {
-            scheduleRegenerateRef.current(false);
-          }
-        }, 1000);
-        
-      } else if (action === 'reschedule' && newDeadline) {
-        const taskRef = doc(db, "users", user.uid, "tasks", task.id);
-        await updateDoc(taskRef, {
-          deadline: Timestamp.fromDate(new Date(newDeadline))
-        });
-        // Update local state
-        setTasks(prev => prev.map(t => 
-          t.id === task.id 
-            ? { ...t, deadline: Timestamp.fromDate(new Date(newDeadline)) }
-            : t
-        ));
-        
-        // Trigger schedule regeneration after rescheduling
-        debugLog("🔄 Task rescheduled, regenerating schedule...");
-        setTimeout(() => {
-          if (scheduleRegenerateRef.current) {
-            scheduleRegenerateRef.current(false);
-          }
-        }, 1000);
-      }
-      
-      // Remove the processed task from the overdue dialog
-      setOverdueTasksDialog(prev => {
-        const remainingTasks = prev.tasks.filter(t => t.id !== task.id);
-        
-        // Auto-close dialog if no tasks left (scheduling will be triggered by useEffect)
-        if (remainingTasks.length === 0) {
-          setTimeout(() => {
-            setOverdueTasksDialog({ show: false, tasks: [] });
-          }, 500);
-        }
-        
-        return {
-          ...prev,
-          tasks: remainingTasks
-        };
-      });
-      
-    } catch (error) {
-      console.error("Error processing overdue task:", error);
-      alert("Failed to update task. Please try again.");
-    }
-  }, [user]);
-
-  // Generate intelligent schedule function
-  // Reset auto-trigger flag when tasks change significantly, but only if no schedule exists
-  useEffect(() => {
-    // Only reset auto-trigger if we don't have an existing schedule
-    // AND we haven't already failed an auto-trigger (prevents infinite loop)
-    const hasExistingSchedule = Array.isArray(aiSchedule) && aiSchedule.length > 0;
-    if (!hasExistingSchedule && !failedAutoTriggerRef.current) {
-      setHasAutoTriggered(false);
-    }
-
-    // Track when new assignments are available but schedule is preserved
-    const lastCount = lastKnownTaskCountRef.current;
-    if (hasExistingSchedule && tasks.length > lastCount && lastCount > 0) {
-      setNewAssignmentsAvailable(true);
-      debugLog(`📬 New assignments detected: ${tasks.length - lastCount} new tasks`);
-    }
-    
-    // Update the last known task count (ref — no re-render)
-    lastKnownTaskCountRef.current = tasks.length;
-  }, [tasks.length, user?.uid, aiSchedule]);
-
-  const generateIntelligentSchedule = useCallback(async (isAutoTrigger = false) => {
-    if (tasks.length === 0) {
-      if (!isAutoTrigger) {
-        alert("Please create some tasks first! Click the '+ Task' button above to add your AP study tasks.");
-      }
-      return;
-    }
-
-    if (!scheduler) {
-      if (!isAutoTrigger) {
-        alert("Scheduler is not ready. Please wait for preferences to load.");
-      }
-      return;
-    }
-
-    // Prevent multiple simultaneous generations
-    if (isGeneratingRef.current) {
-      debugLog("⏳ Schedule generation already in progress");
-      return;
-    }
-
-    // Extra protection: If this is an auto-trigger and we have an existing schedule,
-    // skip generation to preserve user's schedule from background sync interference
-    const hasExistingSchedule = Array.isArray(aiSchedule) && aiSchedule.length > 0;
-    if (isAutoTrigger && hasExistingSchedule) {
-      debugLog("🛡️ Auto-trigger skipped - preserving existing schedule from background sync interference");
-      return;
-    }
-
-    try {
-      updateIsGenerating(true);
-      
-      // Clear new assignments notification when user manually regenerates
-      if (!isAutoTrigger) {
-        setNewAssignmentsAvailable(false);
-      }
-
-      // Check for overdue tasks first
-      const hasOverdueTasks = handleOverdueTasks(tasks);
-      if (hasOverdueTasks) {
-        updateIsGenerating(false);
-        return; // Wait for user to handle overdue tasks
-      }
-
-      debugLog("🧠 Generating intelligent schedule...");
-      debugLog("Tasks:", tasks);
-      debugLog("User preferences:", userPreferences);
-      debugLog("Blackout overrides:", blackoutOverrides);
-      
-      // Convert aiSchedule array back to object format for the scheduler
-      const existingScheduleObject = convertArrayToScheduleObject(aiSchedule);
-      debugLog("Current schedule to preserve:", existingScheduleObject);
-      
-      // Enhanced error handling for schedule generation
-      let result;
-      try {
-        result = scheduler.generateWeeklySchedule(tasks, new Date(), blackoutOverrides, existingScheduleObject, isAutoTrigger);
-      } catch (scheduleError) {
-        console.error("❌ Schedule generation failed:", scheduleError);
-        if (!isAutoTrigger) {
-          alert("Schedule generation failed. Please try again or check your task data.");
-        }
-        updateIsGenerating(false);
-        return;
-      }
-
-      debugLog("Generated schedule result:", result);
-      debugLog("Result type:", typeof result);
-      debugLog("Is result an object?", result && typeof result === 'object');
-      debugLog("Does result have schedule property?", result && result.schedule);
-      debugLog("Direct result content keys:", result ? Object.keys(result) : 'No result');
-      
-      // Handle the new return format that includes conflicts
-      let scheduleObject;
-      let conflicts = [];
-      
-      if (result && typeof result === 'object' && result.schedule) {
-        // New format with conflicts
-        scheduleObject = result.schedule;
-        conflicts = result.blackoutConflicts || [];
-        debugLog("Using new format - schedule object:", scheduleObject);
-        debugLog("Conflicts found:", conflicts);
-      } else if (result && typeof result === 'object') {
-        // Legacy format - direct schedule object
-        scheduleObject = result;
-        debugLog("Using legacy format - direct schedule object");
-      } else {
-        console.error("❌ Generated schedule is not valid:", result);
-        
-        // Check if there are blackout conflicts to show
-        if (result && result.blackoutConflicts && result.blackoutConflicts.length > 0) {
-          setBlackoutConflicts(result.blackoutConflicts);
-          setShowBlackoutDialog(true);
-          updateIsGenerating(false);
-          return;
-        }
-        
-        if (!isAutoTrigger) {
-          alert("Error: Generated schedule is not valid. Please try again.");
-        }
-        updateIsGenerating(false);
-        return;
-      }
-      
-      // Check if there are blackout conflicts to resolve
-      if (conflicts.length > 0) {
-        debugLog("⚠️ Blackout conflicts detected, showing dialog");
-        setBlackoutConflicts(conflicts);
-        setShowBlackoutDialog(true);
-        updateIsGenerating(false);
-        return; // Don't proceed with schedule generation until conflicts are resolved
-      }
-      
-      if (!scheduleObject || typeof scheduleObject !== 'object') {
-        console.error("❌ Generated schedule is not an object:", scheduleObject);
-        alert("Error: Generated schedule is not valid. Please try again.");
-        return;
-      }
-      
-      // Convert schedule object to array format
-      const scheduleArray = [];
-      Object.keys(scheduleObject).forEach(dateKey => {
-        const daySchedule = scheduleObject[dateKey];
-        debugLog(`📅 Processing schedule for ${dateKey}:`, daySchedule);
-        
-        if (Array.isArray(daySchedule)) {
-          // Map the schedule items to match our component's expected format
-          const mappedItems = daySchedule.map(item => ({
-            ...item,
-            task: item.taskName || item.task, // Map taskName to task for compatibility
-            startTime: item.startTime ? new Date(item.startTime) : null,
-            endTime: item.endTime ? new Date(item.endTime) : null,
-            date: dateKey // Ensure date is set
-          }));
-          debugLog(`📋 Mapped ${mappedItems.length} items for ${dateKey}:`, mappedItems);
-          scheduleArray.push(...mappedItems);
-        }
-      });
-      
-      debugLog("🔄 Final converted schedule array:", scheduleArray);
-      debugLog("📊 Total schedule items:", scheduleArray.length);
-      debugLog("📈 Schedule items by date:", scheduleArray.reduce((acc, item) => {
-        const date = item.date || (item.startTime ? format(item.startTime, 'yyyy-MM-dd') : 'unknown');
-        acc[date] = (acc[date] || 0) + 1;
-        return acc;
-      }, {}));
-      
-      if (scheduleArray.length === 0) {
-        // Enhanced error messaging based on actual conditions
-        let errorMessage = "Could not generate a schedule. ";
-        let suggestions = [];
-        
-        if (tasks.length === 0) {
-          errorMessage = "Please create some tasks first to generate a schedule!";
-        } else {
-          // Check if all tasks are completed
-          const incompleteTasks = tasks.filter(t => !t.is_completed);
-          if (incompleteTasks.length === 0) {
-            errorMessage = "All your tasks are completed! 🎉 Create new tasks to generate a schedule.";
-          } else {
-            // Analyze specific issues
-            const tasksWithoutDeadlines = incompleteTasks.filter(t => !t.deadline);
-            const tasksWithInvalidTime = incompleteTasks.filter(t => {
-              const timeRequired = t.timeRequired || (t.estimated_time ? t.estimated_time / 60 : 0);
-              const timeSpent = t.timeSpent || 0;
-              return timeRequired <= timeSpent;
-            });
-            
-            if (tasksWithoutDeadlines.length === incompleteTasks.length) {
-              suggestions.push("Add deadlines to your tasks");
-            } else if (tasksWithoutDeadlines.length > 0) {
-              suggestions.push(`${tasksWithoutDeadlines.length} tasks need deadlines`);
-            }
-            
-            if (tasksWithInvalidTime.length > 0) {
-              suggestions.push(`${tasksWithInvalidTime.length} tasks appear to be already completed`);
-            }
-            
-            // Check blackout coverage
-            const blackoutScheduleData = userPreferences?.blackoutSchedule || {};
-            let totalBlackoutHours = 0;
-            let problematicBlackouts = [];
-            
-            Object.entries(blackoutScheduleData).forEach(([day, dayBlackouts]) => {
-              if (dayBlackouts && dayBlackouts.length > 0) {
-                dayBlackouts.forEach(blackout => {
-                  let range;
-                  if (typeof blackout === 'string') {
-                    range = blackout;
-                  } else if (blackout.range) {
-                    range = blackout.range;
-                  }
-                  
-                  if (range) {
-                    const [start, end] = range.split('-');
-                    if (start && end) {
-                      try {
-                        const [startHour] = start.split(':').map(Number);
-                        const [endHour] = end.split(':').map(Number);
-                        
-                        let hours;
-                        if (endHour < startHour) {
-                          hours = (24 - startHour) + endHour;
-                        } else {
-                          hours = endHour - startHour;
-                        }
-                        
-                        totalBlackoutHours += hours;
-                        
-                        if (hours > 10) {
-                          problematicBlackouts.push({
-                            day,
-                            name: blackout.name || 'Blackout Period',
-                            range,
-                            hours
-                          });
-                        }
-                      } catch (e) {
-                        console.warn("Error parsing blackout time:", blackout);
-                      }
-                    }
-                  }
-                });
-              }
-            });
-            
-            const averageBlackoutPerDay = totalBlackoutHours / 7;
-            
-            if (averageBlackoutPerDay > 16) {
-              if (problematicBlackouts.length > 0) {
-                errorMessage = "Your blackout periods are too restrictive for scheduling. ";
-                suggestions.push(`Consider reducing: ${problematicBlackouts.map(b => `${b.name} (${b.hours}h)`).join(', ')}`);
-              } else {
-                suggestions.push("Reduce blackout periods in Settings");
-              }
-            }
-            
-            if (suggestions.length === 0) {
-              suggestions.push("Try extending study hours or reducing blackout periods");
-              suggestions.push("Check that tasks have realistic time estimates");
-              suggestions.push("Ensure deadlines are in the future");
-            }
-            
-            errorMessage += "This might be due to:\n• " + suggestions.join("\n• ");
-            
-            // Log detailed analysis
-            debugLog("📊 Detailed scheduling failure analysis:", {
-              totalTasks: tasks.length,
-              incompleteTasks: tasks.filter(t => !t.is_completed).length,
-              tasksWithoutDeadlines: tasks.filter(t => !t.deadline).length,
-              averageBlackoutHours: totalBlackoutHours / 7,
-              userPreferences: userPreferences
-            });
-          }
-        }
-        
-        if (!isAutoTrigger) {
-          alert(errorMessage);
-        }
-        updateIsGenerating(false);
-        return;
-      }
-
-      debugLog("Setting aiSchedule to:", scheduleArray);
-      setAiSchedule(scheduleArray);
-      await saveAiScheduleToFirebase(scheduleArray);
-      debugLog("✅ Schedule generated and saved successfully!");
-    } catch (error) {
-      console.error("Error generating schedule:", error);
-      console.error("Error stack:", error.stack);
-      if (isAutoTrigger) {
-        // Mark that auto-trigger failed so we don't retry in a loop
-        failedAutoTriggerRef.current = true;
-      } else {
-        alert("Error generating schedule. Please try again.");
-      }
-      // Only reset schedule if we don't already have one (preserve existing on error)
-      if (!Array.isArray(aiSchedule) || aiSchedule.length === 0) {
-        setAiSchedule([]);
-      }
-    } finally {
-      updateIsGenerating(false);
-    }
-  }, [tasks, scheduler, userPreferences, blackoutOverrides, aiSchedule, saveAiScheduleToFirebase, handleOverdueTasks, updateIsGenerating]);
-
-  // Assign the generateIntelligentSchedule function to ref for use in deletion callbacks
-  useEffect(() => {
-    scheduleRegenerateRef.current = generateIntelligentSchedule;
-  }, [generateIntelligentSchedule]);
-
-  // Auto-trigger scheduling when the page loads or when relevant data changes
-  useEffect(() => {
-    // Only auto-generate schedule if we have tasks and user preferences, and haven't auto-triggered yet
-    // AND if we don't already have an existing schedule (to prevent overwriting user's schedule)
-    const hasExistingSchedule = Array.isArray(aiSchedule) && aiSchedule.length > 0;
-    
-    if (tasks.length > 0 && userPreferences && !isGenerating && !showBlackoutDialog && !isModalOpen && !hasAutoTriggered && !hasExistingSchedule && !failedAutoTriggerRef.current) {
-      debugLog("🔄 Auto-triggering schedule generation (no existing schedule found)");
-      setHasAutoTriggered(true);
-      const timer = setTimeout(() => {
-        generateIntelligentSchedule(true); // Pass true to indicate this is an auto-trigger
-      }, 500); // Small delay to ensure UI is ready
-      return () => clearTimeout(timer);
-    } else if (hasExistingSchedule && !hasAutoTriggered) {
-      debugLog("📅 Existing schedule found - skipping auto-trigger to preserve scheduled times");
-      setHasAutoTriggered(true); // Mark as triggered to prevent future auto-triggers
-    }
-  }, [tasks.length, userPreferences, isGenerating, showBlackoutDialog, isModalOpen, hasAutoTriggered, aiSchedule, generateIntelligentSchedule]);
-
-  // Proceed with schedule generation after resolving conflicts
-  const proceedWithSchedule = useCallback(() => {
-    setShowBlackoutDialog(false);
-    // Re-run schedule generation with the approved overrides
-    generateIntelligentSchedule(false);
-  }, [generateIntelligentSchedule]);
-
-  // Note: removed auto-trigger on overdue dialog close to prevent infinite loop.
-  // The "Continue Scheduling" button in the overdue dialog handles re-triggering.
+  // Adapter for CalendarGrid: returns schedule items for a given date
+  const getTasksForDate = useCallback((date) => {
+    const key = format(date, 'yyyy-MM-dd');
+    return (scheduleByDay[key] || []).map(item => ({
+      id: item.taskId || item.id || `${item.task}-${key}`,
+      name: item.task || item.taskName || 'Unnamed Task',
+      subject: item.subject || '',
+      startTime: item.startTime instanceof Date ? item.startTime.toISOString() : item.startTime,
+      endTime: item.endTime instanceof Date ? item.endTime.toISOString() : item.endTime,
+      duration: item.duration,
+      difficulty: item.difficulty || 'medium',
+      completed: item.completed || false,
+    }));
+  }, [scheduleByDay]);
 
   if (!user) {
     return (
@@ -982,7 +577,7 @@ export default function SmartScheduler() {
               {tasks.length === 0 && (
                 <div className="text-center py-6 sm:py-8 text-content-muted">
                   <Calendar strokeWidth={1.5} size={40} className="sm:w-12 sm:h-12 mx-auto mb-2 opacity-50"/>
-                  <p className="text-xs sm:text-sm font-medium">No AP tasks yet</p>
+                  <p className="text-xs sm:text-sm font-medium">No tasks yet</p>
                   <p className="text-xs mb-3">Create tasks with deadlines to generate your smart schedule</p>
                   <Button 
                     size="sm" 
@@ -1004,12 +599,42 @@ export default function SmartScheduler() {
         <div className="p-4 sm:p-6 h-full flex flex-col">
           <div className="flex items-center justify-between mb-4 sm:mb-6">
             <h3 className="text-lg sm:text-xl font-semibold font-display text-content-primary">AI Study Schedule</h3>
-            {Array.isArray(aiSchedule) && aiSchedule.length > 0 && (
-              <span className="text-xs sm:text-sm text-content-muted">
-                {aiSchedule.filter(item => !item.completed).length} sessions scheduled
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              {Array.isArray(aiSchedule) && aiSchedule.length > 0 && (
+                <>
+                  <span className="text-xs sm:text-sm text-content-muted mr-2">
+                    {aiSchedule.filter(item => !item.completed).length} sessions
+                  </span>
+                  <div className="flex rounded-md border border-border overflow-hidden">
+                    {['list', 'week', 'month'].map(mode => (
+                      <button
+                        key={mode}
+                        onClick={() => setScheduleViewMode(mode)}
+                        className={`px-2 py-1 text-xs capitalize transition-colors ${
+                          scheduleViewMode === mode
+                            ? 'bg-content-primary text-base-950'
+                            : 'bg-base-800 text-content-muted hover:text-content-secondary'
+                        }`}
+                      >
+                        {mode}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
+
+          {/* Non-blocking overdue tasks banner */}
+          {overdueTasksDialog.show && overdueTasksDialog.tasks.length > 0 && (
+            <OverdueTasksBanner
+              tasks={overdueTasksDialog.tasks}
+              onReschedule={(task, newDeadline) => processOverdueTaskAction(task, 'reschedule', newDeadline)}
+              onDelete={(task) => processOverdueTaskAction(task, 'delete')}
+              onDismiss={() => setOverdueTasksDialog({ show: false, tasks: [] })}
+              deletingTaskRef={deletingTaskRef}
+            />
+          )}
 
           {isLoadingPreferences ? (
             <div className="flex items-center justify-center h-40 sm:h-64">
@@ -1047,26 +672,17 @@ export default function SmartScheduler() {
                 </div>
               )}
             </div>
-          ) : (
+          ) : scheduleViewMode === 'list' ? (
             <ScrollArea className="flex-1 min-h-0">
               <div className="space-y-3 sm:space-y-4">
                 {Array.from({ length: 14 }, (_, dayIndex) => {
                   const date = new Date();
                   date.setDate(date.getDate() + dayIndex);
-                  
-                  // Ensure aiSchedule is always an array
-                  const safeAiSchedule = Array.isArray(aiSchedule) ? aiSchedule : [];
-                  const daySchedule = safeAiSchedule.filter(item => {
-                    if (!item || !item.startTime) return false;
-                    
-                    // Handle both Date objects and date strings
-                    const itemDate = item.startTime instanceof Date ? item.startTime : new Date(item.startTime);
-                    return isSameDay(itemDate, date);
-                  });
 
-                  // Always show the day if it's today/tomorrow/next few days, even if no items
-                  const showEmptyDays = dayIndex < 3; // Show first 3 days even if empty
-                  
+                  const dateKey = format(date, 'yyyy-MM-dd');
+                  const daySchedule = scheduleByDay[dateKey] || [];
+
+                  const showEmptyDays = dayIndex < 3;
                   if (daySchedule.length === 0 && !showEmptyDays) return null;
 
                   return (
@@ -1076,7 +692,7 @@ export default function SmartScheduler() {
                         {format(date, 'EEEE, MMM d')}
                         <span className="ml-2 text-xs text-content-muted">({daySchedule.length} sessions)</span>
                       </h4>
-                      
+
                       {daySchedule.length === 0 ? (
                         <div className="text-center py-4 text-content-muted text-sm">
                           No sessions scheduled for this day
@@ -1084,30 +700,17 @@ export default function SmartScheduler() {
                       ) : (
                         <div className="space-y-1 sm:space-y-2">
                           {daySchedule.map((item, index) => {
-                            if (!item) {
-                              debugLog(`⚠️ Null item at index ${index} for day ${dayIndex}`);
-                              return null;
-                            }
-                            
-                            const safeAiSchedule = Array.isArray(aiSchedule) ? aiSchedule : [];
-                            const scheduleIndex = safeAiSchedule.findIndex(scheduleItem => 
-                              scheduleItem === item
-                            );
-                            
+                            if (!item) return null;
+
+                            const safeSchedule = Array.isArray(aiSchedule) ? aiSchedule : [];
+                            const scheduleIndex = safeSchedule.findIndex(s => s === item);
                             const uniqueKey = scheduleIndex >= 0 ? scheduleIndex : `item-${dayIndex}-${index}`;
-                            
-                            debugLog(`📋 Rendering schedule item:`, {
-                              key: uniqueKey,
-                              taskName: item.taskName || item.task,
-                              startTime: item.startTime?.toLocaleString(),
-                              endTime: item.endTime?.toLocaleString()
-                            });
-                            
+
                             return (
-                              <div 
+                              <div
                                 key={uniqueKey}
                                 className={`p-2 sm:p-3 rounded border-l-4 ${
-                                  item.completed 
+                                  item.completed
                                     ? 'bg-success-900 border-success-500 opacity-60'
                                     : 'bg-base-800 border-content-muted'
                                 }`}
@@ -1145,212 +748,54 @@ export default function SmartScheduler() {
                 })}
               </div>
             </ScrollArea>
+          ) : (
+            /* Week / Month calendar view */
+            <div className="flex-1 min-h-0 flex flex-col">
+              <CalendarHeader
+                currentDate={calendarDate}
+                onDateChange={setCalendarDate}
+                viewMode={scheduleViewMode}
+                onViewModeChange={setScheduleViewMode}
+              />
+              <div className="flex-1 min-h-0 overflow-auto">
+                <CalendarGrid
+                  currentDate={calendarDate}
+                  viewMode={scheduleViewMode}
+                  tasks={tasks}
+                  onTaskClick={(task) => { setEditingTask(task); setIsModalOpen(true); }}
+                  onDateClick={(date) => { setCalendarDate(date); setScheduleViewMode('week'); }}
+                  getTasksForDate={getTasksForDate}
+                />
+              </div>
+            </div>
           )}
         </div>
       </div>
 
       {/* Blackout Override Dialog */}
-      {showBlackoutDialog && blackoutConflicts.length > 0 && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-base-850 p-6 rounded-lg max-w-lg w-full mx-4 border border-border-strong max-h-[80vh] overflow-y-auto">
-            <h3 className="text-xl font-bold text-content-primary mb-4">
-              ⚠️ Schedule Conflicts Detected
-            </h3>
-            <p className="text-content-secondary mb-4">
-              The following tasks have urgent deadlines that conflict with your blackout periods. 
-              Would you like to override these blackouts just this once to fit in these urgent tasks?
-            </p>
-            
-            <div className="space-y-4 mb-6 max-h-64 overflow-y-auto">
-              {blackoutConflicts.map((conflict, index) => {
-                if (!conflict) return null;
-                
-                return (
-                  <div key={index} className="p-4 bg-base-800 rounded border border-border-strong">
-                    <h4 className="font-medium text-content-primary mb-2">{conflict.taskName || 'Unknown Task'}</h4>
-                    <p className="text-sm text-content-muted mb-2">
-                      Due: {conflict.deadline ? new Date(conflict.deadline).toLocaleString() : 'No deadline'}
-                    </p>
-                    
-                    <div className="mb-3">
-                      <p className="text-sm text-warning-400 font-medium mb-1">Conflicting blackout periods:</p>
-                      {conflict.conflictingBlackouts && conflict.conflictingBlackouts.length > 0 ? (
-                        conflict.conflictingBlackouts.map((blackout, bIndex) => (
-                          <div key={bIndex} className="text-sm text-warning-400 ml-2 mb-1 p-2 bg-warning-900 rounded">
-                            <span className="font-medium">• {blackout.blackoutName || blackout.name || 'Unknown Blackout'}</span>
-                            <br />
-                            <span className="text-xs text-warning-400">
-                              {blackout.timeRange || blackout.range || 'No time range'} on {blackout.day || 'unknown day'}
-                            </span>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-sm text-warning-400 ml-2 p-2 bg-warning-900 rounded">
-                          <span className="font-medium">• {conflict.conflictingBlackout?.name || conflict.conflictingBlackout?.blackoutName || 'Unknown Blackout'}</span>
-                          <br />
-                          <span className="text-xs text-warning-400">
-                            {conflict.conflictingBlackout?.timeRange || 'No time range'}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => handleBlackoutOverride(conflict, true)}
-                        className="bg-success-500 hover:bg-success-500 text-base-950"
-                      >
-                        Override for This Task
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleBlackoutOverride(conflict, false)}
-                        className="text-error-400 border-error-500 hover:bg-error-900"
-                      >
-                        Skip This Task
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            
-            <div className="flex gap-3">
-              <Button
-                onClick={() => {
-                  // Override all conflicts
-                  blackoutConflicts.forEach(conflict => handleBlackoutOverride(conflict, true));
-                }}
-                className="flex-1 bg-success-500 hover:bg-success-500"
-                disabled={blackoutConflicts.length === 0}
-              >
-                Override All Conflicts ({blackoutConflicts.length})
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowBlackoutDialog(false);
-                  setBlackoutConflicts([]);
-                  setBlackoutOverrides([]);
-                  updateIsGenerating(false);
-                }}
-                className="flex-1"
-              >
-                Keep Blackouts
-              </Button>
-            </div>
-            
-            {blackoutConflicts.length === 0 && (
-              <div className="flex gap-2 mt-4">
-                <Button
-                  onClick={proceedWithSchedule}
-                  className="flex-1 bg-content-primary hover:bg-content-primary"
-                >
-                  Generate Schedule Now
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowBlackoutDialog(false);
-                    updateIsGenerating(false);
-                  }}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
+      {showBlackoutDialog && (
+        <BlackoutConflictDialog
+          conflicts={blackoutConflicts}
+          onOverride={handleBlackoutOverride}
+          onOverrideAll={() => blackoutConflicts.forEach(c => handleBlackoutOverride(c, true))}
+          onKeepBlackouts={() => {
+            setShowBlackoutDialog(false);
+            setBlackoutConflicts([]);
+            setBlackoutOverrides([]);
+            updateIsGenerating(false);
+          }}
+          onProceed={proceedWithSchedule}
+        />
       )}
 
-      {/* Overdue Tasks Dialog */}
-      {overdueTasksDialog.show && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-base-850 p-6 rounded-lg max-w-lg w-full mx-4 border border-border-strong">
-            <h3 className="text-xl font-bold text-content-primary mb-4">
-              ⚠️ Overdue Tasks Detected
-            </h3>
-            <p className="text-content-secondary mb-4">
-              You have {overdueTasksDialog.tasks.length} overdue task(s). Would you like to reschedule them or remove them from your list?
-            </p>
-            
-            <div className="space-y-3 mb-6 max-h-64 overflow-y-auto">
-              {overdueTasksDialog.tasks.map((task, index) => {
-                const deadline = task.deadline.toDate ? task.deadline.toDate() : new Date(task.deadline);
-                const daysOverdue = Math.ceil((new Date() - deadline) / (1000 * 60 * 60 * 24));
-                
-                return (
-                  <div key={task.id} className="p-3 bg-base-800 rounded border border-border-strong">
-                    <h4 className="font-medium text-content-primary">{task.name}</h4>
-                    <p className="text-sm text-content-muted">
-                      Subject: {task.subject}
-                    </p>
-                    <p className="text-sm text-error-400">
-                      Overdue by {daysOverdue} day{daysOverdue !== 1 ? 's' : ''} (Due: {deadline.toLocaleDateString()})
-                    </p>
-                    
-                    <div className="flex gap-2 mt-3">
-                      <input
-                        type="datetime-local"
-                        className="flex-1 h-8 rounded border border-border-strong bg-base-800 px-2 text-sm text-content-primary"
-                        min={new Date().toISOString().slice(0, 16)}
-                        onChange={(e) => {
-                          if (e.target.value) {
-                            processOverdueTaskAction(task, 'reschedule', e.target.value);
-                          }
-                        }}
-                      />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          // Prevent double execution in StrictMode
-                          if (deletingTaskRef.current === task.id) return;
-                          
-                          if (window.confirm(`Are you sure you want to delete "${task.name}"?`)) {
-                            deletingTaskRef.current = task.id;
-                            processOverdueTaskAction(task, 'delete');
-                            // Reset after a delay
-                            setTimeout(() => {
-                              deletingTaskRef.current = null;
-                            }, 1000);
-                          }
-                        }}
-                        className="text-error-400 border-error-500 hover:bg-error-900"
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            
-            <div className="flex gap-2">
-              <Button
-                onClick={() => {
-                  setOverdueTasksDialog({ show: false, tasks: [] });
-                  // Retry schedule generation after handling overdue tasks
-                  generateIntelligentSchedule(false);
-                }}
-                className="flex-1 bg-content-primary hover:bg-content-primary"
-                disabled={overdueTasksDialog.tasks.length > 0}
-              >
-                Continue Scheduling
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setOverdueTasksDialog({ show: false, tasks: [] })}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </div>
+      {/* Schedule Preview/Diff Dialog */}
+      {schedulePreview && (
+        <SchedulePreviewDialog
+          currentSchedule={aiSchedule}
+          newSchedule={schedulePreview.newSchedule}
+          onConfirm={confirmSchedulePreview}
+          onCancel={cancelSchedulePreview}
+        />
       )}
 
       <TaskModal

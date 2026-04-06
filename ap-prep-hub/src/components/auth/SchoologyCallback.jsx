@@ -56,7 +56,7 @@ export function SchoologyCallback() {
       } catch (error) {
         console.error('OAuth callback error:', error);
         setStatus('error');
-        setMessage(`Authentication failed: ${error.message}`);
+        setMessage('We couldn\'t complete the Schoology connection. You can import your assignments using a Calendar URL in Settings instead.');
 
         // Clean up session storage
         sessionStorage.removeItem('schoology_oauth_user');
@@ -89,7 +89,7 @@ export function SchoologyCallback() {
           <h2 className="text-xl font-semibold text-content-primary mb-4">
             {status === 'processing' && 'Connecting to Schoology'}
             {status === 'success' && 'Connection Successful!'}
-            {status === 'error' && 'Connection Failed'}
+            {status === 'error' && 'Connection Unavailable'}
           </h2>
 
           <p className="text-content-secondary mb-6">

@@ -49,7 +49,8 @@ export const SUBJECT_KEY_TO_EXAM_NAME = {
   "studioArt3D": "AP Studio Art: 3-D Design",
   "studioArtDrawing": "AP Studio Art: Drawing",
   "usHistory": "AP U.S. History",
-  "worldHistory": "AP World History: Modern"
+  "worldHistory": "AP World History: Modern",
+  "africanAmericanStudies": "AP African American Studies"
 };
 
 // 2025 AP Exam Dates (Based on College Board schedule)
@@ -107,6 +108,58 @@ export const AP_EXAM_DATES_2025 = {
   "AP Seminar": { date: "2025-04-30", time: "8:00 PM", type: "presentation" }
 };
 
+// 2026 AP Exam Dates (Based on College Board official schedule)
+// https://apcentral.collegeboard.org/exam-administration-ordering-scores/exam-dates
+// https://apcentral.collegeboard.org/exam-administration-ordering-scores/exam-dates/late-testing-dates
+// Each entry includes optional lateDate/lateTime for late testing (Week 3: May 18-22)
+export const AP_EXAM_DATES_2026 = {
+  // Week 1: May 4-8, 2026
+  "AP Biology":                                  { date: "2026-05-04", time: "8:00 AM", lateDate: "2026-05-20", lateTime: "12:00 PM" },
+  "AP Latin":                                    { date: "2026-05-04", time: "8:00 AM", lateDate: "2026-05-18", lateTime: "12:00 PM" },
+  "AP European History":                         { date: "2026-05-04", time: "12:00 PM", lateDate: "2026-05-18", lateTime: "8:00 AM" },
+  "AP Microeconomics":                           { date: "2026-05-04", time: "12:00 PM", lateDate: "2026-05-20", lateTime: "8:00 AM" },
+  "AP Chemistry":                                { date: "2026-05-05", time: "8:00 AM", lateDate: "2026-05-20", lateTime: "12:00 PM" },
+  "AP Human Geography":                          { date: "2026-05-05", time: "8:00 AM", lateDate: "2026-05-18", lateTime: "12:00 PM" },
+  "AP U.S. Government and Politics":             { date: "2026-05-05", time: "12:00 PM", lateDate: "2026-05-19", lateTime: "8:00 AM" },
+  "AP English Literature and Composition":       { date: "2026-05-06", time: "8:00 AM", lateDate: "2026-05-18", lateTime: "12:00 PM" },
+  "AP Government and Politics: Comparative":     { date: "2026-05-06", time: "12:00 PM", lateDate: "2026-05-18", lateTime: "8:00 AM" },
+  "AP Physics 1: Algebra-Based":                 { date: "2026-05-06", time: "12:00 PM", lateDate: "2026-05-22", lateTime: "8:00 AM" },
+  "AP Physics 2: Algebra-Based":                 { date: "2026-05-07", time: "8:00 AM", lateDate: "2026-05-21", lateTime: "12:00 PM" },
+  "AP World History: Modern":                    { date: "2026-05-07", time: "8:00 AM", lateDate: "2026-05-18", lateTime: "8:00 AM" },
+  "AP African American Studies":                 { date: "2026-05-07", time: "12:00 PM", lateDate: "2026-05-19", lateTime: "12:00 PM" },
+  "AP Statistics":                               { date: "2026-05-07", time: "12:00 PM", lateDate: "2026-05-20", lateTime: "8:00 AM" },
+  "AP Italian Language and Culture":             { date: "2026-05-08", time: "8:00 AM", lateDate: "2026-05-21", lateTime: "12:00 PM" },
+  "AP U.S. History":                             { date: "2026-05-08", time: "8:00 AM", lateDate: "2026-05-19", lateTime: "12:00 PM" },
+  "AP Chinese Language and Culture":             { date: "2026-05-08", time: "12:00 PM", lateDate: "2026-05-21", lateTime: "8:00 AM" },
+  "AP Macroeconomics":                           { date: "2026-05-08", time: "12:00 PM", lateDate: "2026-05-20", lateTime: "12:00 PM" },
+
+  // Week 2: May 11-15, 2026
+  "AP Calculus AB":                              { date: "2026-05-11", time: "8:00 AM", lateDate: "2026-05-21", lateTime: "12:00 PM" },
+  "AP Calculus BC":                              { date: "2026-05-11", time: "8:00 AM", lateDate: "2026-05-21", lateTime: "12:00 PM" },
+  "AP Music Theory":                             { date: "2026-05-11", time: "12:00 PM", lateDate: "2026-05-21", lateTime: "8:00 AM" },
+  "AP Seminar":                                  { date: "2026-05-11", time: "12:00 PM", lateDate: "2026-05-20", lateTime: "8:00 AM" },
+  "AP French Language and Culture":              { date: "2026-05-12", time: "8:00 AM", lateDate: "2026-05-20", lateTime: "12:00 PM" },
+  "AP Precalculus":                              { date: "2026-05-12", time: "8:00 AM", lateDate: "2026-05-21", lateTime: "8:00 AM" },
+  "AP Japanese Language and Culture":            { date: "2026-05-12", time: "12:00 PM", lateDate: "2026-05-19", lateTime: "8:00 AM" },
+  "AP Psychology":                               { date: "2026-05-12", time: "12:00 PM", lateDate: "2026-05-22", lateTime: "12:00 PM" },
+  "AP English Language and Composition":         { date: "2026-05-13", time: "8:00 AM", lateDate: "2026-05-21", lateTime: "8:00 AM" },
+  "AP German Language and Culture":              { date: "2026-05-13", time: "8:00 AM", lateDate: "2026-05-22", lateTime: "12:00 PM" },
+  "AP Physics C: Mechanics":                     { date: "2026-05-13", time: "12:00 PM", lateDate: "2026-05-21", lateTime: "12:00 PM" },
+  "AP Spanish Literature and Culture":           { date: "2026-05-13", time: "12:00 PM", lateDate: "2026-05-22", lateTime: "8:00 AM" },
+  "AP Art History":                              { date: "2026-05-14", time: "8:00 AM", lateDate: "2026-05-21", lateTime: "12:00 PM" },
+  "AP Spanish Language and Culture":             { date: "2026-05-14", time: "8:00 AM", lateDate: "2026-05-22", lateTime: "8:00 AM" },
+  "AP Computer Science Principles":              { date: "2026-05-14", time: "12:00 PM", lateDate: "2026-05-21", lateTime: "8:00 AM" },
+  "AP Physics C: Electricity and Magnetism":     { date: "2026-05-14", time: "12:00 PM", lateDate: "2026-05-22", lateTime: "12:00 PM" },
+  "AP Environmental Science":                    { date: "2026-05-15", time: "8:00 AM", lateDate: "2026-05-22", lateTime: "8:00 AM" },
+  "AP Computer Science A":                       { date: "2026-05-15", time: "12:00 PM", lateDate: "2026-05-22", lateTime: "12:00 PM" },
+
+  // Portfolio / Capstone Deadlines (no late testing)
+  "AP Studio Art: 2-D Design":                   { date: "2026-05-08", time: "8:00 PM", type: "portfolio" },
+  "AP Studio Art: 3-D Design":                   { date: "2026-05-08", time: "8:00 PM", type: "portfolio" },
+  "AP Studio Art: Drawing":                      { date: "2026-05-08", time: "8:00 PM", type: "portfolio" },
+  "AP Research":                                 { date: "2026-04-30", time: "11:59 PM", type: "presentation" },
+};
+
 // Get current year's exam dates (auto-updates based on current year)
 export const getCurrentYearExamDates = () => {
   const today = new Date();
@@ -115,9 +168,12 @@ export const getCurrentYearExamDates = () => {
   // If we're past May (month 4), use next year's dates
   const targetYear = today.getMonth() >= 5 ? currentYear + 1 : currentYear;
   
-  // For 2025, use the static verified College Board dates
+  // Use static verified College Board dates when available
   if (targetYear === 2025) {
     return AP_EXAM_DATES_2025;
+  }
+  if (targetYear === 2026) {
+    return AP_EXAM_DATES_2026;
   }
   
   // Calculate the first Monday in May for the target year
@@ -334,30 +390,41 @@ export const getUpcomingExams = async (userSubjects = []) => {
 };
 
 // Synchronous version for immediate use (with simplified review schedule)
-export const getUpcomingExamsSync = (userSubjects = []) => {
+// lateTestingSubjects: optional array of subject keys taking the late exam
+export const getUpcomingExamsSync = (userSubjects = [], lateTestingSubjects = []) => {
   const currentExamDates = getCurrentYearExamDates();
   const today = new Date();
   const oneYearFromNow = new Date();
   oneYearFromNow.setFullYear(today.getFullYear() + 1);
-  
-  // Convert user subject keys to exam names and filter
-  const userExamNames = userSubjects.map(subjectKey => SUBJECT_KEY_TO_EXAM_NAME[subjectKey]).filter(Boolean);
-  
-  // Only show exams if user has subjects selected AND we can map them to exam names
+
+  // Build reverse lookup: exam name → curriculum subject key
+  const examNameToSubjectKey = {};
+  userSubjects.forEach(subjectKey => {
+    const examName = SUBJECT_KEY_TO_EXAM_NAME[subjectKey];
+    if (examName) examNameToSubjectKey[examName] = subjectKey;
+  });
+  const userExamNames = Object.keys(examNameToSubjectKey);
+
   if (userSubjects.length === 0 || userExamNames.length === 0) {
     return [];
   }
-  
+
+  const lateSet = new Set(lateTestingSubjects);
+
   return Object.entries(currentExamDates)
     .filter(([examName]) => userExamNames.includes(examName))
     .map(([examName, examInfo]) => {
-      const examDate = new Date(examInfo.date);
-      // Fix: parse as local midnight to avoid UTC day-shift for US timezones
-      const [ey, em, ed] = examInfo.date.split('-').map(Number);
+      const subjectKey = examNameToSubjectKey[examName];
+      const isLate = lateSet.has(subjectKey) && examInfo.lateDate;
+
+      const dateStr = isLate ? examInfo.lateDate : examInfo.date;
+      const timeStr = isLate ? examInfo.lateTime : examInfo.time;
+
+      const examDate = new Date(dateStr);
+      const [ey, em, ed] = dateStr.split('-').map(Number);
       const examDateLocal = new Date(ey, em - 1, ed);
       const daysUntilExam = Math.ceil((examDateLocal - today) / (1000 * 60 * 60 * 24));
-      
-      // Simple review schedule without async curriculum lookup
+
       const reviewSchedule = [
         {
           unit: 'Unit Review 1',
@@ -365,7 +432,7 @@ export const getUpcomingExamsSync = (userSubjects = []) => {
           description: 'Begin reviewing early units'
         },
         {
-          unit: 'Unit Review 2', 
+          unit: 'Unit Review 2',
           startDate: new Date(examDate.getTime() - (4 * 7 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0],
           description: 'Review middle units'
         },
@@ -375,10 +442,16 @@ export const getUpcomingExamsSync = (userSubjects = []) => {
           description: 'Final comprehensive review and practice tests'
         }
       ];
-      
+
       return {
         subject: examName,
-        ...examInfo,
+        subjectKey,
+        date: dateStr,
+        time: timeStr,
+        type: examInfo.type,
+        lateDate: examInfo.lateDate,
+        lateTime: examInfo.lateTime,
+        isLateTesting: isLate,
         examDate: examDateLocal,
         daysUntilExam,
         reviewSchedule

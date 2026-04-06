@@ -11,36 +11,36 @@ const SUBJECT_COLORS = {
   biology:                    { accent: '#10b981', ring: 'text-emerald-500', bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', glow: 'shadow-emerald-500/20' },
   chemistry:                  { accent: '#06b6d4', ring: 'text-cyan-500',    bg: 'bg-cyan-500/15',    border: 'border-cyan-500/30',    glow: 'shadow-cyan-500/20' },
   environmentalScience:       { accent: '#22c55e', ring: 'text-green-500',   bg: 'bg-green-500/15',   border: 'border-green-500/30',   glow: 'shadow-green-500/20' },
-  physics1:                   { accent: '#3b82f6', ring: 'text-blue-500',    bg: 'bg-blue-500/15',    border: 'border-blue-500/30',    glow: 'shadow-blue-500/20' },
+  physics1:                   { accent: '#0ea5e9', ring: 'text-sky-500',     bg: 'bg-sky-500/15',     border: 'border-sky-500/30',     glow: 'shadow-sky-500/20' },
   physics2:                   { accent: '#6366f1', ring: 'text-indigo-500',  bg: 'bg-indigo-500/15',  border: 'border-indigo-500/30',  glow: 'shadow-indigo-500/20' },
   'physicsC_Mechanics':       { accent: '#2563eb', ring: 'text-blue-600',    bg: 'bg-blue-600/15',    border: 'border-blue-600/30',    glow: 'shadow-blue-600/20' },
   'physicsC_ElectricityMagnetism': { accent: '#7c3aed', ring: 'text-violet-600', bg: 'bg-violet-600/15', border: 'border-violet-600/30', glow: 'shadow-violet-600/20' },
   psychology:                 { accent: '#ec4899', ring: 'text-pink-500',    bg: 'bg-pink-500/15',    border: 'border-pink-500/30',    glow: 'shadow-pink-500/20' },
 
-  // Math — purples/violets
-  calculusAB:                 { accent: '#8b5cf6', ring: 'text-violet-500',  bg: 'bg-violet-500/15',  border: 'border-violet-500/30',  glow: 'shadow-violet-500/20' },
-  calculusBC:                 { accent: '#a78bfa', ring: 'text-violet-400',  bg: 'bg-violet-400/15',  border: 'border-violet-400/30',  glow: 'shadow-violet-400/20' },
-  precalculus:                { accent: '#c084fc', ring: 'text-purple-400',  bg: 'bg-purple-400/15',  border: 'border-purple-400/30',  glow: 'shadow-purple-400/20' },
-  statistics:                 { accent: '#818cf8', ring: 'text-indigo-400',  bg: 'bg-indigo-400/15',  border: 'border-indigo-400/30',  glow: 'shadow-indigo-400/20' },
+  // Math — reds
+  calculusAB:                 { accent: '#ef4444', ring: 'text-red-500',     bg: 'bg-red-500/15',     border: 'border-red-500/30',     glow: 'shadow-red-500/20' },
+  calculusBC:                 { accent: '#f87171', ring: 'text-red-400',     bg: 'bg-red-400/15',     border: 'border-red-400/30',     glow: 'shadow-red-400/20' },
+  precalculus:                { accent: '#dc2626', ring: 'text-red-600',     bg: 'bg-red-600/15',     border: 'border-red-600/30',     glow: 'shadow-red-600/20' },
+  statistics:                 { accent: '#fb7185', ring: 'text-rose-400',    bg: 'bg-rose-400/15',    border: 'border-rose-400/30',    glow: 'shadow-rose-400/20' },
 
   // CS — slate blue
   computerScienceA:           { accent: '#0ea5e9', ring: 'text-sky-500',     bg: 'bg-sky-500/15',     border: 'border-sky-500/30',     glow: 'shadow-sky-500/20' },
   computerSciencePrinciples:  { accent: '#38bdf8', ring: 'text-sky-400',     bg: 'bg-sky-400/15',     border: 'border-sky-400/30',     glow: 'shadow-sky-400/20' },
 
-  // English — warm ambers
-  englishLanguageAndComposition:  { accent: '#f59e0b', ring: 'text-amber-500', bg: 'bg-amber-500/15', border: 'border-amber-500/30', glow: 'shadow-amber-500/20' },
-  englishLiteratureAndComposition: { accent: '#fbbf24', ring: 'text-amber-400', bg: 'bg-amber-400/15', border: 'border-amber-400/30', glow: 'shadow-amber-400/20' },
+  // English — blues
+  englishLanguageAndComposition:  { accent: '#3b82f6', ring: 'text-blue-500',  bg: 'bg-blue-500/15',  border: 'border-blue-500/30',  glow: 'shadow-blue-500/20' },
+  englishLiteratureAndComposition: { accent: '#60a5fa', ring: 'text-blue-400', bg: 'bg-blue-400/15', border: 'border-blue-400/30', glow: 'shadow-blue-400/20' },
 
   // History — warm oranges/reds
   europeanHistory:            { accent: '#f97316', ring: 'text-orange-500',  bg: 'bg-orange-500/15',  border: 'border-orange-500/30',  glow: 'shadow-orange-500/20' },
-  usHistory:                  { accent: '#ef4444', ring: 'text-red-500',     bg: 'bg-red-500/15',     border: 'border-red-500/30',     glow: 'shadow-red-500/20' },
+  usHistory:                  { accent: '#d97706', ring: 'text-amber-600',   bg: 'bg-amber-600/15',   border: 'border-amber-600/30',   glow: 'shadow-amber-600/20' },
   worldHistory:               { accent: '#fb923c', ring: 'text-orange-400',  bg: 'bg-orange-400/15',  border: 'border-orange-400/30',  glow: 'shadow-orange-400/20' },
   humanGeography:             { accent: '#f472b6', ring: 'text-pink-400',    bg: 'bg-pink-400/15',    border: 'border-pink-400/30',    glow: 'shadow-pink-400/20' },
 
   // Economics/Gov — teals
   macroeconomics:             { accent: '#14b8a6', ring: 'text-teal-500',    bg: 'bg-teal-500/15',    border: 'border-teal-500/30',    glow: 'shadow-teal-500/20' },
   microeconomics:             { accent: '#2dd4bf', ring: 'text-teal-400',    bg: 'bg-teal-400/15',    border: 'border-teal-400/30',    glow: 'shadow-teal-400/20' },
-  usGovernmentPolitics:       { accent: '#dc2626', ring: 'text-red-600',     bg: 'bg-red-600/15',     border: 'border-red-600/30',     glow: 'shadow-red-600/20' },
+  usGovernmentPolitics:       { accent: '#e11d48', ring: 'text-rose-600',    bg: 'bg-rose-600/15',    border: 'border-rose-600/30',    glow: 'shadow-rose-600/20' },
   comparativeGovernment:      { accent: '#ea580c', ring: 'text-orange-600',  bg: 'bg-orange-600/15',  border: 'border-orange-600/30',  glow: 'shadow-orange-600/20' },
 
   // Arts

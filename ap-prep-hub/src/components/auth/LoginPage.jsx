@@ -80,7 +80,7 @@ export function LoginPage() {
         setIsLoading(true);
         try {
             await resetPassword(email);
-            setSuccessMessage('Password reset email sent. Check your inbox.');
+            setSuccessMessage('Password reset email sent. Check your inbox. If you don\'t see it, check your junk/spam folder.');
         } catch (err) {
             setError(err.message);
         } finally {

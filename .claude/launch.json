@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "dev",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["start"],
+      "runtimeExecutable": "/bin/zsh",
+      "runtimeArgs": ["-l", "-c", "cd /Users/anvit/Documents/Projects/Apex_Scholar/ap-prep-hub && npm start"],
       "port": 3000,
       "cwd": "ap-prep-hub"
     }

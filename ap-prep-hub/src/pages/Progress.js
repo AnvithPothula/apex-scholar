@@ -18,6 +18,77 @@ const EXAM_NAME_TO_KEY = Object.fromEntries(
   Object.entries(SUBJECT_KEY_TO_EXAM_NAME).map(([k, v]) => [v, k])
 );
 
+// Pure data transforms — extracted to module level to avoid re-creation on every render
+const formatStudyTime = (minutes) => {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return hours > 0 ? `${hours}.${Math.round(mins/6)} hours` : `${mins} minutes`;
+};
+
+const processSubjectProgress = (progressData, studySessions) => {
+  const subjectMap = new Map();
+
+  studySessions.forEach(session => {
+    if (!session.subject) return;
+
+    if (!subjectMap.has(session.subject)) {
+      subjectMap.set(session.subject, {
+        name: session.subject,
+        sessions: []
+      });
+    }
+    subjectMap.get(session.subject).sessions.push(session);
+  });
+
+  return Array.from(subjectMap.values()).map((subject, index) => {
+    const allSessions = subject.sessions;
+    const totalTime = subject.sessions.reduce((sum, s) => sum + (s.duration || 0), 0);
+    const avgAccuracy = allSessions.length > 0
+      ? allSessions.reduce((sum, s) => sum + (s.accuracy || 0), 0) / allSessions.length
+      : 0;
+
+    const colors = [
+      'bg-content-primary',
+      'bg-success-500',
+      'bg-content-primary',
+      'bg-error-500',
+      'bg-warning-500'
+    ];
+
+    return {
+      name: subject.name,
+      progress: Math.min(100, Math.round((allSessions.length / 10) * 100)),
+      accuracy: Math.round(avgAccuracy),
+      timeSpent: formatStudyTime(totalTime),
+      questionsAnswered: allSessions.reduce((sum, s) => sum + (s.questionsAnswered || 0), 0),
+      strongTopics: ['Advanced Concepts', 'Problem Solving'],
+      weakTopics: ['Basic Fundamentals', 'Time Management'],
+      lastStudied: allSessions.length > 0 ? 'Recently' : 'Never',
+      streak: Math.min(10, allSessions.length),
+      color: colors[index % colors.length]
+    };
+  }).slice(0, 5);
+};
+
+const processWeeklyActivity = (studySessions) => {
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const weekData = days.map(day => ({ day, questions: 0, time: 0 }));
+
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+  studySessions.forEach(session => {
+    const sessionDate = session.timestamp?.toDate() || new Date();
+    if (sessionDate >= oneWeekAgo) {
+      const dayIndex = sessionDate.getDay();
+      weekData[dayIndex].questions += session.questionsAnswered || session.cardsStudied || 0;
+      weekData[dayIndex].time += session.duration || 0;
+    }
+  });
+
+  return weekData;
+};
+
 const ProgressPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -107,11 +178,6 @@ const ProgressPage = () => {
     }
   };
 
-  const formatStudyTime = (minutes) => {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return hours > 0 ? `${hours}.${Math.round(mins/6)} hours` : `${mins} minutes`;
-  };
 
   const getRankInfo = (totalPoints) => {
     if (totalPoints >= 1000) return { rank: 'Master', icon: Crown, color: 'text-warning-400', bgColor: 'bg-warning-400/20' };
@@ -157,69 +223,6 @@ const ProgressPage = () => {
     return improvement > 0 ? `+${Math.round(improvement)}%` : `${Math.round(improvement)}%`;
   };
 
-  const processSubjectProgress = (progressData, studySessions) => {
-    const subjectMap = new Map();
-
-    studySessions.forEach(session => {
-      if (!session.subject) return;
-
-      if (!subjectMap.has(session.subject)) {
-        subjectMap.set(session.subject, {
-          name: session.subject,
-          sessions: []
-        });
-      }
-      subjectMap.get(session.subject).sessions.push(session);
-    });
-
-    return Array.from(subjectMap.values()).map((subject, index) => {
-      const allSessions = subject.sessions;
-      const totalTime = subject.sessions.reduce((sum, s) => sum + (s.duration || 0), 0);
-      const avgAccuracy = allSessions.length > 0
-        ? allSessions.reduce((sum, s) => sum + (s.accuracy || 0), 0) / allSessions.length
-        : 0;
-
-      const colors = [
-        'bg-content-primary',
-        'bg-success-500',
-        'bg-content-primary',
-        'bg-error-500',
-        'bg-warning-500'
-      ];
-
-      return {
-        name: subject.name,
-        progress: Math.min(100, Math.round((allSessions.length / 10) * 100)),
-        accuracy: Math.round(avgAccuracy),
-        timeSpent: formatStudyTime(totalTime),
-        questionsAnswered: allSessions.reduce((sum, s) => sum + (s.questionsAnswered || 0), 0),
-        strongTopics: ['Advanced Concepts', 'Problem Solving'],
-        weakTopics: ['Basic Fundamentals', 'Time Management'],
-        lastStudied: allSessions.length > 0 ? 'Recently' : 'Never',
-        streak: Math.min(10, allSessions.length),
-        color: colors[index % colors.length]
-      };
-    }).slice(0, 5);
-  };
-
-  const processWeeklyActivity = (studySessions) => {
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const weekData = days.map(day => ({ day, questions: 0, time: 0 }));
-
-    const oneWeekAgo = new Date();
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-
-    studySessions.forEach(session => {
-      const sessionDate = session.timestamp?.toDate() || new Date();
-      if (sessionDate >= oneWeekAgo) {
-        const dayIndex = sessionDate.getDay();
-        weekData[dayIndex].questions += session.questionsAnswered || session.cardsStudied || 0;
-        weekData[dayIndex].time += session.duration || 0;
-      }
-    });
-
-    return weekData;
-  };
 
   const processAchievements = (achievements) => {
     const allAchievements = achievementsService.getAllAchievements();
