@@ -122,8 +122,8 @@ export const AuthProvider = ({ children }) => {
             if (firebaseUser) {
                 // Set user immediately with basic info
                 const displayName = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || "New User";
-                setUser({ 
-                    uid: firebaseUser.uid, 
+                setUser({
+                    uid: firebaseUser.uid,
                     fullName: displayName,
                     email: firebaseUser.email,
                     chatbotContext: 'I am a visual learner and prefer examples.',
@@ -131,6 +131,8 @@ export const AuthProvider = ({ children }) => {
                 });
                 setLoading(false);
                 setConnectionError(null); // Clear any previous connection errors
+                // Identify user in Sentry for error attribution
+                errorLogger.setUser({ uid: firebaseUser.uid, email: firebaseUser.email });
                 
                 // Fetch additional data asynchronously
                 const fetchUserData = async () => {
@@ -174,6 +176,8 @@ export const AuthProvider = ({ children }) => {
                 fetchUserData();
             } else {
                 setUser(null);
+                // Clear Sentry user context on logout
+                errorLogger.setUser(null);
                 // Only finalize loading after redirect check completes
                 // This prevents flashing the login page before a redirect result is processed
                 if (redirectChecked) {

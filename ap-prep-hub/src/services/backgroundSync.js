@@ -13,6 +13,7 @@ class BackgroundSyncManager {
     this.isInitialized = false;
     this.activeUsers = new Set();
     this._unsubAuth = null;
+    this._syncInProgress = new Map(); // userId -> Promise (prevents concurrent syncs)
   }
 
   /**
@@ -81,27 +82,41 @@ class BackgroundSyncManager {
    * Perform initial sync if user hasn't synced recently
    */
   async performInitialSyncIfNeeded(userId) {
+    // Prevent concurrent syncs for the same user
+    if (this._syncInProgress.has(userId)) {
+      console.log(`⏳ Sync already in progress for user: ${userId}, skipping`);
+      return;
+    }
+
     try {
       const syncStatus = await assignmentSync.getSyncStatus(userId);
-      
+
       // If never synced or last sync was more than 4 hours ago
       const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
-      
+
       if (!syncStatus.lastSync || syncStatus.lastSync < fourHoursAgo) {
         console.log(`🚀 Performing initial sync for user: ${userId}`);
-        
+
         // Delay initial sync by 5 seconds to avoid blocking app startup
-        setTimeout(async () => {
-          try {
-            await assignmentSync.manualSync(userId, { daysBack: 3 });
-            console.log(`✅ Initial sync completed for user: ${userId}`);
-          } catch (error) {
-            console.error(`❌ Initial sync failed for user ${userId}:`, error);
-          }
-        }, 5000);
+        const syncPromise = new Promise((resolve) => {
+          setTimeout(async () => {
+            try {
+              await assignmentSync.manualSync(userId, { daysBack: 3 });
+              console.log(`✅ Initial sync completed for user: ${userId}`);
+            } catch (error) {
+              console.error(`❌ Initial sync failed for user ${userId}:`, error);
+            } finally {
+              this._syncInProgress.delete(userId);
+              resolve();
+            }
+          }, 5000);
+        });
+
+        this._syncInProgress.set(userId, syncPromise);
       }
     } catch (error) {
       console.error(`❌ Error checking sync status for user ${userId}:`, error);
+      this._syncInProgress.delete(userId);
     }
   }
 

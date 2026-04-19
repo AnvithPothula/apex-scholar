@@ -1,32 +1,26 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { motion } from 'framer-motion';
-import { Play, Pause, RotateCw, Flag, X, Brain, CheckCircle, Clock, ArrowLeft, Settings, Zap, Target, TrendingUp, Award, Trophy, FileQuestion, HelpCircle, Download, MessageSquare, ArrowRight } from 'lucide-react';
-import { Button, Card, Badge, Input } from '../components/ui/UIComponents';
-import CustomDropdown from '../components/ui/CustomDropdown';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { db } from '../config/firebase';
 import { collection, addDoc, serverTimestamp, query, where, orderBy, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { AP_SUBJECTS } from '../constants/subjects';
-import MarkdownRenderer from '../components/MarkdownRenderer';
-import LaTeXRenderer from '../components/LaTeXRenderer';
 import apiKeyManager from '../services/APIKeyManager';
 import apiManager from '../services/apiManager';
 import geminiService, { RateLimitError } from '../services/geminiService';
-import ModelSelector, { getDefaultModel, saveSelectedModel } from '../components/ui/ModelSelector';
+import { getDefaultModel } from '../components/ui/ModelSelector';
 import { TEST_CONFIGURATIONS, DEFAULT_CONFIG } from '../constants/testConfigurations';
-import { parseAIResponse, buildRubricItems, attachScoresToRubric, fixLaTeXInQuestions, isQuestionDuplicate } from '../utils/testUtils';
+import { parseAIResponse, fixLaTeXInQuestions, isQuestionDuplicate } from '../utils/testUtils';
 import useMobile from '../hooks/useMobile';
-
-// Helper function to format time in seconds to MM:SS format
-const formatTimeFromSeconds = (seconds) => {
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-};
+import ScoringScreen from '../components/practice/ScoringScreen';
+import HistoryPanel from '../components/practice/HistoryPanel';
+import SetupPanel from '../components/practice/SetupPanel';
+import TestPanel from '../components/practice/TestPanel';
+import ResultsPanel from '../components/practice/ResultsPanel';
 
 // TEST_CONFIGURATIONS and DEFAULT_CONFIG are now imported from ../constants/testConfigurations
 const PracticeTests = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [currentView, setCurrentView] = useState('setup'); // 'setup', 'test', 'scoring', 'results', 'history'
   const [selectedSubject, setSelectedSubject] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
@@ -586,7 +580,7 @@ Format as JSON:
         improvements: ["Provide more specific examples", "Include more detailed analysis"]
       };
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // Deps intentionally empty: this callback captures only the AI service (singleton) and stable helpers. Adding state deps would cause stale-closure issues in the scoring pipeline. eslint-disable-line react-hooks/exhaustive-deps
 
   const scoreQuestion = useCallback(async (question, userAnswer) => {
     if (question.type === 'mcq') {
@@ -1040,7 +1034,7 @@ Format as JSON:
         const tests = snapshot.docs.map(doc => {
           const data = doc.data();
           let createdAt = new Date();
-          
+
           // Handle Firebase Timestamp
           if (data.createdAt) {
             if (typeof data.createdAt.toDate === 'function') {
@@ -1048,6 +1042,8 @@ Format as JSON:
             } else if (data.createdAt instanceof Date) {
               createdAt = data.createdAt;
             } else if (typeof data.createdAt === 'string') {
+              createdAt = new Date(data.createdAt);
+            } else if (typeof data.createdAt === 'number') {
               createdAt = new Date(data.createdAt);
             }
           }
@@ -1140,7 +1136,7 @@ Format as JSON:
 
   const handleStartTest = async () => {
     if (!selectedSubject || !selectedSection) {
-      alert('Please select a subject and section');
+      toast.warning('Please select a subject and section');
       return;
     }
 
@@ -1151,7 +1147,7 @@ Format as JSON:
     const hasSubSections = selectedSection === 'frq' && sectionConfig?.subSections && sectionConfig.subSections.length > 0;
     
     if (hasSubSections && !selectedSubSection) {
-      alert('Please select an FRQ type');
+      toast.warning('Please select an FRQ type');
       return;
     }
 
@@ -1263,11 +1259,11 @@ Format as JSON:
       
       // Check if it's a rate limiting error
       if (error.message && (error.message.includes('All') && error.message.includes('API keys are rate limited'))) {
-        alert('We\'ve reached our daily usage limit for AI question generation. Please try again tomorrow or in a few hours when the limits reset.');
+        toast.error('We\'ve reached our daily usage limit for AI question generation. Please try again tomorrow or in a few hours when the limits reset.');
       } else if (error.message && error.message.includes('usage limit')) {
-        alert(error.message);
+        toast.error(error.message);
       } else {
-        alert('We encountered an issue generating your test. Please try again in a few moments.');
+        toast.error('We encountered an issue generating your test. Please try again in a few moments.');
       }
     } finally {
       setIsGeneratingTest(false);
@@ -3450,1771 +3446,119 @@ Provide a clear, educational response that helps the student understand why ${co
 
   // Scoring View (shown while AI grades the test)
   if (currentView === 'scoring') {
-    return (
-      <div className="min-h-screen bg-base-950 text-content-primary flex items-center justify-center">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="text-center"
-        >
-          <div className="relative mb-8">
-            <div className="w-32 h-32 border-4 border-content-muted border-t-transparent rounded-full animate-spin mx-auto"></div>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <Brain strokeWidth={1.5} className="w-12 h-12 text-content-primary" />
-            </div>
-          </div>
-          
-          <h2 className="text-3xl font-bold text-content-primary mb-4">Grading Your Test</h2>
-          <p className="text-lg text-content-secondary mb-2">
-            Our AI is analyzing your responses and providing detailed feedback
-          </p>
-          <p className="text-sm text-content-muted">
-            This may take a few moments for written responses...
-          </p>
-          
-          <div className="mt-8 space-y-2">
-            <div className="flex items-center justify-center gap-2 text-content-muted">
-              <CheckCircle strokeWidth={1.5} className="w-4 h-4 text-success-400" />
-              <span>Analyzing multiple choice answers</span>
-            </div>
-            <div className="flex items-center justify-center gap-2 text-content-muted">
-              <div className="w-4 h-4 border-2 border-content-muted border-t-transparent rounded-full animate-spin"></div>
-              <span>Scoring written responses with AI</span>
-            </div>
-            <div className="flex items-center justify-center gap-2 text-content-muted">
-              <Clock strokeWidth={1.5} className="w-4 h-4" />
-              <span>Generating personalized feedback</span>
-            </div>
-          </div>
-        </motion.div>
-      </div>
-    );
+    return <ScoringScreen />;
   }
   // Test History View
   if (currentView === 'history') {
     return (
-      <div className="min-h-screen bg-base-950 text-content-primary">
-        <div className="max-w-6xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
-          {/* Header */}
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-center justify-between mb-4 sm:mb-6 md:mb-8"
-          >
-            <div className="flex items-center gap-2 sm:gap-4">
-              <Button
-                variant="ghost"
-                onClick={() => setCurrentView('setup')}
-                className="text-content-secondary hover:text-content-primary"
-              >
-                <ArrowLeft strokeWidth={1.5} className="w-4 h-4 mr-1 sm:mr-2" />
-                <span className="hidden sm:inline">Back to Setup</span>
-                <span className="sm:hidden">Back</span>
-              </Button>
-              <div>
-                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold font-display text-content-primary">Test History</h1>
-                <p className="text-sm text-content-muted hidden sm:block">Review your past practice tests</p>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Test History Grid */}
-          <div className="grid gap-4">
-            {testHistory.length === 0 ? (
-              <Card className="p-8 text-center">
-                <Clock strokeWidth={1.5} className="w-16 h-16 text-content-disabled mx-auto mb-4" />
-                <h3 className="text-xl font-bold text-content-secondary mb-2">No Tests Yet</h3>
-                <p className="text-content-muted mb-6">Take your first practice test to see your history here.</p>
-                <Button onClick={() => setCurrentView('setup')}>
-                  Start Practice Test
-                </Button>
-              </Card>
-            ) : (
-              testHistory.map((test) => (
-                <motion.div
-                  key={test.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  whileHover={{ scale: 1.02 }}
-                  className="cursor-pointer"
-                  onClick={() => {
-                    console.log('🚨 HISTORY: Loading test results:', test.results);
-                    const sanitizedResults = sanitizeResultsData(test.results);
-                    console.log('🚨 HISTORY: Sanitized test results:', sanitizedResults);
-                    const emergencyCleanedResults = emergencyCleanResults(sanitizedResults);
-                    console.log('🚨 HISTORY: Emergency cleaned test results:', emergencyCleanedResults);
-                    setTestResults(emergencyCleanedResults);
-                    setQuestions(test.questions || []);
-                    setUserAnswers(test.userAnswers || {});
-                    setSelectedSubject(test.subject);
-                    setSelectedSection(test.section);
-                             // Difficulty persisted in history is ignored
-                    setCurrentView('results');
-                  }}
-                >
-                  <Card className="p-6 hover:bg-base-850/50 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-4 mb-3">
-                          <h3 className="text-xl font-bold text-content-primary">{test.subject}</h3>
-                          <Badge variant="secondary">
-                            {test.section === 'mcq' ? 'Multiple Choice' : 
-                             test.section === 'frq' ? 'Free Response' : 
-                             test.section === 'saq' ? 'Short Answer' :
-                             test.section === 'dbq' ? 'Document-Based Question' :
-                             test.section === 'leq' ? 'Long Essay Question' :
-                             'Full Test'}
-                          </Badge>
-                          {test.difficulty && (
-                            <Badge variant="outline">
-                              {test.difficulty}
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                          <div>
-                            <span className="text-content-muted">Score: </span>
-                            <span className="text-content-primary">{test.results?.percentage || 0}%</span>
-                          </div>
-                          <div>
-                            <span className="text-content-muted">AP Score: </span>
-                            <span className="text-content-primary font-bold">{test.results?.apScore || 'N/A'}</span>
-                          </div>
-                          <div>
-                            <span className="text-content-muted">Questions: </span>
-                            <span className="text-content-primary">{test.questions?.length || 0}</span>
-                          </div>
-                          <div>
-                            <span className="text-content-muted">Date: </span>
-                            <span className="text-content-primary">
-                              {test.createdAt instanceof Date ? test.createdAt.toLocaleDateString() : 'Recent'}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-center ml-6">
-                        <div className="text-3xl font-bold text-content-primary mb-1">
-                          {test.results?.apScore || 'N/A'}
-                        </div>
-                        <p className="text-xs text-content-muted">AP Score</p>
-                      </div>
-                    </div>
-                  </Card>
-                </motion.div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
+      <HistoryPanel
+        testHistory={testHistory}
+        setCurrentView={setCurrentView}
+        setTestResults={setTestResults}
+        setQuestions={setQuestions}
+        setUserAnswers={setUserAnswers}
+        setSelectedSubject={setSelectedSubject}
+        setSelectedSection={setSelectedSection}
+        sanitizeResultsData={sanitizeResultsData}
+        emergencyCleanResults={emergencyCleanResults}
+      />
     );
   }
 
   if (currentView === 'setup') {
-    // Get canonical subject name for configuration lookup
-    const canonicalSubject = getCanonicalSubjectName(selectedSubject);
-    const currentConfig = TEST_CONFIGURATIONS[canonicalSubject] || DEFAULT_CONFIG;
-    
     return (
-      <div className="min-h-screen bg-base-950 text-content-primary">
-        <div className="max-w-6xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
-          {/* Header */}
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center mb-6 sm:mb-8 md:mb-12"
-          >
-            <div className="flex items-center justify-center gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4 md:mb-6">
-              <div className="p-2 sm:p-3 md:p-4 bg-base-750 rounded-sm md:rounded-md shadow-raised">
-                <Brain strokeWidth={1.5} className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-content-primary" />
-              </div>
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold font-display text-content-primary">
-                AI Practice Tests
-              </h1>
-            </div>
-            <p className="text-sm sm:text-base md:text-lg text-content-secondary max-w-3xl mx-auto px-2">
-              Generate personalized AP practice tests with AI-powered questions, real-time feedback, 
-              and comprehensive score analysis. Prepare like never before!
-            </p>
-            <div className="mt-3 flex justify-center">
-              <ModelSelector
-                value={selectedModel}
-                onChange={(m) => { setSelectedModel(m); saveSelectedModel(m); }}
-              />
-            </div>
-          </motion.div>
-
-          {/* Test Configuration */}
-          <div className="grid md:grid-cols-2 gap-4 sm:gap-6 md:gap-8 mb-6">
-            {/* Left Column - Configuration */}
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2 }}
-            >
-              <Card className="p-8">
-                <h2 className="text-2xl font-bold text-content-primary mb-6 flex items-center gap-3">
-                  <Settings strokeWidth={1.5} className="w-6 h-6 text-content-primary" />
-                  Test Configuration
-                </h2>
-
-                <div className="space-y-6">
-                  {/* Subject Selection */}
-                  <div>
-                    <label className="block text-sm font-medium text-content-secondary mb-3">
-                      AP Subject *
-                    </label>
-                    <CustomDropdown
-                      options={subjectOptions}
-                      value={selectedSubject}
-                      onChange={(value) => {
-                        setSelectedSubject(value);
-                        setSelectedSection('');
-                        setSelectedSubSection('');
-                        setSelectedUnits([]);
-                      }}
-                      placeholder="Select a subject..."
-                    />
-                  </div>
-
-                  {/* Section Selection */}
-                  {selectedSubject && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                    >
-                      <label className="block text-sm font-medium text-content-secondary mb-3">
-                        Test Section *
-                      </label>
-                      <div className="grid gap-3">
-                        {(currentConfig).sections.map((section) => (
-                          <div
-                            key={section.id}
-                            onClick={() => {
-                              setSelectedSection(section.id);
-                              setSelectedSubSection(''); // Reset subsection when section changes
-                            }}
-                            className={`p-4 rounded-lg border cursor-pointer transition-all ${
-                              selectedSection === section.id
-                                ? 'border-content-muted bg-base-800'
-                                : 'border-border-strong hover:border-border-strong bg-base-800'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <h3 className="font-medium text-content-primary mb-3">{section.name}</h3>
-                                <p className="text-sm text-content-muted">{section.description}</p>
-                              </div>
-                              <div className="text-right">
-                                <div className="text-sm text-content-secondary">{section.time} min</div>
-                                <div className="text-xs text-content-muted">{section.questions} questions</div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
-
-                  {/* FRQ Subsection Selection */}
-                  {selectedSubject && selectedSection === 'frq' && (
-                    (() => {
-                      const config = currentConfig;
-                      const frqSection = config.sections.find(s => s.id === 'frq');
-                      const hasSubSections = frqSection?.subSections && frqSection.subSections.length > 0;
-                      
-                      // Only show subsection selection if there are multiple options
-                      if (!hasSubSections) return null;
-                      
-                      return (
-                        <motion.div
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.15 }}
-                        >
-                          <label className="block text-sm font-medium text-content-secondary mb-3">
-                            FRQ Type *
-                          </label>
-                          <div className="grid gap-3">
-                            {frqSection.subSections.map((subSection) => (
-                              <div
-                                key={subSection.id}
-                                onClick={() => setSelectedSubSection(subSection.id)}
-                                className={`p-4 rounded-lg border cursor-pointer transition-all ${
-                                  selectedSubSection === subSection.id
-                                    ? 'border-content-muted bg-base-800'
-                                    : 'border-border-strong hover:border-border-strong bg-base-800'
-                                }`}
-                              >
-                                <div className="flex items-center justify-between">
-                                  <div>
-                                    <h3 className="font-medium text-content-primary mb-3">{subSection.name}</h3>
-                                    <p className="text-sm text-content-muted">{subSection.description}</p>
-                                  </div>
-                                  <div className="text-right">
-                                    <div className="text-sm text-content-secondary">{subSection.time} min</div>
-                                    <div className="text-xs text-content-muted">{subSection.questions} questions</div>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </motion.div>
-                      );
-                    })()
-                  )}
-
-                  {/* Unit Selection */}
-                  {selectedSubject && 
-                   (currentConfig?.units || []).length > 0 && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.1 }}
-                    >
-                      <label className="block text-sm font-medium text-content-secondary mb-3">
-                        Select Units (Optional - leave empty for all units)
-                      </label>
-                      <div className="mb-3">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const allUnits = currentConfig.units.map(unit => unit.name);
-                            setSelectedUnits(selectedUnits.length === allUnits.length ? [] : allUnits);
-                          }}
-                          className="px-3 py-2 text-sm bg-base-750 hover:bg-base-750 rounded-lg text-content-primary transition-colors"
-                        >
-                          {selectedUnits.length === (currentConfig?.units || []).length ? 'Deselect All' : 'Select All'}
-                        </button>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-60 overflow-y-auto">
-                        {(currentConfig?.units || []).map((unit) => (
-                          <div
-                            key={unit.name}
-                            onClick={() => {
-                              setSelectedUnits(prev => 
-                                prev.includes(unit.name)
-                                  ? prev.filter(u => u !== unit.name)
-                                  : [...prev, unit.name]
-                              );
-                            }}
-                            className={`p-3 rounded-lg border cursor-pointer transition-all ${
-                              selectedUnits.includes(unit.name)
-                                ? 'border-content-muted bg-base-800'
-                                : 'border-border-strong hover:border-border-strong bg-base-800'
-                            }`}
-                          >
-                            <div className="flex items-center space-x-2">
-                              <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
-                                selectedUnits.includes(unit.name)
-                                  ? 'border-content-primary bg-content-primary'
-                                  : 'border-border-strong'
-                              }`}>
-                                {selectedUnits.includes(unit.name) && (
-                                  <svg className="w-3 h-3 text-content-primary" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
-                                  </svg>
-                                )}
-                              </div>
-                              <div>
-                                <span className="font-medium text-content-primary text-sm">{unit.name}</span>
-                                {unit.topics && (
-                                  <div className="text-xs text-content-muted mt-1">
-                                    {unit.topics.slice(0, 3).join(', ')}{unit.topics.length > 3 ? '...' : ''}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
-
-                  {/* Difficulty selection removed */}
-
-                  {/* Time Configuration */}
-                  {selectedSection && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.2 }}
-                    >
-                      <label className="block text-sm font-medium text-content-secondary mb-3">
-                        Time Limit
-                      </label>
-                      <div className="space-y-3">
-                        <div
-                          onClick={() => setUseDefaultTime(true)}
-                          className={`p-3 rounded-lg border cursor-pointer transition-all ${
-                            useDefaultTime
-                              ? 'border-success-500 bg-success-900'
-                              : 'border-border-strong hover:border-border-strong bg-base-800'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="text-content-primary">Official AP Time</span>
-                            <span className="text-success-400 font-medium">
-                              {(() => {
-                                const config = currentConfig;
-                                const section = config.sections.find(s => s.id === selectedSection);
-                                if (selectedSection === 'frq' && selectedSubSection && section?.subSections) {
-                                  const subSection = section.subSections.find(sub => sub.id === selectedSubSection);
-                                  return `${subSection?.time || 90} minutes`;
-                                }
-                                return `${section?.time || 90} minutes`;
-                              })()}
-                            </span>
-                          </div>
-                        </div>
-                        <div
-                          onClick={() => setUseDefaultTime(false)}
-                          className={`p-3 rounded-lg border cursor-pointer transition-all ${
-                            !useDefaultTime
-                              ? 'border-content-muted bg-base-800'
-                              : 'border-border-strong hover:border-border-strong bg-base-800'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="text-content-primary">Custom Time</span>
-                            <Input
-                              type="number"
-                              placeholder="Minutes"
-                              value={customTime}
-                              onChange={(e) => setCustomTime(e.target.value)}
-                              className="w-24 text-right"
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-
-                  {/* Question Count Configuration */}
-                  {selectedSection && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.25 }}
-                    >
-                      <label className="block text-sm font-medium text-content-secondary mb-3">
-                        Number of Questions
-                      </label>
-                      <div className="space-y-3">
-                        <div
-                          onClick={() => setUseDefaultQuestionCount(true)}
-                          className={`p-3 rounded-lg border cursor-pointer transition-all ${
-                            useDefaultQuestionCount
-                              ? 'border-success-500 bg-success-900'
-                              : 'border-border-strong hover:border-border-strong bg-base-800'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="text-content-primary">Official AP Count</span>
-                            <span className="text-success-400 font-medium">
-                              {(() => {
-                                const config = currentConfig;
-                                const section = config.sections.find(s => s.id === selectedSection);
-                                if (selectedSection === 'frq' && selectedSubSection && section?.subSections) {
-                                  const subSection = section.subSections.find(sub => sub.id === selectedSubSection);
-                                  return `${subSection?.questions || section?.questions || 0} questions`;
-                                }
-                                return `${section?.questions || 0} questions`;
-                              })()}
-                            </span>
-                          </div>
-                        </div>
-                        <div
-                          onClick={() => setUseDefaultQuestionCount(false)}
-                          className={`p-3 rounded-lg border cursor-pointer transition-all ${
-                            !useDefaultQuestionCount
-                              ? 'border-content-muted bg-base-800'
-                              : 'border-border-strong hover:border-border-strong bg-base-800'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="text-content-primary">Custom Count</span>
-                            <Input
-                              type="number"
-                              placeholder="1-100"
-                              min="1"
-                              max="100"
-                              value={customQuestionCount}
-                              onChange={(e) => setCustomQuestionCount(e.target.value)}
-                              className="w-24 text-right"
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </div>
-
-                {/* Start Test Button */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 }}
-                  className="mt-8 pt-6 border-t border-border"
-                >
-                  <Button
-                    onClick={handleStartTest}
-                    disabled={(() => {
-                      const config = currentConfig;
-                      const sectionConfig = config.sections.find(s => s.id === selectedSection);
-                      const hasSubSections = selectedSection === 'frq' && sectionConfig?.subSections && sectionConfig.subSections.length > 0;
-                      
-       return !selectedSubject || !selectedSection || 
-                             (hasSubSections && !selectedSubSection) || isGeneratingTest;
-                    })()}
-                    className="w-full py-4 text-lg"
-                  >
-                    {isGeneratingTest ? (
-                      <div className="flex items-center gap-3">
-                        <div className="w-5 h-5 border-2 border-border border-t-transparent rounded-full animate-spin"></div>
-                        Generating... {generationProgress.generated}/{generationProgress.total} questions
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-3">
-                        <Play strokeWidth={1.5} className="w-6 h-6" />
-                        Generate & Start Test
-                        {(() => {
-                          const config = currentConfig;
-                          const sectionConfig = config.sections.find(s => s.id === selectedSection);
-                          let questionsCount = sectionConfig?.questions || 0;
-                          
-                          if (selectedSection === 'frq' && selectedSubSection && sectionConfig?.subSections) {
-                            const subSectionConfig = sectionConfig.subSections.find(sub => sub.id === selectedSubSection);
-                            questionsCount = subSectionConfig?.questions || questionsCount;
-                          }
-                          
-                          return questionsCount > 0 ? ` (${questionsCount} questions)` : '';
-                        })()}
-                      </div>
-                    )}
-                  </Button>
-                </motion.div>
-              </Card>
-            </motion.div>
-
-            {/* Right Column - Recent Tests & Features */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3 }}
-              className="space-y-6"
-            >
-              {/* Features */}
-              <Card className="p-6">
-                <h3 className="text-xl font-bold text-content-primary mb-4 flex items-center gap-2">
-                  <Zap strokeWidth={1.5} className="w-5 h-5 text-warning-400" />
-                  AI-Powered Features
-                </h3>
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <Target strokeWidth={1.5} className="w-5 h-5 text-content-secondary mt-0.5" />
-                    <div>
-                      <h4 className="font-medium text-content-primary mb-3">Adaptive Questions</h4>
-                      <p className="text-sm text-content-muted">AI generates questions tailored to your difficulty level</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <MessageSquare strokeWidth={1.5} className="w-5 h-5 text-success-400 mt-0.5" />
-                    <div>
-                      <h4 className="font-medium text-content-primary mb-3">Instant Tutor Help</h4>
-                      <p className="text-sm text-content-muted">Ask questions about any problem during review</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <TrendingUp strokeWidth={1.5} className="w-5 h-5 text-content-secondary mt-0.5" />
-                    <div>
-                      <h4 className="font-medium text-content-primary mb-3">Detailed Analytics</h4>
-                      <p className="text-sm text-content-muted">Comprehensive score breakdown and improvement insights</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <Award strokeWidth={1.5} className="w-5 h-5 text-accent-400 mt-0.5" />
-                    <div>
-                      <h4 className="font-medium text-content-primary mb-3">AP Score Prediction</h4>
-                      <p className="text-sm text-content-muted">Get your predicted AP score based on performance</p>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-
-              {/* Recent Tests */}
-              {testHistory.length > 0 && (
-                <Card className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xl font-bold text-content-primary flex items-center gap-2">
-                      <Clock strokeWidth={1.5} className="w-5 h-5 text-success-400" />
-                      Recent Tests
-                    </h3>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setCurrentView('history')}
-                      className="text-content-secondary hover:text-content-primary"
-                    >
-                      View All
-                    </Button>
-                  </div>
-                  <div className="space-y-3">
-                    {testHistory.slice(0, 3).map((test) => (
-                      <div key={test.id} className="p-3 bg-base-800 rounded-lg hover:bg-base-800 transition-colors cursor-pointer"
-                           onClick={() => {
-                             console.log('🚨 RECENT: Loading test results:', test.results);
-                             const sanitizedResults = sanitizeResultsData(test.results);
-                             console.log('🚨 RECENT: Sanitized test results:', sanitizedResults);
-                             const emergencyCleanedResults = emergencyCleanResults(sanitizedResults);
-                             console.log('🚨 RECENT: Emergency cleaned test results:', emergencyCleanedResults);
-                             setTestResults(emergencyCleanedResults);
-                             setQuestions(test.questions || []);
-                             setUserAnswers(test.userAnswers || {});
-                             setSelectedSubject(test.subject);
-                             setSelectedSection(test.section);
-                             // Difficulty persisted in history is ignored
-                             setCurrentView('results');
-                           }}>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h4 className="font-medium text-content-primary mb-2">{test.subject}</h4>
-                            <p className="text-sm text-content-muted">
-                              {test.section === 'mcq' ? 'Multiple Choice' : 
-                               test.section === 'frq' ? 'Free Response' : 'Full Test'}
-                            </p>
-                            <p className="text-xs text-content-muted">
-                              {test.createdAt instanceof Date ? test.createdAt.toLocaleDateString() : 'Recent'}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-lg font-bold text-content-primary">
-                              {test.results?.apScore}
-                            </div>
-                            <p className="text-xs text-content-muted">AP Score</p>
-                            <p className="text-xs text-content-muted">
-                              {test.results?.percentage || 0}%
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-              )}
-            </motion.div>
-          </div>
-        </div>
-      </div>
+      <SetupPanel
+        selectedSubject={selectedSubject}
+        setSelectedSubject={setSelectedSubject}
+        selectedSection={selectedSection}
+        setSelectedSection={setSelectedSection}
+        selectedSubSection={selectedSubSection}
+        setSelectedSubSection={setSelectedSubSection}
+        selectedUnits={selectedUnits}
+        setSelectedUnits={setSelectedUnits}
+        customTime={customTime}
+        setCustomTime={setCustomTime}
+        useDefaultTime={useDefaultTime}
+        setUseDefaultTime={setUseDefaultTime}
+        useDefaultQuestionCount={useDefaultQuestionCount}
+        setUseDefaultQuestionCount={setUseDefaultQuestionCount}
+        customQuestionCount={customQuestionCount}
+        setCustomQuestionCount={setCustomQuestionCount}
+        selectedModel={selectedModel}
+        setSelectedModel={setSelectedModel}
+        isGeneratingTest={isGeneratingTest}
+        generationProgress={generationProgress}
+        handleStartTest={handleStartTest}
+        setCurrentView={setCurrentView}
+        testHistory={testHistory}
+        setTestResults={setTestResults}
+        setQuestions={setQuestions}
+        setUserAnswers={setUserAnswers}
+        setSelectedSubjectParent={setSelectedSubject}
+        setSelectedSectionParent={setSelectedSection}
+        sanitizeResultsData={sanitizeResultsData}
+        emergencyCleanResults={emergencyCleanResults}
+        subjectOptions={subjectOptions}
+        getCanonicalSubjectName={getCanonicalSubjectName}
+      />
     );
   }
 
   // Test View
   if (currentView === 'test') {
-    const currentQuestion = questions[currentQuestionIndex];
-    
-    // Show error if no questions are available
-    if (!questions || questions.length === 0) {
-      return (
-        <div className="min-h-screen bg-base-950 text-content-primary flex items-center justify-center">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="text-center"
-          >
-            <X strokeWidth={1.5} className="w-16 h-16 text-error-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-content-primary mb-4">No Questions Available</h2>
-            <p className="text-lg text-content-secondary mb-6">
-              There was an issue generating questions for this test.
-            </p>
-            <Button
-              onClick={resetTest}
-            >
-              <RotateCw strokeWidth={1.5} className="w-5 h-5 mr-2" />
-              Try Again
-            </Button>
-          </motion.div>
-        </div>
-      );
-    }
-
-    // Show error if current question is not available
-    if (!currentQuestion) {
-      return (
-        <div className="min-h-screen bg-base-950 text-content-primary flex items-center justify-center">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="text-center"
-          >
-            <Flag strokeWidth={1.5} className="w-16 h-16 text-warning-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-content-primary mb-4">Question Not Found</h2>
-            <p className="text-lg text-content-secondary mb-6">
-              Question {currentQuestionIndex + 1} of {questions.length} could not be loaded.
-            </p>
-            <div className="flex gap-4 justify-center">
-              <Button
-                onClick={() => setCurrentQuestionIndex(0)}
-                variant="outline"
-              >
-                Go to First Question
-              </Button>
-              <Button
-                onClick={resetTest}
-              >
-                <RotateCw strokeWidth={1.5} className="w-5 h-5 mr-2" />
-                Restart Test
-              </Button>
-            </div>
-          </motion.div>
-        </div>
-      );
-    }
-    
     return (
-      <div className="min-h-screen bg-base-950 text-content-primary">
-        
-        {/* Settings Panel */}
-        {showSettings && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-          >
-            <div className={`bg-base-850 rounded-lg border border-border ${isMobile ? 'w-full max-w-sm' : 'w-full max-w-md'}`}>
-              <div className="flex items-center justify-between p-6 border-b border-border">
-                <h3 className="text-lg font-semibold text-content-primary">Settings</h3>
-                <button
-                  onClick={() => setShowSettings(false)}
-                  className="text-content-muted hover:text-content-primary transition-colors"
-                >
-                  <X strokeWidth={1.5} className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="p-6 space-y-6">
-                {/* Auto-save Settings */}
-                <div>
-                  <h4 className="text-sm font-medium text-content-primary mb-3">Auto-save</h4>
-                  <div className="space-y-3">
-                    <label className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={autoSyncEnabled}
-                        onChange={(e) => {
-                          const newValue = e.target.checked;
-                          setAutoSyncEnabled(newValue);
-                        }}
-                        className="w-4 h-4 rounded border-border-strong bg-base-800 text-content-primary focus:ring-content-muted focus:ring-2"
-                      />
-                      <span className="text-sm text-content-secondary">Auto-save progress</span>
-                    </label>
-                    <p className="text-xs text-content-muted ml-7">
-                      Automatically save your test progress and settings so you can resume later
-                    </p>
-                  </div>
-                </div>
-
-                {/* Drawing Canvas removed: all FRQs are typed responses only */}
-
-                {/* Mobile Settings */}
-                <div>
-                  <h4 className="text-sm font-medium text-content-primary mb-3">Mobile Experience</h4>
-                  <div className="space-y-3">
-                    <label className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={isMobile}
-                        onChange={(e) => setForceMobile(e.target.checked)}
-                        className="w-4 h-4 rounded border-border-strong bg-base-800 text-content-primary focus:ring-content-muted focus:ring-2"
-                      />
-                      <span className="text-sm text-content-secondary">Force mobile layout</span>
-                    </label>
-                    <p className="text-xs text-content-muted ml-7">
-                      Override automatic mobile detection
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="p-6 border-t border-border">
-                <button
-                  onClick={() => setShowSettings(false)}
-                  className="w-full bg-content-primary hover:opacity-90 text-base-950 py-2 px-4 rounded-lg transition-colors"
-                >
-                  Save Settings
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Test Header */}
-        <div className="bg-base-850 border-b border-border sticky top-0 z-50">
-          <div className="max-w-6xl mx-auto px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4">
-            <div className="flex items-center justify-between mb-2 sm:mb-3 gap-2">
-              <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-                <h1 className="text-sm sm:text-lg md:text-xl font-bold text-content-primary truncate">
-                  {selectedSubject} - {selectedSection.toUpperCase()}
-                </h1>
-                <Badge variant="secondary" className="text-xs sm:text-sm whitespace-nowrap flex-shrink-0">
-                  <span className="hidden sm:inline">Question </span>{currentQuestionIndex + 1} / {questions.length}
-                </Badge>
-              </div>
-              
-              <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
-                <div className="flex items-center gap-1 sm:gap-2 text-content-secondary">
-                  <Clock strokeWidth={1.5} className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className={`font-mono text-sm sm:text-lg ${timeRemaining < 300 ? 'text-error-400' : ''}`}>
-                    {formatTimeFromSeconds(timeRemaining)}
-                  </span>
-                </div>
-                
-                <Button
-                  variant="ghost"
-                  onClick={() => setTestPaused(!testPaused)}
-                  className="text-content-secondary"
-                >
-                  {testPaused ? <Play strokeWidth={1.5} className="w-5 h-5" /> : <Pause strokeWidth={1.5} className="w-5 h-5" />}
-                </Button>
-                
-                <Button
-                  variant="destructive"
-                  onClick={() => {
-                    if (window.confirm('Are you sure you want to submit the test? This action cannot be undone.')) {
-                      handleSubmitTest();
-                    }
-                  }}
-                >
-                  Submit Test
-                </Button>
-              </div>
-            </div>
-            
-            {/* Progress Bar */}
-            <div className="w-full bg-base-800 rounded-full h-2">
-              <div 
-                className="bg-content-primary h-2 rounded-full transition-all duration-300" 
-                style={{ 
-                  width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` 
-                }}
-              ></div>
-            </div>
-            
-            {/* Answered Questions Indicator */}
-            <div className="flex items-center justify-between mt-2 text-sm text-content-muted">
-              <span>
-                {Object.keys(userAnswers).length} answered • {questions.length - Object.keys(userAnswers).length} remaining
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Test Content */}
-        <div className={`max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-8 ${isMobile ? 'min-h-screen' : ''}`}>
-          {testPaused ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-center py-12"
-            >
-              <Pause strokeWidth={1.5} className="w-16 h-16 text-warning-400 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-content-primary mb-2">Test Paused</h2>
-              <p className="text-content-muted mb-6">Click the play button to resume your test</p>
-              <Button
-                onClick={() => setTestPaused(false)}
-                className="bg-success-500 hover:bg-success-500"
-              >
-                <Play strokeWidth={1.5} className="w-5 h-5 mr-2" />
-                Resume Test
-              </Button>
-            </motion.div>
-          ) : (
-            <motion.div
-              key={currentQuestionIndex}
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <Card className="p-8">
-                {/* Question */}
-                <div className="mb-8">
-                  <div className="flex items-start gap-4 mb-6">
-                    <div className="p-3 bg-base-750 rounded-lg text-content-primary font-bold text-lg min-w-[3rem] text-center">
-                      {currentQuestionIndex + 1}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-3">
-                        <Badge variant="secondary">
-                          {currentQuestion?.topic || 'AP Content'}
-                        </Badge>
-                        <Badge variant={currentQuestion?.type === 'mcq' ? 'primary' : 'purple'}>
-                          {currentQuestion?.type === 'mcq' ? 'Multiple Choice' : 
-                           currentQuestion?.type === 'frq' ? 'Free Response' :
-                           currentQuestion?.type === 'saq' ? 'Short Answer' :
-                           currentQuestion?.type === 'dbq' ? 'Document-Based Question' :
-                           currentQuestion?.type === 'leq' ? 'Long Essay Question' :
-                           currentQuestion?.type === 'synthesis' ? 'Synthesis Essay' :
-                           currentQuestion?.type === 'rhetorical-analysis' ? 'Rhetorical Analysis' :
-                           currentQuestion?.type === 'argumentative' ? 'Argumentative Essay' :
-                           currentQuestion?.type === 'poetry-analysis' ? 'Poetry Analysis' :
-                           currentQuestion?.type === 'prose-analysis' ? 'Prose Analysis' :
-                           currentQuestion?.type === 'open-question' ? 'Open Question' :
-                           currentQuestion?.type === 'long-frq' ? 'Long FRQ' :
-                           currentQuestion?.type === 'short-frq' ? 'Short FRQ' :
-                           currentQuestion?.type === 'calculator-frq' ? 'Calculator FRQ' :
-                           currentQuestion?.type === 'no-calculator-frq' ? 'No Calculator FRQ' :
-                           currentQuestion?.type === 'short-answer' ? 'Short Answer' :
-                           currentQuestion?.type === 'essays' ? 'Essay' :
-                           'Written Response'}
-                        </Badge>
-                      </div>
-                      <div className="text-lg text-content-primary leading-relaxed">
-                        <LaTeXRenderer content={currentQuestion?.question || ''} />
-                      </div>
-                      
-                      {/* Display sources for Synthesis questions */}
-                      {currentQuestion?.sources && currentQuestion.sources.length > 0 && (
-                        <div className="mt-6 p-6 bg-base-800 rounded-lg">
-                          <h4 className="font-medium text-content-secondary mb-4 text-xl">Sources:</h4>
-                          <div className="space-y-6">
-                            {currentQuestion.sources.map((source, index) => (
-                              <div key={index} className="border-l-4 border-success-500 pl-4">
-                                <div className="mb-2">
-                                  <span className="font-bold text-success-400">Source {String.fromCharCode(65 + index)}</span>
-                                  {source.title && (
-                                    <div className="text-sm text-content-secondary mt-1 font-medium">
-                                      {source.title}
-                                    </div>
-                                  )}
-                                  {source.source && (
-                                    <div className="text-sm text-content-muted mt-1">
-                                      Source: {source.source}
-                                    </div>
-                                  )}
-                                  {source.type && (
-                                    <div className="text-sm text-content-muted">
-                                      Type: {source.type}
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="text-content-secondary leading-relaxed bg-base-850/50 p-4 rounded">
-                                  {source.content || source.description}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Display passage for rhetorical analysis, poetry, or prose questions */}
-                      {currentQuestion?.passage && (
-                        <div className="mt-6 p-6 bg-base-800 rounded-lg">
-                          <h4 className="font-medium text-content-secondary mb-4 text-xl">
-                            {currentQuestion.type === 'poetry-analysis' ? 'Poem:' :
-                             currentQuestion.type === 'prose-analysis' ? 'Passage:' :
-                             currentQuestion.type === 'rhetorical-analysis' ? 'Text:' :
-                             'Reading:'}
-                          </h4>
-                          {currentQuestion.passageInfo && (
-                            <div className="mb-4 text-sm text-content-muted">
-                              {currentQuestion.passageInfo}
-                            </div>
-                          )}
-                          <div className="text-content-secondary leading-relaxed bg-base-850/50 p-4 rounded font-serif">
-                            <pre className="whitespace-pre-wrap font-serif">
-                              {currentQuestion.passage}
-                            </pre>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Display work list for open questions */}
-                      {currentQuestion?.worksList && currentQuestion.worksList.length > 0 && (
-                        <div className="mt-6 p-6 bg-base-800 rounded-lg">
-                          <h4 className="font-medium text-content-secondary mb-4 text-xl">Suggested Works:</h4>
-                          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                            {currentQuestion.worksList.map((work, index) => (
-                              <div key={index} className="text-content-secondary text-sm p-2 bg-base-850/50 rounded">
-                                {work}
-                              </div>
-                            ))}
-                          </div>
-                          <div className="mt-3 text-sm text-content-muted">
-                            Or another work of comparable literary merit
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Display documents - Different UI for DBQ vs other question types */}
-                      {currentQuestion?.documents && currentQuestion.documents.length > 0 && (
-                        <div className="mt-6">
-                          {currentQuestion.type === 'dbq' ? (
-                            // DBQ: Show document buttons and selected document
-                            <div className="space-y-4">
-                              <div className="p-4 bg-base-800 rounded-lg">
-                                <h4 className="font-medium text-content-secondary mb-4 text-lg">Historical Documents:</h4>
-                                <div className="flex flex-wrap gap-3 mb-4">
-                                  {currentQuestion.documents.map((doc, index) => (
-                                    <button
-                                      key={index}
-                                      onClick={() => setSelectedDBQDocument(selectedDBQDocument === index ? null : index)}
-                                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                                        selectedDBQDocument === index
-                                          ? 'bg-content-primary text-base-950 ring-2 ring-content-primary'
-                                          : 'bg-base-800 text-content-secondary hover:bg-base-750 border border-border-strong'
-                                      }`}
-                                    >
-                                      Document {String.fromCharCode(65 + index)}
-                                    </button>
-                                  ))}
-                                </div>
-                                
-                                {selectedDBQDocument !== null && (
-                                  <div className="border-l-4 border-content-muted pl-4 bg-base-850/50 p-4 rounded">
-                                    <div className="mb-3">
-                                      <span className="font-bold text-content-primary">
-                                        Document {String.fromCharCode(65 + selectedDBQDocument)}
-                                      </span>
-                                      {currentQuestion.documents[selectedDBQDocument].source && (
-                                        <div className="text-sm text-content-muted mt-1">
-                                          Source: {currentQuestion.documents[selectedDBQDocument].source}
-                                        </div>
-                                      )}
-                                      {currentQuestion.documents[selectedDBQDocument].date && (
-                                        <div className="text-sm text-content-muted">
-                                          Date: {currentQuestion.documents[selectedDBQDocument].date}
-                                        </div>
-                                      )}
-                                    </div>
-                                    <div className="text-content-secondary italic leading-relaxed">
-                                      "{currentQuestion.documents[selectedDBQDocument].content}"
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          ) : (
-                            // Non-DBQ: Show documents/stimulus in separate box under question
-                            <div className="p-6 bg-base-800 rounded-lg">
-                              <h4 className="font-medium text-content-secondary mb-4 text-lg">Supporting Documents:</h4>
-                              <div className="space-y-4">
-                                {currentQuestion.documents.map((doc, index) => (
-                                  <div key={index} className="border-l-4 border-success-500 pl-4 bg-base-850/50 p-4 rounded">
-                                    {doc.source && (
-                                      <div className="text-sm text-content-muted mb-2">
-                                        Source: {doc.source}
-                                        {doc.date && `, ${doc.date}`}
-                                      </div>
-                                    )}
-                                    <div className="text-content-secondary leading-relaxed">
-                                      {doc.content}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Display SAQ stimulus separately if not in documents array */}
-                      {currentQuestion?.stimulus && !currentQuestion?.documents && (() => {
-                        const stim = String(currentQuestion.stimulus || '');
-                        const sourceMatch = stim.match(/^\s*Source:\s*(.+?)\s*(?:\n|$)/i);
-                        const sourceLine = sourceMatch ? sourceMatch[1].trim() : null;
-                        const content = sourceMatch ? stim.replace(sourceMatch[0], '').trim() : stim;
-                        return (
-                          <div className="mt-6 p-6 bg-base-800 rounded-lg">
-                            <h4 className="font-medium text-content-secondary mb-4 text-lg">Stimulus:</h4>
-                            {sourceLine && (
-                              <div className="text-sm text-content-muted mb-2">Source: {sourceLine}</div>
-                            )}
-                            <div className="border-l-4 border-success-500 pl-4 bg-base-850/50 p-4 rounded">
-                              <div className="text-content-secondary leading-relaxed italic">
-                                {content}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })()}
-
-                      {/* Display LEQ prompt options */}
-                      {currentQuestion?.promptOptions && currentQuestion.promptOptions.length > 0 && (
-                        <div className="mt-6 p-6 bg-base-800 rounded-lg">
-                          <h4 className="font-medium text-content-secondary mb-4 text-xl">Choose ONE of the following prompts:</h4>
-                          <div className="space-y-4">
-                            {currentQuestion.promptOptions.map((prompt, index) => (
-                              <div key={index} className="p-4 bg-base-850/50 rounded border-l-4 border-content-muted">
-                                <div className="mb-2">
-                                  <span className="font-bold text-content-primary">Prompt {index + 1}:</span>
-                                </div>
-                                <div className="text-content-secondary leading-relaxed">
-                                  {prompt}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Display question parts if they exist */}
-                      {currentQuestion?.parts && currentQuestion.parts.length > 0 && (
-                        <div className="mt-4 p-4 bg-base-800 rounded-lg">
-                          <h4 className="font-medium text-content-secondary mb-2">Question Parts:</h4>
-                          <div className="space-y-4">
-                            {currentQuestion.parts.map((part, index) => (
-                              <div key={index} className="text-content-secondary text-sm flex">
-                                <span className="font-semibold mr-2 text-content-primary flex-shrink-0">({String.fromCharCode(97 + index)})</span>
-                                <div className="flex-1"><LaTeXRenderer content={part} /></div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Answer Interface */}
-                <div className="mt-8">
-                  {/* MCQ Options */}
-                  {currentQuestion?.type === 'mcq' && currentQuestion?.options && (
-                    <div className={`space-y-3 ${isMobile ? 'space-y-2' : ''}`}>
-                      <h3 className={`text-lg font-medium text-content-primary mb-4 ${isMobile ? 'text-base mb-3' : ''}`}>Choose the best answer:</h3>
-                      {currentQuestion.options.map((option, index) => {
-                        const isSelected = userAnswers[currentQuestion.id] === index;
-                        
-                        return (
-                          <motion.button
-                            key={index}
-                            whileHover={{ scale: isMobile ? 1 : 1.01 }}
-                            whileTap={{ scale: 0.99 }}
-                            onClick={() => handleAnswerSelect(currentQuestion.id, index)}
-                            className={`w-full text-left ${isMobile ? 'p-3' : 'p-4'} rounded-lg border-2 transition-all ${
-                              isSelected
-                                ? 'border-content-muted bg-base-800 text-content-primary'
-                                : 'border-border-strong bg-base-800 text-content-secondary hover:border-border-strong hover:bg-base-800'
-                            }`}
-                          >
-                            <div className={`flex items-start ${isMobile ? 'gap-2' : 'gap-3'}`}>
-                              <span className={`font-bold ${isMobile ? 'text-base' : 'text-lg'} min-w-[1.5rem] ${
-                                isSelected ? 'text-content-primary' : 'text-content-muted'
-                              }`}>
-                                {String.fromCharCode(65 + index)}.
-                              </span>
-                              <span className={`flex-1 leading-relaxed ${isMobile ? 'text-sm' : ''}`}>
-                                <LaTeXRenderer content={
-                                  typeof option === 'string' 
-                                    ? option.replace(/^[A-D]\)\s*/, '') 
-                                    : typeof option === 'object' && option?.text
-                                      ? option.text.replace(/^[A-D]\)\s*/, '')
-                                      : (option?.text || String(option || ''))
-                                } />
-                              </span>
-                              {isSelected && (
-                                <CheckCircle strokeWidth={1.5} className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} text-content-primary flex-shrink-0 mt-0.5`} />
-                              )}
-                            </div>
-                          </motion.button>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* FRQ/Written Response Input */}
-                  {currentQuestion?.type !== 'mcq' && (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-medium text-content-primary">Your Response:</h3>
-                        {currentQuestion?.timeframe && (
-                          <Badge variant="secondary">
-                            Suggested Time: {currentQuestion.timeframe}
-                          </Badge>
-                        )}
-                      </div>
-                      
-                      <div className="relative">
-                        <textarea
-                          value={renderSafeValue(userAnswers[currentQuestion.id])}
-                          onChange={(e) => handleAnswerSelect(currentQuestion.id, e.target.value)}
-                          placeholder={
-                            currentQuestion?.type === 'frq' ? 'Write your detailed response here. Be sure to address all parts of the question...' :
-                            currentQuestion?.type === 'saq' ? 'Write a clear, concise response. Use specific examples...' :
-                            currentQuestion?.type === 'dbq' ? 'Develop an argument using the documents and your knowledge of history...' :
-                            currentQuestion?.type === 'leq' ? 'Develop an argument with a clear thesis statement...' :
-                            'Write your response here...'
-                          }
-                          className={`w-full bg-base-800 border border-border-strong rounded-lg text-content-primary placeholder:text-content-muted focus:border-content-muted focus:ring-2 focus:ring-content-muted resize-none ${
-                            isMobile ? 'h-48 p-3 text-sm' : 'h-64 p-4'
-                          }`}
-                          style={{ minHeight: isMobile ? '12rem' : '16rem' }}
-                        />
-                        
-                        {/* Character count */}
-                        <div className="absolute bottom-3 right-3 text-xs text-content-muted">
-                          {renderSafeValue(userAnswers[currentQuestion.id]).length} characters
-                        </div>
-                      </div>
-                      
-                      {/* Quick formatting tips */}
-                      <div className="text-sm text-content-muted bg-base-850/50 p-3 rounded-lg">
-                        <strong className="text-content-secondary">Tips:</strong> 
-                        {currentQuestion?.type === 'dbq' && ' Use specific evidence from the documents. Reference at least 6 documents.'}
-                        {currentQuestion?.type === 'frq' && ' Structure your response with clear topic sentences and supporting evidence.'}
-                        {currentQuestion?.type === 'saq' && ' Be concise but thorough. Include specific historical examples.'}
-                        {currentQuestion?.type === 'leq' && ' Include a clear thesis, contextualization, and evidence.'}
-                        {!['dbq', 'frq', 'saq', 'leq'].includes(currentQuestion?.type) && ' Be thorough and use specific examples to support your points.'}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Drawing Canvas removed */}
-                </div>
-
-                {/* Navigation */}
-                <div className="pt-6 border-t border-border">
-                  {/* Top Row: Previous, Settings, Next */}
-                  <div className="flex items-center justify-between mb-4">
-                    <Button
-                      variant="ghost"
-                      onClick={handlePreviousQuestion}
-                      disabled={currentQuestionIndex === 0}
-                      className="flex items-center gap-2"
-                    >
-                      <ArrowLeft strokeWidth={1.5} className="w-4 h-4" />
-                      Previous
-                    </Button>
-
-                    {/* Settings Button */}
-                    <Button
-                      variant="ghost"
-                      onClick={() => setShowSettings(true)}
-                      className="flex items-center gap-2 text-content-muted hover:text-content-primary"
-                      title="Settings"
-                    >
-                      <Settings strokeWidth={1.5} className="w-4 h-4" />
-                      Settings
-                    </Button>
-
-                    <Button
-                      variant="ghost"
-                      onClick={currentQuestionIndex === questions.length - 1 ? () => {
-                        if (window.confirm('Are you sure you want to submit the test? This action cannot be undone.')) {
-                          handleSubmitTest();
-                        }
-                      } : handleNextQuestion}
-                      className="flex items-center gap-2"
-                    >
-                      {currentQuestionIndex === questions.length - 1 ? 'Submit Test' : 'Next'}
-                      {currentQuestionIndex === questions.length - 1 ? 
-                        <CheckCircle strokeWidth={1.5} className="w-4 h-4" /> : 
-                        <ArrowRight strokeWidth={1.5} className="w-4 h-4" />
-                      }
-                    </Button>
-                  </div>
-
-                  {/* Bottom Row: Question Numbers */}
-                  <div className="w-full">
-                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-base-750 scrollbar-track-base-850">
-                      <div className="flex items-center gap-2 min-w-fit px-2 pb-2 justify-center">
-                        {questions.map((_, index) => {
-                          const isAnswered = userAnswers[questions[index].id] !== undefined;
-                          const isCurrent = index === currentQuestionIndex;
-                          
-                          return (
-                            <button
-                              key={index}
-                              onClick={() => setCurrentQuestionIndex(index)}
-                              className={`w-10 h-10 rounded-full text-sm font-medium transition-all relative flex-shrink-0 ${
-                                isCurrent
-                                  ? 'bg-content-primary text-base-950 ring-2 ring-content-primary ring-offset-2 ring-offset-base-850'
-                                  : isAnswered
-                                  ? 'bg-success-500 text-base-950 hover:bg-success-500'
-                                  : 'bg-base-800 text-content-secondary hover:bg-base-750 border border-border-strong'
-                              }`}
-                              title={`Question ${index + 1}${isAnswered ? ' (Answered)' : ' (Unanswered)'}`}
-                            >
-                              {index + 1}
-                              {isAnswered && !isCurrent && (
-                                <CheckCircle strokeWidth={1.5} className="w-3 h-3 absolute -top-1 -right-1 text-success-400" />
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            </motion.div>
-          )}
-        </div>
-      </div>
+      <TestPanel
+        questions={questions}
+        currentQuestionIndex={currentQuestionIndex}
+        setCurrentQuestionIndex={setCurrentQuestionIndex}
+        userAnswers={userAnswers}
+        handleAnswerSelect={handleAnswerSelect}
+        timeRemaining={timeRemaining}
+        testPaused={testPaused}
+        setTestPaused={setTestPaused}
+        selectedSubject={selectedSubject}
+        selectedSection={selectedSection}
+        selectedDBQDocument={selectedDBQDocument}
+        setSelectedDBQDocument={setSelectedDBQDocument}
+        isMobile={isMobile}
+        showSettings={showSettings}
+        setShowSettings={setShowSettings}
+        autoSyncEnabled={autoSyncEnabled}
+        setAutoSyncEnabled={setAutoSyncEnabled}
+        forceMobile={forceMobile}
+        setForceMobile={setForceMobile}
+        handlePreviousQuestion={handlePreviousQuestion}
+        handleNextQuestion={handleNextQuestion}
+        handleSubmitTest={handleSubmitTest}
+        resetTest={resetTest}
+        renderSafeValue={renderSafeValue}
+      />
     );
   }
 
   // Results View
-  if (currentView === 'results' && testResults) {
+  if (currentView === 'results') {
     return (
-      <div className="min-h-screen bg-base-950 text-content-primary">
-        <div className="max-w-6xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
-          {/* Results Header */}
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center mb-6 sm:mb-8 md:mb-12"
-          >
-            <div className="flex items-center justify-center gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4 md:mb-6">
-              <div className="p-2 sm:p-3 md:p-4 bg-success-500 rounded-sm md:rounded-md shadow-raised">
-                <Trophy strokeWidth={1.5} className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-content-primary" />
-              </div>
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-success-400">
-                Test Results
-              </h1>
-            </div>
-            <p className="text-sm sm:text-base md:text-lg text-content-secondary">
-              {selectedSubject} • {selectedSection === 'mcq' ? 'Multiple Choice' : selectedSection === 'frq' ? 'Free Response' : 'Full Test'}
-            </p>
-          </motion.div>
-
-          {/* Score Overview */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6 md:mb-8">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-            >
-              <Card className="p-3 sm:p-4 md:p-6 text-center">
-                <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-content-primary mb-1 md:mb-2">
-                  {safeTestResults.apScore}
-                </div>
-                <p className="text-content-secondary mb-1">Predicted AP Score</p>
-                <p className="text-sm text-content-muted">
-                  {safeTestResults.apScore >= 4 ? 'Likely to Pass' : 'Needs Improvement'}
-                </p>
-              </Card>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-            >
-              <Card className="p-3 sm:p-4 md:p-6 text-center">
-                <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-success-400 mb-1 md:mb-2">
-                  {safeTestResults.percentage}%
-                </div>
-                <p className="text-content-secondary mb-1">Overall Score</p>
-                <p className="text-sm text-content-muted">
-                  {safeTestResults.score} / {safeTestResults.totalPoints} points
-                </p>
-              </Card>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-            >
-              <Card className="p-3 sm:p-4 md:p-6 text-center">
-                <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-content-primary mb-1 md:mb-2">
-                  {safeTestResults.timeSpent}
-                </div>
-                <p className="text-content-secondary mb-1">Minutes Used</p>
-                <p className="text-sm text-content-muted">Time Management</p>
-              </Card>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-            >
-              <Card className="p-3 sm:p-4 md:p-6 text-center">
-                <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-warning-400 mb-1 md:mb-2">
-                  {questions.filter(q => userAnswers[q.id] !== undefined).length}
-                </div>
-                <p className="text-content-secondary mb-1">Questions Answered</p>
-                <p className="text-sm text-content-muted">
-                  of {questions.length} total
-                </p>
-              </Card>
-            </motion.div>
-          </div>
-
-          {/* Section Breakdown */}
-          {safeTestResults.breakdown && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="mb-8"
-            >
-              <Card className="p-6">
-                <h2 className="text-xl font-bold text-content-primary mb-4 flex items-center gap-3">
-                  <TrendingUp strokeWidth={1.5} className="w-5 h-5 text-content-primary" />
-                  Section Performance
-                </h2>
-                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {Object.entries(safeTestResults.breakdown).map(([section, data]) => (
-                    data.total > 0 && (
-                      <div key={section} className="p-4 bg-base-800 rounded-lg">
-                        <h3 className="font-medium text-content-primary mb-2 capitalize">
-                          {section === 'mcq' ? 'Multiple Choice' : 
-                           section === 'frq' ? 'Free Response' :
-                           section === 'saq' ? 'Short Answer' : 
-                           section}
-                        </h3>
-                        <div className="text-2xl font-bold text-content-primary mb-1">
-                          {data.percentage}%
-                        </div>
-                        <p className="text-sm text-content-muted">
-                          {data.correct} / {data.total} points
-                        </p>
-                        <div className="w-full bg-base-750 rounded-full h-2 mt-2">
-                          <div 
-                            className="bg-content-primary h-2 rounded-full"
-                            style={{ width: `${data.percentage}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    )
-                  ))}
-                </div>
-              </Card>
-            </motion.div>
-          )}
-
-          {/* Question Review */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-          >
-            <Card className="p-8">
-              <h2 className="text-2xl font-bold text-content-primary mb-6 flex items-center gap-3">
-                <FileQuestion className="w-6 h-6 text-content-primary" />
-                Question Review
-              </h2>
-
-              <div className="space-y-6">
-                {questions.map((question, index) => {
-                  const result = safeTestResults.questionResults.find(r => r.questionId === question.id);
-                  const isCorrect = result?.correct;
-                  
-                  return (
-                    <div key={question.id} className="border border-border rounded-lg p-6">
-                      <div className="flex items-start gap-4 mb-4">
-                        <div className={`p-2 rounded-lg ${isCorrect ? 'bg-success-500' : 'bg-error-500'}`}>
-                          {isCorrect ? (
-                            <CheckCircle strokeWidth={1.5} className="w-5 h-5 text-content-primary" />
-                          ) : (
-                            <X strokeWidth={1.5} className="w-5 h-5 text-content-primary" />
-                          )}
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-3">
-                            <h3 className="font-medium text-content-primary mb-3">Question {index + 1}</h3>
-                            <Badge variant={isCorrect ? "success" : "destructive"}>
-                              {result?.score || 0} / {result?.maxPoints || 1} points
-                            </Badge>
-                          </div>
-                          <div className="text-content-secondary mb-4">
-                            <MarkdownRenderer content={renderSafeValue(question.question)} />
-                          </div>
-
-                          {/* MCQ Review */}
-                          {question.type === 'mcq' && (
-                            <div className="space-y-2 mb-4">
-                              {question.options.map((option, i) => {
-                                const isUserAnswer = result.userAnswer === i;
-                                const isCorrectAnswer = result.correctAnswer === i || question.correctAnswer === i;
-                                
-                                let borderColor = 'border-border-strong';
-                                let bgColor = 'bg-base-800';
-                                let textColor = 'text-content-primary';
-                                let label = '';
-
-                                if (isCorrectAnswer) {
-                                  borderColor = 'border-success-500';
-                                  bgColor = 'bg-success-900';
-                                  textColor = 'text-success-400';
-                                  label = ' ✓ Correct Answer';
-                                }
-                                if (isUserAnswer && !isCorrectAnswer) {
-                                  borderColor = 'border-error-500';
-                                  bgColor = 'bg-error-900';
-                                  textColor = 'text-error-400';
-                                  label = ' ✗ Your Answer';
-                                }
-                                if (isUserAnswer && isCorrectAnswer) {
-                                  label = ' ✓ Your Correct Answer';
-                                }
-
-                                return (
-                                  <div 
-                                    key={i} 
-                                    className={`p-3 rounded-lg border-2 ${borderColor} ${bgColor} ${textColor} relative`}
-                                  >
-                                    <div className="flex items-start justify-between">
-                                      <div className="flex-1">
-                                        <span className="font-bold mr-2">{String.fromCharCode(65 + i)}.</span>
-                                        <div className="prose prose-sm max-w-none inline"><LaTeXRenderer content={renderSafeValue(option)} /></div>
-                                      </div>
-                                      {label && (
-                                        <span className="text-xs font-medium ml-2 px-2 py-1 rounded bg-black/20">
-                                          {label}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-
-                          {/* FRQ Review */}
-                          {(question.type === 'frq' || question.type === 'saq' || 
-                           question.type === 'dbq' || question.type === 'leq' ||
-                           question.type === 'synthesis' || question.type === 'rhetorical-analysis' ||
-                           question.type === 'argumentative' || question.type === 'poetry-analysis' ||
-                           question.type === 'prose-analysis' || question.type === 'open-question' ||
-                           question.type === 'long-frq' || question.type === 'short-frq' ||
-                           question.type === 'calculator-frq' || question.type === 'no-calculator-frq' ||
-                           question.type === 'short-answer' || question.type === 'essays') && (
-                            <div className="space-y-4">
-                              <div>
-                                <h4 className="font-medium text-content-primary mb-2">Your Response:</h4>
-                                <div className="p-4 bg-base-800 rounded-lg">
-                                  <p className="text-content-secondary whitespace-pre-wrap">
-                                    {renderSafeValue(result?.userAnswer) || 'No response provided'}
-                                  </p>
-                                  {/* Drawing canvas removed */}
-                                </div>
-                              </div>
-
-                              {/* AI Scoring Breakdown */}
-                              {result.breakdown && Object.keys(result.breakdown).length > 0 && (
-                                <div>
-                                  <h4 className="font-medium text-content-primary mb-2">Score Breakdown:</h4>
-                                  <div className="p-4 bg-base-800 border border-border-strong rounded-lg">
-                                    <div className="grid grid-cols-2 gap-4 mb-3">
-                                      {renderBreakdownSafely(result.breakdown)}
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* AI Feedback */}
-                              {result.feedback && (
-                                <div>
-                                  <h4 className="font-medium text-content-primary mb-2">AI Feedback:</h4>
-                                  <div className="p-4 bg-success-900 border border-success-500/30 rounded-lg space-y-3">
-                                    <LaTeXRenderer content={renderSafeValue(result.feedback)} />
-                                    
-                                    {/* Strengths and Improvements */}
-                                    {(result.strengths?.length > 0 || result.improvements?.length > 0) && (
-                                      <div className="grid md:grid-cols-2 gap-4 mt-4">
-                                        {result.strengths?.length > 0 && (
-                                          <div>
-                                            <h5 className="font-medium text-success-400 mb-2">Strengths:</h5>
-                                            <ul className="text-sm text-content-secondary space-y-1">
-                                              {result.strengths.map((strength, idx) => (
-                                                <li key={idx} className="flex items-start gap-2">
-                                                  <CheckCircle strokeWidth={1.5} className="w-4 h-4 text-success-400 mt-0.5 flex-shrink-0" />
-                                                  {renderSafeValue(strength)}
-                                                </li>
-                                              ))}
-                                            </ul>
-                                          </div>
-                                        )}
-                                        
-                                        {result.improvements?.length > 0 && (
-                                          <div>
-                                            <h5 className="font-medium text-warning-400 mb-2">Areas for Improvement:</h5>
-                                            <ul className="text-sm text-content-secondary space-y-1">
-                                              {result.improvements.map((improvement, idx) => (
-                                                <li key={idx} className="flex items-start gap-2">
-                                                  <Target strokeWidth={1.5} className="w-4 h-4 text-warning-400 mt-0.5 flex-shrink-0" />
-                                                  {renderSafeValue(improvement)}
-                                                </li>
-                                              ))}
-                                            </ul>
-                                          </div>
-                                        )}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
-                              
-                              {question.sampleAnswer && (
-                                <div>
-                                  <h4 className="font-medium text-content-primary mb-2">Sample Answer:</h4>
-                                  <div className="p-4 bg-base-800 border border-border-strong rounded-lg">
-                                    <MarkdownRenderer content={renderSafeValue(question.sampleAnswer)} />
-                                  </div>
-                                </div>
-                              )}
-
-                              {(() => {
-                                // Build rubric visualization (even if question.rubric missing, we infer by type)
-                                const qRubric = buildRubricItems(question);
-                                const merged = attachScoresToRubric(qRubric, result.breakdown, result.score);
-                                if (!merged || !merged.items || merged.items.length === 0) return null;
-                                return (
-                                  <div>
-                                    <h4 className="font-medium text-content-primary mb-2">Scoring Rubric:</h4>
-                                    <div className="p-4 bg-base-800 border border-border-strong rounded-lg space-y-2">
-                                      <div className="text-content-secondary text-sm mb-1">
-                                        Total Points: {merged.totalPoints}
-                                      </div>
-                                      {merged.items.map((it, idx) => (
-                                        <div key={idx} className={`flex items-center justify-between px-3 py-2 rounded-md ${it.earned > 0 ? 'bg-success-900 border border-success-500/30' : 'bg-base-800 border border-border-strong'}`}>
-                                          <div className="text-content-primary text-sm font-medium">{it.label}</div>
-                                          <div className={`text-xs font-semibold ${it.earned > 0 ? 'text-success-400' : 'text-content-muted'}`}>
-                                            {Math.round(it.earned)}/{it.maxPoints} pts
-                                          </div>
-                                        </div>
-                                      ))}
-                                      {question?.rubric?.scoringGuidelines && (
-                                        <div className="text-content-muted text-xs mt-2">{renderSafeValue(question.rubric.scoringGuidelines)}</div>
-                                      )}
-                                      {Array.isArray(question?.rubric?.keyTerms) && question.rubric.keyTerms.length > 0 && (
-                                        <div className="pt-2">
-                                          <p className="text-content-secondary text-sm mb-1">Key Terms & Concepts:</p>
-                                          <div className="flex flex-wrap gap-2">
-                                            {question.rubric.keyTerms.map((term, termIndex) => (
-                                              <Badge key={termIndex} variant="secondary">
-                                                {renderSafeValue(term)}
-                                              </Badge>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })()}
-                            </div>
-                          )}
-
-                          {/* Ask Tutor */}
-                          <div className="mt-4 pt-4 border-t border-border">
-                            {askingTutor === question.id ? (
-                              <div className="space-y-3">
-                                <Input
-                                  placeholder="Ask the AP tutor about this question..."
-                                  value={tutorQuestion}
-                                  onChange={(e) => setTutorQuestion(e.target.value)}
-                                />
-                                <div className="flex gap-2">
-                                  <Button
-                                    onClick={() => askTutorAboutQuestion(question.id, tutorQuestion)}
-                                    disabled={!tutorQuestion.trim() || tutorProcessing === question.id}
-                                    size="sm"
-                                  >
-                                    {tutorProcessing === question.id ? (
-                                      <>
-                                        <div className="w-4 h-4 border-2 border-border-strong border-t-transparent rounded-full animate-spin mr-2"></div>
-                                        Processing...
-                                      </>
-                                    ) : (
-                                      'Ask Tutor'
-                                    )}
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    onClick={() => {
-                                      setAskingTutor(null);
-                                      setTutorQuestion('');
-                                      setTutorResponse('');
-                                      setTutorProcessing(null);
-                                    }}
-                                    size="sm"
-                                  >
-                                    Cancel
-                                  </Button>
-                                </div>
-                                
-                                {tutorResponse && (
-                                  <div className="p-4 bg-base-800 border border-border-strong rounded-lg">
-                                    <h5 className="font-medium text-content-primary mb-2 flex items-center gap-2">
-                                      <Brain strokeWidth={1.5} className="w-4 h-4" />
-                                      AI Tutor Response:
-                                    </h5>
-                                    <MarkdownRenderer content={renderSafeValue(tutorResponse)} />
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <Button
-                                variant="ghost"
-                                onClick={() => { setTutorResponse(''); setTutorQuestion(''); setAskingTutor(question.id); }}
-                                size="sm"
-                                className="text-content-secondary hover:text-content-primary"
-                              >
-                                <HelpCircle strokeWidth={1.5} className="w-4 h-4 mr-2" />
-                                Ask Tutor About This Question
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </Card>
-          </motion.div>
-
-          {/* Actions */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="mt-8 flex flex-wrap gap-4 justify-center"
-          >
-            <Button
-              onClick={resetTest}
-            >
-              <RotateCw strokeWidth={1.5} className="w-5 h-5 mr-2" />
-              Take Another Test
-            </Button>
-            
-            <Button
-              onClick={() => {
-                // Create and download a summary of results
-                const resultsSummary = {
-                  subject: selectedSubject,
-                  section: selectedSection,
-                  score: safeTestResults.percentage,
-                  apScore: safeTestResults.apScore,
-                  questionsCorrect: safeTestResults.questionResults?.filter(r => r.correct).length || 0,
-                  totalQuestions: safeTestResults.questionResults?.length || 0,
-                  timeSpent: safeTestResults.timeSpent,
-                  date: new Date().toLocaleDateString(),
-                  breakdown: safeTestResults.breakdown
-                };
-                
-                const dataStr = JSON.stringify(resultsSummary, null, 2);
-                const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-                
-                const exportFileDefaultName = `AP-${selectedSubject.replace(/\s+/g, '-')}-Results-${new Date().toISOString().split('T')[0]}.json`;
-                
-                const linkElement = document.createElement('a');
-                linkElement.setAttribute('href', dataUri);
-                linkElement.setAttribute('download', exportFileDefaultName);
-                linkElement.click();
-              }}
-            >
-              <Download strokeWidth={1.5} className="w-5 h-5 mr-2" />
-              Save Results
-            </Button>
-          </motion.div>
-        </div>
-      </div>
+      <ResultsPanel
+        testResults={testResults}
+        safeTestResults={safeTestResults}
+        questions={questions}
+        userAnswers={userAnswers}
+        selectedSubject={selectedSubject}
+        selectedSection={selectedSection}
+        resetTest={resetTest}
+        renderSafeValue={renderSafeValue}
+        renderBreakdownSafely={renderBreakdownSafely}
+        askingTutor={askingTutor}
+        setAskingTutor={setAskingTutor}
+        tutorQuestion={tutorQuestion}
+        setTutorQuestion={setTutorQuestion}
+        tutorResponse={tutorResponse}
+        setTutorResponse={setTutorResponse}
+        tutorProcessing={tutorProcessing}
+        setTutorProcessing={setTutorProcessing}
+        askTutorAboutQuestion={askTutorAboutQuestion}
+      />
     );
   }
 

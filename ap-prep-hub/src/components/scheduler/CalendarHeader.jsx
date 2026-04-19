@@ -1,7 +1,7 @@
 import React from "react";
 import { Button } from "../ui/UIComponents";
-import { ChevronLeft, ChevronRight, Calendar, Grid, List, Clock } from "lucide-react";
-import { format, addDays, addWeeks, addMonths, subDays, subWeeks, subMonths } from "date-fns";
+import { ChevronLeft, ChevronRight, Grid, List, Clock } from "lucide-react";
+import { format, addDays, addWeeks, addMonths } from "date-fns";
 
 export default function CalendarHeader({ currentDate, onDateChange, viewMode, onViewModeChange }) {
   const navigateDate = (direction) => {

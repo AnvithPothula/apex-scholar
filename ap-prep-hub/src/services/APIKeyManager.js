@@ -22,11 +22,14 @@ class APIKeyManager {
 
     this.currentKeyIndex = 0;
     // Default model can be overridden via env or at runtime
-    this.defaultModel = process.env.REACT_APP_GEMINI_MODEL && process.env.REACT_APP_GEMINI_MODEL.trim() !== ''
-      ? process.env.REACT_APP_GEMINI_MODEL.trim()
-      : 'gemini-2.5-flash';
+    this.defaultModel = this._normalizeGoogleModel(
+      process.env.REACT_APP_GEMINI_MODEL && process.env.REACT_APP_GEMINI_MODEL.trim() !== ''
+        ? process.env.REACT_APP_GEMINI_MODEL.trim()
+        : 'gemini-2.5-flash'
+    );
     this.failedKeys = new Set();
     this.keyRetryTimes = new Map(); // Track when keys can be retried
+    this.keyFailureCounts = new Map(); // Track consecutive failures per key for exponential backoff
 
     if (process.env.NODE_ENV === 'development') {
       console.log(`🔑 APIKeyManager: Loaded ${this.apiKeys.length} API key(s) for rotation`);
@@ -39,6 +42,23 @@ class APIKeyManager {
         console.warn('⚠️ No Google API keys found. AI will use Puter; configure REACT_APP_GEMINI_API_KEY for fallback.');
       }
     }
+  }
+
+  /**
+   * Ensure the model name is compatible with Google's Generative Language API.
+   * Non-Gemini provider model names (e.g. claude-sonnet-4) are routed to a
+   * safe Gemini default so fallback requests still work.
+   */
+  _normalizeGoogleModel(modelName) {
+    const raw = (modelName || '').toString().trim().replace(/^models\//, '');
+    if (!raw) return 'gemini-2.5-flash';
+    if (!raw.toLowerCase().startsWith('gemini-')) return 'gemini-2.5-flash';
+    return raw;
+  }
+
+  _getApiVersionForModel(modelName) {
+    const model = this._normalizeGoogleModel(modelName);
+    return model.startsWith('gemini-2.5') ? 'v1beta' : 'v1';
   }
 
   /**
@@ -56,9 +76,9 @@ class APIKeyManager {
    */
   getCurrentUrl() {
     const key = this.apiKeys[this.currentKeyIndex];
-    // gemini-2.5-* models require v1beta endpoint
-    const apiVersion = this.defaultModel.startsWith('gemini-2.5') ? 'v1beta' : 'v1';
-    return `https://generativelanguage.googleapis.com/${apiVersion}/models/${this.defaultModel}:generateContent?key=${key}`;
+    const model = this._normalizeGoogleModel(this.defaultModel);
+    const apiVersion = this._getApiVersionForModel(model);
+    return `https://generativelanguage.googleapis.com/${apiVersion}/models/${model}:generateContent?key=${key}`;
   }
 
   /**
@@ -66,8 +86,8 @@ class APIKeyManager {
    */
   getGenerateContentUrl(modelName) {
     const key = this.apiKeys[this.currentKeyIndex];
-    const model = (modelName || this.defaultModel).replace(/^models\//, '');
-    const apiVersion = model.startsWith('gemini-2.5') ? 'v1beta' : 'v1';
+    const model = this._normalizeGoogleModel(modelName || this.defaultModel);
+    const apiVersion = this._getApiVersionForModel(model);
     return `https://generativelanguage.googleapis.com/${apiVersion}/models/${model}:generateContent?key=${key}`;
   }
 
@@ -84,7 +104,7 @@ class APIKeyManager {
    */
   setDefaultModel(modelName) {
     if (modelName && typeof modelName === 'string') {
-      this.defaultModel = modelName.replace(/^models\//, '');
+      this.defaultModel = this._normalizeGoogleModel(modelName);
     }
   }
 
@@ -92,24 +112,36 @@ class APIKeyManager {
    * Mark the current key as failed and rotate to next available key
    */
   markCurrentKeyFailed(retryAfterSeconds = 300) {
+    // Track consecutive failures for exponential backoff
+    const failCount = (this.keyFailureCounts.get(this.currentKeyIndex) || 0) + 1;
+    this.keyFailureCounts.set(this.currentKeyIndex, failCount);
+
+    // Exponential backoff: 300s, 600s, 1200s, ... capped at 3600s, plus jitter
+    const baseDelay = retryAfterSeconds;
+    const exponentialDelay = Math.min(baseDelay * Math.pow(2, failCount - 1), 3600);
+    const jitter = Math.random() * 30; // 0-30s random jitter
+    const actualDelay = exponentialDelay + jitter;
+
     if (process.env.NODE_ENV === 'development') {
-      console.log(`⚠️ Marking API key ${this.currentKeyIndex + 1} as failed, will retry after ${retryAfterSeconds} seconds`);
+      console.log(`⚠️ Marking API key ${this.currentKeyIndex + 1} as failed (attempt ${failCount}), will retry after ${actualDelay.toFixed(0)} seconds`);
     }
 
     // Mark key as failed with retry time
     this.failedKeys.add(this.currentKeyIndex);
-    const retryTime = Date.now() + (retryAfterSeconds * 1000);
+    const retryTime = Date.now() + (actualDelay * 1000);
     this.keyRetryTimes.set(this.currentKeyIndex, retryTime);
 
-    // Remove from failed set after retry time
+    // Remove from failed set after retry time and reset failure count
+    const keyIndex = this.currentKeyIndex;
     setTimeout(() => {
-      this.failedKeys.delete(this.currentKeyIndex);
-      this.keyRetryTimes.delete(this.currentKeyIndex);
+      this.failedKeys.delete(keyIndex);
+      this.keyRetryTimes.delete(keyIndex);
+      this.keyFailureCounts.delete(keyIndex);
       if (process.env.NODE_ENV === 'development') {
-        console.log(`✅ API key ${this.currentKeyIndex + 1} is now available for retry`);
+        console.log(`✅ API key ${keyIndex + 1} is now available for retry`);
       }
-    }, retryAfterSeconds * 1000);
-    
+    }, actualDelay * 1000);
+
     // Rotate to next available key
     this.rotateToNextKey();
   }
@@ -199,6 +231,7 @@ class APIKeyManager {
     }
     this.failedKeys.clear();
     this.keyRetryTimes.clear();
+    this.keyFailureCounts.clear();
     this.currentKeyIndex = 0;
   }
 }

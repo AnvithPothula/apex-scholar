@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { Star, X, Code2, Trash2, ChevronDown, ChevronUp, Users, ShieldOff } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Star, X, Code2, Trash2, ChevronDown, ChevronUp, Users, ShieldOff, BookOpen, Loader2 } from 'lucide-react';
 import { db } from '../config/firebase';
+import { getAuth } from 'firebase/auth';
 import { collection, query, orderBy, getDocs, deleteDoc, doc } from 'firebase/firestore';
+import { seedAllPublicDecks } from '../utils/seedPublicDecks';
+import { useToast } from '../contexts/ToastContext';
 
 // Admin UIDs that can access Developer Settings
 const ADMIN_UIDS = [
@@ -14,10 +17,31 @@ export function isAdmin(uid) {
 }
 
 export default function DeveloperSettings({ onClose }) {
+    const { toast } = useToast();
     const [reviews, setReviews] = useState([]);
     const [loading, setLoading] = useState(true);
     const [expandedSection, setExpandedSection] = useState('reviews');
     const [stats, setStats] = useState({ total: 0, average: 0, distribution: [0, 0, 0, 0, 0] });
+    const [seedStatus, setSeedStatus] = useState(null); // null | 'running' | 'done'
+    const [seedLog, setSeedLog] = useState([]);
+    const [seedResult, setSeedResult] = useState(null);
+
+    const handleSeedDecks = useCallback(async () => {
+        if (seedStatus === 'running') return;
+        setSeedStatus('running');
+        setSeedLog([]);
+        setSeedResult(null);
+
+        const uid = getAuth().currentUser?.uid;
+        if (!uid) { setSeedStatus(null); toast.error('Not logged in'); return; }
+
+        const result = await seedAllPublicDecks(uid, (message, current, total) => {
+            setSeedLog(prev => [...prev.slice(-50), `[${current}/${total}] ${message}`]);
+        });
+
+        setSeedResult(result);
+        setSeedStatus('done');
+    }, [seedStatus, toast]);
 
     useEffect(() => {
         fetchReviews();
@@ -230,7 +254,7 @@ export default function DeveloperSettings({ onClose }) {
                                     keysToRemove.forEach(k => localStorage.removeItem(k));
                                     // Notify ModelSelector and other components that Puter auth was cleared
                                     window.dispatchEvent(new CustomEvent('apex:puterAuthCleared'));
-                                    alert(`Cleared ${keysToRemove.length} Puter auth key(s). Puter models are now disabled.`);
+                                    toast.success(`Cleared ${keysToRemove.length} Puter auth key(s). Puter models are now disabled.`);
                                 }}
                                 className="px-4 py-2 bg-error-600 hover:bg-error-700 text-content-primary rounded-lg transition-colors text-sm font-medium flex items-center gap-2"
                             >
@@ -239,6 +263,38 @@ export default function DeveloperSettings({ onClose }) {
                             </button>
                         </div>
                     )}
+
+                    {/* Seed Public Flashcard Decks */}
+                    <div className="border-t border-gray-700 pt-4 mt-4">
+                        <h3 className="text-lg font-semibold text-gray-200 mb-3 flex items-center gap-2">
+                            <BookOpen className="w-5 h-5" strokeWidth={1.5} />
+                            Public Flashcard Decks
+                        </h3>
+                        <p className="text-sm text-gray-400 mb-3">
+                            Generate AI-powered flashcard decks for all major AP subjects. Each unit gets a 15-card deck published under "Apex Scholar".
+                        </p>
+                        <button
+                            onClick={handleSeedDecks}
+                            disabled={seedStatus === 'running'}
+                            className="px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-content-primary rounded-lg transition-colors text-sm font-medium flex items-center gap-2"
+                        >
+                            {seedStatus === 'running' ? (
+                                <><Loader2 className="w-4 h-4 animate-spin" strokeWidth={1.5} /> Generating…</>
+                            ) : (
+                                <><BookOpen className="w-4 h-4" strokeWidth={1.5} /> Seed All Decks</>
+                            )}
+                        </button>
+                        {seedLog.length > 0 && (
+                            <div className="mt-3 max-h-40 overflow-y-auto bg-gray-900 rounded-lg p-3 text-xs font-mono text-gray-400 space-y-0.5">
+                                {seedLog.map((line, i) => <div key={i}>{line}</div>)}
+                            </div>
+                        )}
+                        {seedResult && (
+                            <div className="mt-2 text-sm text-gray-300">
+                                Done: {seedResult.created} created, {seedResult.failed} failed, {seedResult.skipped} skipped
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

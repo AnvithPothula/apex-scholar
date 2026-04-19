@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { staggerContainer, staggerItem } from '../../utils/animations';
 import { useNavigate } from 'react-router-dom';
 import {
   BookOpen,
@@ -29,7 +30,8 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, Input } from '../ui/UIComponents';
 import { useAuth } from '../../contexts/AuthContext';
-import { getAvailableSubjects, getCurriculumData } from '../../constants/comprehensiveCurriculum';
+import { getAvailableSubjects, getSubjectName } from '../../constants/comprehensiveCurriculum';
+import { getSubjectColor } from '../../constants/subjectColors';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 
@@ -72,11 +74,11 @@ const SubjectSelector = ({ subjects, selectedSubject, onSelectSubject }) => {
     const comprehensiveSubjects = getAvailableSubjects();
 
     const allSubjects = comprehensiveSubjects.map(subjectKey => {
-      const curriculumData = getCurriculumData(subjectKey);
+      const name = getSubjectName(subjectKey);
       return {
         id: subjectKey,
-        name: curriculumData.name || subjectKey,
-        description: curriculumData.description || `Master ${subjectKey} with comprehensive tutoring`,
+        name: name,
+        description: `Master ${name} with comprehensive tutoring`,
         icon: getSubjectIcon(subjectKey),
         color: getSubjectColor(subjectKey),
         isUserSubject: userSubjects.includes(subjectKey)
@@ -156,7 +158,13 @@ const SubjectSelector = ({ subjects, selectedSubject, onSelectSubject }) => {
                 </h2>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-5">
+              <motion.div
+                className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-5"
+                variants={staggerContainer()}
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true }}
+              >
                 <AnimatePresence>
                   {filteredUserSubjects.map((subject, index) => (
                     <SubjectCard
@@ -170,7 +178,7 @@ const SubjectSelector = ({ subjects, selectedSubject, onSelectSubject }) => {
                     />
                   ))}
                 </AnimatePresence>
-              </div>
+              </motion.div>
             </div>
           )}
 
@@ -185,7 +193,13 @@ const SubjectSelector = ({ subjects, selectedSubject, onSelectSubject }) => {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-5">
+              <motion.div
+                className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-5"
+                variants={staggerContainer()}
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true }}
+              >
                 <AnimatePresence>
                   {filteredOtherSubjects.map((subject, index) => (
                     <SubjectCard
@@ -199,7 +213,7 @@ const SubjectSelector = ({ subjects, selectedSubject, onSelectSubject }) => {
                     />
                   ))}
                 </AnimatePresence>
-              </div>
+              </motion.div>
             </div>
           )}
         </motion.div>
@@ -214,28 +228,30 @@ const SubjectCard = React.forwardRef(({ subject, index, hoveredSubject, setHover
     ref={ref}
     key={subject.id}
     layout
-    initial={{ opacity: 0, y: 15 }}
-    animate={{ opacity: 1, y: 0 }}
+    variants={staggerItem}
     exit={{ opacity: 0, y: -15 }}
-    transition={{ delay: Math.min(index * 0.02, 0.3), duration: 0.3 }}
     onHoverStart={() => setHoveredSubject(subject.id)}
     onHoverEnd={() => setHoveredSubject(null)}
   >
     <Card
-      className={`cursor-pointer h-full bg-base-850 border transition-colors duration-200 relative rounded-md overflow-hidden ${
-        hoveredSubject === subject.id ? 'border-border-strong' : 'border-border'
+      className={`cursor-pointer h-full bg-base-850/80 backdrop-blur-sm border transition-all duration-200 relative rounded-md overflow-hidden ${
+        subject.color.border
+      } ${
+        hoveredSubject === subject.id
+          ? `shadow-lg ${subject.color.glow}`
+          : ''
       }`}
       onClick={() => handleSubjectSelect(subject.id)}
     >
       {/* Category color stripe at top for user subjects */}
       {isUserSubject && (
-        <div className={`h-0.5 ${subject.color}`} />
+        <div className={`h-0.5 ${subject.color.bg}`} />
       )}
 
       <CardContent className="p-0">
         <div className={isUserSubject ? 'p-5' : 'p-4'}>
           <div className="flex items-center gap-3 mb-2">
-            <div className={`w-2.5 h-2.5 rounded-full ${subject.color} flex-shrink-0`} />
+            <div className={`w-2.5 h-2.5 rounded-full ${subject.color.bg} flex-shrink-0`} />
             <h3 className={`font-semibold text-content-primary ${isUserSubject ? 'text-base' : 'text-sm'}`}>
               {subject.name}
             </h3>
@@ -312,64 +328,5 @@ function getSubjectIcon(subjectId) {
   return BookOpen;
 }
 
-function getSubjectColor(subjectId) {
-  const colorMap = {
-    'biology': 'bg-success-500',
-    'chemistry': 'bg-success-600',
-    'physics': 'bg-success-500',
-    'environmental': 'bg-success-400',
-    'psychology': 'bg-content-primary',
-    'calculus': 'bg-error-500',
-    'statistics': 'bg-error-600',
-    'precalculus': 'bg-error-400',
-    'computer': 'bg-content-primary',
-    'programming': 'bg-emerald-700',
-    'english': 'bg-info-500',
-    'literature': 'bg-info-600',
-    'language': 'bg-info-400',
-    'composition': 'bg-info-500',
-    'chinese': 'bg-info-500',
-    'french': 'bg-info-400',
-    'german': 'bg-info-600',
-    'italian': 'bg-info-500',
-    'japanese': 'bg-info-400',
-    'spanish': 'bg-info-500',
-    'latin': 'bg-info-600',
-    'history': 'bg-accent-500',
-    'government': 'bg-accent-500',
-    'politics': 'bg-accent-500',
-    'geography': 'bg-accent-400',
-    'humanGeography': 'bg-accent-500',
-    'worldHistory': 'bg-accent-500',
-    'usHistory': 'bg-accent-500',
-    'europeanHistory': 'bg-accent-500',
-    'economics': 'bg-warning-500',
-    'macroeconomics': 'bg-warning-500',
-    'microeconomics': 'bg-warning-500',
-    'art': 'bg-content-primary',
-    'studio': 'bg-content-primary',
-    'drawing': 'bg-base-750',
-    'design': 'bg-content-primary',
-    'music': 'bg-content-primary',
-    'research': 'bg-base-750',
-    'seminar': 'bg-content-primary'
-  };
-
-  const subjectLower = subjectId?.toLowerCase() || '';
-
-  for (const [key, color] of Object.entries(colorMap)) {
-    if (subjectLower.includes(key.toLowerCase())) {
-      return color;
-    }
-  }
-
-  if (subjectLower.includes('ap physics 1')) return 'bg-success-500';
-  if (subjectLower.includes('ap physics 2')) return 'bg-success-500';
-  if (subjectLower.includes('mechanics')) return 'bg-success-600';
-  if (subjectLower.includes('electricity') || subjectLower.includes('magnetism')) return 'bg-success-500';
-  if (subjectLower.includes('comparative')) return 'bg-accent-500';
-
-  return 'bg-content-primary';
-}
 
 export default React.memo(SubjectSelector);

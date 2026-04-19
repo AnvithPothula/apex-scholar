@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { overlayVariants, modalVariants } from '../utils/animations';
 import { Brain, Calendar, Settings, LogOut, Award, Shield, X, MessageSquare, Send, FileQuestion, Zap, Calculator, Star, Code2, Sun, Moon } from 'lucide-react';
 import { Button, Avatar, AvatarFallback, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from './ui/UIComponents';
 import { useAuth } from '../contexts/AuthContext';
 import { createPageUrl, cn } from '../utils/helpers';
 import ApexScholarLogo from './ui/ApexScholarLogo';
+import CommandPalette, { CommandPaletteTrigger } from './ui/CommandPalette';
 import PuterAuthPrompt from './auth/PuterAuthPrompt';
 import OnboardingWalkthrough from './OnboardingWalkthrough';
 import ReviewModal from './ReviewModal';
@@ -22,16 +25,22 @@ export function Layout({ children }) {
     const [showDevSettings, setShowDevSettings] = useState(false);
     const { toggleTheme, isDark } = useTheme();
     const isActiveTab = (pageName) => location.pathname.startsWith(createPageUrl(pageName));
+    const [scrolled, setScrolled] = useState(false);
+    useEffect(() => {
+        const onScroll = () => setScrolled(window.scrollY > 10);
+        window.addEventListener('scroll', onScroll, { passive: true });
+        return () => window.removeEventListener('scroll', onScroll);
+    }, []);
 
     return (
-        <div className="min-h-screen bg-base-950 text-content-primary">
+        <div className="min-h-screen page-bg text-content-primary">
             {/* Skip to main content link for keyboard/screen reader users */}
             <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-[60] focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:bg-base-800 focus:text-content-primary focus:rounded-md focus:border focus:border-border-strong">
                 Skip to main content
             </a>
-            <header className="sticky top-0 z-50 border-b border-border bg-base-900/95 backdrop-blur-sm">
+            <header className={`sticky top-0 z-50 border-b border-border transition-all duration-200 ${scrolled ? 'bg-base-900/98 backdrop-blur-md shadow-subtle' : 'bg-base-900/95 backdrop-blur-sm'}`}>
                 <div className="max-w-screen-xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
-                    <div className="flex items-center justify-between h-14 sm:h-16">
+                    <div className={`flex items-center justify-between transition-all duration-200 ${scrolled ? 'h-12 sm:h-14' : 'h-14 sm:h-16'}`}>
                                                 <Link
                                                         to="/"
                                                         onClick={(e) => {
@@ -49,7 +58,7 @@ export function Layout({ children }) {
                         </Link>
                         
                         {/* Mobile-optimized navigation */}
-                        <nav aria-label="Main navigation" className="flex space-x-0.5 sm:space-x-1 md:space-x-1.5 lg:space-x-2">
+                        <nav aria-label="Main navigation" className="hidden md:flex space-x-0.5 sm:space-x-1 md:space-x-1.5 lg:space-x-2">
                             <Link
                                 to={createPageUrl("AITutors")}
                                 aria-label="AI Tutors"
@@ -113,6 +122,7 @@ export function Layout({ children }) {
                         </nav>
                         
                         <div className="flex items-center space-x-1 sm:space-x-2">
+                            <CommandPaletteTrigger />
                             <button
                                 onClick={toggleTheme}
                                 className="p-1.5 sm:p-2 rounded-lg text-content-muted hover:text-content-primary hover:bg-base-850 transition-all duration-200"
@@ -165,20 +175,51 @@ export function Layout({ children }) {
                     </div>
                 </div>
             </header>
-            <main id="main-content" className="relative">{children}</main>
+            <main id="main-content" className="relative pb-16 md:pb-0">{children}</main>
+
+            {/* Mobile Bottom Tab Bar */}
+            <nav aria-label="Mobile navigation" className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-base-900/95 backdrop-blur-md border-t border-border">
+                <div className="flex items-stretch justify-around">
+                    {[
+                        { page: 'AITutors', label: 'Tutors', Icon: Brain },
+                        { page: 'PracticeTests', label: 'Tests', Icon: FileQuestion },
+                        { page: 'Flashcards', label: 'Cards', Icon: Zap },
+                        { page: 'Solver', label: 'Solver', Icon: Calculator },
+                        { page: 'SmartScheduler', label: 'Schedule', Icon: Calendar },
+                        { page: 'Settings', label: 'Settings', Icon: Settings },
+                    ].map(({ page, label, Icon }) => (
+                        <Link
+                            key={page}
+                            to={createPageUrl(page)}
+                            aria-label={label}
+                            aria-current={isActiveTab(page) ? 'page' : undefined}
+                            className={cn(
+                                'flex flex-col items-center justify-center gap-0.5 py-2 px-1 flex-1 transition-colors duration-200',
+                                isActiveTab(page) ? 'text-content-primary' : 'text-content-muted'
+                            )}
+                        >
+                            <Icon strokeWidth={1.5} size={16} />
+                            <span className="text-[10px] leading-tight">{label}</span>
+                        </Link>
+                    ))}
+                </div>
+            </nav>
 
             {/* Feedback Modal */}
+            <AnimatePresence>
             {showFeedbackModal && (
-                <FeedbackModal 
+                <FeedbackModal
                     user={user}
-                    onClose={() => setShowFeedbackModal(false)} 
+                    onClose={() => setShowFeedbackModal(false)}
                 />
             )}
+            </AnimatePresence>
 
             {/* Credits Modal */}
+            <AnimatePresence>
             {showCreditsModal && (
-                <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-                    <div className="bg-base-850 rounded-md p-6 max-w-md w-full border border-border shadow-floating">
+                <motion.div variants={overlayVariants} initial="hidden" animate="visible" exit="exit" className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+                    <motion.div variants={modalVariants} initial="hidden" animate="visible" exit="exit" className="bg-base-850 rounded-md p-6 max-w-md w-full border border-border shadow-floating">
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-base font-display font-semibold text-content-primary">
                                 Credits
@@ -199,14 +240,16 @@ export function Layout({ children }) {
                                 </ul>
                             </div>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
             {/* Privacy Policy Modal */}
+            <AnimatePresence>
             {showPrivacyModal && (
-                <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-                    <div className="bg-base-850 rounded-md p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto border border-border shadow-floating">
+                <motion.div variants={overlayVariants} initial="hidden" animate="visible" exit="exit" className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+                    <motion.div variants={modalVariants} initial="hidden" animate="visible" exit="exit" className="bg-base-850 rounded-md p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto border border-border shadow-floating">
                         <div className="flex items-center justify-between mb-6">
                             <h2 className="text-base font-display font-semibold text-content-primary">
                                 Privacy Policy
@@ -305,9 +348,10 @@ export function Layout({ children }) {
                                 </p>
                             </div>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
             {/* Review Modal */}
             {showReviewModal && (
@@ -324,6 +368,9 @@ export function Layout({ children }) {
 
             {/* Onboarding walkthrough — shown once for new users */}
             <OnboardingWalkthrough />
+
+            {/* Global command palette (Cmd+K) */}
+            <CommandPalette />
         </div>
     );
 }
@@ -391,8 +438,8 @@ function FeedbackModal({ user, onClose }) {
     };
 
     return (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-            <div className="bg-base-850 rounded-md p-6 max-w-lg w-full border border-border shadow-floating">
+        <motion.div variants={overlayVariants} initial="hidden" animate="visible" exit="exit" className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+            <motion.div variants={modalVariants} initial="hidden" animate="visible" exit="exit" className="bg-base-850 rounded-md p-6 max-w-lg w-full border border-border shadow-floating">
                 <div className="flex items-center justify-between mb-6">
                     <h2 className="text-base font-display font-semibold text-content-primary">
                         Send Feedback
@@ -497,7 +544,7 @@ function FeedbackModal({ user, onClose }) {
                         </button>
                     </div>
                 </form>
-            </div>
-        </div>
+            </motion.div>
+        </motion.div>
     );
 }

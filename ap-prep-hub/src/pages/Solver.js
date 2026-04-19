@@ -5,6 +5,7 @@ import { Button, Card, Badge, Textarea } from '../components/ui/UIComponents';
 import CustomDropdown from '../components/ui/CustomDropdown';
 import errorLogger from '../utils/errorLogger';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { AP_SUBJECTS } from '../constants/subjects';
 import geminiService, { RateLimitError } from '../services/geminiService';
 import dataService from '../services/dataService';
@@ -41,6 +42,7 @@ const SUBJECT_BORDER_COLORS = {
 
 const SolverPage = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const fileInputRef = useRef(null);
   const [selectedImage, setSelectedImage] = useState(null);
   const [questionText, setQuestionText] = useState('');
@@ -79,7 +81,7 @@ const SolverPage = () => {
       };
       reader.onerror = (error) => {
         console.error('Error reading file:', error);
-        alert('Failed to read the image file. Please try again.');
+        toast.error('Failed to read the image file. Please try again.');
       };
       reader.readAsDataURL(file);
     }
@@ -109,7 +111,7 @@ const SolverPage = () => {
   const handleSolve = async () => {
     if (!selectedImage && !questionText) return;
     if (!user) {
-      alert('Please sign in to use the AI Solver');
+      toast.warning('Please sign in to use the AI Solver');
       return;
     }
 
@@ -299,9 +301,9 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
       if (error instanceof RateLimitError || error.isRateLimit ||
           (error.message && (error.message.includes('rate') || error.message.includes('quota') || error.message.includes('429')))) {
         const waitTime = error.retryAfter || 60;
-        alert(`AI service is temporarily unavailable due to high demand. Please wait ${waitTime} seconds and try again.`);
+        toast.error(`AI service is temporarily unavailable due to high demand. Please wait ${waitTime} seconds and try again.`);
       } else {
-        alert('Failed to analyze the problem. Please try again.');
+        toast.error('Failed to analyze the problem. Please try again.');
       }
     } finally {
       setIsAnalyzing(false);

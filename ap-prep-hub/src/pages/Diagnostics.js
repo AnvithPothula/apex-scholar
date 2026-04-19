@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Brain, Target, TrendingUp, Clock, Play, ArrowRight, Search, Filter, CheckCircle, BarChart3, Users, Award, Zap, X, AlertCircle, Lightbulb } from 'lucide-react';
 import { Button, Card, Badge, Input } from '../components/ui/UIComponents';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AP_SUBJECTS } from '../constants/subjects';
 import geminiService, { RateLimitError } from '../services/geminiService';
@@ -52,6 +53,7 @@ const SUBJECT_CATEGORIES = {
 
 const DiagnosticTypes = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
   const { subject } = useParams();
   const [searchQuery, setSearchQuery] = useState('');
@@ -86,7 +88,7 @@ const DiagnosticTypes = () => {
 
   const startDiagnostic = async (subjectKey, subjectName) => {
     if (!user) {
-      alert('Please sign in to take diagnostic assessments');
+      toast.warning('Please sign in to take diagnostic assessments');
       return;
     }
 
@@ -109,9 +111,9 @@ const DiagnosticTypes = () => {
       console.error('Error generating questions:', error);
       if (error instanceof RateLimitError || error?.isRateLimit) {
         const waitTime = error.retryAfter || 60;
-        alert(`AI service is temporarily busy. Please wait ${waitTime} seconds and try again.`);
+        toast.error(`AI service is temporarily busy. Please wait ${waitTime} seconds and try again.`);
       } else {
-        alert('Failed to generate diagnostic questions. Please try again.');
+        toast.error('Failed to generate diagnostic questions. Please try again.');
       }
       setTakingDiagnostic(null);
     } finally {
@@ -208,7 +210,7 @@ const DiagnosticTypes = () => {
 
     } catch (error) {
       console.error('Error finishing diagnostic:', error);
-      alert('Failed to save diagnostic results. Please try again.');
+      toast.error('Failed to save diagnostic results. Please try again.');
     }
   };
 

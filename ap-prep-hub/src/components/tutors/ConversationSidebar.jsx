@@ -35,7 +35,7 @@ export function ConversationSidebar({
   return (
     <div className="w-72 border-r bg-base-900 border-border flex flex-col h-full">
       <div className="p-4 border-b flex items-center justify-between border-border">
-        <h3 className="text-sm font-display text-overline text-content-muted uppercase tracking-widest">Conversations</h3>
+        <h3 className="font-display text-overline text-content-muted uppercase tracking-widest">Conversations</h3>
         <Button size="sm" variant="outline" onClick={onCreate} className="gap-1 text-xs">
           <Plus strokeWidth={1.5} className="w-4 h-4" /> New
         </Button>
@@ -76,13 +76,13 @@ export function ConversationSidebar({
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 {isEditing ? (
                   <>
-                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={commitEdit}><Check strokeWidth={1.5} className="w-4 h-4" /></Button>
-                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={cancelEdit}><X strokeWidth={1.5} className="w-4 h-4" /></Button>
+                    <Button variant="ghost" className="h-6 w-6 p-0" onClick={commitEdit}><Check strokeWidth={1.5} className="w-4 h-4" /></Button>
+                    <Button variant="ghost" className="h-6 w-6 p-0" onClick={cancelEdit}><X strokeWidth={1.5} className="w-4 h-4" /></Button>
                   </>
                 ) : (
                   <>
-                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={(e)=>{e.stopPropagation(); startEdit(conv);}}><Pencil strokeWidth={1.5} className="w-4 h-4" /></Button>
-                    <Button size="icon" variant="ghost" className="h-6 w-6 hover:text-error-600" onClick={(e)=>{e.stopPropagation(); onDelete(conv.id);}}><Trash2 strokeWidth={1.5} className="w-4 h-4" /></Button>
+                    <Button variant="ghost" className="h-6 w-6 p-0" onClick={(e)=>{e.stopPropagation(); startEdit(conv);}}><Pencil strokeWidth={1.5} className="w-4 h-4" /></Button>
+                    <Button variant="ghost" className="h-6 w-6 p-0 hover:text-error-600" onClick={(e)=>{e.stopPropagation(); onDelete(conv.id);}}><Trash2 strokeWidth={1.5} className="w-4 h-4" /></Button>
                   </>
                 )}
               </div>

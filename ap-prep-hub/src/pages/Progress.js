@@ -9,6 +9,90 @@ import { cn } from '../utils/helpers';
 import achievementsService from '../services/achievementsService';
 import dataService from '../services/dataService';
 import geminiService from '../services/geminiService';
+import StreakCalendar from '../components/ui/StreakCalendar';
+import ExamCountdown from '../components/ui/ExamCountdown';
+import { SUBJECT_KEY_TO_EXAM_NAME } from '../constants/apExamDates';
+
+// Reverse lookup: exam display name → curriculum key (for ExamCountdown)
+const EXAM_NAME_TO_KEY = Object.fromEntries(
+  Object.entries(SUBJECT_KEY_TO_EXAM_NAME).map(([k, v]) => [v, k])
+);
+
+// Pure data transforms — extracted to module level to avoid re-creation on every render
+const formatStudyTime = (minutes) => {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return hours > 0 ? `${hours}.${Math.round(mins/6)} hours` : `${mins} minutes`;
+};
+
+const formatLocalDateKey = (date) => {
+  const pad = (value) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+};
+
+const processSubjectProgress = (progressData, studySessions) => {
+  const subjectMap = new Map();
+
+  studySessions.forEach(session => {
+    if (!session.subject) return;
+
+    if (!subjectMap.has(session.subject)) {
+      subjectMap.set(session.subject, {
+        name: session.subject,
+        sessions: []
+      });
+    }
+    subjectMap.get(session.subject).sessions.push(session);
+  });
+
+  return Array.from(subjectMap.values()).map((subject, index) => {
+    const allSessions = subject.sessions;
+    const totalTime = subject.sessions.reduce((sum, s) => sum + (s.duration || 0), 0);
+    const avgAccuracy = allSessions.length > 0
+      ? allSessions.reduce((sum, s) => sum + (s.accuracy || 0), 0) / allSessions.length
+      : 0;
+
+    const colors = [
+      'bg-content-primary',
+      'bg-success-500',
+      'bg-content-primary',
+      'bg-error-500',
+      'bg-warning-500'
+    ];
+
+    return {
+      name: subject.name,
+      progress: Math.min(100, Math.round((allSessions.length / 10) * 100)),
+      accuracy: Math.round(avgAccuracy),
+      timeSpent: formatStudyTime(totalTime),
+      questionsAnswered: allSessions.reduce((sum, s) => sum + (s.questionsAnswered || 0), 0),
+      strongTopics: ['Advanced Concepts', 'Problem Solving'],
+      weakTopics: ['Basic Fundamentals', 'Time Management'],
+      lastStudied: allSessions.length > 0 ? 'Recently' : 'Never',
+      streak: Math.min(10, allSessions.length),
+      color: colors[index % colors.length]
+    };
+  }).slice(0, 5);
+};
+
+const processWeeklyActivity = (studySessions) => {
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const weekData = days.map(day => ({ day, questions: 0, time: 0 }));
+
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+  studySessions.forEach(session => {
+    const sessionDate = session.timestamp?.toDate() || new Date();
+    if (sessionDate >= oneWeekAgo) {
+      const dayIndex = sessionDate.getDay();
+      weekData[dayIndex].questions += session.questionsAnswered || session.cardsStudied || 0;
+      weekData[dayIndex].time += session.duration || 0;
+    }
+  });
+
+  return weekData;
+};
 
 const ProgressPage = () => {
   const { user } = useAuth();
@@ -61,6 +145,16 @@ const ProgressPage = () => {
         dataService.getUserStats(user.uid)
       ]);
 
+      // Build activity heatmap data for StreakCalendar
+      const activityMap = {};
+      studySessions.forEach(session => {
+        const date = session.timestamp?.toDate?.() || (session.createdAt?.toDate?.()) || null;
+        if (date) {
+          const key = formatLocalDateKey(date);
+          activityMap[key] = (activityMap[key] || 0) + 1;
+        }
+      });
+
       // Process and organize data
       const processedData = {
         overall: {
@@ -75,7 +169,8 @@ const ProgressPage = () => {
         subjects: processSubjectProgress(overallProgress, studySessions),
         weeklyActivity: processWeeklyActivity(studySessions),
         achievements: processAchievements(achievements),
-        recommendations: await generateRecommendations(overallProgress, studySessions)
+        recommendations: await generateRecommendations(overallProgress, studySessions),
+        activityMap,
       };
 
       setProgressData(processedData);
@@ -88,11 +183,6 @@ const ProgressPage = () => {
     }
   };
 
-  const formatStudyTime = (minutes) => {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return hours > 0 ? `${hours}.${Math.round(mins/6)} hours` : `${mins} minutes`;
-  };
 
   const getRankInfo = (totalPoints) => {
     if (totalPoints >= 1000) return { rank: 'Master', icon: Crown, color: 'text-warning-400', bgColor: 'bg-warning-400/20' };
@@ -138,69 +228,6 @@ const ProgressPage = () => {
     return improvement > 0 ? `+${Math.round(improvement)}%` : `${Math.round(improvement)}%`;
   };
 
-  const processSubjectProgress = (progressData, studySessions) => {
-    const subjectMap = new Map();
-
-    studySessions.forEach(session => {
-      if (!session.subject) return;
-
-      if (!subjectMap.has(session.subject)) {
-        subjectMap.set(session.subject, {
-          name: session.subject,
-          sessions: []
-        });
-      }
-      subjectMap.get(session.subject).sessions.push(session);
-    });
-
-    return Array.from(subjectMap.values()).map((subject, index) => {
-      const allSessions = subject.sessions;
-      const totalTime = subject.sessions.reduce((sum, s) => sum + (s.duration || 0), 0);
-      const avgAccuracy = allSessions.length > 0
-        ? allSessions.reduce((sum, s) => sum + (s.accuracy || 0), 0) / allSessions.length
-        : 0;
-
-      const colors = [
-        'bg-content-primary',
-        'bg-success-500',
-        'bg-content-primary',
-        'bg-error-500',
-        'bg-warning-500'
-      ];
-
-      return {
-        name: subject.name,
-        progress: Math.min(100, Math.round((allSessions.length / 10) * 100)),
-        accuracy: Math.round(avgAccuracy),
-        timeSpent: formatStudyTime(totalTime),
-        questionsAnswered: allSessions.reduce((sum, s) => sum + (s.questionsAnswered || 0), 0),
-        strongTopics: ['Advanced Concepts', 'Problem Solving'],
-        weakTopics: ['Basic Fundamentals', 'Time Management'],
-        lastStudied: allSessions.length > 0 ? 'Recently' : 'Never',
-        streak: Math.min(10, allSessions.length),
-        color: colors[index % colors.length]
-      };
-    }).slice(0, 5);
-  };
-
-  const processWeeklyActivity = (studySessions) => {
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const weekData = days.map(day => ({ day, questions: 0, time: 0 }));
-
-    const oneWeekAgo = new Date();
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-
-    studySessions.forEach(session => {
-      const sessionDate = session.timestamp?.toDate() || new Date();
-      if (sessionDate >= oneWeekAgo) {
-        const dayIndex = sessionDate.getDay();
-        weekData[dayIndex].questions += session.questionsAnswered || session.cardsStudied || 0;
-        weekData[dayIndex].time += session.duration || 0;
-      }
-    });
-
-    return weekData;
-  };
 
   const processAchievements = (achievements) => {
     const allAchievements = achievementsService.getAllAchievements();
@@ -303,11 +330,11 @@ const ProgressPage = () => {
   // ─── Internal Components ──────────────────────────────────────────
 
   const colorToVar = (bgClass) => ({
-    'bg-content-primary': 'var(--color-content-primary)',
+    'bg-content-primary': 'var(--color-text-primary)',
     'bg-success-500': 'var(--color-success-400)',
     'bg-error-500':   'var(--color-error-400)',
     'bg-warning-500': 'var(--color-warning-400)',
-  }[bgClass] || 'var(--color-content-primary)');
+  }[bgClass] || 'var(--color-text-primary)');
 
   const BentoStatCard = ({ icon: Icon, label, value, change, color = "text-content-primary", iconBg = "bg-base-800" }) => (
     <Card className="p-5 flex flex-col justify-between">
@@ -328,7 +355,7 @@ const ProgressPage = () => {
     </Card>
   );
 
-  const CircularProgressRing = ({ percentage, size = 72, strokeW = 5, color = "var(--color-content-primary)" }) => {
+  const CircularProgressRing = ({ percentage, size = 72, strokeW = 5, color = "var(--color-text-primary)" }) => {
     const r = (size - strokeW) / 2;
     const circ = 2 * Math.PI * r;
     const offset = circ - (percentage / 100) * circ;
@@ -371,8 +398,8 @@ const ProgressPage = () => {
           <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-40" preserveAspectRatio="none">
             <defs>
               <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--color-content-primary)" stopOpacity="0.3" />
-                <stop offset="100%" stopColor="var(--color-content-primary)" stopOpacity="0.02" />
+                <stop offset="0%" stopColor="var(--color-text-primary)" stopOpacity="0.3" />
+                <stop offset="100%" stopColor="var(--color-text-primary)" stopOpacity="0.02" />
               </linearGradient>
             </defs>
 
@@ -399,7 +426,7 @@ const ProgressPage = () => {
             <motion.path
               d={linePath}
               fill="none"
-              stroke="var(--color-content-primary)"
+              stroke="var(--color-text-primary)"
               strokeWidth="0.5"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -414,7 +441,7 @@ const ProgressPage = () => {
               <motion.circle
                 key={i}
                 cx={p.x} cy={p.y} r="1"
-                fill="var(--color-content-primary)"
+                fill="var(--color-text-primary)"
                 initial={{ scale: 0, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: 0.4 + i * 0.08 }}
@@ -695,10 +722,10 @@ const ProgressPage = () => {
                       <p className="text-h3 text-content-secondary font-body">days in a row</p>
                     </div>
                     <div className="mt-4 pt-4 border-t border-border-subtle">
-                      <div className="flex items-center gap-2">
-                        <Flame className="w-4 h-4 text-accent-400" strokeWidth={1.5} />
-                        <span className="text-body-sm text-content-muted">Keep it going tomorrow</span>
-                      </div>
+                      <StreakCalendar
+                        activityData={progressData.activityMap || {}}
+                        currentStreak={progressData.overall.studyStreak}
+                      />
                     </div>
                   </Card>
 
@@ -839,6 +866,14 @@ const ProgressPage = () => {
                                   </Badge>
                                 ))}
                               </div>
+
+                              {/* Exam countdown */}
+                              {EXAM_NAME_TO_KEY[subject.name] && (
+                                <ExamCountdown
+                                  subjectKey={EXAM_NAME_TO_KEY[subject.name]}
+                                  className="mt-3"
+                                />
+                              )}
                             </div>
                           </div>
                         </Card>

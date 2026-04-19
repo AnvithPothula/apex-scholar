@@ -12,29 +12,155 @@ const ALLOWED_HOSTS = [
   /\.schoology\.com$/,
 ];
 
+const parseCsv = (value = '') =>
+  value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const ALLOWED_ORIGINS = Array.from(
+  new Set([
+    ...parseCsv(process.env.ALLOWED_ORIGINS || ''),
+    process.env.URL,
+    process.env.DEPLOY_PRIME_URL,
+    'http://localhost:3000',
+    'http://localhost:8888',
+  ].filter(Boolean))
+);
+
+const REQUIRED_APP_TOKEN = process.env.CORS_PROXY_APP_TOKEN || process.env.APP_PROXY_TOKEN;
+const RATE_LIMIT_WINDOW_MS = Number(process.env.CORS_PROXY_RATE_LIMIT_WINDOW_MS || 60_000);
+const RATE_LIMIT_MAX_REQUESTS = Number(process.env.CORS_PROXY_RATE_LIMIT_MAX_REQUESTS || 30);
+const requestBuckets = new Map();
+
 function isAllowed(hostname) {
   return ALLOWED_HOSTS.some((h) =>
     h instanceof RegExp ? h.test(hostname) : hostname === h
   );
 }
 
-exports.handler = async (event) => {
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
+function getHeader(event, name) {
+  const headers = event?.headers || {};
+  const target = name.toLowerCase();
+  const match = Object.keys(headers).find((key) => key.toLowerCase() === target);
+  return match ? headers[match] : undefined;
+}
+
+function getClientId(event) {
+  const forwardedFor = getHeader(event, 'x-forwarded-for');
+  if (forwardedFor) {
+    return forwardedFor.split(',')[0].trim();
+  }
+  return getHeader(event, 'x-nf-client-connection-ip') || 'anonymous';
+}
+
+function getAllowedOrigin(event) {
+  const origin = getHeader(event, 'origin');
+  if (!origin) {
+    return ALLOWED_ORIGINS[0] || null;
+  }
+  return ALLOWED_ORIGINS.includes(origin) ? origin : null;
+}
+
+function buildCorsHeaders(origin) {
+  return {
+    'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Accept',
+    'Access-Control-Allow-Headers': 'Content-Type, Accept, Authorization, X-App-Token',
+    Vary: 'Origin',
   };
+}
+
+function cleanupRequestBuckets(now = Date.now()) {
+  if (requestBuckets.size < 1000) return;
+  for (const [clientId, bucket] of requestBuckets.entries()) {
+    if (now - bucket.windowStart >= RATE_LIMIT_WINDOW_MS) {
+      requestBuckets.delete(clientId);
+    }
+  }
+}
+
+function isRateLimited(clientId) {
+  const now = Date.now();
+  cleanupRequestBuckets(now);
+
+  const bucket = requestBuckets.get(clientId);
+  if (!bucket || now - bucket.windowStart >= RATE_LIMIT_WINDOW_MS) {
+    requestBuckets.set(clientId, { count: 1, windowStart: now });
+    return { limited: false, retryAfter: 0 };
+  }
+
+  if (bucket.count >= RATE_LIMIT_MAX_REQUESTS) {
+    const retryAfter = Math.ceil((RATE_LIMIT_WINDOW_MS - (now - bucket.windowStart)) / 1000);
+    return { limited: true, retryAfter };
+  }
+
+  bucket.count += 1;
+  return { limited: false, retryAfter: 0 };
+}
+
+function isAuthorized(event) {
+  if (!REQUIRED_APP_TOKEN) return true;
+  const appToken = getHeader(event, 'x-app-token');
+  const authHeader = getHeader(event, 'authorization') || '';
+  const bearerToken = authHeader.toLowerCase().startsWith('bearer ')
+    ? authHeader.slice(7).trim()
+    : null;
+  return appToken === REQUIRED_APP_TOKEN || bearerToken === REQUIRED_APP_TOKEN;
+}
+
+exports.handler = async (event) => {
+  const allowedOrigin = getAllowedOrigin(event);
+  if (!allowedOrigin) {
+    return {
+      statusCode: 403,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: 'Origin is not allowed' }),
+    };
+  }
+
+  const headers = buildCorsHeaders(allowedOrigin);
 
   // Preflight
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 204, headers, body: '' };
   }
 
+  if (event.httpMethod !== 'GET') {
+    return {
+      statusCode: 405,
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: 'Method not allowed' }),
+    };
+  }
+
+  if (!isAuthorized(event)) {
+    return {
+      statusCode: 401,
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: 'Unauthorized' }),
+    };
+  }
+
+  const clientId = getClientId(event);
+  const rateLimit = isRateLimited(clientId);
+  if (rateLimit.limited) {
+    return {
+      statusCode: 429,
+      headers: {
+        ...headers,
+        'Content-Type': 'application/json',
+        'Retry-After': String(rateLimit.retryAfter),
+      },
+      body: JSON.stringify({ error: 'Rate limit exceeded' }),
+    };
+  }
+
   const targetUrl = event.queryStringParameters?.url;
   if (!targetUrl) {
     return {
       statusCode: 400,
-      headers,
+      headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify({ error: 'Missing "url" query parameter' }),
     };
   }
@@ -45,15 +171,23 @@ exports.handler = async (event) => {
   } catch {
     return {
       statusCode: 400,
-      headers,
+      headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify({ error: 'Invalid URL' }),
+    };
+  }
+
+  if (parsed.protocol !== 'https:') {
+    return {
+      statusCode: 400,
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: 'Only HTTPS upstream URLs are allowed' }),
     };
   }
 
   if (!isAllowed(parsed.hostname)) {
     return {
       statusCode: 403,
-      headers,
+      headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify({ error: `Domain not allowed: ${parsed.hostname}` }),
     };
   }
@@ -80,7 +214,7 @@ exports.handler = async (event) => {
       );
       return {
         statusCode: 502,
-        headers,
+        headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           error: `Upstream returned HTTP ${resp.status}`,
           preview: body.substring(0, 300),
@@ -101,7 +235,7 @@ exports.handler = async (event) => {
     console.error('CORS proxy fetch error:', err);
     return {
       statusCode: 502,
-      headers,
+      headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify({ error: `Upstream fetch failed: ${err.message}` }),
     };
   }

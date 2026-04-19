@@ -6,10 +6,12 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import { assignmentSync } from '../../services/assignmentSync';
 
 const SyncHistoryManager = () => {
   const { currentUser } = useAuth();
+  const { toast } = useToast();
   // const [syncHistory, setSyncHistory] = useState(null); // Commented out - saved for future use
   const [syncStats, setSyncStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -47,11 +49,11 @@ const SyncHistoryManager = () => {
     if (window.confirm(confirmMessage)) {
       try {
         await assignmentSync.clearSyncHistory(currentUser.uid);
-        alert('Sync history cleared successfully. Your next sync will import all assignments from Schoology again.');
+        toast.success('Sync history cleared successfully. Your next sync will import all assignments from Schoology again.');
         loadSyncData();
       } catch (error) {
         console.error('Error clearing sync history:', error);
-        alert('Error clearing sync history. Please try again.');
+        toast.error('Error clearing sync history. Please try again.');
       }
     }
   };

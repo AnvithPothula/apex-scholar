@@ -1,21 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar, Clock, BookOpen, Target, X, Globe } from 'lucide-react';
 import { Card, CardContent, Badge } from '../ui/UIComponents';
 import { getUpcomingExamsSync } from '../../constants/apExamDates';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { format } from 'date-fns';
 import { getTimezoneDisplayString } from '../../utils/timezone';
+import ExamCountdown from '../ui/ExamCountdown';
 
 const APExamDashboard = () => {
   const { user } = useAuth();
   const [upcomingExams, setUpcomingExams] = useState([]);
   const [userSubjects, setUserSubjects] = useState([]);
+  const [lateTestingSubjects, setLateTestingSubjects] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const refreshExams = useCallback((subjects, lateSubs) => {
+    const exams = getUpcomingExamsSync(subjects, lateSubs);
+    setUpcomingExams(exams);
+  }, []);
 
   useEffect(() => {
     const loadExamData = async () => {
@@ -31,12 +38,11 @@ const APExamDashboard = () => {
         if (userDocSnap.exists()) {
           const userData = userDocSnap.data();
           const subjects = userData.subjects || [];
-          
+          const lateSubs = userData.lateTestingSubjects || [];
+
           setUserSubjects(subjects);
-          
-          const exams = getUpcomingExamsSync(subjects);
-          console.log('Exams returned:', exams);
-          setUpcomingExams(exams);
+          setLateTestingSubjects(lateSubs);
+          refreshExams(subjects, lateSubs);
         }
       } catch (error) {
         console.error("Error loading exam data:", error);
@@ -46,7 +52,23 @@ const APExamDashboard = () => {
     };
 
     loadExamData();
-  }, [user]);
+  }, [user, refreshExams]);
+
+  const toggleLateTesting = async (subjectKey) => {
+    if (!user?.uid) return;
+    const updated = lateTestingSubjects.includes(subjectKey)
+      ? lateTestingSubjects.filter(k => k !== subjectKey)
+      : [...lateTestingSubjects, subjectKey];
+
+    setLateTestingSubjects(updated);
+    refreshExams(userSubjects, updated);
+
+    try {
+      await setDoc(doc(db, 'users', user.uid), { lateTestingSubjects: updated }, { merge: true });
+    } catch (error) {
+      console.error("Error saving late testing preference:", error);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -155,19 +177,24 @@ const APExamDashboard = () => {
                           transition={{ delay: index * 0.1 }}
                           className={`p-4 rounded-sm border ${urgency.bgColor} border-border-strong`}
                         >
-                          <div className="flex justify-between items-start mb-3">
+                          <div className="flex justify-between items-start mb-2">
                             <h3 className="font-semibold text-content-primary">{exam.subject}</h3>
-                            <Badge className={`${urgency.bgColor} ${urgency.color} border-border-strong`}>
-                              {exam.daysUntilExam} days
-                            </Badge>
                           </div>
-                          
+
+                          {/* Live countdown */}
+                          {exam.subjectKey && (
+                            <ExamCountdown subjectKey={exam.subjectKey} className="mb-3" />
+                          )}
+
                           <div className="grid grid-cols-2 gap-4 mb-3">
                             <div className="flex items-center gap-2">
                               <Calendar className="w-4 h-4 text-content-muted" strokeWidth={1.5} />
                               <span className="text-content-secondary text-sm">
                                 {format(exam.examDate, 'MMM dd, yyyy')}
                               </span>
+                              {exam.isLateTesting && (
+                                <Badge className="bg-warning-900/50 text-warning-400 border-warning-500/30 text-xs">Late</Badge>
+                              )}
                             </div>
                             <div className="flex items-center gap-2">
                               <Clock className="w-4 h-4 text-content-muted" strokeWidth={1.5} />
@@ -176,6 +203,21 @@ const APExamDashboard = () => {
                               <span className="text-content-muted text-xs">{getTimezoneDisplayString()}</span>
                             </div>
                           </div>
+
+                          {/* Late testing toggle */}
+                          {exam.lateDate && (
+                            <label className="flex items-center gap-2 mb-3 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={exam.isLateTesting || false}
+                                onChange={() => toggleLateTesting(exam.subjectKey)}
+                                className="w-3.5 h-3.5 rounded border-border-strong accent-warning-500"
+                              />
+                              <span className="text-xs text-content-muted">
+                                Taking late exam ({exam.lateDate})
+                              </span>
+                            </label>
+                          )}
 
                           {exam.reviewSchedule && exam.reviewSchedule.length > 0 && (
                             <div className="mt-3 pt-3 border-t border-border">
