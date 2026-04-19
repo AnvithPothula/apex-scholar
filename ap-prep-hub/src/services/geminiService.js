@@ -336,6 +336,16 @@ class GeminiService {
   _normalizePayloadForGoogle(payload) {
     try {
       const p = JSON.parse(JSON.stringify(payload || {}));
+      // timeoutMs is used locally for Puter request timing and is not part of
+      // Google's generateContent request schema.
+      delete p.timeoutMs;
+
+      // Model selection is handled via URL path; generationConfig.model can
+      // trigger schema validation errors on some API versions.
+      if (p.generationConfig && typeof p.generationConfig === 'object') {
+        delete p.generationConfig.model;
+      }
+
       if (Array.isArray(p.contents)) {
         p.contents = p.contents.map(c => {
           const parts = Array.isArray(c?.parts) ? c.parts.map(part => {
@@ -360,6 +370,93 @@ class GeminiService {
       return payload;
     }
   }
+
+  /**
+   * Normalize unknown SDK/network error shapes into readable log output.
+   */
+  _formatErrorForLog(error) {
+    const details = {};
+
+    // Pull common fields from native Error and non-Error objects.
+    if (error instanceof Error) {
+      details.name = error.name;
+      details.message = error.message;
+      if (this.debug && typeof error.stack === 'string') {
+        details.stack = error.stack.split('\n').slice(0, 4).join('\n');
+      }
+    }
+
+    if (error && typeof error === 'object') {
+      const status = error.status ?? error.statusCode ?? error.response?.status;
+      const code = error.code ?? error.error?.code ?? error.response?.data?.error?.code;
+      const nestedMessage =
+        error.message ||
+        error.error?.message ||
+        error.response?.data?.error?.message ||
+        error.response?.statusText ||
+        error.data?.error?.message ||
+        error.reason ||
+        error.details;
+
+      if (typeof status !== 'undefined') details.status = status;
+      if (typeof code !== 'undefined') details.code = code;
+      if (!details.message && typeof nestedMessage === 'string' && nestedMessage.trim()) {
+        details.message = nestedMessage.trim();
+      }
+
+      const keys = Object.keys(error);
+      if (keys.length > 0) {
+        details.keys = keys.slice(0, 12);
+      }
+
+      // Keep a short serialized snapshot for opaque SDK objects.
+      if (!details.message) {
+        try {
+          const seen = new WeakSet();
+          const raw = JSON.stringify(error, (key, value) => {
+            if (typeof value === 'object' && value !== null) {
+              if (seen.has(value)) return '[Circular]';
+              seen.add(value);
+            }
+            if (typeof value === 'function') return `[Function ${value.name || 'anonymous'}]`;
+            return value;
+          });
+          if (raw && raw !== '{}') {
+            details.serialized = raw.length > 500 ? `${raw.slice(0, 500)}...` : raw;
+          }
+        } catch (_) {
+          // Ignore stringify failures; summary fallback below still applies.
+        }
+      }
+    } else if (typeof error === 'string' && error.trim()) {
+      details.message = error.trim();
+    } else if (typeof error !== 'undefined' && error !== null) {
+      details.message = String(error);
+    }
+
+    let summary = details.message;
+    if (!summary && typeof details.status !== 'undefined') {
+      summary = `Request failed with status ${details.status}`;
+    }
+    if (!summary && Array.isArray(details.keys) && details.keys.length > 0) {
+      summary = `Non-error object with keys: ${details.keys.join(', ')}`;
+    }
+    if (!summary && details.serialized) {
+      summary = details.serialized;
+    }
+    if (!summary) {
+      summary = 'Unknown error';
+    }
+    if (summary === '[object Object]') {
+      summary = details.serialized || 'Non-error object (opaque)';
+    }
+
+    return {
+      summary: summary.length > 200 ? `${summary.slice(0, 200)}...` : summary,
+      details
+    };
+  }
+
   // Try a list of candidate models on Puter with a tiny prompt; cache the first that works
   async ensureWorkingModel(opts = {}) {
     const multimodal = !!opts.multimodal;
@@ -421,7 +518,8 @@ class GeminiService {
 
     // Helper: detect CORS / network-level failures that will affect ALL models
     const isCorsOrNetworkError = (e) => {
-      const s = String(e);
+      const formatted = this._formatErrorForLog(e);
+      const s = [formatted.summary, formatted.details?.serialized].filter(Boolean).join(' ').toLowerCase();
       return s.includes('access control') || s.includes('XMLHttpRequest') ||
              s.includes('NetworkError') || s.includes('Failed to fetch') ||
              s.includes('Load failed') || s.includes('CORS');
@@ -439,7 +537,8 @@ class GeminiService {
         return null;
       }
     } catch (e) {
-      if (this.debug) console.warn('[AI] ensureWorkingModel default probe failed', String(e));
+      const formatted = this._formatErrorForLog(e);
+      if (this.debug) console.warn(`[AI] ensureWorkingModel default probe failed: ${formatted.summary}`, formatted.details);
       this._lastPuterFailureAt = Date.now();
       // If CORS/network error, no point trying individual models — they'll all fail
       if (isCorsOrNetworkError(e)) {
@@ -472,7 +571,8 @@ class GeminiService {
           return m;
         }
       } catch (e) {
-        if (this.debug) console.warn('[AI] ensureWorkingModel candidate failed', { model: m, error: String(e) });
+        const formatted = this._formatErrorForLog(e);
+        if (this.debug) console.warn(`[AI] ensureWorkingModel candidate failed (${m}): ${formatted.summary}`, formatted.details);
         this._lastPuterFailureAt = Date.now();
         // If CORS/network error, bail — all subsequent candidates will fail too
         if (isCorsOrNetworkError(e)) {
@@ -773,8 +873,9 @@ class GeminiService {
       }
       // Check if this is a Puter auth error (Forbidden, cancelled, etc.)
       this._handlePuterAuthError(e);
-      
-      if (this.debug) console.warn('[AI] Puter.generateContent failed, falling back to Google', { error: String(e), ms: Date.now() - t0 });
+
+      const formatted = this._formatErrorForLog(e);
+      if (this.debug) console.warn(`[AI] Puter.generateContent failed, falling back to Google: ${formatted.summary}`, { ...formatted.details, ms: Date.now() - t0 });
       const previousFailureAt = this._lastPuterFailureAt;
       this._lastPuterFailureAt = Date.now();
       // One quick retry with a discovered model if we didn't have one yet
@@ -790,7 +891,8 @@ class GeminiService {
           if (retryText) return retryText;
         }
       } catch (er) {
-        if (this.debug) console.warn('[AI] Puter.generateContent retry failed', String(er));
+        const formattedRetry = this._formatErrorForLog(er);
+        if (this.debug) console.warn(`[AI] Puter.generateContent retry failed: ${formattedRetry.summary}`, formattedRetry.details);
         if (isRateLimitError(er)) {
           this._handleRateLimit(er, 'Puter retry');
         }
@@ -798,6 +900,110 @@ class GeminiService {
       // Fallback to Google Gemini v1
       return await this._googleFallback(prompt, options);
     }
+  }
+
+  _classifyGoogleError(status, responseText = '') {
+    const text = String(responseText || '').toLowerCase();
+    const isRateLimit =
+      status === 429 ||
+      text.includes('quota') ||
+      text.includes('rate limit') ||
+      text.includes('resource exhausted');
+    const shouldRetry =
+      isRateLimit ||
+      status === 403 ||
+      status === 408 ||
+      status === 409 ||
+      status >= 500;
+    return { isRateLimit, shouldRetry };
+  }
+
+  _isNetworkFetchError(error) {
+    const msg = String(error?.message || error || '').toLowerCase();
+    return (
+      msg.includes('failed to fetch') ||
+      msg.includes('networkerror') ||
+      msg.includes('load failed') ||
+      msg.includes('request timed out') ||
+      msg.includes('network request failed') ||
+      msg.includes('fetch')
+    );
+  }
+
+  async _requestGoogleWithRotation(body, { context = 'Google API', maxAttempts = 4 } = {}) {
+    const totalKeys = apiKeyManager.getTotalKeys();
+    if (totalKeys === 0) {
+      throw new Error('No Google API keys configured.');
+    }
+
+    const attempts = Math.max(1, Math.min(maxAttempts, totalKeys));
+    let lastError = null;
+    let onlyRateLimitFailures = true;
+
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      const keyNumber = apiKeyManager.getCurrentKeyIndex() + 1;
+      const url = apiKeyManager.getCurrentUrl();
+
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+
+        if (res.ok) {
+          return await res.json();
+        }
+
+        const text = await res.text().catch(() => '');
+        const { isRateLimit, shouldRetry } = this._classifyGoogleError(res.status, text);
+
+        if (!isRateLimit) {
+          onlyRateLimitFailures = false;
+        }
+
+        const formattedError = new Error(`${context} failed: ${res.status} ${text}`);
+
+        if (!shouldRetry) {
+          throw formattedError;
+        }
+
+        lastError = formattedError;
+        apiKeyManager.markCurrentKeyFailed(isRateLimit ? 90 : 30);
+
+        if (this.debug) {
+          console.debug(`[AI] ${context} attempt ${attempt + 1}/${attempts} failed on key ${keyNumber} (${res.status}); retrying with rotated key`);
+        }
+
+        continue;
+      } catch (error) {
+        if (error instanceof RateLimitError) throw error;
+
+        if (!this._isNetworkFetchError(error)) {
+          throw error;
+        }
+
+        onlyRateLimitFailures = false;
+        lastError = error instanceof Error ? error : new Error(String(error));
+        apiKeyManager.markCurrentKeyFailed(30);
+
+        if (this.debug) {
+          console.debug(`[AI] ${context} network error on attempt ${attempt + 1}/${attempts}; retrying with rotated key`, {
+            key: keyNumber,
+            error: lastError.message
+          });
+        }
+      }
+    }
+
+    if (lastError) {
+      if (onlyRateLimitFailures) {
+        this._handleRateLimit(new Error(`All attempted API keys rate limited for ${context}`), context);
+      }
+      throw lastError;
+    }
+
+    throw new Error(`${context} failed without a response`);
   }
 
   /**
@@ -815,7 +1021,6 @@ class GeminiService {
       this._handleRateLimit(new Error('All API keys exhausted'), 'Google fallback');
     }
 
-    const apiUrl = apiKeyManager.getCurrentUrl();
     const body = {
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       generationConfig: {
@@ -824,58 +1029,10 @@ class GeminiService {
       }
     };
     const t1 = Date.now();
-    const res = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    
-    if (!res.ok) {
-      const t = await res.text().catch(() => '');
-      
-      // Check for rate limit response (429 or quota errors)
-      if (res.status === 429 || t.toLowerCase().includes('quota') || t.toLowerCase().includes('rate')) {
-        // Mark this key with a short cooldown (90s) so it recovers quickly.
-        // With 11 keys we can rotate through them and circle back.
-        apiKeyManager.markCurrentKeyFailed(90);
-        
-        // Try up to 3 more keys before giving up — with 11 keys, one 429
-        // shouldn't kill the whole service.
-        const maxRetries = Math.min(3, apiKeyManager.getTotalKeys() - 1);
-        for (let attempt = 0; attempt < maxRetries; attempt++) {
-          const rotated = apiKeyManager.rotateToNextKey();
-          if (!rotated) break; // all keys exhausted
-          
-          try {
-            const retryUrl = apiKeyManager.getCurrentUrl();
-            const retryRes = await fetch(retryUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-            if (retryRes.ok) {
-              const retryData = await retryRes.json();
-              const retryText = retryData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-              if (retryText) {
-                if (this.debug) console.debug(`[AI] Google retry #${attempt + 1} succeeded with key ${apiKeyManager.getCurrentKeyIndex() + 1}`);
-                return retryText;
-              }
-            } else if (retryRes.status === 429) {
-              // This key is also rate limited — mark it with a short cooldown and try next
-              apiKeyManager.markCurrentKeyFailed(90);
-              if (this.debug) console.debug(`[AI] Google retry #${attempt + 1} also 429, trying next key...`);
-              continue;
-            } else {
-              // Non-rate-limit error — don't retry, just throw
-              const errText = await retryRes.text().catch(() => '');
-              throw new Error(`Google fallback failed: ${retryRes.status} ${errText}`);
-            }
-          } catch (retryErr) {
-            if (retryErr instanceof RateLimitError) throw retryErr;
-            if (attempt === maxRetries - 1) throw retryErr;
-            // Otherwise try next key
-          }
-        }
-        
-        // All retries exhausted — global lockout as last resort
-        this._handleRateLimit(new Error('All attempted API keys rate limited'), 'Google API');
-      }
-      
-      throw new Error(`Google fallback failed: ${res.status} ${t}`);
-    }
-    const data = await res.json();
+    const data = await this._requestGoogleWithRotation(body, {
+      context: 'Google API',
+      maxAttempts: 4
+    });
     const candidate = data?.candidates?.[0];
     const finishReason = candidate?.finishReason;
     const usageMeta = data?.usageMetadata;
@@ -953,7 +1110,8 @@ class GeminiService {
       }
       // Check if this is a Puter auth error (Forbidden, cancelled, etc.)
       this._handlePuterAuthError(e);
-      if (this.debug) console.warn('[AI] Puter.generateWithImages failed, falling back to Google', { error: String(e), ms: Date.now() - t0 });
+      const formatted = this._formatErrorForLog(e);
+      if (this.debug) console.warn(`[AI] Puter.generateWithImages failed, falling back to Google: ${formatted.summary}`, { ...formatted.details, ms: Date.now() - t0 });
       this._lastPuterFailureAt = Date.now();
       return await this._googleGenerateWithImages(prompt, imageArg, options);
     }
@@ -972,7 +1130,6 @@ class GeminiService {
       this._handleRateLimit(new Error('All API keys exhausted for image request'), 'Google image fallback');
     }
 
-    const apiUrl = apiKeyManager.getCurrentUrl();
     const parts = [{ text: prompt }];
     if (imageArg && typeof imageArg === 'string') {
       if (imageArg.startsWith('data:')) {
@@ -989,44 +1146,10 @@ class GeminiService {
       generationConfig: { temperature: options.temperature ?? 0.2, maxOutputTokens: options.maxTokens ?? 2048 }
     };
     const t1 = Date.now();
-    const res = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    if (!res.ok) {
-      const t = await res.text().catch(() => '');
-      
-      // Check for rate limit
-      if (res.status === 429 || t.toLowerCase().includes('quota') || t.toLowerCase().includes('rate')) {
-        apiKeyManager.markCurrentKeyFailed(90);
-        
-        // Try up to 3 more keys before giving up
-        const maxRetries = Math.min(3, apiKeyManager.getTotalKeys() - 1);
-        for (let attempt = 0; attempt < maxRetries; attempt++) {
-          const rotated = apiKeyManager.rotateToNextKey();
-          if (!rotated) break;
-          
-          try {
-            const retryUrl = apiKeyManager.getCurrentUrl();
-            const retryRes = await fetch(retryUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-            if (retryRes.ok) {
-              const retryData = await retryRes.json();
-              const retryImgText = retryData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-              if (retryImgText) return retryImgText;
-            } else if (retryRes.status === 429) {
-              apiKeyManager.markCurrentKeyFailed(90);
-              continue;
-            } else {
-              throw new Error(`Google image fallback failed: ${retryRes.status}`);
-            }
-          } catch (retryErr) {
-            if (retryErr instanceof RateLimitError) throw retryErr;
-            if (attempt === maxRetries - 1) throw retryErr;
-          }
-        }
-        this._handleRateLimit(new Error('All attempted keys rate limited for images'), 'Google image API');
-      }
-      
-      throw new Error(`Google image fallback failed: ${res.status} ${t}`);
-    }
-    const data = await res.json();
+    const data = await this._requestGoogleWithRotation(body, {
+      context: 'Google image API',
+      maxAttempts: 4
+    });
     if (this.debug) console.debug('[AI] Google.generateWithImages success', { ms: Date.now() - t1 });
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
     if (!text) throw new Error('Empty response from Google image fallback');
@@ -1140,7 +1263,8 @@ class GeminiService {
       
       return responseText;
     } catch (e) {
-      console.warn('[AI] Puter.generateFromPayload failed, falling back to Google', { error: String(e), ms: Date.now() - t0 });
+      const formatted = this._formatErrorForLog(e);
+      console.warn(`[AI] Puter.generateFromPayload failed, falling back to Google: ${formatted.summary}`, { ...formatted.details, ms: Date.now() - t0 });
       // Check if this is a Puter auth error (Forbidden, cancelled, etc.)
       this._handlePuterAuthError(e);
       const previousFailureTime = this._lastPuterFailureAt;
@@ -1169,7 +1293,8 @@ class GeminiService {
           if (retryText) return retryText;
         }
       } catch (er) {
-        console.warn('[AI] Puter.generateFromPayload retry failed', String(er));
+        const formattedRetry = this._formatErrorForLog(er);
+        console.warn(`[AI] Puter.generateFromPayload retry failed: ${formattedRetry.summary}`, formattedRetry.details);
       }
 
       // Fallback to Google
@@ -1182,15 +1307,10 @@ class GeminiService {
       const normalized = this._normalizePayloadForGoogle(payload);
       const t1 = Date.now();
       console.log('[AI] Sending request to Google API...');
-      const res = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(normalized) });
-      if (!res.ok) {
-        const t = await res.text().catch(() => '');
-        console.error('[AI] Google API error:', res.status, t);
-        // Try rotating to next key on failure
-        apiKeyManager.markCurrentKeyFailed(90);
-        throw new Error(`Google payload fallback failed: ${res.status} ${t}`);
-      }
-      const data = await res.json();
+      const data = await this._requestGoogleWithRotation(normalized, {
+        context: 'Google payload fallback',
+        maxAttempts: 4
+      });
       console.log('[AI] Google.generateFromPayload success', { ms: Date.now() - t1 });
       const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
       if (!text) {
@@ -1241,18 +1361,15 @@ class GeminiService {
       this._lastPuterFailureAt = Date.now();
       // Try Google fallback
       try {
-        const apiUrl = apiKeyManager.getCurrentUrl();
         const body = {
           contents: [{ role: 'user', parts: [{ text: testPrompt }] }],
           generationConfig: { temperature: 0.0, maxOutputTokens: 16 }
         };
         const t1 = Date.now();
-        const res = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-        if (!res.ok) {
-          const t = await res.text().catch(() => '');
-          throw new Error(`Google diagnostics failed: ${res.status} ${t}`);
-        }
-        const data = await res.json();
+        const data = await this._requestGoogleWithRotation(body, {
+          context: 'Google diagnostics',
+          maxAttempts: 2
+        });
         const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
         result.ok = !!text;
         result.provider = 'google';
@@ -1263,7 +1380,7 @@ class GeminiService {
       } catch (gErr) {
         result.ok = false;
         result.provider = null;
-        result.error = String(gErr);
+        result.error = this._formatErrorForLog(gErr).summary;
         return result;
       }
     }

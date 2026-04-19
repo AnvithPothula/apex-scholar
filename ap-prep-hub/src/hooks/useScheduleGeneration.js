@@ -3,6 +3,7 @@ import { deleteDoc, doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { db } from '../config/firebase';
 import errorLogger from '../utils/errorLogger';
+import { useToast } from '../contexts/ToastContext';
 
 // Gate debug logging behind development mode
 const IS_DEV = process.env.NODE_ENV === 'development';
@@ -37,6 +38,8 @@ export default function useScheduleGeneration({
   isLoadingPreferences,
   saveAiScheduleToFirebase,
 }) {
+  const { toast } = useToast();
+
   // --- State ---
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasAutoTriggered, setHasAutoTriggered] = useState(false);
@@ -126,7 +129,7 @@ export default function useScheduleGeneration({
       });
     } catch (error) {
       console.error("Error processing overdue task:", error);
-      alert("Failed to update task. Please try again.");
+      toast.error("Failed to update task. Please try again.");
     }
   }, [user, setTasks]);
 
@@ -134,14 +137,14 @@ export default function useScheduleGeneration({
   const generateIntelligentSchedule = useCallback(async (isAutoTrigger = false) => {
     if (tasks.length === 0) {
       if (!isAutoTrigger) {
-        alert("Please create some tasks first! Click the '+ Task' button above to add your AP study tasks.");
+        toast.warning("Please create some tasks first! Click the '+ Task' button above to add your AP study tasks.");
       }
       return;
     }
 
     if (!scheduler) {
       if (!isAutoTrigger) {
-        alert("Scheduler is not ready. Please wait for preferences to load.");
+        toast.warning("Scheduler is not ready. Please wait for preferences to load.");
       }
       return;
     }
@@ -181,7 +184,7 @@ export default function useScheduleGeneration({
       } catch (scheduleError) {
         console.error("❌ Schedule generation failed:", scheduleError);
         if (!isAutoTrigger) {
-          alert("Schedule generation failed. Please try again or check your task data.");
+          toast.error("Schedule generation failed. Please try again or check your task data.");
         }
         updateIsGenerating(false);
         return;
@@ -206,7 +209,7 @@ export default function useScheduleGeneration({
           return;
         }
         if (!isAutoTrigger) {
-          alert("Error: Generated schedule is not valid. Please try again.");
+          toast.error("Error: Generated schedule is not valid. Please try again.");
         }
         updateIsGenerating(false);
         return;
@@ -222,7 +225,7 @@ export default function useScheduleGeneration({
 
       if (!scheduleObject || typeof scheduleObject !== 'object') {
         console.error("❌ Generated schedule is not an object:", scheduleObject);
-        alert("Error: Generated schedule is not valid. Please try again.");
+        toast.error("Error: Generated schedule is not valid. Please try again.");
         return;
       }
 
@@ -349,7 +352,7 @@ export default function useScheduleGeneration({
         }
 
         if (!isAutoTrigger) {
-          alert(errorMessage);
+          toast.warning(errorMessage);
         }
         updateIsGenerating(false);
         return;
@@ -374,7 +377,7 @@ export default function useScheduleGeneration({
       if (isAutoTrigger) {
         failedAutoTriggerRef.current = true;
       } else {
-        alert("Error generating schedule. Please try again.");
+        toast.error("Error generating schedule. Please try again.");
       }
       if (!Array.isArray(aiSchedule) || aiSchedule.length === 0) {
         setAiSchedule([]);

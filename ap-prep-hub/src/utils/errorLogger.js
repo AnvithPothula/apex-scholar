@@ -1,10 +1,13 @@
 /**
  * Centralized error logging utility.
  * In development: logs to console with structured output.
- * In production: could be extended to send to an external service (Sentry, LogRocket, etc.).
+ * In production: sends errors to Sentry (if REACT_APP_SENTRY_DSN is configured).
  */
 
+import * as Sentry from '@sentry/react';
+
 const isDev = process.env.NODE_ENV === 'development';
+const sentryEnabled = !isDev && !!process.env.REACT_APP_SENTRY_DSN;
 
 const errorLogger = {
   /**
@@ -25,8 +28,18 @@ const errorLogger = {
     } else {
       // Production: log minimal info to console
       console.error('[Error]', entry.message);
-      // TODO: Send to external logging service
-      // e.g., fetch('/api/log', { method: 'POST', body: JSON.stringify(entry) });
+
+      // Send to Sentry with context
+      if (sentryEnabled) {
+        const errorObj = error instanceof Error ? error : new Error(String(error));
+        Sentry.captureException(errorObj, {
+          extra: context,
+          tags: {
+            component: context.component || 'unknown',
+            action: context.action || 'unknown',
+          },
+        });
+      }
     }
   },
 
@@ -36,6 +49,11 @@ const errorLogger = {
   warn(message, context = {}) {
     if (isDev) {
       console.warn('[ErrorLogger:warn]', message, context);
+    } else if (sentryEnabled) {
+      Sentry.captureMessage(message, {
+        level: 'warning',
+        extra: context,
+      });
     }
   },
 
@@ -54,6 +72,19 @@ const errorLogger = {
   info(message, context = {}) {
     if (isDev) {
       console.info('[ErrorLogger:info]', message, context);
+    }
+  },
+
+  /**
+   * Set user context for error reports (call on login/logout).
+   */
+  setUser(user) {
+    if (sentryEnabled) {
+      if (user) {
+        Sentry.setUser({ id: user.uid, email: user.email });
+      } else {
+        Sentry.setUser(null);
+      }
     }
   },
 };

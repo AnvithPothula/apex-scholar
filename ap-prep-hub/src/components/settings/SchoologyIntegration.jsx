@@ -16,11 +16,13 @@ import {
 } from 'lucide-react';
 import { Button, Card, CardHeader, CardTitle, CardContent } from '../ui/UIComponents';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import schoologyAPI from '../../services/schoologyAPI';
 import assignmentSync from '../../services/assignmentSync';
 
 export function SchoologyIntegration() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -116,7 +118,7 @@ export function SchoologyIntegration() {
           message += `\n${result.pastDueCount} assignments were skipped (past due date).`;
         }
 
-        alert(message);
+        toast.success(message);
       } else {
         setError(result.error || 'Sync failed');
       }
@@ -193,7 +195,7 @@ export function SchoologyIntegration() {
       setLastSync(new Date());
       setIsConnected(true); // Update connection status
 
-      alert(`Calendar URL configured successfully!\n\nFound ${syncResult.totalAssignments} assignments from your calendar.\nSynced ${syncResult.syncedCount} new assignments, skipped ${syncResult.skippedCount} existing assignments.`);
+      toast.success(`Calendar configured! Found ${syncResult.totalAssignments} assignments, synced ${syncResult.syncedCount} new, skipped ${syncResult.skippedCount}.`);
 
     } catch (error) {
       console.error('Error setting calendar URL:', error);

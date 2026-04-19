@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { db } from '../config/firebase';
 import { collection, addDoc, serverTimestamp, query, where, orderBy, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { AP_SUBJECTS } from '../constants/subjects';
@@ -19,6 +20,7 @@ import ResultsPanel from '../components/practice/ResultsPanel';
 // TEST_CONFIGURATIONS and DEFAULT_CONFIG are now imported from ../constants/testConfigurations
 const PracticeTests = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [currentView, setCurrentView] = useState('setup'); // 'setup', 'test', 'scoring', 'results', 'history'
   const [selectedSubject, setSelectedSubject] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
@@ -1134,7 +1136,7 @@ Format as JSON:
 
   const handleStartTest = async () => {
     if (!selectedSubject || !selectedSection) {
-      alert('Please select a subject and section');
+      toast.warning('Please select a subject and section');
       return;
     }
 
@@ -1145,7 +1147,7 @@ Format as JSON:
     const hasSubSections = selectedSection === 'frq' && sectionConfig?.subSections && sectionConfig.subSections.length > 0;
     
     if (hasSubSections && !selectedSubSection) {
-      alert('Please select an FRQ type');
+      toast.warning('Please select an FRQ type');
       return;
     }
 
@@ -1257,11 +1259,11 @@ Format as JSON:
       
       // Check if it's a rate limiting error
       if (error.message && (error.message.includes('All') && error.message.includes('API keys are rate limited'))) {
-        alert('We\'ve reached our daily usage limit for AI question generation. Please try again tomorrow or in a few hours when the limits reset.');
+        toast.error('We\'ve reached our daily usage limit for AI question generation. Please try again tomorrow or in a few hours when the limits reset.');
       } else if (error.message && error.message.includes('usage limit')) {
-        alert(error.message);
+        toast.error(error.message);
       } else {
-        alert('We encountered an issue generating your test. Please try again in a few moments.');
+        toast.error('We encountered an issue generating your test. Please try again in a few moments.');
       }
     } finally {
       setIsGeneratingTest(false);

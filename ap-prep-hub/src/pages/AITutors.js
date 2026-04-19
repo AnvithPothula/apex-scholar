@@ -65,6 +65,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import geminiService, { RateLimitError } from '../services/geminiService';
 import errorLogger from '../utils/errorLogger';
 
@@ -72,6 +73,7 @@ const AITutors = () => {
   const { subject: urlSubject } = useParams();
   const navigate = useNavigate();
   const { user, loading } = useAuth();
+  const { toast } = useToast();
   const [selectedSubject, setSelectedSubject] = useState(urlSubject || null);
   const [conversations, setConversations] = useState([]);
   const [activeConversationId, setActiveConversationId] = useState(null);
@@ -551,7 +553,7 @@ const AITutors = () => {
     }
     
     if (errors.length > 0) {
-      alert(`Some files could not be processed:\n${errors.join('\n')}`);
+      toast.error(`Some files could not be processed:\n${errors.join('\n')}`);
     }
     
     if (processedFiles.length > 0) {
@@ -820,7 +822,7 @@ const AITutors = () => {
     // Prevent deleting the last conversation
     if (conversations.length <= 1) {
       console.log('Cannot delete the last conversation');
-      alert('You must have at least one conversation. This is the last conversation for this subject.');
+      toast.warning('You must have at least one conversation. This is the last conversation for this subject.');
       setShowConversationMenu(null);
       return;
     }
@@ -871,7 +873,7 @@ const AITutors = () => {
   const confirmDeleteConversation = (conversationId) => {
     // Check if this is the last conversation
     if (conversations.length <= 1) {
-      alert('You must have at least one conversation. This is the last conversation for this subject.');
+      toast.warning('You must have at least one conversation. This is the last conversation for this subject.');
       setShowConversationMenu(null);
       return;
     }
@@ -1076,7 +1078,7 @@ const AITutors = () => {
       } catch (saveError) {
         console.error('Failed to save error message:', saveError);
         // If we can't even save the error message, show an alert
-        alert('I encountered an error and couldn\'t respond properly. Please try again.');
+        toast.error('I encountered an error and couldn\'t respond properly. Please try again.');
       }
     } finally {
       setIsTyping(false);
@@ -1485,14 +1487,14 @@ Please check your internet connection and try again. In the meantime:
         setCurrentMessage(messageContent);
         setUploadedFiles(filesToSend);
         console.error('Failed to save message');
-        alert('Failed to send message. Please try again.');
+        toast.error('Failed to send message. Please try again.');
       }
     } catch (error) {
       // Restore input if error occurred
       setCurrentMessage(messageContent);
       setUploadedFiles(filesToSend);
       console.error('Error in handleSendMessage:', error);
-      alert('An error occurred while sending your message. Please try again.');
+      toast.error('An error occurred while sending your message. Please try again.');
     }
   };
 

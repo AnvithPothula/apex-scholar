@@ -9,6 +9,7 @@ import geminiService, { RateLimitError } from '../services/geminiService';
 import dataService from '../services/dataService';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import ModelSelector, { getDefaultModel, saveSelectedModel } from '../components/ui/ModelSelector';
+import { useToast } from '../contexts/ToastContext';
 
 // Custom Dropdown Component
 const CustomDropdown = ({ options, value, onChange, placeholder, className = "" }) => {
@@ -67,6 +68,7 @@ const CustomDropdown = ({ options, value, onChange, placeholder, className = "" 
 const FlashcardsPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showManualCreate, setShowManualCreate] = useState(false);
@@ -162,9 +164,9 @@ const FlashcardsPage = () => {
       console.error('Error creating flashcards:', error);
       if (error instanceof RateLimitError || error?.isRateLimit) {
         const waitTime = error.retryAfter || 60;
-        alert(`AI service is temporarily busy. Please wait ${waitTime} seconds and try again.`);
+        toast.error(`AI service is temporarily busy. Please wait ${waitTime} seconds and try again.`);
       } else {
-        alert('Failed to generate flashcards. Please try again.');
+        toast.error('Failed to generate flashcards. Please try again.');
       }
     } finally {
       setIsGenerating(false);
@@ -173,7 +175,7 @@ const FlashcardsPage = () => {
 
   const handleStudyCollection = (collection) => {
     if (!collection.cards || collection.cards.length === 0) {
-      alert('This deck has no cards to study!');
+      toast.warning('This deck has no cards to study!');
       return;
     }
     
@@ -254,7 +256,7 @@ const FlashcardsPage = () => {
           : deck
       ));
 
-      alert(`Study session complete! Accuracy: ${accuracy}%`);
+      toast.success(`Study session complete! Accuracy: ${accuracy}%`);
     } catch (error) {
       console.error('Error finishing study session:', error);
     }
@@ -266,7 +268,7 @@ const FlashcardsPage = () => {
   // Manual flashcard creation functions
   const handleManualCreate = async () => {
     if (!manualTitle || manualCards.some(card => !card.question || !card.answer) || !user) {
-      alert('Please fill in all fields and ensure each card has both a question and answer.');
+      toast.warning('Please fill in all fields and ensure each card has both a question and answer.');
       return;
     }
 
@@ -304,7 +306,7 @@ const FlashcardsPage = () => {
       setIsPublicDeck(false);
     } catch (error) {
       console.error('Error creating manual flashcards:', error);
-      alert('Failed to create flashcards. Please try again.');
+      toast.error('Failed to create flashcards. Please try again.');
     }
   };
 
@@ -352,10 +354,10 @@ const FlashcardsPage = () => {
         createdAt: new Date(),
         copiedFrom: deck.id
       }, ...prev]);
-      alert('Deck copied to your flashcards!');
+      toast.success('Deck copied to your flashcards!');
     } catch (error) {
       console.error('Error copying deck:', error);
-      alert('Failed to copy deck. Please try again.');
+      toast.error('Failed to copy deck. Please try again.');
     } finally {
       setCopyingDeckId(null);
     }
@@ -370,7 +372,7 @@ const FlashcardsPage = () => {
       ));
     } catch (error) {
       console.error('Error toggling visibility:', error);
-      alert('Failed to update visibility.');
+      toast.error('Failed to update visibility.');
     }
   };
 
@@ -406,7 +408,7 @@ const FlashcardsPage = () => {
       setEditingDeck(null);
     } catch (error) {
       console.error('Error updating deck:', error);
-      alert('Failed to update deck. Please try again.');
+      toast.error('Failed to update deck. Please try again.');
     }
   };
 
@@ -451,7 +453,7 @@ const FlashcardsPage = () => {
       setEditingCard(null);
     } catch (error) {
       console.error('Error updating card:', error);
-      alert('Failed to update card. Please try again.');
+      toast.error('Failed to update card. Please try again.');
     }
   };
 
@@ -469,7 +471,7 @@ const FlashcardsPage = () => {
       setUserCollections(prev => prev.filter(deck => deck.id !== deckId));
     } catch (error) {
       console.error('Error deleting deck:', error);
-      alert('Failed to delete deck. Please try again.');
+      toast.error('Failed to delete deck. Please try again.');
     }
   };
 

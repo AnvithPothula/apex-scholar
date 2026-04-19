@@ -3,6 +3,7 @@ import { Plus, Calendar, Brain } from "lucide-react";
 import { format } from "date-fns";
 import { addDoc, collection, query, orderBy, onSnapshot, updateDoc, deleteDoc, doc, serverTimestamp, getDoc, setDoc } from "firebase/firestore";
 import { useAuth } from "../contexts/AuthContext";
+import { useToast } from "../contexts/ToastContext";
 import errorLogger from "../utils/errorLogger";
 import { db } from "../config/firebase";
 import { TaskCard } from "../components/scheduler/TaskCard.jsx";
@@ -23,6 +24,7 @@ const debugLog = IS_DEV ? (...args) => console.log(...args) : () => {}; // eslin
 
 export default function SmartScheduler() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [tasks, setTasks] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
@@ -433,7 +435,7 @@ export default function SmartScheduler() {
       setIsModalOpen(false);
     } catch (error) {
       console.error("Error saving task:", error);
-      alert("Failed to save task. Please try again.");
+      toast.error("Failed to save task. Please try again.");
     }
   };
 

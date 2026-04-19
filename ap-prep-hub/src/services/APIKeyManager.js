@@ -22,9 +22,11 @@ class APIKeyManager {
 
     this.currentKeyIndex = 0;
     // Default model can be overridden via env or at runtime
-    this.defaultModel = process.env.REACT_APP_GEMINI_MODEL && process.env.REACT_APP_GEMINI_MODEL.trim() !== ''
-      ? process.env.REACT_APP_GEMINI_MODEL.trim()
-      : 'gemini-2.5-flash';
+    this.defaultModel = this._normalizeGoogleModel(
+      process.env.REACT_APP_GEMINI_MODEL && process.env.REACT_APP_GEMINI_MODEL.trim() !== ''
+        ? process.env.REACT_APP_GEMINI_MODEL.trim()
+        : 'gemini-2.5-flash'
+    );
     this.failedKeys = new Set();
     this.keyRetryTimes = new Map(); // Track when keys can be retried
     this.keyFailureCounts = new Map(); // Track consecutive failures per key for exponential backoff
@@ -43,6 +45,23 @@ class APIKeyManager {
   }
 
   /**
+   * Ensure the model name is compatible with Google's Generative Language API.
+   * Non-Gemini provider model names (e.g. claude-sonnet-4) are routed to a
+   * safe Gemini default so fallback requests still work.
+   */
+  _normalizeGoogleModel(modelName) {
+    const raw = (modelName || '').toString().trim().replace(/^models\//, '');
+    if (!raw) return 'gemini-2.5-flash';
+    if (!raw.toLowerCase().startsWith('gemini-')) return 'gemini-2.5-flash';
+    return raw;
+  }
+
+  _getApiVersionForModel(modelName) {
+    const model = this._normalizeGoogleModel(modelName);
+    return model.startsWith('gemini-2.5') ? 'v1beta' : 'v1';
+  }
+
+  /**
    * Get the current API key
    */
   getCurrentKey() {
@@ -57,9 +76,9 @@ class APIKeyManager {
    */
   getCurrentUrl() {
     const key = this.apiKeys[this.currentKeyIndex];
-    // gemini-2.5-* models require v1beta endpoint
-    const apiVersion = this.defaultModel.startsWith('gemini-2.5') ? 'v1beta' : 'v1';
-    return `https://generativelanguage.googleapis.com/${apiVersion}/models/${this.defaultModel}:generateContent?key=${key}`;
+    const model = this._normalizeGoogleModel(this.defaultModel);
+    const apiVersion = this._getApiVersionForModel(model);
+    return `https://generativelanguage.googleapis.com/${apiVersion}/models/${model}:generateContent?key=${key}`;
   }
 
   /**
@@ -67,8 +86,8 @@ class APIKeyManager {
    */
   getGenerateContentUrl(modelName) {
     const key = this.apiKeys[this.currentKeyIndex];
-    const model = (modelName || this.defaultModel).replace(/^models\//, '');
-    const apiVersion = model.startsWith('gemini-2.5') ? 'v1beta' : 'v1';
+    const model = this._normalizeGoogleModel(modelName || this.defaultModel);
+    const apiVersion = this._getApiVersionForModel(model);
     return `https://generativelanguage.googleapis.com/${apiVersion}/models/${model}:generateContent?key=${key}`;
   }
 
@@ -85,7 +104,7 @@ class APIKeyManager {
    */
   setDefaultModel(modelName) {
     if (modelName && typeof modelName === 'string') {
-      this.defaultModel = modelName.replace(/^models\//, '');
+      this.defaultModel = this._normalizeGoogleModel(modelName);
     }
   }
 

@@ -4,6 +4,7 @@ import { db } from '../config/firebase';
 import { getAuth } from 'firebase/auth';
 import { collection, query, orderBy, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { seedAllPublicDecks } from '../utils/seedPublicDecks';
+import { useToast } from '../contexts/ToastContext';
 
 // Admin UIDs that can access Developer Settings
 const ADMIN_UIDS = [
@@ -16,6 +17,7 @@ export function isAdmin(uid) {
 }
 
 export default function DeveloperSettings({ onClose }) {
+    const { toast } = useToast();
     const [reviews, setReviews] = useState([]);
     const [loading, setLoading] = useState(true);
     const [expandedSection, setExpandedSection] = useState('reviews');
@@ -31,7 +33,7 @@ export default function DeveloperSettings({ onClose }) {
         setSeedResult(null);
 
         const uid = getAuth().currentUser?.uid;
-        if (!uid) { setSeedStatus(null); alert('Not logged in'); return; }
+        if (!uid) { setSeedStatus(null); toast.error('Not logged in'); return; }
 
         const result = await seedAllPublicDecks(uid, (message, current, total) => {
             setSeedLog(prev => [...prev.slice(-50), `[${current}/${total}] ${message}`]);
@@ -252,7 +254,7 @@ export default function DeveloperSettings({ onClose }) {
                                     keysToRemove.forEach(k => localStorage.removeItem(k));
                                     // Notify ModelSelector and other components that Puter auth was cleared
                                     window.dispatchEvent(new CustomEvent('apex:puterAuthCleared'));
-                                    alert(`Cleared ${keysToRemove.length} Puter auth key(s). Puter models are now disabled.`);
+                                    toast.success(`Cleared ${keysToRemove.length} Puter auth key(s). Puter models are now disabled.`);
                                 }}
                                 className="px-4 py-2 bg-error-600 hover:bg-error-700 text-content-primary rounded-lg transition-colors text-sm font-medium flex items-center gap-2"
                             >
