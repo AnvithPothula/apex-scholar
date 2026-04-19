@@ -41,7 +41,7 @@ export default function DeveloperSettings({ onClose }) {
 
         setSeedResult(result);
         setSeedStatus('done');
-    }, [seedStatus]);
+    }, [seedStatus, toast]);
 
     useEffect(() => {
         fetchReviews();

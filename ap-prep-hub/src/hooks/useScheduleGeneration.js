@@ -2,7 +2,6 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { deleteDoc, doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { db } from '../config/firebase';
-import errorLogger from '../utils/errorLogger';
 import { useToast } from '../contexts/ToastContext';
 
 // Gate debug logging behind development mode
@@ -131,7 +130,7 @@ export default function useScheduleGeneration({
       console.error("Error processing overdue task:", error);
       toast.error("Failed to update task. Please try again.");
     }
-  }, [user, setTasks]);
+  }, [user, setTasks, toast]);
 
   // --- Main schedule generation ---
   const generateIntelligentSchedule = useCallback(async (isAutoTrigger = false) => {
@@ -385,7 +384,7 @@ export default function useScheduleGeneration({
     } finally {
       updateIsGenerating(false);
     }
-  }, [tasks, scheduler, userPreferences, blackoutOverrides, aiSchedule, setAiSchedule, saveAiScheduleToFirebase, handleOverdueTasks, updateIsGenerating]);
+  }, [tasks, scheduler, userPreferences, blackoutOverrides, aiSchedule, setAiSchedule, saveAiScheduleToFirebase, handleOverdueTasks, updateIsGenerating, toast]);
 
   // Keep ref in sync
   useEffect(() => {
