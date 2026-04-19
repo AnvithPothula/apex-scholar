@@ -1,6 +1,11 @@
 import React from 'react';
 import { Button } from '../ui/UIComponents';
 
+const formatLocalDateTimeInput = (date = new Date()) => {
+  const pad = (value) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
 export default function OverdueTasksDialog({
   tasks,
   onReschedule,
@@ -40,7 +45,7 @@ export default function OverdueTasksDialog({
                   <input
                     type="datetime-local"
                     className="flex-1 h-8 rounded border border-border-strong bg-base-800 px-2 text-sm text-content-primary"
-                    min={new Date().toISOString().slice(0, 16)}
+                    min={formatLocalDateTimeInput()}
                     onChange={(e) => {
                       if (e.target.value) {
                         onReschedule(task, e.target.value);
@@ -74,7 +79,6 @@ export default function OverdueTasksDialog({
           <Button
             onClick={onContinue}
             className="flex-1 bg-content-primary hover:bg-content-primary"
-            disabled={tasks.length > 0}
           >
             Continue Scheduling
           </Button>

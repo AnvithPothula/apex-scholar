@@ -2,6 +2,11 @@ import React, { useState } from 'react';
 import { AlertTriangle, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { Button } from '../ui/UIComponents';
 
+const formatLocalDateTimeInput = (date = new Date()) => {
+  const pad = (value) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
 /**
  * Non-blocking inline banner showing overdue tasks.
  * Users can expand to see details, reschedule, delete, or dismiss.
@@ -69,7 +74,7 @@ export default function OverdueTasksBanner({
                   <input
                     type="datetime-local"
                     className="h-7 rounded border border-border-strong bg-base-800 px-1.5 text-xs text-content-primary w-40"
-                    min={new Date().toISOString().slice(0, 16)}
+                    min={formatLocalDateTimeInput()}
                     onClick={(e) => e.stopPropagation()}
                     onChange={(e) => {
                       if (e.target.value) {

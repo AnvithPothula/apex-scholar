@@ -25,6 +25,11 @@ const formatStudyTime = (minutes) => {
   return hours > 0 ? `${hours}.${Math.round(mins/6)} hours` : `${mins} minutes`;
 };
 
+const formatLocalDateKey = (date) => {
+  const pad = (value) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+};
+
 const processSubjectProgress = (progressData, studySessions) => {
   const subjectMap = new Map();
 
@@ -145,7 +150,7 @@ const ProgressPage = () => {
       studySessions.forEach(session => {
         const date = session.timestamp?.toDate?.() || (session.createdAt?.toDate?.()) || null;
         if (date) {
-          const key = date.toISOString().slice(0, 10);
+          const key = formatLocalDateKey(date);
           activityMap[key] = (activityMap[key] || 0) + 1;
         }
       });

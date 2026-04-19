@@ -40,7 +40,7 @@ export function Layout({ children }) {
             </a>
             <header className={`sticky top-0 z-50 border-b border-border transition-all duration-200 ${scrolled ? 'bg-base-900/98 backdrop-blur-md shadow-subtle' : 'bg-base-900/95 backdrop-blur-sm'}`}>
                 <div className="max-w-screen-xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
-                    <div className={`flex items-center justify-between transition-all duration-200 ${scrolled ? 'h-12 sm:h-13' : 'h-14 sm:h-16'}`}>
+                    <div className={`flex items-center justify-between transition-all duration-200 ${scrolled ? 'h-12 sm:h-14' : 'h-14 sm:h-16'}`}>
                                                 <Link
                                                         to="/"
                                                         onClick={(e) => {

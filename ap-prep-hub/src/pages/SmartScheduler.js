@@ -299,7 +299,6 @@ export default function SmartScheduler() {
     generateIntelligentSchedule,
     handleBlackoutOverride,
     processOverdueTaskAction,
-    proceedWithSchedule,
     deletingTaskRef,
     scheduleRegenerateRef,
     setShowBlackoutDialog,
@@ -786,7 +785,6 @@ export default function SmartScheduler() {
             setBlackoutOverrides([]);
             updateIsGenerating(false);
           }}
-          onProceed={proceedWithSchedule}
         />
       )}
 

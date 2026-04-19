@@ -14,7 +14,7 @@
   },
   "scopes": {
     "project": {
-      "workdir": "/Users/anvit/Documents/Projects/Apex_Scholar"
+      "workdir": "."
     }
   },
   "version": "3.0.0",

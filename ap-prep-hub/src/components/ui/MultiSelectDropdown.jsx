@@ -96,15 +96,16 @@ export default function MultiSelectDropdown({ options = [], selected = [], onCha
           <span className="text-content-muted text-sm">{placeholder}</span>
         ) : (
           selectedLabels.map((label, i) => (
-            <span
+            <button
+              type="button"
               key={selected[i]}
               className="inline-flex items-center gap-1 px-2 py-0.5 bg-base-800 border border-border-strong/30 rounded-md text-xs text-content-muted cursor-pointer"
               onClick={(e) => remove(selected[i], e)}
               aria-label={`Remove ${label}`}
             >
-              {label}
-              <X className="w-3 h-3 hover:text-content-primary transition-colors" strokeWidth={1.5} />
-            </span>
+              <span>{label}</span>
+              <X className="w-3 h-3 hover:text-content-primary transition-colors" strokeWidth={1.5} aria-hidden="true" />
+            </button>
           ))
         )}
         <ChevronDown className={`w-4 h-4 text-content-muted ml-auto flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth={1.5} />

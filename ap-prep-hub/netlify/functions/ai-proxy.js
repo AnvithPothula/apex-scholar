@@ -52,41 +52,178 @@ function markKeyFailed(idx, retryAfterMs = 300_000) {
   currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
 }
 
+const parseCsv = (value = '') =>
+  value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const ALLOWED_ORIGINS = Array.from(
+  new Set([
+    ...parseCsv(process.env.ALLOWED_ORIGINS || ''),
+    process.env.URL,
+    process.env.DEPLOY_PRIME_URL,
+    'http://localhost:3000',
+    'http://localhost:8888',
+  ].filter(Boolean))
+);
+
+const REQUIRED_APP_TOKEN = process.env.AI_PROXY_APP_TOKEN || process.env.APP_PROXY_TOKEN;
+const RATE_LIMIT_WINDOW_MS = Number(process.env.AI_PROXY_RATE_LIMIT_WINDOW_MS || 60_000);
+const RATE_LIMIT_MAX_REQUESTS = Number(process.env.AI_PROXY_RATE_LIMIT_MAX_REQUESTS || 60);
+const requestBuckets = new Map();
+
+function getHeader(event, name) {
+  const headers = event?.headers || {};
+  const target = name.toLowerCase();
+  const match = Object.keys(headers).find((key) => key.toLowerCase() === target);
+  return match ? headers[match] : undefined;
+}
+
+function getClientId(event) {
+  const forwardedFor = getHeader(event, 'x-forwarded-for');
+  if (forwardedFor) {
+    return forwardedFor.split(',')[0].trim();
+  }
+  return getHeader(event, 'x-nf-client-connection-ip') || 'anonymous';
+}
+
+function getAllowedOrigin(event) {
+  const origin = getHeader(event, 'origin');
+  if (!origin) {
+    return ALLOWED_ORIGINS[0] || null;
+  }
+  return ALLOWED_ORIGINS.includes(origin) ? origin : null;
+}
+
+function buildCorsHeaders(origin) {
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-App-Token',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    Vary: 'Origin',
+  };
+}
+
+function cleanupRequestBuckets(now = Date.now()) {
+  if (requestBuckets.size < 1000) return;
+  for (const [clientId, bucket] of requestBuckets.entries()) {
+    if (now - bucket.windowStart >= RATE_LIMIT_WINDOW_MS) {
+      requestBuckets.delete(clientId);
+    }
+  }
+}
+
+function isRateLimited(clientId) {
+  const now = Date.now();
+  cleanupRequestBuckets(now);
+
+  const bucket = requestBuckets.get(clientId);
+  if (!bucket || now - bucket.windowStart >= RATE_LIMIT_WINDOW_MS) {
+    requestBuckets.set(clientId, { count: 1, windowStart: now });
+    return { limited: false, retryAfter: 0 };
+  }
+
+  if (bucket.count >= RATE_LIMIT_MAX_REQUESTS) {
+    const retryAfter = Math.ceil((RATE_LIMIT_WINDOW_MS - (now - bucket.windowStart)) / 1000);
+    return { limited: true, retryAfter };
+  }
+
+  bucket.count += 1;
+  return { limited: false, retryAfter: 0 };
+}
+
+function isAuthorized(event) {
+  if (!REQUIRED_APP_TOKEN) return true;
+  const appToken = getHeader(event, 'x-app-token');
+  const authHeader = getHeader(event, 'authorization') || '';
+  const bearerToken = authHeader.toLowerCase().startsWith('bearer ')
+    ? authHeader.slice(7).trim()
+    : null;
+  return appToken === REQUIRED_APP_TOKEN || bearerToken === REQUIRED_APP_TOKEN;
+}
+
 // ---------------------------------------------------------------------------
 // Handler
 // ---------------------------------------------------------------------------
 exports.handler = async (event) => {
-  // CORS preflight
+  const allowedOrigin = getAllowedOrigin(event);
+  if (!allowedOrigin) {
+    return {
+      statusCode: 403,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: 'Origin is not allowed' }),
+    };
+  }
+
+  const corsHeaders = buildCorsHeaders(allowedOrigin);
+
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 204,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      },
+      headers: corsHeaders,
+      body: '',
     };
   }
 
   if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: JSON.stringify({ error: 'Method not allowed' }) };
+    return {
+      statusCode: 405,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: 'Method not allowed' }),
+    };
+  }
+
+  if (!isAuthorized(event)) {
+    return {
+      statusCode: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: 'Unauthorized' }),
+    };
+  }
+
+  const clientId = getClientId(event);
+  const rateLimit = isRateLimited(clientId);
+  if (rateLimit.limited) {
+    return {
+      statusCode: 429,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json',
+        'Retry-After': String(rateLimit.retryAfter),
+      },
+      body: JSON.stringify({ error: 'Rate limit exceeded' }),
+    };
   }
 
   if (API_KEYS.length === 0) {
     return {
       statusCode: 503,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       body: JSON.stringify({ error: 'No API keys configured on the server.' }),
     };
   }
 
   let payload;
   try {
-    payload = JSON.parse(event.body);
+    payload = JSON.parse(event.body || '{}');
   } catch {
-    return { statusCode: 400, body: JSON.stringify({ error: 'Invalid JSON body' }) };
+    return {
+      statusCode: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: 'Invalid JSON body' }),
+    };
   }
 
   const { model = 'gemini-2.5-flash', contents, generationConfig, safetySettings } = payload;
+  if (!Array.isArray(contents) || contents.length === 0) {
+    return {
+      statusCode: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: '"contents" must be a non-empty array' }),
+    };
+  }
+
   const apiVersion = model.startsWith('gemini-2.5') ? 'v1beta' : 'v1';
   const cleanModel = model.replace(/^models\//, '');
 
@@ -106,15 +243,15 @@ exports.handler = async (event) => {
       if (resp.status === 429) {
         const retryAfter = parseInt(resp.headers.get('retry-after') || '300', 10);
         markKeyFailed(keyIdx, retryAfter * 1000);
-        continue; // try next key
+        continue;
       }
 
       const data = await resp.text();
       return {
         statusCode: resp.status,
         headers: {
+          ...corsHeaders,
           'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
         },
         body: data,
       };
@@ -123,11 +260,16 @@ exports.handler = async (event) => {
       if (attempt === Math.min(3, API_KEYS.length) - 1) {
         return {
           statusCode: 502,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           body: JSON.stringify({ error: 'All API attempts failed', detail: err.message }),
         };
       }
     }
   }
 
-  return { statusCode: 503, body: JSON.stringify({ error: 'Service temporarily unavailable' }) };
+  return {
+    statusCode: 503,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ error: 'Service temporarily unavailable' }),
+  };
 };

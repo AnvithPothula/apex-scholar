@@ -1,4 +1,4 @@
-import React, { forwardRef, useState, useEffect, useRef } from 'react';
+import React, { forwardRef, useState, useEffect, useRef, useId } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '../../utils/helpers';
 
@@ -114,6 +114,7 @@ export const FloatingInput = forwardRef(({
   type = "text",
   label,
   icon: Icon,
+  id,
   onFocus: onFocusProp,
   onBlur: onBlurProp,
   onChange: onChangeProp,
@@ -121,6 +122,8 @@ export const FloatingInput = forwardRef(({
   defaultValue,
   ...props
 }, ref) => {
+  const generatedId = useId();
+  const inputId = id || generatedId;
   const [focused, setFocused] = useState(false);
   const [hasValue, setHasValue] = useState(!!value || !!defaultValue);
   const floated = focused || hasValue;
@@ -138,6 +141,7 @@ export const FloatingInput = forwardRef(({
         </div>
       )}
       <input
+        id={inputId}
         type={type}
         ref={ref}
         value={value}
@@ -155,6 +159,7 @@ export const FloatingInput = forwardRef(({
       />
       {label && (
         <label
+          htmlFor={inputId}
           className={cn(
             "absolute left-3 transition-all duration-200 pointer-events-none",
             Icon && "left-12",

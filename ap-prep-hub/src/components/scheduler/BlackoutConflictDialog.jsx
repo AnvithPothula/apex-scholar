@@ -6,7 +6,6 @@ export default function BlackoutConflictDialog({
   onOverride,
   onOverrideAll,
   onKeepBlackouts,
-  onProceed,
 }) {
   if (!conflicts || conflicts.length === 0) return null;
 
@@ -81,7 +80,6 @@ export default function BlackoutConflictDialog({
           <Button
             onClick={onOverrideAll}
             className="flex-1 bg-success-500 hover:bg-success-500"
-            disabled={conflicts.length === 0}
           >
             Override All Conflicts ({conflicts.length})
           </Button>
@@ -93,24 +91,6 @@ export default function BlackoutConflictDialog({
             Keep Blackouts
           </Button>
         </div>
-
-        {conflicts.length === 0 && (
-          <div className="flex gap-2 mt-4">
-            <Button
-              onClick={onProceed}
-              className="flex-1 bg-content-primary hover:bg-content-primary"
-            >
-              Generate Schedule Now
-            </Button>
-            <Button
-              variant="outline"
-              onClick={onKeepBlackouts}
-              className="flex-1"
-            >
-              Cancel
-            </Button>
-          </div>
-        )}
       </div>
     </div>
   );

@@ -14,6 +14,11 @@ function getIntensity(count) {
   return 4;
 }
 
+function formatLocalDateKey(date) {
+  const pad = (value) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
 const intensityClasses = [
   'bg-base-800',
   'bg-primary-950',
@@ -32,6 +37,7 @@ const intensityClasses = [
 export default function StreakCalendar({ activityData = {}, currentStreak = 0, className }) {
   const { grid, months } = useMemo(() => {
     const today = new Date();
+    const todayKey = formatLocalDateKey(today);
     const totalDays = WEEKS * DAYS_PER_WEEK;
     const startDate = new Date(today);
     startDate.setDate(startDate.getDate() - totalDays + 1);
@@ -46,8 +52,8 @@ export default function StreakCalendar({ activityData = {}, currentStreak = 0, c
     for (let w = 0; w < WEEKS; w++) {
       const week = [];
       for (let d = 0; d < DAYS_PER_WEEK; d++) {
-        const key = current.toISOString().slice(0, 10);
-        const isToday = key === today.toISOString().slice(0, 10);
+        const key = formatLocalDateKey(current);
+        const isToday = key === todayKey;
         const isFuture = current > today;
         week.push({
           date: key,
