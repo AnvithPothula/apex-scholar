@@ -1,3 +1,50 @@
 # https://www.robotstxt.org/robotstxt.html
+# All bots welcome — index everything except internal/auth pages.
+
 User-agent: *
-Disallow:
+Allow: /
+Disallow: /test-puter.html
+
+# Common AI training crawlers — explicitly allowed.
+# (You can flip any of these to "Disallow: /" if you ever want to opt out
+# of having Apex Scholar's content used in LLM training.)
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+
+User-agent: cohere-ai
+Allow: /
+
+User-agent: FacebookBot
+Allow: /
+
+Sitemap: https://apex-scholar.com/sitemap.xml

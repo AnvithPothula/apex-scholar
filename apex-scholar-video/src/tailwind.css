@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+@theme {
+  /* Apex Scholar brand — dark base + teal primary + slate-blue accent */
+  --color-base-950: #05080d;
+  --color-base-900: #0a0f17;
+  --color-base-850: #0f1621;
+  --color-base-800: #151e2c;
+  --color-base-750: #1b2638;
+  --color-base-700: #223049;
+
+  --color-content-primary: #f1f5ff;
+  --color-content-secondary: #b4bfd4;
+  --color-content-muted: #7a8699;
+  --color-content-disabled: #4c5568;
+
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-subtle: rgba(255, 255, 255, 0.04);
+  --color-border-strong: rgba(255, 255, 255, 0.16);
+
+  /* Teal primary (from Apex Scholar design tokens) */
+  --color-primary-300: #5eead4;
+  --color-primary-400: #2dd4bf;
+  --color-primary-500: #14b8a6;
+  --color-primary-600: #0d9488;
+  --color-primary-700: #0f766e;
+
+  /* Slate-blue accent */
+  --color-accent-300: #93c5fd;
+  --color-accent-400: #60a5fa;
+  --color-accent-500: #3b82f6;
+
+  --color-success-400: #4ade80;
+  --color-warning-400: #facc15;
+  --color-error-400: #f87171;
+  --color-info-400: #60a5fa;
+
+  --font-display: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Source Sans 3", ui-sans-serif, system-ui, sans-serif;
+}
+
+html,
+body,
+#__remotion-studio-root,
+#remotion-root {
+  background: var(--color-base-950);
+  color: var(--color-content-primary);
+  font-family: var(--font-body);
+}

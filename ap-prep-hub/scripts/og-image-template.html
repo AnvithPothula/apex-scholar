@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Apex Scholar — OG Image (1200×630)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Source+Sans+3:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body {
+        background: #0a0f17;
+        font-family: "Source Sans 3", system-ui, sans-serif;
+        color: #f1f5ff;
+      }
+      .canvas {
+        width: 1200px;
+        height: 630px;
+        position: relative;
+        overflow: hidden;
+        background:
+          radial-gradient(60% 70% at 30% 35%, rgba(20,184,166,0.42) 0%, transparent 60%),
+          radial-gradient(55% 60% at 80% 70%, rgba(96,165,250,0.30) 0%, transparent 60%),
+          #05080d;
+      }
+      .grid {
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+        background-size: 64px 64px;
+        mask-image: radial-gradient(70% 70% at 50% 50%, black 40%, transparent 100%);
+        -webkit-mask-image: radial-gradient(70% 70% at 50% 50%, black 40%, transparent 100%);
+        opacity: 0.6;
+      }
+      .vignette {
+        position: absolute; inset: 0;
+        background: radial-gradient(100% 100% at 50% 50%, transparent 50%, rgba(0,0,0,0.5) 100%);
+      }
+      .content {
+        position: relative;
+        height: 100%;
+        padding: 80px 90px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+      .top {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+      }
+      .logo {
+        width: 120px;
+        height: 120px;
+        border-radius: 28px;
+        background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
+        border: 2px solid rgba(94,234,212,0.35);
+        box-shadow: 0 0 40px rgba(20,184,166,0.45);
+        position: relative;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .logo svg { width: 78px; height: 78px; }
+      .wordmark {
+        font-family: "Plus Jakarta Sans", sans-serif;
+        font-weight: 700;
+        font-size: 64px;
+        letter-spacing: -0.02em;
+        line-height: 1;
+      }
+      .wordmark .accent { color: #2dd4bf; }
+      .middle {
+        max-width: 1020px;
+      }
+      h1 {
+        font-family: "Plus Jakarta Sans", sans-serif;
+        font-weight: 800;
+        font-size: 92px;
+        line-height: 1.02;
+        letter-spacing: -0.03em;
+        margin-bottom: 24px;
+      }
+      h1 .hi { color: #5eead4; }
+      .subtitle {
+        font-size: 30px;
+        line-height: 1.35;
+        color: #b4bfd4;
+        max-width: 920px;
+      }
+      .features {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .chip {
+        padding: 10px 18px;
+        background: rgba(20,184,166,0.13);
+        border: 1px solid rgba(45,212,191,0.32);
+        border-radius: 999px;
+        font-family: "Plus Jakarta Sans", sans-serif;
+        font-weight: 600;
+        font-size: 18px;
+        color: #5eead4;
+        white-space: nowrap;
+      }
+      .chip.alt {
+        background: rgba(59,130,246,0.13);
+        border-color: rgba(96,165,250,0.32);
+        color: #93c5fd;
+      }
+      .url-strip {
+        position: absolute;
+        bottom: 0; left: 0; right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #5eead4, #2dd4bf, #60a5fa);
+        box-shadow: 0 0 18px rgba(45,212,191,0.55);
+      }
+      .domain {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-family: "Plus Jakarta Sans", sans-serif;
+        font-weight: 600;
+        font-size: 22px;
+        color: #5eead4;
+        letter-spacing: 0.02em;
+      }
+      .dot {
+        width: 8px; height: 8px; border-radius: 999px;
+        background: #2dd4bf;
+        box-shadow: 0 0 12px rgba(45,212,191,0.7);
+      }
+      .help {
+        position: fixed;
+        top: 8px; left: 8px;
+        font-family: monospace;
+        font-size: 13px;
+        background: rgba(0,0,0,0.6);
+        color: white;
+        padding: 8px 12px;
+        border-radius: 6px;
+        max-width: 540px;
+        line-height: 1.4;
+      }
+      @media print { .help { display: none; } }
+    </style>
+  </head>
+  <body>
+    <div class="help">
+      <strong>How to export this as og-image.png:</strong><br>
+      1. Open this file in Chrome.<br>
+      2. DevTools (Cmd+Opt+I) → Cmd+Shift+P → type "Capture node screenshot".<br>
+      3. Click the <code>.canvas</code> element in Elements panel, then run the command.<br>
+      4. Save the resulting PNG as <code>public/og-image.png</code>.<br>
+      <em>(Or just take a 1200×630 area screenshot of the canvas with Cmd+Shift+4 → Space.)</em>
+    </div>
+
+    <div class="canvas">
+      <div class="grid"></div>
+      <div class="vignette"></div>
+
+      <div class="content">
+        <div class="top">
+          <div class="logo">
+            <svg viewBox="0 0 120 120" fill="none">
+              <path d="M30 90 L60 24 L90 90"
+                    stroke="#5eead4" stroke-width="9"
+                    stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              <path d="M44 68 L76 68"
+                    stroke="#5eead4" stroke-width="7" stroke-linecap="round"/>
+              <circle cx="60" cy="22" r="4.5" fill="#5eead4"/>
+            </svg>
+          </div>
+          <div class="wordmark">Apex <span class="accent">Scholar</span></div>
+        </div>
+
+        <div class="middle">
+          <h1>AI-powered <span class="hi">AP exam prep.</span></h1>
+          <p class="subtitle">
+            AI tutors for every subject, full-length practice tests with rubric grading,
+            smart scheduling, flashcards, and a photo solver. Free.
+          </p>
+        </div>
+
+        <div class="features">
+          <span class="chip">AI Tutors</span>
+          <span class="chip alt">Smart Scheduler</span>
+          <span class="chip">Practice Tests</span>
+          <span class="chip alt">Flashcards</span>
+          <span class="chip">Solver</span>
+          <span class="chip alt">Diagnostics</span>
+        </div>
+      </div>
+
+      <div class="url-strip"></div>
+    </div>
+  </body>
+</html>

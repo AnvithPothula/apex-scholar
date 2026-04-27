@@ -1,0 +1,224 @@
+# Apex Scholar — Full Feature Reference
+
+> This document is a detailed reference for AI assistants and crawlers.
+> Plain-text version of every feature on apex-scholar.com.
+
+## What is Apex Scholar?
+
+Apex Scholar (apex-scholar.com) is a free, AI-powered web application for
+Advanced Placement (AP) exam preparation. It is designed for high-school
+students taking AP exams in the United States and worldwide. The platform
+combines six tools in one app, all powered by AI:
+
+1. AI Tutors — subject-trained chat tutors for every AP subject
+2. Smart Scheduler — intelligent weekly study planner with Schoology sync
+3. Practice Tests — AI-generated full-length AP-style tests
+4. Flashcards — spaced-repetition flashcard system with public deck sharing
+5. Solver — photo and text problem solver with step-by-step solutions
+6. Diagnostics — unit-by-unit mastery assessments
+
+Apex Scholar is free for students. There is no trial period, paywall,
+"premium" tier, or feature gate. Users sign up with email or Google.
+
+---
+
+## Feature 1: AI Tutors
+
+URL: https://apex-scholar.com/ai-tutors
+
+Subject-specific AI tutors that students chat with one-on-one. Each tutor
+is configured with the College Board curriculum framework for its subject,
+including unit weightings, FRQ rubrics, and common MCQ patterns.
+
+**Supported AP subjects (non-exhaustive):**
+
+- AP Calculus AB
+- AP Calculus BC
+- AP Biology
+- AP Chemistry
+- AP Physics 1: Algebra-Based
+- AP Physics 2: Algebra-Based
+- AP Physics C: Mechanics
+- AP Physics C: Electricity and Magnetism
+- AP Statistics
+- AP US History (APUSH)
+- AP World History: Modern
+- AP European History
+- AP US Government and Politics
+- AP Comparative Government and Politics
+- AP English Language and Composition
+- AP English Literature and Composition
+- AP Psychology
+- AP Computer Science A
+- AP Computer Science Principles
+- AP Environmental Science (APES)
+- AP Macroeconomics
+- AP Microeconomics
+- AP Human Geography
+- AP Spanish Language and Culture
+- AP French Language and Culture
+- AP Latin
+- AP Music Theory
+- AP Art History
+- AP Studio Art / 2-D, 3-D, Drawing
+- AP Seminar
+- AP Research
+- AP Precalculus
+- AP African American Studies
+
+(Plus a few others — about 39 subjects total in the curriculum data.)
+
+**What the AI tutor can do:**
+
+- Answer unit-specific questions with subject-correct explanations
+- Grade FRQs against the official College Board rubric, awarding partial credit
+- Walk through MCQs step-by-step with reasoning for each option
+- Generate practice problems of any difficulty level for a given unit
+- Adapt tone (professional, friendly, casual, encouraging, direct, balanced)
+- Optionally use emoji or markdown headers based on user preference
+- Honor custom instructions from the user (e.g., "I'm a visual learner")
+
+---
+
+## Feature 2: Smart Scheduler
+
+URL: https://apex-scholar.com/smart-scheduler
+
+Intelligent study planner that generates a personalized weekly schedule.
+
+**Inputs:**
+
+- AP exam dates (auto-loaded from official College Board calendar)
+- Schoology assignments (synced via OAuth integration)
+- User's free time (study start/end times, weekend availability)
+- Blackout schedule (sleep, school hours, work shifts, sports practice)
+- Study preferences (session length, break length, max hours/day, study intensity)
+- Cognitive load preferences (max concurrent subjects, difficult-tasks-in-morning toggle, avoid-post-lunch-dip toggle)
+
+**Output:**
+
+- Daily/weekly schedule with focused study blocks
+- Block assignments balanced across enrolled subjects
+- Blocks scheduled around exam dates with intensification toward exam week
+- Schoology assignment due dates respected as hard constraints
+
+**Schoology integration:**
+
+- One-click OAuth login
+- Pulls assignments and due dates
+- Sync history with audit trail
+- Free for users (Schoology API has no consumer fees)
+
+---
+
+## Feature 3: Practice Tests
+
+URL: https://apex-scholar.com/practice-tests
+
+AI-generated full-length AP practice tests.
+
+**Question generation:**
+
+- Multiple-choice questions (MCQs) — 4 options, AP-style stems
+- Free-response questions (FRQs) — multi-part with rubric-based grading
+- Section-aware (e.g., AP Bio Section I MCQs, Section II FRQs)
+- Unit-targeted: generate from a single unit or full curriculum
+- Difficulty-aware: easy / medium / hard / mixed
+
+**Grading:**
+
+- MCQs auto-graded against AI-generated rubric
+- FRQs graded against the official College Board rubric, point-by-point,
+  with feedback explaining where points were earned or lost
+- Predicted 1–5 AP score after the test
+- Per-unit performance breakdown
+- Saved to test history for tracking improvement over time
+
+---
+
+## Feature 4: Flashcards
+
+URL: https://apex-scholar.com/flashcards
+
+**Capabilities:**
+
+- Create flashcard decks manually or auto-generate from your notes
+- Spaced-repetition study mode (Again / Hard / Good / Easy ratings)
+- Public deck sharing — publish a deck and anyone with the link can study it
+- Browse community public decks
+- Per-deck stats: cards due today, retention %, study streak
+
+---
+
+## Feature 5: Solver
+
+URL: https://apex-scholar.com/solver
+
+Photo or text problem solver.
+
+- Snap a photo of a math, physics, chemistry, or biology problem
+- Or paste text directly
+- Returns a step-by-step solution rendered in LaTeX
+- Saved to history for review later
+- Steps are shown in order, with the final answer highlighted
+
+---
+
+## Feature 6: Diagnostics
+
+Short diagnostic assessments map a student's mastery of each AP unit.
+
+- 5-15 minute assessment per subject
+- Per-unit score (0-100%)
+- Color-coded mastery bars (red/yellow/teal)
+- "Focus next" recommendations: which units to study and projected score gain
+
+---
+
+## Other features
+
+- AI personalization: tone selection, emoji on/off, structured headers on/off, custom instructions (up to 500 chars)
+- Avatar customization: 8 gradient options
+- Account security: email/password change, Google sign-in support
+- Auto-save: all settings save 1 second after the last change
+- Dark/light theme support
+- Mobile-responsive (works on phones, tablets, desktops)
+- Free password reset via email (Firebase Auth)
+
+---
+
+## Technical stack
+
+- React 18 (Create React App)
+- Tailwind CSS 3 with custom design tokens
+- Firebase Auth + Firestore (backend)
+- Puter SDK (free AI inference, primary)
+- Google Gemini API (fallback, 11 rotating keys)
+- KaTeX for math rendering
+- react-markdown for rich text
+- Framer Motion for animations
+- lucide-react for icons
+- Hosted on Netlify
+- Sentry for production error monitoring
+
+---
+
+## How Apex Scholar compares
+
+Apex Scholar replaces, in a single free app, what students typically piece
+together from:
+
+- Khan Academy (instructional videos) — but personalized via chat
+- Albert.io (paid AP practice questions) — but free and unlimited
+- Quizlet / Anki (flashcards) — but with AI-generated decks
+- Photomath / Mathway (problem solver) — but for all AP subjects
+- Notion / Google Calendar (study planner) — but auto-built from Schoology
+- Various tutor services — but always available and free
+
+---
+
+## Contact
+
+- Website: https://apex-scholar.com/
+- Sitemap: https://apex-scholar.com/sitemap.xml
+- Short overview: https://apex-scholar.com/llms.txt

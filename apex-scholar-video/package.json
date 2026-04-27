@@ -1,0 +1,29 @@
+{
+  "name": "apex-scholar-video",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Promotional video for Apex Scholar — AI-powered AP exam prep platform.",
+  "scripts": {
+    "dev": "remotion studio",
+    "studio": "remotion studio",
+    "render": "remotion render ApexScholarPromo out/apex-scholar.mp4",
+    "render:gif": "remotion render ApexScholarPromo out/apex-scholar.gif --codec=gif",
+    "upgrade": "remotion upgrade"
+  },
+  "dependencies": {
+    "@remotion/bundler": "4.0.402",
+    "@remotion/cli": "4.0.402",
+    "@remotion/fonts": "4.0.402",
+    "@remotion/google-fonts": "4.0.402",
+    "@remotion/tailwind-v4": "4.0.402",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "remotion": "4.0.402"
+  },
+  "devDependencies": {
+    "@types/react": "19.0.0",
+    "@types/web": "0.0.166",
+    "tailwindcss": "^4.0.0",
+    "typescript": "5.8.2"
+  }
+}

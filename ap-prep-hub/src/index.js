@@ -4,22 +4,66 @@ import * as Sentry from '@sentry/react';
 import './index.css';
 import App from './App';
 
-// Initialize Sentry error monitoring in production
+// Initialize Sentry error monitoring in production.
+// Project: apex-scholar (https://sentry.io)
+//
+// Only initializes when NODE_ENV=production AND a DSN is set in env. That
+// means `npm start` (dev) never reports — to test locally, run `npm run build`
+// and serve the build folder.
 if (process.env.NODE_ENV === 'production' && process.env.REACT_APP_SENTRY_DSN) {
   Sentry.init({
     dsn: process.env.REACT_APP_SENTRY_DSN,
     environment: process.env.REACT_APP_SENTRY_ENV || 'production',
     release: process.env.REACT_APP_VERSION || undefined,
-    // Capture 10% of transactions for performance monitoring
+
+    // Auto-collect IP address, browser, user agent, etc. with each event.
+    // Useful for debugging — disable if you have stricter PII requirements.
+    sendDefaultPii: true,
+
+    integrations: [
+      // Performance monitoring — captures page loads, navigations, API calls
+      Sentry.browserTracingIntegration(),
+      // Session Replay — captures a video-like reproduction of user sessions
+      // on errors (great for "I can't reproduce this bug" cases)
+      Sentry.replayIntegration({
+        maskAllText: false,
+        blockAllMedia: false,
+      }),
+    ],
+
+    // Performance: 10% of transactions. Free tier = 10K transactions/month;
+    // bump to 1.0 if you want every transaction (will burn quota fast).
     tracesSampleRate: 0.1,
-    // Capture 10% of sessions for session replay, 100% for sessions with errors
+
+    // Distributed tracing: only attach Sentry trace headers when calling
+    // these URLs. Add Firebase / Netlify Functions / any external API here.
+    tracePropagationTargets: [
+      'localhost',
+      /^\//, // same-origin requests (relative URLs)
+      /^https:\/\/.*\.firebaseio\.com/,
+      /^https:\/\/.*\.googleapis\.com/,
+      /^https:\/\/.*\.netlify\.app/,
+      /^https:\/\/apex-scholar\.app/,
+    ],
+
+    // Session Replay: 0% of normal sessions, 100% of sessions where an error
+    // occurred. Free tier = 50 replays/month — keep idle replay off.
     replaysSessionSampleRate: 0.0,
     replaysOnErrorSampleRate: 1.0,
-    // Filter out noisy errors
+
+    // Forward console.log / console.error / etc. as logs in Sentry.
+    // (Sentry's "Logs" feature, separate from issues.)
+    enableLogs: true,
+
+    // Filter out noisy errors that aren't actionable
     ignoreErrors: [
       'ResizeObserver loop limit exceeded',
+      'ResizeObserver loop completed with undelivered notifications',
       'Non-Error promise rejection captured',
       'Network request failed',
+      // Browser extensions inject scripts that throw spurious errors
+      /extension:\/\//i,
+      /chrome-extension:\/\//i,
     ],
   });
 }

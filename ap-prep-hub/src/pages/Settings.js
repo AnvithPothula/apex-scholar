@@ -7,6 +7,7 @@ import { getAvailableSubjects, getSubjectName } from '../constants/comprehensive
 import { setUserTimezonePreference } from '../utils/timezone';
 import BlackoutScheduleManager from '../components/settings/BlackoutScheduleManager';
 import { SchoologyIntegration } from '../components/settings/SchoologyIntegration';
+import SettingsSidebar from '../components/settings/SettingsSidebar';
 import { Button, Card, CardHeader, CardTitle, CardContent, Input, FloatingInput, ValidatedInput } from '../components/ui/UIComponents';
 import CustomDropdown from '../components/ui/CustomDropdown';
 import MultiSelectDropdown from '../components/ui/MultiSelectDropdown';
@@ -272,6 +273,22 @@ const Settings = () => {
     }
   };
 
+  // Sidebar "Reset all settings" — wipes preferences/personalization/blackout
+  // back to defaults but leaves subjects + account info untouched. The
+  // confirm dialog is shown by the sidebar before this fires.
+  const handleResetAllSettings = useCallback(() => {
+    setStudyPreferences(getDefaultStudyPreferences());
+    setAiPersonalization({
+      style: 'balanced',
+      useEmoji: false,
+      useHeaders: true,
+      customInstructions: '',
+    });
+    setBlackoutDates(getDefaultBlackoutSchedule());
+    setMessage('All settings reset to defaults. Auto-save in progress…');
+    setTimeout(() => setMessage(''), 3500);
+  }, []);
+
   const handleNameSave = async () => {
     if (!user?.uid) return;
     const trimmed = displayName.trim();
@@ -329,7 +346,7 @@ const Settings = () => {
 
   return (
     <div className="min-h-screen bg-base-950">
-      <div className="container mx-auto p-3 sm:p-4 md:p-8 max-w-6xl">
+      <div className="container mx-auto p-3 sm:p-4 md:p-8 max-w-7xl">
         <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-content-primary">
           Settings
           {isSaving && (
@@ -351,9 +368,13 @@ const Settings = () => {
           </div>
         )}
 
+        <div className="flex flex-col lg:flex-row lg:gap-8 lg:items-start">
+          <SettingsSidebar isSaving={isSaving} onResetAll={handleResetAllSettings} />
+
+          <div className="flex-1 min-w-0">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
           {/* Profile Section */}
-          <Card className="bg-base-850 border-border md:col-span-2 overflow-visible relative z-10">
+          <Card id="settings-profile" className="bg-base-850 border-border md:col-span-2 overflow-visible relative z-10 scroll-mt-32 lg:scroll-mt-20">
             <CardHeader className="p-4 sm:p-6">
               <CardTitle className="text-content-primary text-lg sm:text-xl">Profile</CardTitle>
             </CardHeader>
@@ -412,7 +433,7 @@ const Settings = () => {
           </Card>
 
           {/* AI Personalization */}
-          <Card className="bg-base-850 border-border md:col-span-2">
+          <Card id="settings-ai" className="bg-base-850 border-border md:col-span-2 scroll-mt-32 lg:scroll-mt-20">
             <CardHeader className="p-4 sm:p-6">
               <CardTitle className="text-content-primary text-lg sm:text-xl">
                 AI Tutor Personalization
@@ -494,7 +515,7 @@ const Settings = () => {
             </CardContent>
           </Card>
 
-          <Card className="bg-base-850 border-border md:col-span-2">
+          <Card id="settings-subjects" className="bg-base-850 border-border md:col-span-2 scroll-mt-32 lg:scroll-mt-20">
             <CardHeader className="p-4 sm:p-6">
               <CardTitle className="text-content-primary text-lg sm:text-xl">Your AP Subjects</CardTitle>
             </CardHeader>
@@ -511,7 +532,7 @@ const Settings = () => {
             </CardContent>
           </Card>
 
-          <Card className="bg-base-850 border-border md:col-span-2">
+          <Card id="settings-study" className="bg-base-850 border-border md:col-span-2 scroll-mt-32 lg:scroll-mt-20">
             <CardHeader className="p-4 sm:p-6">
               <CardTitle className="text-content-primary text-lg sm:text-xl">
                 Study Preferences
@@ -523,7 +544,7 @@ const Settings = () => {
             <CardContent className="p-4 sm:p-6 pt-0">
               <div className="space-y-6">
                 {/* Session Timing */}
-                <div className="bg-base-800/30 p-4 rounded-lg">
+                <div id="settings-study-session" className="bg-base-800/30 p-4 rounded-lg scroll-mt-32 lg:scroll-mt-20">
                   <h3 className="text-md font-semibold text-content-primary mb-3">Session Timing</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -602,7 +623,7 @@ const Settings = () => {
                 </div>
 
                 {/* Schedule Timing */}
-                <div className="bg-base-800/30 p-4 rounded-lg">
+                <div id="settings-study-daily" className="bg-base-800/30 p-4 rounded-lg scroll-mt-32 lg:scroll-mt-20">
                   <h3 className="text-md font-semibold text-content-primary mb-3">Daily Schedule</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -645,7 +666,7 @@ const Settings = () => {
                 </div>
 
                 {/* Learning Preferences */}
-                <div className="bg-base-800/30 p-4 rounded-lg">
+                <div id="settings-study-learning" className="bg-base-800/30 p-4 rounded-lg scroll-mt-32 lg:scroll-mt-20">
                   <h3 className="text-md font-semibold text-content-primary mb-3">Learning Optimization</h3>
                   <div className="space-y-4">
                     <div>
@@ -731,7 +752,7 @@ const Settings = () => {
                 </div>
 
                 {/* Advanced Options */}
-                <div className="bg-base-800/30 p-4 rounded-lg">
+                <div id="settings-study-advanced" className="bg-base-800/30 p-4 rounded-lg scroll-mt-32 lg:scroll-mt-20">
                   <h3 className="text-md font-semibold text-content-primary mb-3">Advanced Features</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {[
@@ -777,12 +798,12 @@ const Settings = () => {
           </Card>
         </div>
 
-        <div className="mt-6 sm:mt-8">
+        <div id="settings-schoology" className="mt-6 sm:mt-8 scroll-mt-32 lg:scroll-mt-20">
           <SchoologyIntegration />
         </div>
 
         <div className="mt-6 sm:mt-8">
-          <Card className="bg-base-850 border-border">
+          <Card id="settings-blackout" className="bg-base-850 border-border scroll-mt-32 lg:scroll-mt-20">
             <CardHeader className="p-4 sm:p-6">
               <CardTitle className="text-content-primary text-lg sm:text-xl">Blackout Schedule</CardTitle>
             </CardHeader>
@@ -798,7 +819,7 @@ const Settings = () => {
 
         {/* Account Security */}
         <div className="mt-6 sm:mt-8">
-          <Card className="bg-base-850 border-border">
+          <Card id="settings-account" className="bg-base-850 border-border scroll-mt-32 lg:scroll-mt-20">
             <CardHeader className="p-4 sm:p-6">
               <CardTitle className="text-content-primary text-lg sm:text-xl">Account Security</CardTitle>
             </CardHeader>
@@ -949,10 +970,12 @@ const Settings = () => {
         </div>
 
         {/* Auto-save indicator */}
-        <div className="mt-6 sm:mt-8 flex justify-center sm:justify-end items-center">
+        <div className="mt-6 sm:mt-8 flex justify-center sm:justify-end items-center lg:hidden">
           <div className="text-sm text-content-muted flex items-center gap-2">
             <span className="w-2 h-2 bg-success-500 rounded-full"></span>
             Settings auto-save when changed
+          </div>
+        </div>
           </div>
         </div>
       </div>
