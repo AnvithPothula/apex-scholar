@@ -5,7 +5,28 @@ import { formatDateInUserTimezone, formatTimeInUserTimezone } from './timezone';
 // Utility function for conditional class names (clsx + tailwind-merge)
 export const cn = (...inputs) => twMerge(clsx(inputs));
 
-export const createPageUrl = (pageName, param = '') => `/${pageName}${param ? `/${param}` : ''}`;
+/**
+ * Convert a PascalCase page name to a kebab-case URL slug.
+ *
+ *   "AITutors"        → "ai-tutors"
+ *   "SmartScheduler"  → "smart-scheduler"
+ *   "PracticeTests"   → "practice-tests"
+ *   "Flashcards"      → "flashcards"
+ *
+ * The two regex passes handle both normal PascalCase boundaries
+ * ("smart|Scheduler") and consecutive-acronym boundaries ("AI|Tutors")
+ * before lowercasing the whole string.
+ */
+const pascalToKebab = (s) =>
+  s
+    .replace(/([a-z])([A-Z])/g, '$1-$2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1-$2')
+    .toLowerCase();
+
+export const createPageUrl = (pageName, param = '') => {
+  const slug = pascalToKebab(pageName);
+  return `/${slug}${param ? `/${param}` : ''}`;
+};
 
 export const formatDate = (date) => {
     if (!date) return '';

@@ -2,5 +2,21 @@
 # This makes signInWithRedirect work on custom domains by keeping everything same-origin
 /__/*  https://ai-study-helper-f2f24.firebaseapp.com/__/:splat  200!
 
+# 301 redirects: old PascalCase URLs → canonical kebab-case URLs.
+# These exist so old bookmarks, external links, and Google's previously-indexed
+# entries all consolidate link equity onto the new canonical paths.
+/AITutors          /ai-tutors          301
+/AITutors/*        /ai-tutors/:splat   301
+/SmartScheduler    /smart-scheduler    301
+/SmartScheduler/*  /smart-scheduler/:splat  301
+/PracticeTests     /practice-tests     301
+/PracticeTests/*   /practice-tests/:splat   301
+/Flashcards        /flashcards         301
+/Flashcards/*      /flashcards/:splat  301
+/Solver            /solver             301
+/Solver/*          /solver/:splat      301
+/Settings          /settings           301
+/Settings/*        /settings/:splat    301
+
 # SPA fallback
 /* /index.html 200
