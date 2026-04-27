@@ -18,10 +18,15 @@
     <link rel="alternate" hreflang="en" href="https://apex-scholar.com/" />
     <link rel="alternate" hreflang="x-default" href="https://apex-scholar.com/" />
 
-    <!-- Preconnect to critical third-party origins -->
-    <link rel="preconnect" href="https://firebaseinstallations.googleapis.com" />
-    <link rel="preconnect" href="https://identitytoolkit.googleapis.com" />
-    <link rel="preconnect" href="https://generativelanguage.googleapis.com" />
+    <!-- DNS prefetch for origins we may hit later in the session.
+         Lighthouse flagged earlier preconnect entries here as unused on the
+         landing page (Firebase Auth doesn't fire until the user clicks Sign In,
+         and Gemini only kicks in after auth). preconnect is "spend the budget
+         now" while dns-prefetch is "save the IP for later" — much cheaper. -->
+    <link rel="dns-prefetch" href="https://identitytoolkit.googleapis.com" />
+    <link rel="dns-prefetch" href="https://firestore.googleapis.com" />
+    <link rel="dns-prefetch" href="https://generativelanguage.googleapis.com" />
+    <link rel="dns-prefetch" href="https://firebaseinstallations.googleapis.com" />
     <link rel="dns-prefetch" href="https://js.puter.com" />
 
     <!-- Design System Fonts -->

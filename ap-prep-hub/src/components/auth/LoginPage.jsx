@@ -182,19 +182,7 @@ export function LoginPage() {
                             />
                         </div>
                         <div>
-                            <div className="flex items-center justify-between mb-1.5">
-                                <label htmlFor="password" className="block text-sm font-medium text-content-secondary">Password</label>
-                                {!isSignUp && (
-                                    <button
-                                        type="button"
-                                        onClick={handleForgotPassword}
-                                        className="text-xs text-content-muted hover:text-content-primary transition-colors"
-                                        disabled={isLoading}
-                                    >
-                                        Forgot password?
-                                    </button>
-                                )}
-                            </div>
+                            <label htmlFor="password" className="block text-sm font-medium text-content-secondary mb-1.5">Password</label>
                             <Input
                                 id="password"
                                 type="password"
@@ -204,6 +192,24 @@ export function LoginPage() {
                                 placeholder="Your password"
                                 required
                             />
+                            {/* "Forgot password?" sits below the password input on its
+                                own line so the tap target has room to breathe (Apple
+                                HIG: ≥44pt, Lighthouse flagged the prior inline placement
+                                because the 88×16px button overlapped the password input
+                                tap area). Negative right margin keeps the visual edge
+                                aligned with the input border. */}
+                            {!isSignUp && (
+                                <div className="flex justify-end mt-1.5">
+                                    <button
+                                        type="button"
+                                        onClick={handleForgotPassword}
+                                        className="inline-flex items-center text-xs text-content-muted hover:text-content-primary transition-colors px-2 py-1.5 -mr-2 rounded min-h-[28px]"
+                                        disabled={isLoading}
+                                    >
+                                        Forgot password?
+                                    </button>
+                                </div>
+                            )}
                         </div>
 
                         {successMessage && (
