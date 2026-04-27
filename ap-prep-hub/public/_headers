@@ -1,0 +1,23 @@
+# Force correct Content-Type for SEO files so search engines parse them
+# correctly. Without this, Netlify can serve them as text/html in some
+# cases — which makes Bing/Google reject the sitemap as "HTML, not XML".
+
+/sitemap.xml
+  Content-Type: application/xml; charset=utf-8
+  Cache-Control: public, max-age=3600
+
+/robots.txt
+  Content-Type: text/plain; charset=utf-8
+  Cache-Control: public, max-age=3600
+
+/llms.txt
+  Content-Type: text/plain; charset=utf-8
+  Cache-Control: public, max-age=3600
+
+/llms-full.txt
+  Content-Type: text/plain; charset=utf-8
+  Cache-Control: public, max-age=3600
+
+# IndexNow ownership-verification key file
+/*.txt
+  Content-Type: text/plain; charset=utf-8

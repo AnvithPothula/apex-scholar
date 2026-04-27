@@ -2,38 +2,207 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#14b8a6" />
+
+    <!-- Favicons -->
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico?v=20250825" />
     <link rel="icon" type="image/png" sizes="64x64" href="%PUBLIC_URL%/favicon-64.png">
     <link rel="icon" type="image/png" sizes="32x32" href="%PUBLIC_URL%/favicon-32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="%PUBLIC_URL%/favicon-16.png">
     <link rel="apple-touch-icon" sizes="192x192" href="%PUBLIC_URL%/Apex_Scholar_Logo_NoText.png" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+
+    <!-- Canonical & alt-language -->
+    <link rel="canonical" href="https://apex-scholar.com/" />
+    <link rel="alternate" hreflang="en" href="https://apex-scholar.com/" />
+    <link rel="alternate" hreflang="x-default" href="https://apex-scholar.com/" />
+
     <!-- Preconnect to critical third-party origins -->
     <link rel="preconnect" href="https://firebaseinstallations.googleapis.com" />
     <link rel="preconnect" href="https://identitytoolkit.googleapis.com" />
     <link rel="preconnect" href="https://generativelanguage.googleapis.com" />
     <link rel="dns-prefetch" href="https://js.puter.com" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#14b8a6" />
+
     <!-- Design System Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Source+Sans+3:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Primary SEO -->
+    <title>Apex Scholar — AI Tutors, Practice Tests &amp; Smart Scheduler for AP Exams</title>
     <meta
       name="description"
-      content="Apex Scholar - AI-Powered Study Assistant for Advanced Placement Courses"
+      content="Apex Scholar is the all-in-one AI study platform for AP exam prep. Subject-trained AI tutors, full-length AI-generated practice tests with rubric scoring, smart Schoology-integrated scheduling, flashcards with spaced repetition, a photo problem solver, and unit-by-unit diagnostics — free."
     />
-    <!-- Educational classification meta tags for content filters -->
+    <meta name="keywords" content="AP exam prep, AP study tool, AI tutor, AP practice tests, AP Calculus help, AP Biology tutor, AP Chemistry practice, AP US History, AP English Language, AP Statistics, free AP study, AP flashcards, AP problem solver, college board, advanced placement, smart scheduler, Schoology integration, study planner, AP score predictor, FRQ grader, MCQ practice" />
+    <meta name="author" content="Apex Scholar" />
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+    <meta name="googlebot" content="index, follow" />
+    <meta name="bingbot" content="index, follow" />
     <meta name="classification" content="Education" />
     <meta name="category" content="Education" />
     <meta name="rating" content="General" />
-    <meta name="robots" content="index, follow" />
-    <meta name="author" content="Apex Scholar" />
-    <meta name="keywords" content="education, AP courses, Advanced Placement, study tool, learning, academic, K-12, high school, exam preparation, College Board" />
+    <meta name="application-name" content="Apex Scholar" />
+    <meta name="apple-mobile-web-app-title" content="Apex Scholar" />
+
+    <!-- Open Graph -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="Apex Scholar - Educational Study Assistant" />
-    <meta property="og:description" content="AI-powered educational platform for Advanced Placement course preparation and study assistance" />
     <meta property="og:site_name" content="Apex Scholar" />
+    <meta property="og:title" content="Apex Scholar — AI-Powered AP Exam Prep" />
+    <meta property="og:description" content="Free AI tutors for every AP subject, full-length practice tests with predicted scores, smart scheduling synced to Schoology, flashcards, and a photo solver. The all-in-one AP study platform." />
+    <meta property="og:url" content="https://apex-scholar.com/" />
+    <meta property="og:image" content="https://apex-scholar.com/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Apex Scholar — AI-powered AP exam prep platform" />
+    <meta property="og:locale" content="en_US" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Apex Scholar — AI-Powered AP Exam Prep" />
+    <meta name="twitter:description" content="AI tutors for every AP subject, full-length AI practice tests, smart scheduling, flashcards, and a photo problem solver. Free." />
+    <meta name="twitter:image" content="https://apex-scholar.com/og-image.png" />
+    <meta name="twitter:image:alt" content="Apex Scholar — AI-powered AP exam prep platform" />
+
+    <!-- JSON-LD: Organization -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "EducationalOrganization",
+      "name": "Apex Scholar",
+      "alternateName": ["ApexScholar", "Apex Scholar AP Prep"],
+      "url": "https://apex-scholar.com/",
+      "logo": "https://apex-scholar.com/Apex_Scholar_Logo.png",
+      "image": "https://apex-scholar.com/og-image.png",
+      "description": "AI-powered study platform for Advanced Placement (AP) exam preparation, offering subject-trained AI tutors, AI-generated practice tests, smart scheduling, flashcards, a problem solver, and diagnostics.",
+      "sameAs": [
+        "https://twitter.com/ApexScholarApp",
+        "https://www.instagram.com/apexscholarapp",
+        "https://www.linkedin.com/company/apex-scholar"
+      ]
+    }
+    </script>
+
+    <!-- JSON-LD: WebSite + SearchAction -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "Apex Scholar",
+      "url": "https://apex-scholar.com/",
+      "inLanguage": "en-US",
+      "publisher": {
+        "@type": "EducationalOrganization",
+        "name": "Apex Scholar"
+      }
+    }
+    </script>
+
+    <!-- JSON-LD: SoftwareApplication -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Apex Scholar",
+      "applicationCategory": "EducationalApplication",
+      "applicationSubCategory": "Test Preparation",
+      "operatingSystem": "Web (Chrome, Safari, Firefox, Edge)",
+      "url": "https://apex-scholar.com/",
+      "image": "https://apex-scholar.com/og-image.png",
+      "description": "AI-powered AP exam preparation: subject-specific AI tutors, full-length practice tests with rubric grading, smart scheduling with Schoology sync, flashcards with spaced repetition, photo problem solver, and unit-level diagnostics.",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD",
+        "availability": "https://schema.org/InStock"
+      },
+      "featureList": [
+        "AI tutors for 39+ AP subjects (Calculus, Biology, Chemistry, US History, English Language, Statistics, Physics, etc.)",
+        "AI-generated full-length AP practice tests with MCQs and FRQs",
+        "Rubric-aware grading and predicted 1–5 AP score",
+        "Smart Scheduler with Schoology assignment sync",
+        "Flashcard decks with spaced repetition and public deck sharing",
+        "Photo and text problem solver with step-by-step solutions",
+        "Unit-by-unit diagnostic assessments",
+        "LaTeX math rendering",
+        "Free to use"
+      ],
+      "audience": {
+        "@type": "EducationalAudience",
+        "educationalRole": "student",
+        "audienceType": "High school students, AP exam takers"
+      }
+    }
+    </script>
+
+    <!-- JSON-LD: FAQPage — these answers help AI assistants and Google's
+         AI Overviews quote your site directly. -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is Apex Scholar?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Apex Scholar is a free, AI-powered study platform built specifically for Advanced Placement (AP) exam preparation. It combines subject-trained AI tutors, AI-generated full-length practice tests with rubric grading, a Smart Scheduler that syncs with Schoology, flashcards with spaced repetition, a photo problem solver, and unit-level diagnostics in one app."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is Apex Scholar free?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes — Apex Scholar is free for students. There is no trial period or paywall on the AI tutors, practice tests, scheduler, flashcards, or solver."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Which AP subjects does Apex Scholar support?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Apex Scholar supports all major AP subjects, including AP Calculus AB & BC, AP Biology, AP Chemistry, AP Physics 1, AP Physics C, AP Statistics, AP US History, AP World History, AP European History, AP Government, AP English Language, AP English Literature, AP Psychology, AP Computer Science A, AP Computer Science Principles, AP Environmental Science, AP Microeconomics, AP Macroeconomics, AP Human Geography, and more — over 39 subjects total."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How does the AI tutor work?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Each AI tutor is trained on subject-specific College Board frameworks, MCQ patterns, and FRQ rubrics. You can chat one-on-one with the tutor about any unit topic, get FRQs graded against the official rubric, work through practice problems step-by-step, and receive personalized explanations that match your learning style."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does Apex Scholar grade FRQs (free-response questions)?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Apex Scholar's AI grades FRQs against the official College Board rubric, awarding partial credit point-by-point and explaining where points were earned or lost."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does Apex Scholar integrate with Schoology?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. The Smart Scheduler can pull assignments and due dates from Schoology and automatically generates focused study blocks around them, respecting your free time, exam dates, and blackout schedule."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How does the photo problem solver work?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Snap a photo of any problem (math, physics, chemistry, etc.) or paste it as text. The Solver returns a step-by-step LaTeX-rendered solution rather than just an answer, so you can learn the method."
+          }
+        }
+      ]
+    }
+    </script>
+
     <!-- Puter.js for free Gemini API access -->
     <!-- Loaded async so a blocked network (e.g. Lightspeed Filter) doesn't stall page render -->
     <script>
@@ -86,36 +255,20 @@
         document.head.appendChild(s);
 
         // --- Strategy 2: Fast parallel fetch probe ---
-        // Lightspeed may redirect script loads to about:blank without firing
-        // onerror. A fetch() to the same URL lets us detect blocks quickly
-        // because fetch follows redirects and we can inspect the response.
         try {
           fetch('https://js.puter.com/v2/', { mode: 'no-cors', cache: 'no-store' })
-            .then(function() {
-              // mode:'no-cors' returns an opaque response (status 0, type 'opaque')
-              // — this is normal for a successful cross-origin fetch.
-              // If we get here, the network request at least completed.
-              // The onload handler above still validates window.puter.
-            })
+            .then(function() { /* opaque response is fine */ })
             .catch(function() {
-              // fetch itself failed — DNS block, connection refused, or
-              // Lightspeed intercepted and returned something unfetchable.
               markBlocked('Fetch probe to js.puter.com failed (network blocked)');
             });
-        } catch(e) { /* fetch not available — old browser, rely on other checks */ }
+        } catch(e) { /* fetch not available — old browser */ }
 
         // --- Strategy 3: Tiered timeouts ---
-        // These only mark as blocked if __puterLoaded is STILL false AND
-        // window.puter doesn't exist. If the SDK is still loading on a slow
-        // connection but eventually arrives, __puterLoaded will be set by
-        // the onload handler and getPuter() will pick it up live.
-        // We DON'T use markBlocked() at 2s because slow internet exists.
         setTimeout(function() {
           if (!window.__puterLoaded && !window.puter) {
             console.warn('[Puter] SDK not loaded after 3s — may be blocked or slow connection.');
           }
         }, 3000);
-        // At 10s, if still nothing, it's almost certainly blocked.
         setTimeout(function() {
           if (!window.__puterLoaded && !window.puter) {
             markBlocked('SDK not loaded after 10s');
@@ -123,10 +276,56 @@
         }, 10000);
       })();
     </script>
-    <title>Apex Scholar</title>
   </head>
   <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
+    <noscript>
+      <h1>Apex Scholar — AI-Powered AP Exam Prep</h1>
+      <p>
+        Apex Scholar is a free study platform for Advanced Placement exams featuring
+        AI tutors trained on every AP subject, AI-generated full-length practice tests
+        with rubric grading, a smart scheduler that syncs with Schoology, flashcards with
+        spaced repetition, and a photo problem solver. JavaScript is required to use
+        the app.
+      </p>
+    </noscript>
+
+    <div id="root">
+      <!--
+        Fallback content visible to crawlers and AI scrapers before React hydrates.
+        React replaces this on mount; users with JS enabled will never see it.
+        Hidden visually with inline styles so it doesn't flash.
+      -->
+      <div style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;">
+        <h1>Apex Scholar — AI-Powered AP Exam Prep Platform</h1>
+        <p>
+          Free, all-in-one study tool for Advanced Placement exams. Apex Scholar combines
+          AI tutors for every AP subject, AI-generated practice tests with rubric-aware
+          scoring and a predicted 1–5 score, a Smart Scheduler that integrates with
+          Schoology to plan study blocks around your real assignments and free time,
+          flashcards with spaced repetition and shareable public decks, a photo and
+          text problem solver that returns step-by-step solutions in LaTeX, and unit-by-unit
+          diagnostics that map your strengths and weaknesses across each AP unit.
+        </p>
+        <h2>Features</h2>
+        <ul>
+          <li><strong>AI Tutors</strong> — chat one-on-one with subject-trained AI tutors covering AP Calculus AB &amp; BC, AP Biology, AP Chemistry, AP Physics 1 &amp; C, AP Statistics, AP US History, AP World History, AP European History, AP Government, AP English Language, AP English Literature, AP Psychology, AP Computer Science A &amp; Principles, AP Environmental Science, AP Macro &amp; Microeconomics, AP Human Geography, and more.</li>
+          <li><strong>Smart Scheduler</strong> — auto-generates focused study blocks based on your AP exam dates, Schoology assignments, blackout schedule, and study preferences (session length, peak hours, weekend availability).</li>
+          <li><strong>Practice Tests</strong> — unlimited AI-generated AP-style multiple-choice and free-response questions, graded against the official College Board rubric with a predicted 1–5 score.</li>
+          <li><strong>Flashcards</strong> — generate decks from your notes, study with spaced repetition, share public decks with classmates.</li>
+          <li><strong>Solver</strong> — snap a photo or paste text; the solver returns step-by-step LaTeX-rendered solutions for math, physics, chemistry, and more.</li>
+          <li><strong>Diagnostics</strong> — short assessments that map your mastery of each AP unit, then recommend exactly which units to study next.</li>
+        </ul>
+        <h2>Why Apex Scholar</h2>
+        <p>
+          Built specifically for AP students by an AP student. Free with no trial period.
+          Combines what would otherwise require Khan Academy, Albert.io, Quizlet, Anki,
+          Photomath, and a study planner into one app — all powered by AI tutors that
+          understand the College Board frameworks for every AP subject.
+        </p>
+        <p>
+          Apex Scholar is at <a href="https://apex-scholar.com/">apex-scholar.com</a>.
+        </p>
+      </div>
+    </div>
   </body>
 </html>

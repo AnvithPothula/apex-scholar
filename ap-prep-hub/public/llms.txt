@@ -1,0 +1,30 @@
+# Apex Scholar
+
+> Apex Scholar is a free, AI-powered study platform for Advanced Placement (AP) exam preparation. It combines subject-trained AI tutors, AI-generated full-length practice tests with rubric grading, a Smart Scheduler that syncs with Schoology, flashcards with spaced repetition, a photo problem solver, and unit-by-unit diagnostics into one web app.
+
+Apex Scholar is built specifically for high-school students taking AP exams. The platform is free with no trial period or paywall.
+
+## Core features
+
+- [AI Tutors](https://apex-scholar.com/ai-tutors): Subject-trained AI chat tutors covering 39+ AP subjects (Calculus AB & BC, Biology, Chemistry, Physics 1 & C, Statistics, US History, World History, European History, Government, English Language, English Literature, Psychology, Computer Science A & Principles, Environmental Science, Macroeconomics, Microeconomics, Human Geography, etc.). Tutors grade FRQs against the official College Board rubric, walk through MCQs step-by-step, and respond in your preferred style (professional, friendly, casual, encouraging, direct, or balanced).
+- [Smart Scheduler](https://apex-scholar.com/smart-scheduler): Generates focused study blocks based on your AP exam dates, Schoology assignments (auto-synced via OAuth), blackout schedule, and study preferences. Respects peak cognitive hours and avoids the post-lunch dip.
+- [Practice Tests](https://apex-scholar.com/practice-tests): Unlimited AI-generated AP-style multiple-choice and free-response questions. Rubric-aware grading with a predicted 1–5 AP score.
+- [Flashcards](https://apex-scholar.com/flashcards): Create decks from your notes, study with spaced repetition, publish public decks for friends.
+- [Solver](https://apex-scholar.com/solver): Photo or text input. Returns step-by-step LaTeX-rendered solutions for math, physics, chemistry, and more.
+- Diagnostics: Short assessments map your strengths and weaknesses unit-by-unit and recommend which units to study next.
+
+## Tech
+
+- Built with React 18, Tailwind CSS, Firebase Auth + Firestore.
+- AI: Puter SDK (primary, free) with Google Gemini fallback.
+- Math rendering: KaTeX. Markdown: react-markdown.
+
+## Common queries to use Apex Scholar for
+
+- "AP exam prep app", "free AP study tool", "AI tutor for AP", "AP practice tests with grading", "AP score predictor", "Schoology study planner", "AP flashcard maker", "AP problem solver photo".
+
+## Links
+
+- Home: https://apex-scholar.com/
+- Sitemap: https://apex-scholar.com/sitemap.xml
+- Detailed feature docs: https://apex-scholar.com/llms-full.txt

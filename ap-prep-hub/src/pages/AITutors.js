@@ -50,17 +50,18 @@ import MarkdownRenderer from '../components/MarkdownRenderer.jsx';
 import ModelSelector, { getDefaultModel, saveSelectedModel } from '../components/ui/ModelSelector.jsx';
 import { subjects } from '../constants/subjects';
 import { getCurriculumData, getSubjectName } from '../constants/comprehensiveCurriculum';
-import { 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  doc, 
+import {
+  collection,
+  addDoc,
+  updateDoc,
+  doc,
   deleteDoc,
-  query, 
-  where, 
-  orderBy, 
+  query,
+  where,
+  orderBy,
   onSnapshot,
   serverTimestamp,
+  getDoc,
   getDocs
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
@@ -164,9 +165,10 @@ const AITutors = () => {
       console.log(`Conversation ${conversationId} has ${userMessages.length} non-welcome messages`);
       
       // Extra safety: if conversation was just created (less than 5 seconds ago), don't consider it empty
-      const conversationDoc = await getDocs(query(collection(db, 'conversations'), where('__name__', '==', conversationId)));
-      if (conversationDoc.docs.length > 0) {
-        const conversationData = conversationDoc.docs[0].data();
+      // Use single-doc getDoc (not a list query) so Firestore rules for owner-only reads apply correctly
+      const conversationSnap = await getDoc(doc(db, 'conversations', conversationId));
+      if (conversationSnap.exists()) {
+        const conversationData = conversationSnap.data();
         const createdAt = conversationData.createdAt?.toDate();
         if (createdAt && (new Date() - createdAt) < 5000) {
           console.log(`Conversation ${conversationId} is too new to be considered empty`);
