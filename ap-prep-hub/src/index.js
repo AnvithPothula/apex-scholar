@@ -24,10 +24,16 @@ if (process.env.NODE_ENV === 'production' && process.env.REACT_APP_SENTRY_DSN) {
       // Performance monitoring — captures page loads, navigations, API calls
       Sentry.browserTracingIntegration(),
       // Session Replay — captures a video-like reproduction of user sessions
-      // on errors (great for "I can't reproduce this bug" cases)
+      // on errors (great for "I can't reproduce this bug" cases).
+      //
+      // Privacy: maskAllText + blockAllMedia are ON because this app
+      // shows user-generated content (tutor chats, FRQ answers, study
+      // schedules, photos of homework) that should never leave the
+      // browser. To surface specific UI labels in replays, mark them
+      // with `data-sentry-unmask` on a case-by-case basis.
       Sentry.replayIntegration({
-        maskAllText: false,
-        blockAllMedia: false,
+        maskAllText: true,
+        blockAllMedia: true,
       }),
     ],
 
@@ -36,14 +42,12 @@ if (process.env.NODE_ENV === 'production' && process.env.REACT_APP_SENTRY_DSN) {
     tracesSampleRate: 0.1,
 
     // Distributed tracing: only attach Sentry trace headers when calling
-    // these URLs. Add Firebase / Netlify Functions / any external API here.
+    // YOUR OWN backends — never third-party APIs (they reject unknown
+    // headers in CORS preflight, which broke Firebase Auth before this
+    // was scoped down). Same-origin (`/^\//`) covers our Netlify
+    // functions like /.netlify/functions/ai-proxy.
     tracePropagationTargets: [
-      'localhost',
       /^\//, // same-origin requests (relative URLs)
-      /^https:\/\/.*\.firebaseio\.com/,
-      /^https:\/\/.*\.googleapis\.com/,
-      /^https:\/\/.*\.netlify\.app/,
-      /^https:\/\/apex-scholar\.app/,
     ],
 
     // Session Replay: 0% of normal sessions, 100% of sessions where an error
@@ -55,15 +59,21 @@ if (process.env.NODE_ENV === 'production' && process.env.REACT_APP_SENTRY_DSN) {
     // (Sentry's "Logs" feature, separate from issues.)
     enableLogs: true,
 
-    // Filter out noisy errors that aren't actionable
+    // Filter out noisy errors that aren't actionable.
+    //
+    // NOTE: We deliberately do NOT silence "Network request failed" /
+    // "auth/network-request-failed" — those are exactly the signals we
+    // want when something like the Sentry-vs-Firebase-CORS bug recurs.
     ignoreErrors: [
+      // Browser quirk; not actionable
       'ResizeObserver loop limit exceeded',
       'ResizeObserver loop completed with undelivered notifications',
+      // Sentry's own internal noise
       'Non-Error promise rejection captured',
-      'Network request failed',
       // Browser extensions inject scripts that throw spurious errors
       /extension:\/\//i,
       /chrome-extension:\/\//i,
+      /moz-extension:\/\//i,
     ],
   });
 }
