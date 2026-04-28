@@ -28,17 +28,25 @@ const ApexScholarLogo = ({
   // Filter out size classes from className to avoid conflicts
   const otherClasses = className.split(' ').filter(cls => !cls.startsWith('w-') && !cls.startsWith('h-')).join(' ');
 
+  // <picture> serves WebP (~9 KB) to browsers that support it (≈97% of
+  // global traffic per caniuse) and falls back to PNG (~89 KB) for older
+  // ones. Saves ~80 KB on every cold load. The <img> remains the actual
+  // rendered element, so existing className/style/alt attributes still
+  // attach correctly.
   return (
     <div className={`flex items-center space-x-2 ${otherClasses}`}>
-      <img 
-        src="/Apex_Scholar_Logo_NoText.png" 
-        alt="Apex Scholar Logo" 
-        className={`${logoSizeClasses} object-contain ${variant === 'favicon' ? 'rounded-lg' : ''}`}
-        style={{ 
-          filter: variant === 'dark' ? 'brightness(0.9)' : 'none',
-          transition: 'all 0.2s ease-in-out'
-        }}
-      />
+      <picture>
+        <source srcSet="/Apex_Scholar_Logo_NoText.webp" type="image/webp" />
+        <img
+          src="/Apex_Scholar_Logo_NoText.png"
+          alt="Apex Scholar Logo"
+          className={`${logoSizeClasses} object-contain ${variant === 'favicon' ? 'rounded-lg' : ''}`}
+          style={{
+            filter: variant === 'dark' ? 'brightness(0.9)' : 'none',
+            transition: 'all 0.2s ease-in-out',
+          }}
+        />
+      </picture>
       {showText && (
         <span className="text-content-primary font-display font-semibold">
           Apex Scholar

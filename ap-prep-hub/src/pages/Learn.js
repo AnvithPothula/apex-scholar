@@ -1612,21 +1612,21 @@ const Learn = () => {
                 <h2 className="text-xl font-semibold text-content-primary mb-4">Study This Topic</h2>
                 <div className="grid md:grid-cols-3 gap-4">
                   <Button 
-                    onClick={() => navigate('/Flashcards')}
+                    onClick={() => navigate('/flashcards')}
                     className="flex items-center justify-center gap-2 bg-success-600 hover:bg-success-700"
                   >
                     <Zap className="w-4 h-4" />
                     Create Flashcards
                   </Button>
                   <Button 
-                    onClick={() => navigate('/Solver')}
+                    onClick={() => navigate('/solver')}
                     className="flex items-center justify-center gap-2"
                   >
                     <Target className="w-4 h-4" />
                     Practice Problems
                   </Button>
                   <Button 
-                    onClick={() => navigate('/AITutors')}
+                    onClick={() => navigate('/ai-tutors')}
                     className="flex items-center justify-center gap-2"
                   >
                     <BookOpen className="w-4 h-4" />
@@ -1650,21 +1650,21 @@ const Learn = () => {
                 </p>
                 <div className="grid md:grid-cols-3 gap-4">
                   <Button 
-                    onClick={() => navigate('/Flashcards')}
+                    onClick={() => navigate('/flashcards')}
                     className="flex items-center justify-center gap-2 bg-success-600 hover:bg-success-700"
                   >
                     <Zap className="w-4 h-4" />
                     Create Flashcards
                   </Button>
                   <Button 
-                    onClick={() => navigate('/Solver')}
+                    onClick={() => navigate('/solver')}
                     className="flex items-center justify-center gap-2"
                   >
                     <Target className="w-4 h-4" />
                     Practice Problems
                   </Button>
                   <Button 
-                    onClick={() => navigate('/AITutors')}
+                    onClick={() => navigate('/ai-tutors')}
                     className="flex items-center justify-center gap-2"
                   >
                     <BookOpen className="w-4 h-4" />
@@ -1750,7 +1750,7 @@ const Learn = () => {
             <h2 className="text-xl font-semibold text-content-primary mb-4">Study This Unit</h2>
             <div className="grid md:grid-cols-3 gap-4">
               <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
-                    onClick={() => navigate('/Flashcards')}>
+                    onClick={() => navigate('/flashcards')}>
                 <div className="flex items-center gap-3 mb-3">
                   <div className="p-2 bg-success-500/20 rounded-lg group-hover:bg-success-500/30 transition-colors">
                     <Zap className="w-5 h-5 text-success-400" />
@@ -1763,7 +1763,7 @@ const Learn = () => {
               </Card>
 
               <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
-                    onClick={() => navigate('/Flashcards')}>
+                    onClick={() => navigate('/flashcards')}>
                 <div className="flex items-center gap-3 mb-3">
                   <div className="p-2 bg-success-500/20 rounded-lg group-hover:bg-success-500/30 transition-colors">
                     <Zap className="w-5 h-5 text-success-400" />
@@ -1776,7 +1776,7 @@ const Learn = () => {
               </Card>
 
               <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
-                    onClick={() => navigate('/Solver')}>
+                    onClick={() => navigate('/solver')}>
                 <div className="flex items-center gap-3 mb-3">
                   <div className="p-2 bg-base-800 rounded-lg group-hover:bg-base-750 transition-colors">
                     <Target className="w-5 h-5 text-content-secondary" />
@@ -1838,7 +1838,7 @@ const Learn = () => {
           >
             <div className="grid md:grid-cols-4 gap-4">
               <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
-                    onClick={() => navigate('/Flashcards')}>
+                    onClick={() => navigate('/flashcards')}>
                 <div className="flex items-center gap-3 mb-3">
                   <div className="p-2 bg-success-500/20 rounded-lg group-hover:bg-success-500/30 transition-colors">
                     <Zap className="w-5 h-5 text-success-400" />
@@ -1851,7 +1851,7 @@ const Learn = () => {
               </Card>
 
               <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
-                    onClick={() => navigate('/Flashcards')}>
+                    onClick={() => navigate('/flashcards')}>
                 <div className="flex items-center gap-3 mb-3">
                   <div className="p-2 bg-success-500/20 rounded-lg group-hover:bg-success-500/30 transition-colors">
                     <Zap className="w-5 h-5 text-success-400" />
@@ -1864,7 +1864,7 @@ const Learn = () => {
               </Card>
 
               <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
-                    onClick={() => navigate('/Solver')}>
+                    onClick={() => navigate('/solver')}>
                 <div className="flex items-center gap-3 mb-3">
                   <div className="p-2 bg-base-800 rounded-lg group-hover:bg-base-750 transition-colors">
                     <Target className="w-5 h-5 text-content-secondary" />
@@ -1877,7 +1877,7 @@ const Learn = () => {
               </Card>
 
               <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
-                    onClick={() => navigate('/SmartScheduler')}>
+                    onClick={() => navigate('/smart-scheduler')}>
                 <div className="flex items-center gap-3 mb-3">
                   <div className="p-2 bg-warning-500/20 rounded-lg group-hover:bg-warning-500/30 transition-colors">
                     <TrendingUp className="w-5 h-5 text-warning-400" />
@@ -2078,7 +2078,7 @@ const Learn = () => {
         >
           <div className="grid md:grid-cols-4 gap-4">
             <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
-                  onClick={() => navigate('/Flashcards')}>
+                  onClick={() => navigate('/flashcards')}>
               <div className="flex items-center gap-3 mb-3">
                 <div className="p-2 bg-success-500/20 rounded-lg group-hover:bg-success-500/30 transition-colors">
                   <Zap className="w-5 h-5 text-success-400" />
@@ -2094,7 +2094,7 @@ const Learn = () => {
             </Card>
 
             <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
-                  onClick={() => navigate('/PracticeTests')}>
+                  onClick={() => navigate('/practice-tests')}>
               <div className="flex items-center gap-3 mb-3">
                 <div className="p-2 bg-base-800 rounded-lg group-hover:bg-base-750 transition-colors">
                   <FileText className="w-5 h-5 text-content-secondary" />
@@ -2110,7 +2110,7 @@ const Learn = () => {
             </Card>
 
             <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
-                  onClick={() => navigate('/Flashcards')}>
+                  onClick={() => navigate('/flashcards')}>
               <div className="flex items-center gap-3 mb-3">
                 <div className="p-2 bg-success-500/20 rounded-lg group-hover:bg-success-500/30 transition-colors">
                   <Zap className="w-5 h-5 text-success-400" />
@@ -2126,7 +2126,7 @@ const Learn = () => {
             </Card>
 
             <Card className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
-                  onClick={() => navigate('/SmartScheduler')}>
+                  onClick={() => navigate('/smart-scheduler')}>
               <div className="flex items-center gap-3 mb-3">
                 <div className="p-2 bg-warning-500/20 rounded-lg group-hover:bg-warning-500/30 transition-colors">
                   <TrendingUp className="w-5 h-5 text-warning-400" />

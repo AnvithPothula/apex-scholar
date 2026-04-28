@@ -382,7 +382,7 @@ export default function NotFound() {
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.97 }}
-              onClick={() => navigate('/AITutors')}
+              onClick={() => navigate('/ai-tutors')}
               className="flex-1 py-2.5 px-3 bg-content-primary hover:bg-content-primary rounded-sm text-base-950 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-raised"
             >
               <Home className="w-3.5 h-3.5" strokeWidth={1.5} />

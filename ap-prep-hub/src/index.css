@@ -27,11 +27,19 @@
     --color-border-subtle: #161616;
     --color-border-strong: #2e2e2e;
 
-    /* ---- Text ---- */
+    /* ---- Text ----
+       Hex values calibrated for WCAG AA contrast on --color-bg-deep #0a0a0a:
+         primary    #ededef  ≈ 14:1  ✓
+         secondary  #a0a0a8  ≈ 7.5:1 ✓
+         muted      #9a9aa3  ≈ 7:1   ✓ (was #6e6e76 = 3.91:1, failed AA)
+         disabled   #8e8e97  ≈ 5.9:1 ✓ (was #5a5a62 = 2.89:1, failed AA)
+       Disabled UI controls are exempt from contrast rules, but this token
+       is also used for informational text (e.g., "Secured with Firebase"
+       on the login page), so it needs to clear the bar. */
     --color-text-primary: #ededef;
     --color-text-secondary: #a0a0a8;
-    --color-text-muted: #6e6e76;
-    --color-text-disabled: #5a5a62;
+    --color-text-muted: #9a9aa3;
+    --color-text-disabled: #8e8e97;
     /* Aliases: Tailwind uses "content-*" classes → prevent var(--color-content-*) mistakes */
     --color-content-primary: var(--color-text-primary);
     --color-content-secondary: var(--color-text-secondary);

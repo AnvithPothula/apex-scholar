@@ -23,18 +23,11 @@ if (process.env.NODE_ENV === 'production' && process.env.REACT_APP_SENTRY_DSN) {
     integrations: [
       // Performance monitoring — captures page loads, navigations, API calls
       Sentry.browserTracingIntegration(),
-      // Session Replay — captures a video-like reproduction of user sessions
-      // on errors (great for "I can't reproduce this bug" cases).
-      //
-      // Privacy: maskAllText + blockAllMedia are ON because this app
-      // shows user-generated content (tutor chats, FRQ answers, study
-      // schedules, photos of homework) that should never leave the
-      // browser. To surface specific UI labels in replays, mark them
-      // with `data-sentry-unmask` on a case-by-case basis.
-      Sentry.replayIntegration({
-        maskAllText: true,
-        blockAllMedia: true,
-      }),
+      // NOTE: Session Replay is added LAZILY below (see lazyLoadIntegration
+      // call after init). The replay package bundles ~75 KB of `rrweb` code
+      // that we don't want shipping in the main JS bundle — Lighthouse
+      // flagged it as one of the biggest unused-JS contributors on the
+      // login page.
     ],
 
     // Performance: 10% of transactions. Free tier = 10K transactions/month;
@@ -76,6 +69,35 @@ if (process.env.NODE_ENV === 'production' && process.env.REACT_APP_SENTRY_DSN) {
       /moz-extension:\/\//i,
     ],
   });
+
+  // Lazy-load Session Replay AFTER the page is interactive.
+  // `lazyLoadIntegration` fetches the replay/rrweb code from Sentry's CDN
+  // at runtime, so it's never part of our main JS bundle. We schedule it
+  // via requestIdleCallback (with a setTimeout fallback for Safari) so it
+  // doesn't compete with critical rendering on slow devices.
+  const loadSentryReplay = () => {
+    Sentry.lazyLoadIntegration('replayIntegration')
+      .then((replayIntegration) => {
+        const client = Sentry.getClient();
+        if (client) {
+          client.addIntegration(
+            replayIntegration({
+              maskAllText: true,
+              blockAllMedia: true,
+            }),
+          );
+        }
+      })
+      .catch((err) => {
+        // Non-fatal: replay just won't be available this session
+        console.warn('[Sentry] Failed to lazy-load replay integration:', err);
+      });
+  };
+  if ('requestIdleCallback' in window) {
+    window.requestIdleCallback(loadSentryReplay, { timeout: 5000 });
+  } else {
+    setTimeout(loadSentryReplay, 2000);
+  }
 }
 
 // Suppress verbose logging in production builds

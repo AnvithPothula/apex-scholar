@@ -21,3 +21,23 @@
 # IndexNow ownership-verification key file
 /*.txt
   Content-Type: text/plain; charset=utf-8
+
+# CRA emits hashed asset filenames (main.<hash>.js, main.<hash>.css, etc.)
+# under /static/, so the contents at any given URL are immutable. Cache them
+# aggressively. `immutable` tells browsers not to revalidate even on reload.
+/static/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Logo + brand assets — long cache, but not "immutable" since the URLs
+# aren't content-hashed and we may swap them in place.
+/Apex_Scholar_Logo*.png
+  Cache-Control: public, max-age=2592000
+
+/Apex_Scholar_Logo*.webp
+  Cache-Control: public, max-age=2592000
+
+/favicon-*.png
+  Cache-Control: public, max-age=2592000
+
+/favicon.ico
+  Cache-Control: public, max-age=2592000
