@@ -1,6 +1,6 @@
 /* eslint-disable import/first */
 import React, { useEffect, Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import AnimatedOutlet from './components/ui/AnimatedOutlet';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -54,6 +54,27 @@ function App() {
   );
 }
 
+/**
+ * Client-side redirect from an old PascalCase route to its kebab-case
+ * equivalent, preserving any subpath.
+ *
+ * Lives alongside the Netlify _redirects 301s as defense-in-depth:
+ *   - Netlify _redirects fires only on initial HTTP requests, so it
+ *     misses any client-side react-router navigation. This catches those.
+ *   - On localhost (CRA dev server) there's no Netlify layer at all,
+ *     so this is the only thing redirecting old URLs.
+ *
+ * Example: hit `/AITutors/AP%20Statistics` → renders this component
+ * with `to="/ai-tutors"` and splat="AP%20Statistics" → Navigate to
+ * `/ai-tutors/AP%20Statistics`.
+ */
+function LegacyRedirect({ to }) {
+  const params = useParams();
+  const splat = params['*'] || '';
+  const target = splat ? `${to}/${splat}` : to;
+  return <Navigate to={target} replace />;
+}
+
 // Main App with Layout
 function MainApp() {
   return (
@@ -68,6 +89,15 @@ function MainApp() {
           <Route path={createPageUrl("Flashcards")} element={<Flashcards />} />
           <Route path={createPageUrl("Solver")} element={<Solver />} />
           <Route path={createPageUrl("Settings")} element={<Settings />} />
+
+          {/* Legacy PascalCase routes — redirect to kebab-case canonicals.
+              The `/*` splat catches subpaths (e.g., /AITutors/statistics). */}
+          <Route path="/AITutors/*"       element={<LegacyRedirect to="/ai-tutors" />} />
+          <Route path="/SmartScheduler/*" element={<LegacyRedirect to="/smart-scheduler" />} />
+          <Route path="/PracticeTests/*"  element={<LegacyRedirect to="/practice-tests" />} />
+          <Route path="/Flashcards/*"     element={<LegacyRedirect to="/flashcards" />} />
+          <Route path="/Solver/*"         element={<LegacyRedirect to="/solver" />} />
+          <Route path="/Settings/*"       element={<LegacyRedirect to="/settings" />} />
         </Route>
         {/* 404 renders full-screen, outside the Layout */}
         <Route path="*" element={<NotFound />} />

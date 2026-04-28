@@ -1913,7 +1913,7 @@ Please check your internet connection and try again. In the meantime:
                       console.log('Back button clicked, cleaning up empty conversation if needed...');
                       await cleanupEmptyConversation(activeConversationId, conversations.length);
                     }
-                    navigate('/AITutors');
+                    navigate('/ai-tutors');
                   }}
                   className="text-content-secondary hover:text-content-primary hidden sm:flex"
                 >
@@ -1947,7 +1947,7 @@ Please check your internet connection and try again. In the meantime:
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => navigate('/AITutors')}
+                  onClick={() => navigate('/ai-tutors')}
                   className="text-content-secondary hover:text-content-primary sm:hidden p-2"
                 >
                   <ChevronLeft strokeWidth={1.5} className="w-5 h-5" />

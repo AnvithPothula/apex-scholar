@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { staggerContainer, staggerItem } from '../../utils/animations';
 import { useNavigate } from 'react-router-dom';
+import { createPageUrl } from '../../utils/helpers';
 import {
   BookOpen,
   Brain,
@@ -102,7 +103,11 @@ const SubjectSelector = ({ subjects, selectedSubject, onSelectSubject }) => {
 
   const handleSubjectSelect = (subjectId) => {
     onSelectSubject(subjectId);
-    navigate(`/AITutors/${encodeURIComponent(subjectId)}`);
+    // Use createPageUrl so the URL stays consistent with the kebab-case
+    // routing migration. Hardcoding "/AITutors/..." here previously caused
+    // a 404 on subject click — React Router's client-side navigation
+    // bypasses Netlify's PascalCase→kebab-case 301 redirects.
+    navigate(createPageUrl('AITutors', encodeURIComponent(subjectId)));
   };
 
   const hasUserSubjects = user && !isLoadingUserSubjects && filteredUserSubjects.length > 0;

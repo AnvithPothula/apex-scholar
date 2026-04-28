@@ -396,7 +396,7 @@ const DiagnosticTypes = () => {
                   Take Another Diagnostic
                 </Button>
                 <Button
-                  onClick={() => navigate('/PracticeTests')}
+                  onClick={() => navigate('/practice-tests')}
                 >
                   Start Practice Tests
                 </Button>
