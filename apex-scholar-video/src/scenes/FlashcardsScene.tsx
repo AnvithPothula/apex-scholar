@@ -43,11 +43,11 @@ export const FlashcardsScene: React.FC = () => {
       label="Flashcards"
       title={
         <>
-          Build, study,{" "}
-          <span className="text-primary-400">and share</span> decks.
+          Memorize{" "}
+          <span className="text-primary-400">smarter</span>, not harder.
         </>
       }
-      subtitle="Generate decks from your notes, study with spaced repetition, and publish public decks for friends."
+      subtitle="Generate flashcards from your notes in seconds. Spaced repetition built in. Publish public decks for your study group, or grab one already made by someone in your class."
       accent="teal"
     >
       <div className="flex gap-14 h-full items-center">

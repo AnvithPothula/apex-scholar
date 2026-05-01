@@ -47,11 +47,11 @@ export const SolverScene: React.FC = () => {
       label="Solver"
       title={
         <>
-          Snap a problem.{" "}
-          <span className="text-primary-400">Get the steps.</span>
+          Snap it.{" "}
+          <span className="text-primary-400">Understand it.</span>
         </>
       }
-      subtitle="Photo or text input. The Solver breaks every problem into clear, LaTeX-rendered steps — not just the answer."
+      subtitle="Photo or text — the Solver shows every step, not just the answer. Because the AP exam doesn't care if you got 42; it cares if you can show your work."
       accent="teal"
     >
       <div className="flex gap-10 h-full">

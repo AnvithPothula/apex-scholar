@@ -1,61 +1,41 @@
 import React from "react";
+import { Img, staticFile } from "remotion";
 
 /**
- * Apex Scholar logo — a minimal teal "A" mark inside a rounded square.
- * Rendered as inline SVG so it can animate smoothly.
+ * Apex Scholar logo — the real brand mark from the production app.
+ *
+ * The asset (`logo.webp`) lives in `/public` so it's served by Remotion's
+ * static-file server during render. We don't manipulate the artwork; we just
+ * size it and apply a soft glow that picks up the navy + teal in the badge.
  */
 export const LogoMark: React.FC<{ size?: number; glow?: boolean }> = ({
   size = 120,
   glow = true,
 }) => {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 120 120"
-      fill="none"
+    <div
       style={{
-        filter: glow ? "drop-shadow(0 0 24px rgba(20,184,166,0.55))" : undefined,
+        width: size,
+        height: size,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        // Two-layer glow: a tight teal halo + a wider navy bloom.
+        // Picks up the dominant colors in the actual logo so it feels native.
+        filter: glow
+          ? "drop-shadow(0 0 24px rgba(45, 212, 191, 0.55)) drop-shadow(0 0 48px rgba(59, 130, 246, 0.30))"
+          : undefined,
       }}
     >
-      <defs>
-        <linearGradient id="lg-bg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#0f766e" />
-          <stop offset="1" stopColor="#0d9488" />
-        </linearGradient>
-        <linearGradient id="lg-mark" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#5eead4" />
-          <stop offset="1" stopColor="#2dd4bf" />
-        </linearGradient>
-      </defs>
-      <rect
-        x="2"
-        y="2"
-        width="116"
-        height="116"
-        rx="28"
-        fill="url(#lg-bg)"
-        stroke="rgba(94,234,212,0.35)"
-        strokeWidth="2"
+      <Img
+        src={staticFile("logo.webp")}
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit: "contain",
+        }}
       />
-      {/* Stylized A / Apex peak */}
-      <path
-        d="M30 90 L60 24 L90 90"
-        stroke="url(#lg-mark)"
-        strokeWidth="9"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-      <path
-        d="M44 68 L76 68"
-        stroke="url(#lg-mark)"
-        strokeWidth="7"
-        strokeLinecap="round"
-      />
-      {/* Small accent dot */}
-      <circle cx="60" cy="22" r="4.5" fill="#5eead4" />
-    </svg>
+    </div>
   );
 };
 

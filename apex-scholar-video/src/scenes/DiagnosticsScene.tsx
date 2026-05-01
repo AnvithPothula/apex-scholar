@@ -31,11 +31,11 @@ export const DiagnosticsScene: React.FC = () => {
       label="Diagnostics"
       title={
         <>
-          Know exactly{" "}
-          <span className="text-accent-400">where to study</span> next.
+          Stop studying what you{" "}
+          <span className="text-accent-400">already know.</span>
         </>
       }
-      subtitle="Short diagnostics map your strengths and weaknesses unit-by-unit — so your study time goes where it counts."
+      subtitle="A 10-minute diagnostic maps every unit. The app tells you exactly which 2 to focus on next — and how many points you'll gain."
       accent="blue"
     >
       <div className="flex gap-10 h-full">

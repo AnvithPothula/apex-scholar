@@ -47,11 +47,11 @@ export const PracticeTestsScene: React.FC = () => {
       label="Practice Tests"
       title={
         <>
-          AI-generated <span className="text-primary-400">full-length</span>{" "}
-          practice tests.
+          Know your score.{" "}
+          <span className="text-primary-400">Before May.</span>
         </>
       }
-      subtitle="Unlimited AP-style MCQs and FRQs, graded with rubric-aware feedback and a predicted 1–5 score."
+      subtitle="Unlimited AP-style practice tests, graded against the actual College Board rubric. Get a predicted 1–5 score and a per-unit breakdown of what's still shaky."
       accent="teal"
     >
       <div className="flex gap-10 h-full">

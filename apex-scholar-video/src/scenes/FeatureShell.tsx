@@ -8,6 +8,7 @@ import {
 } from "remotion";
 import { BrandBackground } from "../brand/BrandBackground";
 import { SceneLabel } from "../brand/GlowCard";
+import { LogoMark } from "../brand/Logo";
 
 export const FeatureShell: React.FC<{
   index: number;
@@ -108,6 +109,24 @@ export const FeatureShell: React.FC<{
           {subtitle}
         </div>
         <div className="mt-10 flex-1 relative">{children}</div>
+
+        {/* Persistent brand watermark — bottom-right corner.
+            Tiny, low-opacity, but constant. Builds brand familiarity over
+            the 4-second scene without competing with the feature content. */}
+        <div
+          className="absolute bottom-8 right-10 flex items-center gap-2.5"
+          style={{
+            opacity: subOpacity * 0.7,
+          }}
+        >
+          <LogoMark size={36} glow={false} />
+          <div
+            className="font-display font-semibold text-content-muted tracking-wide"
+            style={{ fontSize: 18, letterSpacing: "0.02em" }}
+          >
+            apex-scholar.com
+          </div>
+        </div>
       </AbsoluteFill>
     </AbsoluteFill>
   );
