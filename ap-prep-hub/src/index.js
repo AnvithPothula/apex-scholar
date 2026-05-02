@@ -79,6 +79,15 @@ if (process.env.NODE_ENV === 'production' && process.env.REACT_APP_SENTRY_DSN) {
       /extension:\/\//i,
       /chrome-extension:\/\//i,
       /moz-extension:\/\//i,
+      // Puter SDK reads `popup.closed` on a window reference that's null
+      // when the popup-blocker bites or the socket.io handshake fails.
+      // The throw originates inside the SDK's own setInterval, so we can
+      // never catch it locally. PuterAuthPrompt has its own watchdog that
+      // recovers the UX — the Sentry event itself isn't actionable.
+      // Safari form: "null is not an object (evaluating '<x>.closed')"
+      /null is not an object \(evaluating '[^']+\.closed'\)/,
+      // Chrome / Firefox form: "Cannot read properties of null (reading 'closed')"
+      /Cannot read propert(?:y|ies) of null \(reading 'closed'\)/,
     ],
   });
 }

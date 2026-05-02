@@ -148,11 +148,31 @@ export default function PuterAuthPrompt() {
         ui.authenticateWithPuter = ui._originalAuthenticateWithPuter;
       }
 
+      // signIn() opens the Puter popup; it MUST be called from a user-
+      // initiated click so Safari doesn't block it.
+      //
+      // We race signIn() against a watchdog because the SDK can throw
+      // synchronously into a setInterval it set up internally (e.g. when
+      // window.open returns null and the SDK then reads `popup.closed`)
+      // — that throw bypasses our promise chain entirely, leaving the
+      // modal stuck on "Connecting…" forever. The watchdog also resolves
+      // early if auth quietly succeeds via a different code path.
+      let watchdogId = null;
       try {
-        // signIn() opens the Puter popup; it MUST be called from a user-
-        // initiated click so Safari doesn't block it.
-        await window.puter.auth.signIn();
+        const signInPromise = window.puter.auth.signIn();
+        const watchdog = new Promise((resolve, reject) => {
+          const start = Date.now();
+          watchdogId = setInterval(() => {
+            if (isPuterAuthenticated()) {
+              resolve();
+            } else if (Date.now() - start > 90_000) {
+              reject(new Error('Puter sign-in timed out — your popup may have been blocked. Try again, or skip for now.'));
+            }
+          }, 1000);
+        });
+        await Promise.race([signInPromise, watchdog]);
       } finally {
+        if (watchdogId) clearInterval(watchdogId);
         // Re-suppress the SDK's built-in popup
         if (suppressed && ui) {
           ui.authenticateWithPuter = function() {
