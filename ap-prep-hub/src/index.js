@@ -23,11 +23,17 @@ if (process.env.NODE_ENV === 'production' && process.env.REACT_APP_SENTRY_DSN) {
     integrations: [
       // Performance monitoring — captures page loads, navigations, API calls
       Sentry.browserTracingIntegration(),
-      // NOTE: Session Replay is added LAZILY below (see lazyLoadIntegration
-      // call after init). The replay package bundles ~75 KB of `rrweb` code
-      // that we don't want shipping in the main JS bundle — Lighthouse
-      // flagged it as one of the biggest unused-JS contributors on the
-      // login page.
+      // Session Replay — records a video-like reproduction of user sessions.
+      //
+      // Privacy: maskAllText + blockAllMedia are ON because this app shows
+      // user-generated content (tutor chats, FRQ answers, schedules,
+      // homework photos) that should never leave the browser. To surface
+      // specific UI labels in replays, mark them with `data-sentry-unmask`
+      // on a case-by-case basis.
+      Sentry.replayIntegration({
+        maskAllText: true,
+        blockAllMedia: true,
+      }),
     ],
 
     // Performance: 10% of transactions. Free tier = 10K transactions/month;
@@ -43,9 +49,15 @@ if (process.env.NODE_ENV === 'production' && process.env.REACT_APP_SENTRY_DSN) {
       /^\//, // same-origin requests (relative URLs)
     ],
 
-    // Session Replay: 0% of normal sessions, 100% of sessions where an error
-    // occurred. Free tier = 50 replays/month — keep idle replay off.
-    replaysSessionSampleRate: 0.0,
+    // Session Replay sampling — Sentry's recommended defaults:
+    //   replaysSessionSampleRate:  10% of all sessions are recorded
+    //   replaysOnErrorSampleRate:  100% of sessions where an error occurs
+    //
+    // Free tier = 50 replays/month. Bump replaysSessionSampleRate to 1.0
+    // temporarily while debugging a specific issue, then back to 0.1.
+    // While testing a NEW Sentry setup (verifying everything works) bump
+    // it to 1.0 so you can find your own session quickly.
+    replaysSessionSampleRate: 0.1,
     replaysOnErrorSampleRate: 1.0,
 
     // Forward console.log / console.error / etc. as logs in Sentry.
@@ -67,37 +79,17 @@ if (process.env.NODE_ENV === 'production' && process.env.REACT_APP_SENTRY_DSN) {
       /extension:\/\//i,
       /chrome-extension:\/\//i,
       /moz-extension:\/\//i,
+      // Puter SDK reads `popup.closed` on a window reference that's null
+      // when the popup-blocker bites or the socket.io handshake fails.
+      // The throw originates inside the SDK's own setInterval, so we can
+      // never catch it locally. PuterAuthPrompt has its own watchdog that
+      // recovers the UX — the Sentry event itself isn't actionable.
+      // Safari form: "null is not an object (evaluating '<x>.closed')"
+      /null is not an object \(evaluating '[^']+\.closed'\)/,
+      // Chrome / Firefox form: "Cannot read properties of null (reading 'closed')"
+      /Cannot read propert(?:y|ies) of null \(reading 'closed'\)/,
     ],
   });
-
-  // Lazy-load Session Replay AFTER the page is interactive.
-  // `lazyLoadIntegration` fetches the replay/rrweb code from Sentry's CDN
-  // at runtime, so it's never part of our main JS bundle. We schedule it
-  // via requestIdleCallback (with a setTimeout fallback for Safari) so it
-  // doesn't compete with critical rendering on slow devices.
-  const loadSentryReplay = () => {
-    Sentry.lazyLoadIntegration('replayIntegration')
-      .then((replayIntegration) => {
-        const client = Sentry.getClient();
-        if (client) {
-          client.addIntegration(
-            replayIntegration({
-              maskAllText: true,
-              blockAllMedia: true,
-            }),
-          );
-        }
-      })
-      .catch((err) => {
-        // Non-fatal: replay just won't be available this session
-        console.warn('[Sentry] Failed to lazy-load replay integration:', err);
-      });
-  };
-  if ('requestIdleCallback' in window) {
-    window.requestIdleCallback(loadSentryReplay, { timeout: 5000 });
-  } else {
-    setTimeout(loadSentryReplay, 2000);
-  }
 }
 
 // Suppress verbose logging in production builds

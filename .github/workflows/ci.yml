@@ -1,0 +1,117 @@
+# CI — runs on every pull request and every push to main.
+#
+# Complements Seer Code Review:
+#   - Seer (Sentry's AI reviewer) catches semantic / intent / security issues
+#     by reading the diff like a senior engineer.
+#   - This workflow catches *mechanical* breakage — code that won't build,
+#     tests that no longer pass, lint warnings.
+#
+# Both layers run on every PR. Together they give pretty broad coverage
+# without making the loop slow.
+name: CI
+
+on:
+  pull_request:
+    branches: ["**"]
+  push:
+    branches: [main]
+
+# Cancel any older runs on the same branch when a new commit lands.
+# Saves runner minutes when you push a fix to a PR before CI finishes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    # The React app lives in a subdirectory; everything in this workflow
+    # runs against ap-prep-hub/ unless explicitly overridden.
+    working-directory: ap-prep-hub
+
+jobs:
+  # ───────────────────────── Build ─────────────────────────
+  # CRA's build runs ESLint with `react-app` + `react-app/jest` configs and
+  # treats every warning as an error when CI=true (which GitHub Actions
+  # sets automatically). So this single step verifies:
+  #   • TypeScript / JS syntax compiles
+  #   • ESLint passes with zero warnings
+  #   • Webpack bundles successfully
+  #   • All imports resolve
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: ap-prep-hub/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          # CI=true is set by GitHub Actions automatically — this makes
+          # CRA fail on any ESLint warning. Belt-and-suspenders.
+          CI: "true"
+          # Build needs *something* for these env vars to avoid undefined
+          # crashes in code that reads them, but the values here are
+          # cosmetic — production secrets live in Netlify.
+          REACT_APP_SENTRY_ENV: "ci"
+
+      # Quick check that the SEO/static assets we care about made it into
+      # the bundle. Catches "I deleted public/sitemap.xml by accident".
+      - name: Verify static assets in build output
+        run: |
+          set -e
+          for f in build/index.html build/sitemap.xml build/robots.txt build/_headers build/_redirects build/llms.txt; do
+            if [ ! -f "$f" ]; then
+              echo "::error::Missing expected build artifact: $f"
+              exit 1
+            fi
+          done
+          echo "All static SEO/routing files present in build/."
+
+      # Surface the bundle size in the PR log so reviewers can spot a
+      # regression without running anything locally.
+      - name: Report bundle size
+        run: |
+          echo "### Bundle Size" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          du -sh build/static/js build/static/css 2>/dev/null >> $GITHUB_STEP_SUMMARY || true
+          echo '' >> $GITHUB_STEP_SUMMARY
+          echo "Largest JS chunks:" >> $GITHUB_STEP_SUMMARY
+          ls -laS build/static/js/*.js 2>/dev/null | head -5 | awk '{print $5, $9}' >> $GITHUB_STEP_SUMMARY || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+  # ───────────────────────── Tests ─────────────────────────
+  # Runs the existing Jest suite (utils, hooks, services, pages).
+  # `react-scripts test` auto-runs in non-watch mode when CI=true.
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: ap-prep-hub/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test -- --passWithNoTests --coverage=false
+        env:
+          CI: "true"

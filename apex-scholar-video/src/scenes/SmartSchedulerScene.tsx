@@ -45,11 +45,11 @@ export const SmartSchedulerScene: React.FC = () => {
       label="Smart Scheduler"
       title={
         <>
-          Your week,{" "}
-          <span className="text-accent-400">auto-scheduled</span> around real life.
+          Stop planning.{" "}
+          <span className="text-accent-400">Start studying.</span>
         </>
       }
-      subtitle="Pulls assignments from Schoology and generates focused study blocks that respect your free time and exam dates."
+      subtitle="Syncs with Schoology, reads your exam dates, and builds a weekly study plan that fits around real life — not around a fantasy of having free time."
       accent="blue"
     >
       <div className="flex gap-8 h-full">

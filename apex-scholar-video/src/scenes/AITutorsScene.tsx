@@ -50,10 +50,11 @@ export const AITutorsScene: React.FC = () => {
       label="AI Tutors"
       title={
         <>
-          A tutor for every <span className="text-primary-400">AP subject</span>.
+          Stuck on a unit?{" "}
+          <span className="text-primary-400">Talk to it.</span>
         </>
       }
-      subtitle="Chat one-on-one with subject-trained AI tutors that grade FRQs, explain rubrics, and walk through full solutions."
+      subtitle="Subject-trained AI tutors for every AP exam. They grade your FRQs, walk you through MCQs, and explain whatever's not clicking — at 2am, on a Sunday, without a wait list."
       accent="teal"
     >
       <div className="flex gap-10 h-full">
