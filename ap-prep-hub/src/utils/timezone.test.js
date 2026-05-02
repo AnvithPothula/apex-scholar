@@ -36,8 +36,11 @@ describe('Timezone Utilities', () => {
 
     it('should fall back to browser timezone when no preference', () => {
       const timezone = getUserTimezone();
-      // Should be a valid IANA timezone
-      expect(timezone).toMatch(/^[A-Za-z]+\/[A-Za-z_]+$/);
+      // Should be a valid IANA timezone. We assert via Intl rather than a
+      // regex because valid IANA names include single-segment zones like
+      // "UTC" and "GMT" (which is what GitHub Actions runners return) as
+      // well as the more familiar "America/New_York" form.
+      expect(() => new Intl.DateTimeFormat('en', { timeZone: timezone })).not.toThrow();
     });
   });
 
