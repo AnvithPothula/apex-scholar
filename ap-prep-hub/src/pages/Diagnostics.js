@@ -69,22 +69,22 @@ const DiagnosticTypes = () => {
 
   // Load user's diagnostic history on component mount
   useEffect(() => {
+    const loadDiagnosticHistory = async () => {
+      try {
+        const history = await dataService.getUserDiagnosticResults(user.uid);
+        setUserHistory(history.map(item => ({
+          ...item,
+          timestamp: item.timestamp ? new Date(item.timestamp.seconds * 1000).toLocaleDateString() : 'Unknown'
+        })));
+      } catch (error) {
+        console.error('Error loading diagnostic history:', error);
+      }
+    };
+
     if (user) {
       loadDiagnosticHistory();
     }
   }, [user]);
-
-  const loadDiagnosticHistory = async () => {
-    try {
-      const history = await dataService.getUserDiagnosticResults(user.uid);
-      setUserHistory(history.map(item => ({
-        ...item,
-        timestamp: item.timestamp ? new Date(item.timestamp.seconds * 1000).toLocaleDateString() : 'Unknown'
-      })));
-    } catch (error) {
-      console.error('Error loading diagnostic history:', error);
-    }
-  };
 
   const startDiagnostic = async (subjectKey, subjectName) => {
     if (!user) {
@@ -235,13 +235,13 @@ const DiagnosticTypes = () => {
     return recommendations;
   };
 
-  // If a specific subject is provided in URL, navigate to that diagnostic
+  // If a specific subject is provided in URL, start that diagnostic
   useEffect(() => {
-    if (subject && DIAGNOSTIC_SUBJECTS[subject]) {
-      // Navigate to specific subject diagnostic
-      navigate(`/diagnostics/${subject}/start`);
+    if (subject && DIAGNOSTIC_SUBJECTS[subject] && !takingDiagnostic && !isGeneratingQuestions) {
+      startDiagnostic(subject, DIAGNOSTIC_SUBJECTS[subject].name);
     }
-  }, [subject, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subject]);
 
   // Filter subjects based on search and category
   useEffect(() => {

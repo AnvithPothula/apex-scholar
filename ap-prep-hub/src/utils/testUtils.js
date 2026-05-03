@@ -259,9 +259,9 @@ export const parseAIResponse = (text, startId = 1) => {
   // The AI often produces \( \) \[ \] and LaTeX like \frac which break parsing.
   // We walk through the string and fix escapes only inside JSON string literals.
   cleanedText = cleanedText.replace(/"(?:[^"\\]|\\.)*"/g, (match) => {
-    // Inside each JSON string value, fix invalid escape sequences
+    // Inside each JSON string value, fix invalid escape sequences (only if not already escaped)
     return match
-      .replace(/\\(?!["\\/bfnrtu])/g, '\\\\'); // Escape bare backslashes that aren't valid JSON escapes
+      .replace(/(?<!\\)\\([^"\\/bfnrtu])/g, '\\\\$1'); // Escape bare backslashes that aren't valid JSON escapes
   });
 
   errorLogger.debug('Cleaned text length:', { length: cleanedText.length });
@@ -307,27 +307,8 @@ export const parseAIResponse = (text, startId = 1) => {
           .replace(/\\\\to/g, '\\\\to')
           .replace(/\\\\rightarrow/g, '\\\\rightarrow')
           .replace(/\\\\leftarrow/g, '\\\\leftarrow')
-          // Fix invalid single character escapes that are not valid JSON
-          .replace(/\\([^"\\\/bfnrtu$])/g, '$1') // eslint-disable-line no-useless-escape
-          // Fix specific problematic sequences seen in logs (only if not followed by valid LaTeX)
-          .replace(/\\l(?![aitm])/g, 'l')
-          .replace(/\\i(?![mn])/g, 'i')
-          .replace(/\\s(?![iqu])/g, 's')
-          .replace(/\\p(?![ir])/g, 'p')
-          .replace(/\\m(?![au])/g, 'm')
-          .replace(/\\w(?![h])/g, 'w')
-          .replace(/\\d(?![e])/g, 'd')
-          .replace(/\\h(?![a])/g, 'h')
-          .replace(/\\c(?![do])/g, 'c')
-          .replace(/\\a(?![lr])/g, 'a')
-          .replace(/\\e(?![x])/g, 'e')
-          .replace(/\\o(?![v])/g, 'o')
-          .replace(/\\y(?![e])/g, 'y')
-          .replace(/\\k(?![a])/g, 'k')
-          .replace(/\\g(?![a])/g, 'g')
-          .replace(/\\v(?![a])/g, 'v')
-          .replace(/\\x(?![i])/g, 'x')
-          .replace(/\\z(?![e])/g, 'z')
+          // Fix invalid single character escapes that are not valid JSON (only if unescaped)
+          .replace(/(?<!\\)\\([^"\\\/bfnrtu$])/g, '\\\\$1') // eslint-disable-line no-useless-escape
           // Fix common contractions
           .replace(/\\"s\b/g, "'s")
           .replace(/\\"t\b/g, "'t")

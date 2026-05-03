@@ -147,10 +147,10 @@ class JSONParser {
       t => t.replace(/[\x00-\x1F\x7F]/g, ' '), // eslint-disable-line no-control-regex
       // Fix double commas
       t => t.replace(/,,+/g, ','),
-      // Remove empty array elements
+      // Fix empty array elements
       t => t.replace(/\[\s*,/g, '[').replace(/,\s*\]/g, ']'),
-      // Fix invalid escape sequences that aren't valid JSON
-      t => t.replace(/\\([^"\\/bfnrtu])/g, '$1'),
+      // Fix invalid escape sequences that aren't valid JSON (only if not already escaped)
+      t => t.replace(/(?<!\\)\\([^"\\/bfnrtu])/g, '\\\\$1'),
       // Fix missing quotes on keys (basic)
       t => t.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":'),
     ];

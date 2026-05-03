@@ -108,15 +108,18 @@ describe('parseAIResponse', () => {
     expect(result).toHaveLength(1);
   });
 
-  it('returns array for completely invalid input', () => {
+  it('returns array for completely invalid input or throws', () => {
     // parseAIResponse throws on invalid input, but let's check behavior
+    let result;
+    let threw = false;
     try {
-      const result = parseAIResponse('this is not json at all', 1);
-      expect(Array.isArray(result)).toBe(true);
+      result = parseAIResponse('this is not json at all', 1);
     } catch (e) {
-      // Throwing is also acceptable behavior for invalid input
-      expect(e).toBeTruthy();
+      threw = true;
     }
+    
+    // Check that it either threw an error or returned an array
+    expect(threw ? true : Array.isArray(result)).toBe(true);
   });
 
   it('parses multiple questions', () => {

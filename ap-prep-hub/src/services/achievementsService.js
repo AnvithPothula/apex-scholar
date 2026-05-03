@@ -553,9 +553,10 @@ class AchievementsService {
       };
 
       // Save to Firebase
-      const userDocRef = doc(db, 'users', userId);
-      await updateDoc(userDocRef, {
-        achievements: updatedData
+      const userAchievementsRef = doc(db, 'userAchievements', userId);
+      await updateDoc(userAchievementsRef, {
+        ...updatedData,
+        lastUpdated: new Date()
       });
 
       // Log achievement unlock
