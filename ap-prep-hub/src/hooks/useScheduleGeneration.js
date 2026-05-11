@@ -166,8 +166,17 @@ export default function useScheduleGeneration({
         setNewAssignmentsAvailable(false);
       }
 
-      // Detect overdue tasks (non-blocking — schedule still generates)
-      handleOverdueTasks(tasks);
+      // Block generation if there are overdue tasks. Generating around them
+      // would produce a stale plan that ignores the user's pending action,
+      // and any in-flight reschedule/delete inside the OverdueTasksDialog
+      // would invalidate this run anyway. Auto-triggered generation still
+      // proceeds (e.g. background syncs) so we don't drop work silently
+      // when the user isn't there to dismiss a dialog.
+      if (!isAutoTrigger && handleOverdueTasks(tasks)) {
+        debugLog("⏸ Schedule generation paused — overdue tasks need attention");
+        updateIsGenerating(false);
+        return;
+      }
 
       debugLog("🧠 Generating intelligent schedule...");
       debugLog("Tasks:", tasks);

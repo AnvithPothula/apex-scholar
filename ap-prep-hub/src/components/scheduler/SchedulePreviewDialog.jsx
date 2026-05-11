@@ -16,10 +16,19 @@ export default function SchedulePreviewDialog({
     const currentMap = new Map();
     const newMap = new Map();
 
-    // Key by taskName+date for comparison
+    // Key by taskName + startTime + endTime so the diff catches changes to
+    // session duration (same start, different end was previously treated
+    // as "unchanged") and so two identical back-to-back sessions don't
+    // collapse into one entry.
     const itemKey = (item) => {
       const start = item.startTime instanceof Date ? item.startTime : new Date(item.startTime);
-      return `${item.task || item.taskName}::${format(start, 'yyyy-MM-dd HH:mm')}`;
+      const endRaw = item.endTime || item.end || null;
+      const end = endRaw
+        ? (endRaw instanceof Date ? endRaw : new Date(endRaw))
+        : null;
+      const startStr = format(start, 'yyyy-MM-dd HH:mm');
+      const endStr = end && !isNaN(end.getTime()) ? format(end, 'HH:mm') : '?';
+      return `${item.task || item.taskName}::${startStr}::${endStr}`;
     };
 
     (currentSchedule || []).forEach(item => {
