@@ -449,8 +449,51 @@ export const parseAIResponse = (text, startId = 1) => {
       text => text.replace(/,(\s*[}\]])/g, '$1'),
       // Fix missing quotes around keys
       text => text.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":'),
-      // Fix single quotes to double quotes (but preserve escaped quotes)
-      text => text.replace(/(?<!\\)'/g, '"'),
+      // Escape raw control characters that appear *inside* string literals.
+      // The AI sometimes drops a real newline / tab into a "string" instead of
+      // emitting \n / \t — JSON.parse then throws "Bad control character in
+      // string literal". This is the most common root cause when Sentry shows
+      // a parseError of that shape.
+      text => {
+        let out = '';
+        let inStr = false;
+        let esc = false;
+        for (let i = 0; i < text.length; i++) {
+          const ch = text[i];
+          if (esc) { out += ch; esc = false; continue; }
+          if (ch === '\\') { out += ch; esc = true; continue; }
+          if (ch === '"') { inStr = !inStr; out += ch; continue; }
+          if (inStr) {
+            if (ch === '\n') { out += '\\n'; continue; }
+            if (ch === '\r') { out += '\\r'; continue; }
+            if (ch === '\t') { out += '\\t'; continue; }
+            // Drop other C0 control bytes (NUL, BEL, …) outright — they
+            // never belong in JSON string content.
+            if (ch.charCodeAt(0) < 0x20) continue;
+          }
+          out += ch;
+        }
+        return out;
+      },
+      // Fix single quotes to double quotes — but ONLY outside of "..." strings.
+      // Apostrophes (e.g. "pesticide's action") are perfectly valid JSON string
+      // content; the previous global regex was rewriting them into "pesticide"s
+      // and corrupting otherwise-valid responses. We walk the string and only
+      // convert ' when we're not currently inside a double-quoted run.
+      text => {
+        let out = '';
+        let inDouble = false;
+        let esc = false;
+        for (let i = 0; i < text.length; i++) {
+          const ch = text[i];
+          if (esc) { out += ch; esc = false; continue; }
+          if (ch === '\\') { out += ch; esc = true; continue; }
+          if (ch === '"') { inDouble = !inDouble; out += ch; continue; }
+          if (ch === "'" && !inDouble) { out += '"'; continue; }
+          out += ch;
+        }
+        return out;
+      },
       // Remove any explanatory text before JSON
       text => {
         const jsonStart = Math.min(

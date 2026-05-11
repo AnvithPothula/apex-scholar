@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Brain, Target, TrendingUp, Clock, Play, ArrowRight, Search, Filter, CheckCircle, BarChart3, Users, Award, Zap, X, AlertCircle, Lightbulb } from 'lucide-react';
+import { Brain, Target, TrendingUp, Clock, Play, ArrowRight, Search, CheckCircle, BarChart3, Users, Award, Zap, X, AlertCircle, Lightbulb } from 'lucide-react';
 import { Button, Card, Badge, Input } from '../components/ui/UIComponents';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -65,26 +65,10 @@ const DiagnosticTypes = () => {
   const [answers, setAnswers] = useState({});
   const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
   const [diagnosticResult, setDiagnosticResult] = useState(null);
-  const [userHistory, setUserHistory] = useState([]);
-
-  // Load user's diagnostic history on component mount
-  useEffect(() => {
-    const loadDiagnosticHistory = async () => {
-      try {
-        const history = await dataService.getUserDiagnosticResults(user.uid);
-        setUserHistory(history.map(item => ({
-          ...item,
-          timestamp: item.timestamp ? new Date(item.timestamp.seconds * 1000).toLocaleDateString() : 'Unknown'
-        })));
-      } catch (error) {
-        console.error('Error loading diagnostic history:', error);
-      }
-    };
-
-    if (user) {
-      loadDiagnosticHistory();
-    }
-  }, [user]);
+  // NOTE: previously stored diagnostic history in local state and fetched it
+  // here on mount, but nothing in the render reads it — removed to drop the
+  // wasted Firestore round-trip. Restore both pieces if/when the UI surfaces
+  // past results.
 
   const startDiagnostic = async (subjectKey, subjectName) => {
     if (!user) {
@@ -200,13 +184,9 @@ const DiagnosticTypes = () => {
         completedAt: new Date()
       });
 
-      // Update local history
-      setUserHistory(prev => [{
-        id: Date.now(),
-        subject: takingDiagnostic.name,
-        accuracy,
-        timestamp: 'Just now'
-      }, ...prev]);
+      // (No local history state — diagnostic results are persisted to
+      // Firestore above and will be fetched on demand if/when the UI
+      // surfaces past results.)
 
     } catch (error) {
       console.error('Error finishing diagnostic:', error);

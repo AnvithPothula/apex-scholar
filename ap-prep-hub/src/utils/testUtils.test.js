@@ -132,6 +132,33 @@ describe('parseAIResponse', () => {
     expect(result[0].question).toBe('Q1');
     expect(result[1].question).toBe('Q2');
   });
+
+  // Regression: APEX-SCHOLAR Sentry issue where a real control character
+  // inside a string literal triggered a chain of repairs that then turned
+  // every apostrophe in valid content (e.g. "pesticide's") into a stray
+  // double quote. Both sides of the fix are exercised here.
+  it('preserves apostrophes inside string content (Sentry regression)', () => {
+    const json = JSON.stringify([{
+      question: "What is the pesticide's effect on Complex I?",
+      options: ['A','B','C','D'],
+      correctAnswer: 'A',
+      type: 'mcq',
+    }]);
+    const result = parseAIResponse(json, 1);
+    expect(result).toHaveLength(1);
+    expect(result[0].question).toBe("What is the pesticide's effect on Complex I?");
+  });
+
+  it('recovers from raw control characters inside string literals', () => {
+    // Build a payload that JSON.parse rejects with "Bad control character"
+    // (a literal newline inside the question string). The control-char
+    // repair should escape it as \n and let parsing succeed.
+    const broken = '[{"question":"line one\nline two","options":["A","B","C","D"],"correctAnswer":"A","type":"mcq"}]';
+    const result = parseAIResponse(broken, 1);
+    expect(result).toHaveLength(1);
+    expect(result[0].question).toContain('line one');
+    expect(result[0].question).toContain('line two');
+  });
 });
 
 // ─── buildRubricItems ────────────────────────────────────────────
