@@ -11,8 +11,14 @@ import {
   getHours,
   getMinutes,
   isSameDay,
+  isValid,
 } from 'date-fns';
-import { Draggable, Droppable } from '@hello-pangea/dnd';
+// Note: this view previously used `<Droppable>` and `<Draggable>` from
+// `@hello-pangea/dnd`, but there was never a `<DragDropContext>` wrapping
+// them and no `onDragEnd` handler — the drag handles were non-functional
+// and (post-react-redux upgrade) started throwing `f.store` null in
+// production. Stripped to plain divs; if drag-to-reschedule is wanted,
+// wrap the whole calendar in a real DragDropContext + onDragEnd later.
 import { motion } from 'framer-motion';
 import { getUpcomingExamsSync } from '../../constants/apExamDates';
 import { doc, getDoc } from 'firebase/firestore';
@@ -29,8 +35,18 @@ const getDifficultyColor = (difficulty) => {
 };
 
 const WeekViewTask = ({ task, onTaskClick }) => {
-    const start = parseISO(task.scheduled_start);
-    const end = parseISO(task.scheduled_end);
+    const parseTaskDate = (value) => {
+      if (value instanceof Date) return value;
+      if (typeof value === 'string') return parseISO(value);
+      return value ? new Date(value) : null;
+    };
+
+    const start = parseTaskDate(task.scheduled_start || task.startTime);
+    const end = parseTaskDate(task.scheduled_end || task.endTime);
+
+    if (!start || !end || !isValid(start) || !isValid(end)) {
+      return null;
+    }
 
     const startHour = getHours(start) + getMinutes(start) / 60;
     const endHour = getHours(end) + getMinutes(end) / 60;
@@ -184,80 +200,63 @@ export default function CalendarGrid({
             const reviewItems = getReviewItemsForDate(day);
             
             return (
-              <Droppable
-                  droppableId={day.toISOString()}
+              <div
                   key={day.toISOString()}
+                  className="relative h-full"
               >
-                  {(provided, snapshot) => (
+                  {/* Grid lines */}
+                  {timeSlots.map((hour) => (
                       <div
-                          ref={provided.innerRef}
-                          {...provided.droppableProps}
-                          className={`relative h-full ${snapshot.isDraggingOver ? 'bg-base-850/70' : ''}`}
-                      >
-                          {/* Grid lines */}
-                          {timeSlots.map((hour) => (
-                              <div
-                                key={hour}
-                                className="h-16 border-b border-r border-border-subtle"
-                              />
-                          ))}
-                          
-                          {/* AP Exam indicator at exam time */}
-                          {exam && (
-                            <div
-                              style={{
-                                position: 'absolute',
-                                top: `${(parseInt(exam.time.split(':')[0]) * 4)}rem`,
-                                height: '3rem',
-                                left: '0.25rem',
-                                right: '0.25rem',
-                                zIndex: 30,
-                              }}
-                              className="bg-error-900/70 border-l-4 border-error-500 p-2 rounded-sm text-xs font-bold text-error-200 shadow-raised"
-                            >
-                              📝 {exam.subject.replace('AP ', '')} Exam
-                              <div className="text-error-300 text-xs">{exam.time}</div>
-                            </div>
-                          )}
-                          
-                          {/* Review items displayed at 8 AM */}
-                          {reviewItems.map((item, index) => (
-                            <div
-                              key={`review-${index}`}
-                              style={{
-                                position: 'absolute',
-                                top: `${(8 + index * 0.5) * 4}rem`,
-                                height: '2rem',
-                                left: '0.25rem',
-                                right: '0.25rem',
-                                zIndex: 25,
-                              }}
-                              className="bg-info-900/50 border-l-2 border-info-400 p-1 rounded text-xs text-info-200"
-                              title={item.description}
-                            >
-                              📚 {item.unit.length > 15 ? item.unit.substring(0, 15) + '...' : item.unit}
-                            </div>
-                          ))}
-                          
-                          {getTasksForDate(day).map((task, index) => (
-                              <Draggable key={task.id} draggableId={task.id} index={index}>
-                                  {(provided, snapshot) => (
-                                      <div
-                                          ref={provided.innerRef}
-                                          {...provided.draggableProps}
-                                          {...provided.dragHandleProps}
-                                          style={{...provided.draggableProps.style}}
-                                          onClick={() => onTaskClick(task)}
-                                      >
-                                        <WeekViewTask task={task} onTaskClick={onTaskClick} />
-                                      </div>
-                                  )}
-                              </Draggable>
-                          ))}
-                          {provided.placeholder}
-                      </div>
+                        key={hour}
+                        className="h-16 border-b border-r border-border-subtle"
+                      />
+                  ))}
+
+                  {/* AP Exam indicator at exam time */}
+                  {exam && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: `${(parseInt(exam.time.split(':')[0]) * 4)}rem`,
+                        height: '3rem',
+                        left: '0.25rem',
+                        right: '0.25rem',
+                        zIndex: 30,
+                      }}
+                      className="bg-error-900/70 border-l-4 border-error-500 p-2 rounded-sm text-xs font-bold text-error-200 shadow-raised"
+                    >
+                      📝 {exam.subject.replace('AP ', '')} Exam
+                      <div className="text-error-300 text-xs">{exam.time}</div>
+                    </div>
                   )}
-              </Droppable>
+
+                  {/* Review items displayed at 8 AM */}
+                  {reviewItems.map((item, index) => (
+                    <div
+                      key={`review-${index}`}
+                      style={{
+                        position: 'absolute',
+                        top: `${(8 + index * 0.5) * 4}rem`,
+                        height: '2rem',
+                        left: '0.25rem',
+                        right: '0.25rem',
+                        zIndex: 25,
+                      }}
+                      className="bg-info-900/50 border-l-2 border-info-400 p-1 rounded text-xs text-info-200"
+                      title={item.description}
+                    >
+                      📚 {item.unit.length > 15 ? item.unit.substring(0, 15) + '...' : item.unit}
+                    </div>
+                  ))}
+
+                  {getTasksForDate(day).map((task) => (
+                      <WeekViewTask
+                        key={task.id}
+                        task={task}
+                        onTaskClick={onTaskClick}
+                      />
+                  ))}
+              </div>
             );
           })}
         </div>

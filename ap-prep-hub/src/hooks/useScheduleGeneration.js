@@ -80,11 +80,15 @@ export default function useScheduleGeneration({
 
   // --- Overdue task detection ---
   const handleOverdueTasks = useCallback((tasksToCheck) => {
+    if (!Array.isArray(tasksToCheck)) return false;
     const now = new Date();
     const overdueTasks = tasksToCheck.filter(task => {
-      if (!task.deadline || task.is_completed) return false;
+      // Defensive: a null/undefined slot in the array would otherwise throw
+      // on `task.deadline`, breaking the entire generation flow on a single
+      // bad write. Skip them silently.
+      if (!task || !task.deadline || task.is_completed) return false;
       const deadline = task.deadline.toDate ? task.deadline.toDate() : new Date(task.deadline);
-      return deadline < now;
+      return !isNaN(deadline.getTime()) && deadline < now;
     });
     if (overdueTasks.length > 0) {
       setOverdueTasksDialog({ show: true, tasks: overdueTasks });
@@ -100,6 +104,10 @@ export default function useScheduleGeneration({
       if (action === 'delete') {
         await deleteDoc(doc(db, "users", user.uid, "tasks", task.id));
         setTasks(prev => prev.filter(t => t.id !== task.id));
+        const nextSchedule = (Array.isArray(aiSchedule) ? aiSchedule : [])
+          .filter(item => item && item.taskId !== task.id);
+        setAiSchedule(nextSchedule);
+        await saveAiScheduleToFirebase(nextSchedule);
         debugLog("🔄 Overdue task deleted, regenerating schedule...");
         setTimeout(() => {
           if (scheduleRegenerateRef.current) scheduleRegenerateRef.current(false);
@@ -112,6 +120,10 @@ export default function useScheduleGeneration({
             ? { ...t, deadline: Timestamp.fromDate(new Date(newDeadline)) }
             : t
         ));
+        const nextSchedule = (Array.isArray(aiSchedule) ? aiSchedule : [])
+          .filter(item => item && item.taskId !== task.id);
+        setAiSchedule(nextSchedule);
+        await saveAiScheduleToFirebase(nextSchedule);
         debugLog("🔄 Task rescheduled, regenerating schedule...");
         setTimeout(() => {
           if (scheduleRegenerateRef.current) scheduleRegenerateRef.current(false);
@@ -130,7 +142,7 @@ export default function useScheduleGeneration({
       console.error("Error processing overdue task:", error);
       toast.error("Failed to update task. Please try again.");
     }
-  }, [user, setTasks, toast]);
+  }, [user, setTasks, aiSchedule, setAiSchedule, saveAiScheduleToFirebase, toast]);
 
   // --- Main schedule generation ---
   const generateIntelligentSchedule = useCallback(async (isAutoTrigger = false) => {
@@ -420,7 +432,15 @@ export default function useScheduleGeneration({
   useEffect(() => {
     const hasExistingSchedule = Array.isArray(aiSchedule) && aiSchedule.length > 0;
 
-    if (tasks.length > 0 && userPreferences && !isGenerating && !showBlackoutDialog && !isModalOpen && !hasAutoTriggered && !hasExistingSchedule && !failedAutoTriggerRef.current) {
+    // Gate on `scheduler` AND `!isLoadingPreferences` — the previous version
+    // only checked `userPreferences` (which is initialized to a default
+    // object and is therefore always truthy). On a fresh page load that
+    // meant auto-trigger could fire before the scheduler was constructed
+    // (it's built in a separate effect after prefs load). `generateIntelligentSchedule`
+    // would then bail at the `!scheduler` guard, but `hasAutoTriggered`
+    // was already set to true — silently disabling auto-trigger for the
+    // entire session. User had to manually click "Generate" every reload.
+    if (tasks.length > 0 && scheduler && !isLoadingPreferences && !isGenerating && !showBlackoutDialog && !isModalOpen && !hasAutoTriggered && !hasExistingSchedule && !failedAutoTriggerRef.current) {
       debugLog("🔄 Auto-triggering schedule generation (no existing schedule found)");
       setHasAutoTriggered(true);
       const timer = setTimeout(() => {
@@ -431,7 +451,7 @@ export default function useScheduleGeneration({
       debugLog("📅 Existing schedule found - skipping auto-trigger to preserve scheduled times");
       setHasAutoTriggered(true);
     }
-  }, [tasks.length, userPreferences, isGenerating, showBlackoutDialog, isModalOpen, hasAutoTriggered, aiSchedule, generateIntelligentSchedule]);
+  }, [tasks.length, userPreferences, scheduler, isLoadingPreferences, isGenerating, showBlackoutDialog, isModalOpen, hasAutoTriggered, aiSchedule, generateIntelligentSchedule]);
 
   // Proceed with schedule after resolving conflicts
   const proceedWithSchedule = useCallback(() => {

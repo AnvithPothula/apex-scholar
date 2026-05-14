@@ -1013,11 +1013,15 @@ class IntelligentScheduler {
       
       if (!isNaN(deadline.getTime())) {
         const deadlineHour = deadline.getHours();
-        
-        if (isToday && format(deadline, 'yyyy-MM-dd') === todayDateStr) {
-          // Task is due today - make sure we don't schedule past the deadline
+        const deadlineDateStr = format(deadline, 'yyyy-MM-dd');
+
+        // Compare the iteration date against the deadline date. The earlier
+        // version of this check only fired when both `isToday` AND the
+        // deadline was today, meaning a task due tomorrow at 8am could still
+        // be scheduled tomorrow at 7pm — silently past its deadline.
+        if (targetDateStr === deadlineDateStr) {
           endHour = Math.min(endHour, deadlineHour);
-          debugLog(`⏰ Task due today at ${formatDateTimeInUserTimezone(deadline, { hour: '2-digit', minute: '2-digit' })}, adjusting end time to ${endHour}:00`);
+          debugLog(`⏰ Task due ${deadlineDateStr} at ${formatDateTimeInUserTimezone(deadline, { hour: '2-digit', minute: '2-digit' })}, capping end time to ${endHour}:00`);
         }
       }
     }    
