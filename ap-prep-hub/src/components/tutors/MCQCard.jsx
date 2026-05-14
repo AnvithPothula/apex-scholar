@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { CheckCircle, XCircle } from 'lucide-react';
+import MarkdownRenderer from '../MarkdownRenderer.jsx';
 
 const MCQCard = ({ mcq, onSelect, disabled }) => {
   const [selectedIdx, setSelectedIdx] = useState(null);
@@ -23,20 +24,28 @@ const MCQCard = ({ mcq, onSelect, disabled }) => {
 
   return (
     <div className="p-4 rounded-md border border-border bg-base-850">
-      <p className="font-medium text-content-primary mb-3">{question}</p>
+      {/* Render question + choices through MarkdownRenderer so LaTeX
+          (e.g. "$\text{CH}_3$") and inline markdown actually render.
+          The previous version output {question} / {ch} as raw text,
+          which meant every chemistry/math MCQ showed literal source. */}
+      <div className="font-medium text-content-primary mb-3">
+        <MarkdownRenderer content={question} />
+      </div>
       <div className="space-y-2">
         {choices.map((ch, idx) => (
           <button
             key={idx}
             onClick={() => handleSelect(idx)}
             disabled={revealed || disabled}
-            className={`w-full text-left px-3 py-2 rounded-sm flex items-center gap-2 transition-all ${getChoiceStyle(idx)} ${!revealed && !disabled ? 'cursor-pointer' : 'cursor-default'}`}
+            className={`w-full text-left px-3 py-2 rounded-sm flex items-start gap-2 transition-all ${getChoiceStyle(idx)} ${!revealed && !disabled ? 'cursor-pointer' : 'cursor-default'}`}
             aria-label={`Choose option ${idx + 1}`}
           >
-            <span className="font-semibold mr-1">{String.fromCharCode(65 + idx)}.</span>
-            <span className="flex-1">{ch}</span>
-            {revealed && idx === correctIndex && <CheckCircle strokeWidth={1.5} className="w-4 h-4 text-success-400 flex-shrink-0" />}
-            {revealed && idx === selectedIdx && idx !== correctIndex && <XCircle strokeWidth={1.5} className="w-4 h-4 text-error-400 flex-shrink-0" />}
+            <span className="font-semibold mr-1 mt-0.5">{String.fromCharCode(65 + idx)}.</span>
+            <span className="flex-1 [&>div]:mb-0">
+              <MarkdownRenderer content={String(ch)} />
+            </span>
+            {revealed && idx === correctIndex && <CheckCircle strokeWidth={1.5} className="w-4 h-4 text-success-400 flex-shrink-0 mt-0.5" />}
+            {revealed && idx === selectedIdx && idx !== correctIndex && <XCircle strokeWidth={1.5} className="w-4 h-4 text-error-400 flex-shrink-0 mt-0.5" />}
           </button>
         ))}
       </div>
@@ -59,7 +68,10 @@ const MCQCard = ({ mcq, onSelect, disabled }) => {
           <ul className="list-disc ml-5 space-y-1">
             {explanations.map((exp, i) => (
               <li key={i} className={i === correctIndex ? 'text-success-300' : 'text-content-muted'}>
-                <span className="font-semibold mr-1">{String.fromCharCode(65 + i)}:</span>{exp}
+                <span className="font-semibold mr-1">{String.fromCharCode(65 + i)}:</span>
+                <span className="[&>div]:inline [&>div]:mb-0">
+                  <MarkdownRenderer content={String(exp)} />
+                </span>
               </li>
             ))}
           </ul>

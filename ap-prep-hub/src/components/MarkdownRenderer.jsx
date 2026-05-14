@@ -3,112 +3,43 @@ import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
+import { preprocessContent } from '../utils/latexPreprocess';
+
+// Re-export so existing imports keep working without churn.
+export { preprocessContent };
+
+// KaTeX macros — soft polyfills for commands the AI commonly emits that
+// aren't in vanilla KaTeX. Keep this list short and uncontroversial; broad
+// macros risk masking real errors. Each entry maps an AI-emitted command
+// to its KaTeX equivalent.
+const KATEX_MACROS = {
+  '\\implies': '\\Rightarrow',
+  '\\impliedby': '\\Leftarrow',
+  '\\iff': '\\Leftrightarrow',
+  '\\R': '\\mathbb{R}',
+  '\\N': '\\mathbb{N}',
+  '\\Z': '\\mathbb{Z}',
+  '\\Q': '\\mathbb{Q}',
+  '\\C': '\\mathbb{C}',
+  '\\degree': '^{\\circ}',
+  // Soft errors instead of hard fails for unknown environments
+  '\\align': '\\aligned',
+};
 
 // Stable plugin arrays — defined once at module scope so React.memo
 // and ReactMarkdown don't re-parse on every render.
 const remarkPlugins = [remarkMath];
-const rehypePlugins = [[rehypeKatex, { strict: false, trust: true }]];
+const rehypePlugins = [[rehypeKatex, {
+  strict: false,        // don't crash on unknown commands, render with errorColor
+  trust: true,          // allow \htmlClass, \href, etc. (we control the AI prompt)
+  throwOnError: false,  // never throw — show the original source in errorColor
+  errorColor: '#f87171', // tailwind error-400
+  macros: KATEX_MACROS,
+}]];
 
-// Common bare LaTeX commands that appear outside $...$ delimiters.
-// We wrap them so remark-math / KaTeX can render properly.
-const BARE_LATEX_RE = /(?<!\$)\\(leftrightharpoons|rightleftharpoons|rightarrow|leftarrow|Rightarrow|Leftarrow|Leftrightarrow|leftrightarrow|uparrow|downarrow|int|iint|iiint|oint|sum|prod|lim|infty|partial|nabla|forall|exists|approx|neq|leq|geq|pm|mp|times|div|cdot|circ|bullet|alpha|beta|gamma|delta|epsilon|zeta|eta|theta|iota|kappa|lambda|mu|nu|xi|pi|rho|sigma|tau|upsilon|phi|chi|psi|omega|Delta|Gamma|Theta|Lambda|Pi|Sigma|Phi|Psi|Omega)(?!\w)(?!\$)/g;
-
-// LaTeX commands that take brace arguments — \frac{}{}, \mathbf{}, etc.
-const BRACE_COMMANDS = ['frac','sqrt','overline','underline','hat','bar','vec','dot','ddot','tilde',
-  'mathbb','mathcal','mathrm','mathbf','mathit','text','textbf','textit','boldsymbol',
-  'left','right','begin','end','binom','underbrace','overbrace'];
-const BRACE_CMD_RE = new RegExp(`\\\\(${BRACE_COMMANDS.join('|')})(?=[{(\\\\])`, 'g');
-
-/**
- * Find the end of a LaTeX expression starting at `pos` in `text`.
- * Walks forward matching braces, subscripts, superscripts, and chained commands.
- */
-function findLatexExprEnd(text, pos) {
-  let i = pos;
-  while (i < text.length) {
-    const ch = text[i];
-    if (ch === '{') {
-      // Match balanced braces
-      let depth = 1;
-      i++;
-      while (i < text.length && depth > 0) {
-        if (text[i] === '{') depth++;
-        else if (text[i] === '}') depth--;
-        if (text[i] === '\\') i++; // skip escaped chars
-        i++;
-      }
-    } else if (ch === '(') {
-      // Match balanced parens (for \left( ... \right))
-      let depth = 1;
-      i++;
-      while (i < text.length && depth > 0) {
-        if (text[i] === '(') depth++;
-        else if (text[i] === ')') depth--;
-        if (text[i] === '\\') i++;
-        i++;
-      }
-    } else if (ch === '^' || ch === '_') {
-      i++;
-      if (i < text.length && text[i] === '{') continue; // will be caught by brace match
-      // Single char subscript/superscript
-      if (i < text.length) i++;
-    } else if (ch === '\\') {
-      // Another LaTeX command — check if it's a known one
-      const remaining = text.slice(i);
-      const cmdMatch = remaining.match(/^\\([a-zA-Z]+)/);
-      if (cmdMatch) {
-        i += cmdMatch[0].length;
-        continue; // keep going — part of the same expression
-      }
-      break;
-    } else if (/[a-zA-Z0-9+\-=,.\s]/.test(ch)) {
-      // Alphanumeric or basic math operators — could be part of expression
-      // But stop at sentence boundaries
-      if (/[.!?]/.test(ch) && i + 1 < text.length && /\s[A-Z]/.test(text.slice(i + 1, i + 3))) break;
-      i++;
-    } else {
-      break;
-    }
-  }
-  return i;
-}
-
-// Pre-process content to fix common LaTeX rendering issues
-// Exported for use by LaTeXRenderer and other components
-export function preprocessContent(content) {
-  if (!content || typeof content !== 'string') return content || '';
-
-  let processed = content;
-
-  // 1. Wrap bare standalone LaTeX commands in $...$
-  processed = processed.replace(BARE_LATEX_RE, (match) => `$${match}$`);
-
-  // 2. Find LaTeX expressions with brace commands outside $...$ and wrap them
-  // Build a set of positions already inside $...$ so we don't double-wrap
-  const dollarRanges = [];
-  const dollarRe = /\$\$[\s\S]*?\$\$|\$[^$\n]*?\$/g;
-  let dm;
-  while ((dm = dollarRe.exec(processed)) !== null) {
-    dollarRanges.push([dm.index, dm.index + dm[0].length]);
-  }
-  const isInsideDollar = (pos) => dollarRanges.some(([s, e]) => pos >= s && pos < e);
-
-  let result = '';
-  let lastEnd = 0;
-  BRACE_CMD_RE.lastIndex = 0;
-  let m;
-  while ((m = BRACE_CMD_RE.exec(processed)) !== null) {
-    if (isInsideDollar(m.index)) continue;
-    const exprEnd = findLatexExprEnd(processed, m.index + m[0].length);
-    const expr = processed.slice(m.index, exprEnd).trim();
-    result += processed.slice(lastEnd, m.index) + '$' + expr + '$';
-    lastEnd = exprEnd;
-    BRACE_CMD_RE.lastIndex = exprEnd; // advance past what we consumed
-  }
-  result += processed.slice(lastEnd);
-
-  return result;
-}
+// preprocessContent + all LaTeX normalization helpers live in
+// ../utils/latexPreprocess so they can be unit-tested without pulling in
+// react-markdown (which is ESM-only and breaks under Jest's CRA config).
 
 // Stable component overrides — same reason.
 const mdComponents = {
