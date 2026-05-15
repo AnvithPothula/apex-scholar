@@ -93,6 +93,10 @@ const MarkdownRenderer = memo(({ content, className = "" }) => {
   // Pre-process content for LaTeX fixes, then memoize
   const memoizedContent = useMemo(() => preprocessContent(content), [content]);
 
+  if (typeof ReactMarkdown !== 'function') {
+    return <div className={`markdown-content ${className}`}>{memoizedContent}</div>;
+  }
+
   return (
     <div className={`markdown-content ${className}`}>
       <ReactMarkdown

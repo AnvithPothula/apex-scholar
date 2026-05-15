@@ -1,6 +1,6 @@
 import React from "react";
 import { Button } from "../ui/UIComponents";
-import { ChevronLeft, ChevronRight, Grid, List, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { format, addDays, addWeeks, addMonths } from "date-fns";
 
 export default function CalendarHeader({ currentDate, onDateChange, viewMode, onViewModeChange }) {
@@ -36,12 +36,6 @@ export default function CalendarHeader({ currentDate, onDateChange, viewMode, on
     }
   };
 
-  const viewModeIcons = {
-    day: Clock,
-    week: List,
-    month: Grid
-  };
-
   return (
     <div className="bg-base-900 border-b border-border p-4 md:p-6">
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
@@ -50,42 +44,23 @@ export default function CalendarHeader({ currentDate, onDateChange, viewMode, on
           <Button variant="outline" size="icon" onClick={() => navigateDate("prev")}>
             <ChevronLeft className="w-4 h-4" strokeWidth={1.5} />
           </Button>
-          
+
           <Button variant="outline" onClick={() => onDateChange(new Date())}>
             Today
           </Button>
-          
+
           <Button variant="outline" size="icon" onClick={() => navigateDate("next")}>
             <ChevronRight className="w-4 h-4" strokeWidth={1.5} />
           </Button>
-          
+
           <div className="text-lg md:text-2xl font-bold text-content-primary pl-4">
             {getDateDisplay()}
           </div>
         </div>
 
-        {/* View Mode Selector */}
-        <div className="flex items-center space-x-1 bg-base-800 p-1 rounded-sm">
-          {["week", "month"].map((mode) => {
-            const Icon = viewModeIcons[mode];
-            return (
-              <Button
-                key={mode}
-                variant={viewMode === mode ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => onViewModeChange(mode)}
-                className={`${
-                  viewMode === mode
-                    ? "bg-base-750 text-content-primary"
-                    : "text-content-muted hover:text-content-primary hover:bg-base-800/50"
-                }`}
-              >
-                <Icon className="w-4 h-4 mr-2" strokeWidth={1.5} />
-                {mode.charAt(0).toUpperCase() + mode.slice(1)}
-              </Button>
-            );
-          })}
-        </div>
+        {/* Note: the Week/Month view-mode selector lives on the SmartScheduler
+            page header alongside the List option. Keeping the toggle in two
+            places was just visual duplication. */}
       </div>
     </div>
   );

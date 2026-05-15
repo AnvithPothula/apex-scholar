@@ -55,6 +55,12 @@ export default function useScheduleGeneration({
   const lastKnownTaskCountRef = useRef(0);
   const scheduleRegenerateRef = useRef(null);
   const deletingTaskRef = useRef(null);
+  // Tracks whether we've scheduled the auto-trigger setTimeout. Prevents
+  // the useEffect from re-scheduling on every render. Also stores the
+  // timer ID so we can clear it on unmount only — not on dep changes,
+  // which would cancel the timer before it fires.
+  const autoTriggerScheduledRef = useRef(false);
+  const autoTriggerTimerRef = useRef(null);
 
   // Helper to update both state and ref
   const updateIsGenerating = useCallback((value) => {
@@ -430,28 +436,40 @@ export default function useScheduleGeneration({
 
   // Auto-trigger scheduling
   useEffect(() => {
+    // The autoTriggerScheduledRef guard prevents this effect from queueing
+    // a new timer on every re-render. The previous version called
+    // `setHasAutoTriggered(true)` BEFORE the setTimeout, which triggered
+    // an immediate re-render, ran the effect's cleanup (clearTimeout), and
+    // killed the timer before it could fire. Net effect: auto-trigger
+    // logged "🔄 Auto-triggering..." but generateIntelligentSchedule was
+    // never actually called.
+    if (autoTriggerScheduledRef.current) return;
+
     const hasExistingSchedule = Array.isArray(aiSchedule) && aiSchedule.length > 0;
 
-    // Gate on `scheduler` AND `!isLoadingPreferences` — the previous version
-    // only checked `userPreferences` (which is initialized to a default
-    // object and is therefore always truthy). On a fresh page load that
-    // meant auto-trigger could fire before the scheduler was constructed
-    // (it's built in a separate effect after prefs load). `generateIntelligentSchedule`
-    // would then bail at the `!scheduler` guard, but `hasAutoTriggered`
-    // was already set to true — silently disabling auto-trigger for the
-    // entire session. User had to manually click "Generate" every reload.
+    // Gate on `scheduler` AND `!isLoadingPreferences` — `userPreferences`
+    // alone is unreliable because it's initialized to a default object and
+    // is therefore always truthy, even before Firestore has loaded the real
+    // user prefs.
     if (tasks.length > 0 && scheduler && !isLoadingPreferences && !isGenerating && !showBlackoutDialog && !isModalOpen && !hasAutoTriggered && !hasExistingSchedule && !failedAutoTriggerRef.current) {
       debugLog("🔄 Auto-triggering schedule generation (no existing schedule found)");
-      setHasAutoTriggered(true);
-      const timer = setTimeout(() => {
+      autoTriggerScheduledRef.current = true;
+      autoTriggerTimerRef.current = setTimeout(() => {
+        setHasAutoTriggered(true);
         generateIntelligentSchedule(true);
       }, 500);
-      return () => clearTimeout(timer);
     } else if (hasExistingSchedule && !hasAutoTriggered) {
       debugLog("📅 Existing schedule found - skipping auto-trigger to preserve scheduled times");
+      autoTriggerScheduledRef.current = true;
       setHasAutoTriggered(true);
     }
   }, [tasks.length, userPreferences, scheduler, isLoadingPreferences, isGenerating, showBlackoutDialog, isModalOpen, hasAutoTriggered, aiSchedule, generateIntelligentSchedule]);
+
+  // Clear the auto-trigger timer ONLY on unmount, so dep changes don't
+  // race-cancel it.
+  useEffect(() => () => {
+    if (autoTriggerTimerRef.current) clearTimeout(autoTriggerTimerRef.current);
+  }, []);
 
   // Proceed with schedule after resolving conflicts
   const proceedWithSchedule = useCallback(() => {

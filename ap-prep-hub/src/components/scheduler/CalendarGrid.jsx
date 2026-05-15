@@ -90,6 +90,11 @@ export default function CalendarGrid({
 }) {
   const { user } = useAuth();
   const [upcomingExams, setUpcomingExams] = React.useState([]);
+  // Ref on the scrollable week-view wrapper so we can scroll-to-time on mount.
+  // Without this, the week view always opens at 12am and the user has to
+  // scroll down to find their actual study sessions (which are usually
+  // between 8am-10pm). See the auto-scroll effect below.
+  const weekScrollRef = React.useRef(null);
 
   // Load user's selected subjects and upcoming exams
   React.useEffect(() => {
@@ -115,6 +120,40 @@ export default function CalendarGrid({
 
     loadUserData();
   }, [user]);
+
+  // Auto-scroll the week view to a useful starting hour on mount and when
+  // the visible week changes. Priority order:
+  //   1. The earliest scheduled session of the day (minus 30 minutes lead-in)
+  //   2. The current hour if it's within study hours (7am-11pm)
+  //   3. 8am as a sensible default
+  // Each hour is 4rem tall = 64px. The day-header is ~5rem.
+  React.useEffect(() => {
+    if (viewMode !== 'week') return;
+    const container = weekScrollRef.current;
+    if (!container) return;
+
+    let targetHour = 8;
+    try {
+      const todayItems = (getTasksForDate && getTasksForDate(currentDate)) || [];
+      const startHours = todayItems
+        .map((item) => {
+          const s = item.startTime ? new Date(item.startTime) : null;
+          return s && !isNaN(s.getTime()) ? s.getHours() : null;
+        })
+        .filter((h) => h !== null);
+      if (startHours.length > 0) {
+        targetHour = Math.max(0, Math.min(...startHours) - 1);
+      } else if (isTodayDateFns(currentDate)) {
+        const nowHour = new Date().getHours();
+        if (nowHour >= 7 && nowHour <= 23) targetHour = nowHour - 1;
+      }
+    } catch (_e) {
+      // Best-effort — fall back to default 8am.
+    }
+    // 4rem per hour, header is ~5rem. Use rough rem-to-px (assume 16px/rem).
+    const remToPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+    container.scrollTop = targetHour * 4 * remToPx;
+  }, [viewMode, currentDate, getTasksForDate]);
 
   // Helper function to get exam for a specific date
   const getExamForDate = (date) => {
@@ -150,17 +189,22 @@ export default function CalendarGrid({
     const timeSlots = Array.from({ length: 24 }, (_, i) => i);
 
     return (
-      <div className="overflow-x-auto h-full">
-        <div className="grid grid-cols-[auto_repeat(7,minmax(150px,1fr))] min-w-[1200px] h-full">
-          {/* Top-left empty cell */}
-          <div className="sticky left-0 top-0 z-30 bg-base-900 border-b border-r border-border-subtle p-2"></div>
+      <div ref={weekScrollRef} className="overflow-auto h-full">
+        {/* Removed the explicit `min-w-[1200px]` and shrunk per-column
+            min-width from 150px → 110px so the grid fits on typical
+            laptop widths (~960px content area after sidebar). Wider
+            screens still expand via the `1fr` track. */}
+        <div className="grid grid-cols-[auto_repeat(7,minmax(110px,1fr))] min-w-[860px]">
+          {/* Top-left empty cell — sits above both header row and time
+              column, so its z-index has to beat both. */}
+          <div className="sticky left-0 top-0 z-50 bg-base-900 border-b border-r border-border-subtle p-2"></div>
           {/* Days Header */}
           {days.map((d) => {
             const exam = getExamForDate(d);
             const reviewItems = getReviewItemsForDate(d);
             
             return (
-              <div key={d.toISOString()} className="p-4 text-center border-b border-border-subtle bg-base-900 sticky top-0 z-20">
+              <div key={d.toISOString()} className="p-4 text-center border-b border-border-subtle bg-base-900 sticky top-0 z-40">
                 <div className="font-semibold text-content-primary flex items-center justify-center gap-2">
                   {format(d, "EEE")}
                   {exam && <div className="w-2 h-2 bg-error-500 rounded-full animate-pulse" title={`AP Exam: ${exam.subject}`}></div>}
@@ -187,7 +231,10 @@ export default function CalendarGrid({
             );
           })}
           {/* Time column */}
-          <div className="sticky left-0 z-20 bg-base-900 border-r border-border-subtle">
+          {/* Sticky time column — bumped to z-30 so absolute-positioned
+              tasks (z-index: 20) inside day columns don't slide under it
+              when the user scrolls horizontally. */}
+          <div className="sticky left-0 z-30 bg-base-900 border-r border-border-subtle">
             {timeSlots.map((hour) => (
               <div key={hour} className="h-16 p-2 text-xs text-content-muted border-b border-border-subtle text-right flex items-center justify-end">
                 {format(new Date(2000, 0, 1, hour), "ha")}
