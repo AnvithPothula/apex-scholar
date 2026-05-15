@@ -55,6 +55,12 @@ export default function useScheduleGeneration({
   const lastKnownTaskCountRef = useRef(0);
   const scheduleRegenerateRef = useRef(null);
   const deletingTaskRef = useRef(null);
+  // Tracks whether we've scheduled the auto-trigger setTimeout. Prevents
+  // the useEffect from re-scheduling on every render. Also stores the
+  // timer ID so we can clear it on unmount only — not on dep changes,
+  // which would cancel the timer before it fires.
+  const autoTriggerScheduledRef = useRef(false);
+  const autoTriggerTimerRef = useRef(null);
 
   // Helper to update both state and ref
   const updateIsGenerating = useCallback((value) => {
@@ -80,11 +86,15 @@ export default function useScheduleGeneration({
 
   // --- Overdue task detection ---
   const handleOverdueTasks = useCallback((tasksToCheck) => {
+    if (!Array.isArray(tasksToCheck)) return false;
     const now = new Date();
     const overdueTasks = tasksToCheck.filter(task => {
-      if (!task.deadline || task.is_completed) return false;
+      // Defensive: a null/undefined slot in the array would otherwise throw
+      // on `task.deadline`, breaking the entire generation flow on a single
+      // bad write. Skip them silently.
+      if (!task || !task.deadline || task.is_completed) return false;
       const deadline = task.deadline.toDate ? task.deadline.toDate() : new Date(task.deadline);
-      return deadline < now;
+      return !isNaN(deadline.getTime()) && deadline < now;
     });
     if (overdueTasks.length > 0) {
       setOverdueTasksDialog({ show: true, tasks: overdueTasks });
@@ -100,6 +110,10 @@ export default function useScheduleGeneration({
       if (action === 'delete') {
         await deleteDoc(doc(db, "users", user.uid, "tasks", task.id));
         setTasks(prev => prev.filter(t => t.id !== task.id));
+        const nextSchedule = (Array.isArray(aiSchedule) ? aiSchedule : [])
+          .filter(item => item && item.taskId !== task.id);
+        setAiSchedule(nextSchedule);
+        await saveAiScheduleToFirebase(nextSchedule);
         debugLog("🔄 Overdue task deleted, regenerating schedule...");
         setTimeout(() => {
           if (scheduleRegenerateRef.current) scheduleRegenerateRef.current(false);
@@ -112,6 +126,10 @@ export default function useScheduleGeneration({
             ? { ...t, deadline: Timestamp.fromDate(new Date(newDeadline)) }
             : t
         ));
+        const nextSchedule = (Array.isArray(aiSchedule) ? aiSchedule : [])
+          .filter(item => item && item.taskId !== task.id);
+        setAiSchedule(nextSchedule);
+        await saveAiScheduleToFirebase(nextSchedule);
         debugLog("🔄 Task rescheduled, regenerating schedule...");
         setTimeout(() => {
           if (scheduleRegenerateRef.current) scheduleRegenerateRef.current(false);
@@ -130,7 +148,7 @@ export default function useScheduleGeneration({
       console.error("Error processing overdue task:", error);
       toast.error("Failed to update task. Please try again.");
     }
-  }, [user, setTasks, toast]);
+  }, [user, setTasks, aiSchedule, setAiSchedule, saveAiScheduleToFirebase, toast]);
 
   // --- Main schedule generation ---
   const generateIntelligentSchedule = useCallback(async (isAutoTrigger = false) => {
@@ -166,8 +184,17 @@ export default function useScheduleGeneration({
         setNewAssignmentsAvailable(false);
       }
 
-      // Detect overdue tasks (non-blocking — schedule still generates)
-      handleOverdueTasks(tasks);
+      // Block generation if there are overdue tasks. Generating around them
+      // would produce a stale plan that ignores the user's pending action,
+      // and any in-flight reschedule/delete inside the OverdueTasksDialog
+      // would invalidate this run anyway. Auto-triggered generation still
+      // proceeds (e.g. background syncs) so we don't drop work silently
+      // when the user isn't there to dismiss a dialog.
+      if (!isAutoTrigger && handleOverdueTasks(tasks)) {
+        debugLog("⏸ Schedule generation paused — overdue tasks need attention");
+        updateIsGenerating(false);
+        return;
+      }
 
       debugLog("🧠 Generating intelligent schedule...");
       debugLog("Tasks:", tasks);
@@ -409,20 +436,40 @@ export default function useScheduleGeneration({
 
   // Auto-trigger scheduling
   useEffect(() => {
+    // The autoTriggerScheduledRef guard prevents this effect from queueing
+    // a new timer on every re-render. The previous version called
+    // `setHasAutoTriggered(true)` BEFORE the setTimeout, which triggered
+    // an immediate re-render, ran the effect's cleanup (clearTimeout), and
+    // killed the timer before it could fire. Net effect: auto-trigger
+    // logged "🔄 Auto-triggering..." but generateIntelligentSchedule was
+    // never actually called.
+    if (autoTriggerScheduledRef.current) return;
+
     const hasExistingSchedule = Array.isArray(aiSchedule) && aiSchedule.length > 0;
 
-    if (tasks.length > 0 && userPreferences && !isGenerating && !showBlackoutDialog && !isModalOpen && !hasAutoTriggered && !hasExistingSchedule && !failedAutoTriggerRef.current) {
+    // Gate on `scheduler` AND `!isLoadingPreferences` — `userPreferences`
+    // alone is unreliable because it's initialized to a default object and
+    // is therefore always truthy, even before Firestore has loaded the real
+    // user prefs.
+    if (tasks.length > 0 && scheduler && !isLoadingPreferences && !isGenerating && !showBlackoutDialog && !isModalOpen && !hasAutoTriggered && !hasExistingSchedule && !failedAutoTriggerRef.current) {
       debugLog("🔄 Auto-triggering schedule generation (no existing schedule found)");
-      setHasAutoTriggered(true);
-      const timer = setTimeout(() => {
+      autoTriggerScheduledRef.current = true;
+      autoTriggerTimerRef.current = setTimeout(() => {
+        setHasAutoTriggered(true);
         generateIntelligentSchedule(true);
       }, 500);
-      return () => clearTimeout(timer);
     } else if (hasExistingSchedule && !hasAutoTriggered) {
       debugLog("📅 Existing schedule found - skipping auto-trigger to preserve scheduled times");
+      autoTriggerScheduledRef.current = true;
       setHasAutoTriggered(true);
     }
-  }, [tasks.length, userPreferences, isGenerating, showBlackoutDialog, isModalOpen, hasAutoTriggered, aiSchedule, generateIntelligentSchedule]);
+  }, [tasks.length, userPreferences, scheduler, isLoadingPreferences, isGenerating, showBlackoutDialog, isModalOpen, hasAutoTriggered, aiSchedule, generateIntelligentSchedule]);
+
+  // Clear the auto-trigger timer ONLY on unmount, so dep changes don't
+  // race-cancel it.
+  useEffect(() => () => {
+    if (autoTriggerTimerRef.current) clearTimeout(autoTriggerTimerRef.current);
+  }, []);
 
   // Proceed with schedule after resolving conflicts
   const proceedWithSchedule = useCallback(() => {

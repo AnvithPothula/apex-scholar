@@ -176,7 +176,10 @@ const SyncHistoryManager = () => {
                 <h4 className="text-sm font-medium text-content-primary mb-3">Recent Synced Assignments</h4>
                 <div className="bg-base-800/50 rounded-lg p-4 max-h-64 overflow-y-auto">
                   <div className="space-y-2">
-                    {syncStats.assignments
+                    {/* Clone before sort — Array.prototype.sort() mutates,
+                        and `syncStats.assignments` is state that other code
+                        (and React's render cycle) may rely on. */}
+                    {[...syncStats.assignments]
                       .sort((a, b) => new Date(b.firstSyncedAt) - new Date(a.firstSyncedAt))
                       .slice(0, 10)
                       .map((assignment, index) => (

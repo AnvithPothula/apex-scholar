@@ -22,6 +22,60 @@ import useScheduleGeneration from "../hooks/useScheduleGeneration";
 const IS_DEV = process.env.NODE_ENV === 'development';
 const debugLog = IS_DEV ? (...args) => console.log(...args) : () => {}; // eslint-disable-line no-console
 
+const getDefaultSchedulerPreferences = () => ({
+  preferredStudyTimes: ['morning', 'evening'],
+  sessionLength: 50,
+  breakLength: 10,
+  breakDuration: 10,
+  longBreakLength: 30,
+  maxStudyHoursPerDay: 6,
+  studyStartTime: 7,
+  studyEndTime: 22,
+  weekendStudy: true,
+  studyIntensity: 'moderate',
+  preferMorningStudy: true,
+  maxConcurrentSubjects: 3,
+  difficultTasksInMorning: true,
+  avoidPostLunchDip: true,
+  procrastinationBuffer: 0.2,
+  blackoutSchedule: {},
+  learningHistory: []
+});
+
+const numberOrDefault = (value, fallback) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const normalizeSchedulerPreferences = (userData = {}) => {
+  const defaults = getDefaultSchedulerPreferences();
+  const saved = userData.studyPreferences || {};
+  const breakLength = numberOrDefault(saved.breakLength ?? saved.breakDuration, defaults.breakLength);
+
+  return {
+    ...defaults,
+    ...saved,
+    sessionLength: numberOrDefault(saved.sessionLength, defaults.sessionLength),
+    breakLength,
+    breakDuration: breakLength,
+    longBreakLength: numberOrDefault(saved.longBreakLength, defaults.longBreakLength),
+    maxStudyHoursPerDay: numberOrDefault(saved.maxStudyHoursPerDay, defaults.maxStudyHoursPerDay),
+    studyStartTime: numberOrDefault(saved.studyStartTime, defaults.studyStartTime),
+    studyEndTime: numberOrDefault(saved.studyEndTime, defaults.studyEndTime),
+    maxConcurrentSubjects: numberOrDefault(saved.maxConcurrentSubjects, defaults.maxConcurrentSubjects),
+    procrastinationBuffer: numberOrDefault(saved.procrastinationBuffer, defaults.procrastinationBuffer),
+    weekendStudy: saved.weekendStudy !== false,
+    blackoutSchedule: userData.blackoutDates || saved.blackoutSchedule || defaults.blackoutSchedule,
+    learningHistory: userData.learningHistory || saved.learningHistory || defaults.learningHistory
+  };
+};
+
+const toSerializableDate = (value) => {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+};
+
 export default function SmartScheduler() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -33,14 +87,7 @@ export default function SmartScheduler() {
   const [isLoadingPreferences, setIsLoadingPreferences] = useState(true);
   const [scheduleViewMode, setScheduleViewMode] = useState('list'); // 'list' | 'week' | 'month'
   const [calendarDate, setCalendarDate] = useState(new Date());
-  const [userPreferences, setUserPreferences] = useState({
-    preferredStudyTimes: ['morning', 'evening'],
-    maxStudyHoursPerDay: 8, // Increased from 4 to 8 hours
-    breakDuration: 15,
-    weekendStudy: true,
-    blackoutSchedule: {},
-    learningHistory: []
-  });
+  const [userPreferences, setUserPreferences] = useState(getDefaultSchedulerPreferences);
 
   // Initialize the IntelligentScheduler when preferences are loaded
   useEffect(() => {
@@ -56,14 +103,7 @@ export default function SmartScheduler() {
       } catch (error) {
         console.error("❌ Error initializing scheduler:", error);
         // Fallback with default preferences
-        setUserPreferences({
-          preferredStudyTimes: ['morning', 'evening'],
-          maxStudyHoursPerDay: 8,
-          breakDuration: 15,
-          weekendStudy: true,
-          blackoutSchedule: {},
-          learningHistory: []
-        });
+        setUserPreferences(getDefaultSchedulerPreferences());
       }
     }
   }, [userPreferences, isLoadingPreferences]);
@@ -105,14 +145,28 @@ export default function SmartScheduler() {
     
     try {
       const userDocRef = doc(db, 'users', user.uid);
+      const normalizedPreferences = normalizeSchedulerPreferences({
+        studyPreferences: preferences,
+        blackoutDates: preferences.blackoutSchedule,
+        learningHistory: preferences.learningHistory
+      });
       const dataToSave = {
         studyPreferences: {
-          sessionLength: (preferences.maxStudyHoursPerDay * 60).toString(),
-          breakLength: preferences.breakDuration.toString(),
-          weekendStudy: preferences.weekendStudy,
-          studyIntensity: 'moderate'
+          sessionLength: normalizedPreferences.sessionLength,
+          breakLength: normalizedPreferences.breakLength,
+          longBreakLength: normalizedPreferences.longBreakLength,
+          maxStudyHoursPerDay: normalizedPreferences.maxStudyHoursPerDay,
+          studyStartTime: normalizedPreferences.studyStartTime,
+          studyEndTime: normalizedPreferences.studyEndTime,
+          weekendStudy: normalizedPreferences.weekendStudy,
+          studyIntensity: normalizedPreferences.studyIntensity,
+          preferMorningStudy: normalizedPreferences.preferMorningStudy,
+          maxConcurrentSubjects: normalizedPreferences.maxConcurrentSubjects,
+          difficultTasksInMorning: normalizedPreferences.difficultTasksInMorning,
+          avoidPostLunchDip: normalizedPreferences.avoidPostLunchDip,
+          procrastinationBuffer: normalizedPreferences.procrastinationBuffer
         },
-        blackoutDates: preferences.blackoutSchedule || {},
+        blackoutDates: normalizedPreferences.blackoutSchedule || {},
         preferencesLastUpdated: serverTimestamp()
       };
       
@@ -149,15 +203,7 @@ export default function SmartScheduler() {
         
         debugLog("User document exists:", userDocSnap.exists());
         
-        // Default preferences for new users or missing data
-        const defaultPrefs = {
-          preferredStudyTimes: ['morning', 'evening'],
-          maxStudyHoursPerDay: 8, // Increased from 4 to 8 hours
-          breakDuration: 15,
-          weekendStudy: true,
-          blackoutSchedule: {},
-          learningHistory: []
-        };
+        const defaultPrefs = getDefaultSchedulerPreferences();
         
         if (userDocSnap.exists()) {
           const userData = userDocSnap.data();
@@ -165,15 +211,7 @@ export default function SmartScheduler() {
           
           // Load study preferences (merge with defaults)
           if (userData.studyPreferences) {
-            const prefs = {
-              ...defaultPrefs,
-              maxStudyHoursPerDay: parseInt(userData.studyPreferences.sessionLength) ? 
-                Math.min(8, Math.max(2, Math.round(parseInt(userData.studyPreferences.sessionLength) / 60))) : 8,
-              breakDuration: parseInt(userData.studyPreferences.breakLength) || 15,
-              weekendStudy: userData.studyPreferences.weekendStudy !== false,
-              blackoutSchedule: userData.blackoutDates || {},
-              learningHistory: userData.learningHistory || []
-            };
+            const prefs = normalizeSchedulerPreferences(userData);
             setUserPreferences(prefs);
             debugLog("User preferences set:", prefs);
           } else {
@@ -186,13 +224,21 @@ export default function SmartScheduler() {
           // Load saved AI schedule
           if (userData.aiSchedule && Array.isArray(userData.aiSchedule)) {
             // Convert saved schedule back to proper Date objects
+            const now = new Date();
             const restoredSchedule = userData.aiSchedule.map(item => ({
               ...item,
               startTime: item.startTime ? new Date(item.startTime) : null,
               endTime: item.endTime ? new Date(item.endTime) : null
             })).filter(item => {
-              // Only keep future schedule items
-              return item.startTime && item.startTime > new Date();
+              // Keep items that haven't fully ended yet. The previous version
+              // filtered on `startTime > now` which dropped the session you
+              // were currently in the middle of — reload at 10am during a
+              // 9am-11am study block and the block disappeared from the
+              // calendar. Compare against endTime (falling back to startTime
+              // for legacy items that have no endTime).
+              if (!item.startTime) return false;
+              const horizon = item.endTime || item.startTime;
+              return horizon > now;
             });
             setAiSchedule(restoredSchedule);
             debugLog("Restored AI schedule:", restoredSchedule.length, "items");
@@ -206,14 +252,7 @@ export default function SmartScheduler() {
       } catch (error) {
         console.error("Error loading user data:", error);
         // On error, still set defaults to prevent infinite loading
-        const defaultPrefs = {
-          preferredStudyTimes: ['morning', 'evening'],
-          maxStudyHoursPerDay: 8, // Increased from 4 to 8 hours
-          breakDuration: 15,
-          weekendStudy: true,
-          blackoutSchedule: {},
-          learningHistory: []
-        };
+        const defaultPrefs = getDefaultSchedulerPreferences();
         setUserPreferences(defaultPrefs);
         // Try to save defaults even on error
         try {
@@ -267,8 +306,8 @@ export default function SmartScheduler() {
       const dataToSave = {
         aiSchedule: schedule.map(item => ({
           ...item,
-          startTime: item.startTime ? item.startTime.toISOString() : null,
-          endTime: item.endTime ? item.endTime.toISOString() : null
+          startTime: toSerializableDate(item.startTime),
+          endTime: toSerializableDate(item.endTime)
         })),
         learningHistory: scheduler.getLearningHistoryForSave ? scheduler.getLearningHistoryForSave() : [],
         lastScheduleGenerated: serverTimestamp()
@@ -390,6 +429,11 @@ export default function SmartScheduler() {
       deletingTaskRef.current = taskId;
       try {
         await deleteDoc(doc(db, "users", user.uid, "tasks", taskId));
+
+        const nextSchedule = (Array.isArray(aiSchedule) ? aiSchedule : [])
+          .filter(item => item && item.taskId !== taskId);
+        setAiSchedule(nextSchedule);
+        await saveAiScheduleToFirebase(nextSchedule);
         
         // Trigger schedule regeneration after deletion
         debugLog("🔄 Task deleted, regenerating schedule...");
@@ -424,6 +468,11 @@ export default function SmartScheduler() {
     try {
       if (editingTask) {
         await updateDoc(doc(db, "users", user.uid, "tasks", editingTask.id), taskData);
+
+        const nextSchedule = (Array.isArray(aiSchedule) ? aiSchedule : [])
+          .filter(item => item && item.taskId !== editingTask.id);
+        setAiSchedule(nextSchedule);
+        await saveAiScheduleToFirebase(nextSchedule);
       } else {
         await addDoc(collection(db, "users", user.uid, "tasks"), {
           ...taskData,
@@ -432,6 +481,14 @@ export default function SmartScheduler() {
         });
       }
       setIsModalOpen(false);
+
+      if (editingTask) {
+        setTimeout(() => {
+          if (scheduleRegenerateRef.current) {
+            scheduleRegenerateRef.current(false);
+          }
+        }, 750);
+      }
     } catch (error) {
       console.error("Error saving task:", error);
       toast.error("Failed to save task. Please try again.");
@@ -456,16 +513,29 @@ export default function SmartScheduler() {
   const getTasksForDate = useCallback((date) => {
     const key = format(date, 'yyyy-MM-dd');
     return (scheduleByDay[key] || []).map(item => ({
-      id: item.taskId || item.id || `${item.task}-${key}`,
+      id: item.id || `${item.taskId || item.task}-${key}`,
+      taskId: item.taskId,
       name: item.task || item.taskName || 'Unnamed Task',
       subject: item.subject || '',
       startTime: item.startTime instanceof Date ? item.startTime.toISOString() : item.startTime,
       endTime: item.endTime instanceof Date ? item.endTime.toISOString() : item.endTime,
+      scheduled_start: item.startTime instanceof Date ? item.startTime.toISOString() : item.startTime,
+      scheduled_end: item.endTime instanceof Date ? item.endTime.toISOString() : item.endTime,
       duration: item.duration,
-      difficulty: item.difficulty || 'medium',
+      difficulty: item.difficulty || 'Medium',
       completed: item.completed || false,
     }));
   }, [scheduleByDay]);
+
+  const handleScheduleItemClick = useCallback((scheduleTask) => {
+    const sourceTask = tasks.find(task => task.id === (scheduleTask.taskId || scheduleTask.id));
+    if (!sourceTask) {
+      toast.warning("The original task for this schedule item no longer exists.");
+      return;
+    }
+    setEditingTask(sourceTask);
+    setIsModalOpen(true);
+  }, [tasks, toast]);
 
   if (!user) {
     return (
@@ -763,7 +833,7 @@ export default function SmartScheduler() {
                   currentDate={calendarDate}
                   viewMode={scheduleViewMode}
                   tasks={tasks}
-                  onTaskClick={(task) => { setEditingTask(task); setIsModalOpen(true); }}
+                  onTaskClick={handleScheduleItemClick}
                   onDateClick={(date) => { setCalendarDate(date); setScheduleViewMode('week'); }}
                   getTasksForDate={getTasksForDate}
                 />

@@ -253,7 +253,7 @@ export const logPerformanceSummary = () => {
 };
 
 // Export all monitoring functions
-export default {
+const performanceMonitor = {
   trackPageLoad,
   trackAPICall,
   trackComponentRender,
@@ -263,3 +263,5 @@ export default {
   clearPerformanceStats,
   logPerformanceSummary
 };
+
+export default performanceMonitor;

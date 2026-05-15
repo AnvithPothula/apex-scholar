@@ -88,6 +88,12 @@ if (process.env.NODE_ENV === 'production' && process.env.REACT_APP_SENTRY_DSN) {
       /null is not an object \(evaluating '[^']+\.closed'\)/,
       // Chrome / Firefox form: "Cannot read properties of null (reading 'closed')"
       /Cannot read propert(?:y|ies) of null \(reading 'closed'\)/,
+      // Firestore caches data in IndexedDB and the browser will tear that
+      // connection down after long idle periods (especially Safari, which
+      // aggressively evicts background tabs). Firestore's SDK reconnects
+      // on the next request — this throw is informational, not a bug we
+      // can fix in our code.
+      /Connection to Indexed Database server lost/i,
     ],
   });
 }

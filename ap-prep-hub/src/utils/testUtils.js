@@ -259,9 +259,9 @@ export const parseAIResponse = (text, startId = 1) => {
   // The AI often produces \( \) \[ \] and LaTeX like \frac which break parsing.
   // We walk through the string and fix escapes only inside JSON string literals.
   cleanedText = cleanedText.replace(/"(?:[^"\\]|\\.)*"/g, (match) => {
-    // Inside each JSON string value, fix invalid escape sequences
+    // Inside each JSON string value, fix invalid escape sequences (only if not already escaped)
     return match
-      .replace(/\\(?!["\\/bfnrtu])/g, '\\\\'); // Escape bare backslashes that aren't valid JSON escapes
+      .replace(/(?<!\\)\\([^"\\/bfnrtu])/g, '\\\\$1'); // Escape bare backslashes that aren't valid JSON escapes
   });
 
   errorLogger.debug('Cleaned text length:', { length: cleanedText.length });
@@ -307,27 +307,8 @@ export const parseAIResponse = (text, startId = 1) => {
           .replace(/\\\\to/g, '\\\\to')
           .replace(/\\\\rightarrow/g, '\\\\rightarrow')
           .replace(/\\\\leftarrow/g, '\\\\leftarrow')
-          // Fix invalid single character escapes that are not valid JSON
-          .replace(/\\([^"\\\/bfnrtu$])/g, '$1') // eslint-disable-line no-useless-escape
-          // Fix specific problematic sequences seen in logs (only if not followed by valid LaTeX)
-          .replace(/\\l(?![aitm])/g, 'l')
-          .replace(/\\i(?![mn])/g, 'i')
-          .replace(/\\s(?![iqu])/g, 's')
-          .replace(/\\p(?![ir])/g, 'p')
-          .replace(/\\m(?![au])/g, 'm')
-          .replace(/\\w(?![h])/g, 'w')
-          .replace(/\\d(?![e])/g, 'd')
-          .replace(/\\h(?![a])/g, 'h')
-          .replace(/\\c(?![do])/g, 'c')
-          .replace(/\\a(?![lr])/g, 'a')
-          .replace(/\\e(?![x])/g, 'e')
-          .replace(/\\o(?![v])/g, 'o')
-          .replace(/\\y(?![e])/g, 'y')
-          .replace(/\\k(?![a])/g, 'k')
-          .replace(/\\g(?![a])/g, 'g')
-          .replace(/\\v(?![a])/g, 'v')
-          .replace(/\\x(?![i])/g, 'x')
-          .replace(/\\z(?![e])/g, 'z')
+          // Fix invalid single character escapes that are not valid JSON (only if unescaped)
+          .replace(/(?<!\\)\\([^"\\\/bfnrtu$])/g, '\\\\$1') // eslint-disable-line no-useless-escape
           // Fix common contractions
           .replace(/\\"s\b/g, "'s")
           .replace(/\\"t\b/g, "'t")
@@ -468,8 +449,51 @@ export const parseAIResponse = (text, startId = 1) => {
       text => text.replace(/,(\s*[}\]])/g, '$1'),
       // Fix missing quotes around keys
       text => text.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":'),
-      // Fix single quotes to double quotes (but preserve escaped quotes)
-      text => text.replace(/(?<!\\)'/g, '"'),
+      // Escape raw control characters that appear *inside* string literals.
+      // The AI sometimes drops a real newline / tab into a "string" instead of
+      // emitting \n / \t — JSON.parse then throws "Bad control character in
+      // string literal". This is the most common root cause when Sentry shows
+      // a parseError of that shape.
+      text => {
+        let out = '';
+        let inStr = false;
+        let esc = false;
+        for (let i = 0; i < text.length; i++) {
+          const ch = text[i];
+          if (esc) { out += ch; esc = false; continue; }
+          if (ch === '\\') { out += ch; esc = true; continue; }
+          if (ch === '"') { inStr = !inStr; out += ch; continue; }
+          if (inStr) {
+            if (ch === '\n') { out += '\\n'; continue; }
+            if (ch === '\r') { out += '\\r'; continue; }
+            if (ch === '\t') { out += '\\t'; continue; }
+            // Drop other C0 control bytes (NUL, BEL, …) outright — they
+            // never belong in JSON string content.
+            if (ch.charCodeAt(0) < 0x20) continue;
+          }
+          out += ch;
+        }
+        return out;
+      },
+      // Fix single quotes to double quotes — but ONLY outside of "..." strings.
+      // Apostrophes (e.g. "pesticide's action") are perfectly valid JSON string
+      // content; the previous global regex was rewriting them into "pesticide"s
+      // and corrupting otherwise-valid responses. We walk the string and only
+      // convert ' when we're not currently inside a double-quoted run.
+      text => {
+        let out = '';
+        let inDouble = false;
+        let esc = false;
+        for (let i = 0; i < text.length; i++) {
+          const ch = text[i];
+          if (esc) { out += ch; esc = false; continue; }
+          if (ch === '\\') { out += ch; esc = true; continue; }
+          if (ch === '"') { inDouble = !inDouble; out += ch; continue; }
+          if (ch === "'" && !inDouble) { out += '"'; continue; }
+          out += ch;
+        }
+        return out;
+      },
       // Remove any explanatory text before JSON
       text => {
         const jsonStart = Math.min(

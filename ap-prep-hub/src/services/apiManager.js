@@ -1,4 +1,5 @@
 import apiKeyManager from './APIKeyManager';
+import { parseAIResponse } from '../utils/testUtils';
 
 /**
  * Centralized API Manager for handling all Gemini API requests
@@ -511,7 +512,7 @@ Format as JSON array (use LaTeX for ALL mathematical expressions):
       cleanedText = cleanedText.replace(/:\s*'([^']*)'/g, ': "$1"'); // Replace single quotes with double quotes
       
       // Parse JSON
-      const questions = JSON.parse(cleanedText);
+      const questions = parseAIResponse(cleanedText, requestData.startId || 1);
       const questionArray = Array.isArray(questions) ? questions : [questions];
       
       console.log(`Parsed ${questionArray.length} questions from API response`);

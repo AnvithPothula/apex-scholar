@@ -8,6 +8,17 @@ const toLocalDateTimeString = (d) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
+// Default deadline for new tasks: 7 days out at 11:59pm.
+// The previous default was `new Date()` (now), which made every new task
+// instantly overdue the moment it was created — the scheduler's overdue
+// dialog would pop up immediately on save, which was wrong UX.
+const getDefaultDeadline = () => {
+  const d = new Date();
+  d.setDate(d.getDate() + 7);
+  d.setHours(23, 59, 0, 0);
+  return toLocalDateTimeString(d);
+};
+
 export function TaskModal({ task, onClose, onSave, isOpen }) {
   const [formData, setFormData] = useState({
     name: '',
@@ -16,7 +27,7 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
     difficulty: 'Medium',
     estimated_time: 30,
     pages: 0,
-    deadline: toLocalDateTimeString(new Date()),
+    deadline: getDefaultDeadline(),
     description: ''
   });
 
@@ -31,7 +42,7 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
           deadlineValue = toLocalDateTimeString(new Date(task.deadline));
         }
       } else {
-        deadlineValue = toLocalDateTimeString(new Date());
+        deadlineValue = getDefaultDeadline();
       }
 
       setFormData({
@@ -54,7 +65,7 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
         difficulty: 'Medium',
         estimated_time: 30,
         pages: 0,
-        deadline: toLocalDateTimeString(new Date()),
+        deadline: getDefaultDeadline(),
         description: '',
         priority: 'medium'
       });

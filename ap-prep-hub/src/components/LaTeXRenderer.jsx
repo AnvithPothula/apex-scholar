@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { preprocessContent } from './MarkdownRenderer';
+import { preprocessContent } from '../utils/latexPreprocess';
 
 // Lazy load KaTeX and react-katex only when needed
 let InlineMath = null;

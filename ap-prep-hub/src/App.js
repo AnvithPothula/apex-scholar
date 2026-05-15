@@ -25,6 +25,8 @@ const Flashcards = lazy(() => import('./pages/Flashcards'));
 // eslint-disable-next-line import/first
 const Solver = lazy(() => import('./pages/Solver'));
 // eslint-disable-next-line import/first
+const Diagnostics = lazy(() => import('./pages/Diagnostics'));
+// eslint-disable-next-line import/first
 const NotFound = lazy(() => import('./pages/NotFound'));
 import { createPageUrl } from './utils/helpers';
 import { initializeBackgroundSync } from './services/backgroundSync';
@@ -89,6 +91,9 @@ function MainApp() {
           <Route path={createPageUrl("Flashcards")} element={<Flashcards />} />
           <Route path={createPageUrl("Solver")} element={<Solver />} />
           <Route path={createPageUrl("Settings")} element={<Settings />} />
+          <Route path={createPageUrl("Diagnostics")} element={<Diagnostics />} />
+          <Route path={createPageUrl("Diagnostics", ":subject")} element={<Diagnostics />} />
+          <Route path={createPageUrl("Diagnostics", ":subject/start")} element={<Diagnostics />} />
 
           {/* Legacy PascalCase routes — redirect to kebab-case canonicals.
               The `/*` splat catches subpaths (e.g., /AITutors/statistics). */}
@@ -98,6 +103,7 @@ function MainApp() {
           <Route path="/Flashcards/*"     element={<LegacyRedirect to="/flashcards" />} />
           <Route path="/Solver/*"         element={<LegacyRedirect to="/solver" />} />
           <Route path="/Settings/*"       element={<LegacyRedirect to="/settings" />} />
+          <Route path="/Diagnostics/*"    element={<LegacyRedirect to="/diagnostics" />} />
         </Route>
         {/* 404 renders full-screen, outside the Layout */}
         <Route path="*" element={<NotFound />} />

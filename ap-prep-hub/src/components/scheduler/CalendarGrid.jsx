@@ -11,8 +11,14 @@ import {
   getHours,
   getMinutes,
   isSameDay,
+  isValid,
 } from 'date-fns';
-import { Draggable, Droppable } from '@hello-pangea/dnd';
+// Note: this view previously used `<Droppable>` and `<Draggable>` from
+// `@hello-pangea/dnd`, but there was never a `<DragDropContext>` wrapping
+// them and no `onDragEnd` handler — the drag handles were non-functional
+// and (post-react-redux upgrade) started throwing `f.store` null in
+// production. Stripped to plain divs; if drag-to-reschedule is wanted,
+// wrap the whole calendar in a real DragDropContext + onDragEnd later.
 import { motion } from 'framer-motion';
 import { getUpcomingExamsSync } from '../../constants/apExamDates';
 import { doc, getDoc } from 'firebase/firestore';
@@ -29,8 +35,18 @@ const getDifficultyColor = (difficulty) => {
 };
 
 const WeekViewTask = ({ task, onTaskClick }) => {
-    const start = parseISO(task.scheduled_start);
-    const end = parseISO(task.scheduled_end);
+    const parseTaskDate = (value) => {
+      if (value instanceof Date) return value;
+      if (typeof value === 'string') return parseISO(value);
+      return value ? new Date(value) : null;
+    };
+
+    const start = parseTaskDate(task.scheduled_start || task.startTime);
+    const end = parseTaskDate(task.scheduled_end || task.endTime);
+
+    if (!start || !end || !isValid(start) || !isValid(end)) {
+      return null;
+    }
 
     const startHour = getHours(start) + getMinutes(start) / 60;
     const endHour = getHours(end) + getMinutes(end) / 60;
@@ -74,6 +90,11 @@ export default function CalendarGrid({
 }) {
   const { user } = useAuth();
   const [upcomingExams, setUpcomingExams] = React.useState([]);
+  // Ref on the scrollable week-view wrapper so we can scroll-to-time on mount.
+  // Without this, the week view always opens at 12am and the user has to
+  // scroll down to find their actual study sessions (which are usually
+  // between 8am-10pm). See the auto-scroll effect below.
+  const weekScrollRef = React.useRef(null);
 
   // Load user's selected subjects and upcoming exams
   React.useEffect(() => {
@@ -99,6 +120,40 @@ export default function CalendarGrid({
 
     loadUserData();
   }, [user]);
+
+  // Auto-scroll the week view to a useful starting hour on mount and when
+  // the visible week changes. Priority order:
+  //   1. The earliest scheduled session of the day (minus 30 minutes lead-in)
+  //   2. The current hour if it's within study hours (7am-11pm)
+  //   3. 8am as a sensible default
+  // Each hour is 4rem tall = 64px. The day-header is ~5rem.
+  React.useEffect(() => {
+    if (viewMode !== 'week') return;
+    const container = weekScrollRef.current;
+    if (!container) return;
+
+    let targetHour = 8;
+    try {
+      const todayItems = (getTasksForDate && getTasksForDate(currentDate)) || [];
+      const startHours = todayItems
+        .map((item) => {
+          const s = item.startTime ? new Date(item.startTime) : null;
+          return s && !isNaN(s.getTime()) ? s.getHours() : null;
+        })
+        .filter((h) => h !== null);
+      if (startHours.length > 0) {
+        targetHour = Math.max(0, Math.min(...startHours) - 1);
+      } else if (isTodayDateFns(currentDate)) {
+        const nowHour = new Date().getHours();
+        if (nowHour >= 7 && nowHour <= 23) targetHour = nowHour - 1;
+      }
+    } catch (_e) {
+      // Best-effort — fall back to default 8am.
+    }
+    // 4rem per hour, header is ~5rem. Use rough rem-to-px (assume 16px/rem).
+    const remToPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+    container.scrollTop = targetHour * 4 * remToPx;
+  }, [viewMode, currentDate, getTasksForDate]);
 
   // Helper function to get exam for a specific date
   const getExamForDate = (date) => {
@@ -134,17 +189,22 @@ export default function CalendarGrid({
     const timeSlots = Array.from({ length: 24 }, (_, i) => i);
 
     return (
-      <div className="overflow-x-auto h-full">
-        <div className="grid grid-cols-[auto_repeat(7,minmax(150px,1fr))] min-w-[1200px] h-full">
-          {/* Top-left empty cell */}
-          <div className="sticky left-0 top-0 z-30 bg-base-900 border-b border-r border-border-subtle p-2"></div>
+      <div ref={weekScrollRef} className="overflow-auto h-full">
+        {/* Removed the explicit `min-w-[1200px]` and shrunk per-column
+            min-width from 150px → 110px so the grid fits on typical
+            laptop widths (~960px content area after sidebar). Wider
+            screens still expand via the `1fr` track. */}
+        <div className="grid grid-cols-[auto_repeat(7,minmax(110px,1fr))] min-w-[860px]">
+          {/* Top-left empty cell — sits above both header row and time
+              column, so its z-index has to beat both. */}
+          <div className="sticky left-0 top-0 z-50 bg-base-900 border-b border-r border-border-subtle p-2"></div>
           {/* Days Header */}
           {days.map((d) => {
             const exam = getExamForDate(d);
             const reviewItems = getReviewItemsForDate(d);
             
             return (
-              <div key={d.toISOString()} className="p-4 text-center border-b border-border-subtle bg-base-900 sticky top-0 z-20">
+              <div key={d.toISOString()} className="p-4 text-center border-b border-border-subtle bg-base-900 sticky top-0 z-40">
                 <div className="font-semibold text-content-primary flex items-center justify-center gap-2">
                   {format(d, "EEE")}
                   {exam && <div className="w-2 h-2 bg-error-500 rounded-full animate-pulse" title={`AP Exam: ${exam.subject}`}></div>}
@@ -171,7 +231,10 @@ export default function CalendarGrid({
             );
           })}
           {/* Time column */}
-          <div className="sticky left-0 z-20 bg-base-900 border-r border-border-subtle">
+          {/* Sticky time column — bumped to z-30 so absolute-positioned
+              tasks (z-index: 20) inside day columns don't slide under it
+              when the user scrolls horizontally. */}
+          <div className="sticky left-0 z-30 bg-base-900 border-r border-border-subtle">
             {timeSlots.map((hour) => (
               <div key={hour} className="h-16 p-2 text-xs text-content-muted border-b border-border-subtle text-right flex items-center justify-end">
                 {format(new Date(2000, 0, 1, hour), "ha")}
@@ -184,80 +247,63 @@ export default function CalendarGrid({
             const reviewItems = getReviewItemsForDate(day);
             
             return (
-              <Droppable
-                  droppableId={day.toISOString()}
+              <div
                   key={day.toISOString()}
+                  className="relative h-full"
               >
-                  {(provided, snapshot) => (
+                  {/* Grid lines */}
+                  {timeSlots.map((hour) => (
                       <div
-                          ref={provided.innerRef}
-                          {...provided.droppableProps}
-                          className={`relative h-full ${snapshot.isDraggingOver ? 'bg-base-850/70' : ''}`}
-                      >
-                          {/* Grid lines */}
-                          {timeSlots.map((hour) => (
-                              <div
-                                key={hour}
-                                className="h-16 border-b border-r border-border-subtle"
-                              />
-                          ))}
-                          
-                          {/* AP Exam indicator at exam time */}
-                          {exam && (
-                            <div
-                              style={{
-                                position: 'absolute',
-                                top: `${(parseInt(exam.time.split(':')[0]) * 4)}rem`,
-                                height: '3rem',
-                                left: '0.25rem',
-                                right: '0.25rem',
-                                zIndex: 30,
-                              }}
-                              className="bg-error-900/70 border-l-4 border-error-500 p-2 rounded-sm text-xs font-bold text-error-200 shadow-raised"
-                            >
-                              📝 {exam.subject.replace('AP ', '')} Exam
-                              <div className="text-error-300 text-xs">{exam.time}</div>
-                            </div>
-                          )}
-                          
-                          {/* Review items displayed at 8 AM */}
-                          {reviewItems.map((item, index) => (
-                            <div
-                              key={`review-${index}`}
-                              style={{
-                                position: 'absolute',
-                                top: `${(8 + index * 0.5) * 4}rem`,
-                                height: '2rem',
-                                left: '0.25rem',
-                                right: '0.25rem',
-                                zIndex: 25,
-                              }}
-                              className="bg-info-900/50 border-l-2 border-info-400 p-1 rounded text-xs text-info-200"
-                              title={item.description}
-                            >
-                              📚 {item.unit.length > 15 ? item.unit.substring(0, 15) + '...' : item.unit}
-                            </div>
-                          ))}
-                          
-                          {getTasksForDate(day).map((task, index) => (
-                              <Draggable key={task.id} draggableId={task.id} index={index}>
-                                  {(provided, snapshot) => (
-                                      <div
-                                          ref={provided.innerRef}
-                                          {...provided.draggableProps}
-                                          {...provided.dragHandleProps}
-                                          style={{...provided.draggableProps.style}}
-                                          onClick={() => onTaskClick(task)}
-                                      >
-                                        <WeekViewTask task={task} onTaskClick={onTaskClick} />
-                                      </div>
-                                  )}
-                              </Draggable>
-                          ))}
-                          {provided.placeholder}
-                      </div>
+                        key={hour}
+                        className="h-16 border-b border-r border-border-subtle"
+                      />
+                  ))}
+
+                  {/* AP Exam indicator at exam time */}
+                  {exam && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: `${(parseInt(exam.time.split(':')[0]) * 4)}rem`,
+                        height: '3rem',
+                        left: '0.25rem',
+                        right: '0.25rem',
+                        zIndex: 30,
+                      }}
+                      className="bg-error-900/70 border-l-4 border-error-500 p-2 rounded-sm text-xs font-bold text-error-200 shadow-raised"
+                    >
+                      📝 {exam.subject.replace('AP ', '')} Exam
+                      <div className="text-error-300 text-xs">{exam.time}</div>
+                    </div>
                   )}
-              </Droppable>
+
+                  {/* Review items displayed at 8 AM */}
+                  {reviewItems.map((item, index) => (
+                    <div
+                      key={`review-${index}`}
+                      style={{
+                        position: 'absolute',
+                        top: `${(8 + index * 0.5) * 4}rem`,
+                        height: '2rem',
+                        left: '0.25rem',
+                        right: '0.25rem',
+                        zIndex: 25,
+                      }}
+                      className="bg-info-900/50 border-l-2 border-info-400 p-1 rounded text-xs text-info-200"
+                      title={item.description}
+                    >
+                      📚 {item.unit.length > 15 ? item.unit.substring(0, 15) + '...' : item.unit}
+                    </div>
+                  ))}
+
+                  {getTasksForDate(day).map((task) => (
+                      <WeekViewTask
+                        key={task.id}
+                        task={task}
+                        onTaskClick={onTaskClick}
+                      />
+                  ))}
+              </div>
             );
           })}
         </div>

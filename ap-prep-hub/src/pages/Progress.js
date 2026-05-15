@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Trophy, Star, Calendar, TrendingUp, Award, Target, BookOpen, Brain, Calculator, Zap, Clock, BarChart3, Medal, Crown, Flame, CheckCircle, AlertCircle, ChevronRight, Filter, Download } from 'lucide-react';
 import { Card, Button, Badge, Progress } from '../components/ui/UIComponents';
@@ -117,9 +117,50 @@ const ProgressPage = () => {
     } else {
       setIsLoading(false);
     }
-  }, [user]);
+  }, [user, loadUserProgress]);
 
-  const loadUserProgress = async () => {
+  const generateRecommendations = useCallback(async (progressData, studySessions) => {
+    if (!progressData || studySessions.length === 0) {
+      return [
+        {
+          type: 'start',
+          subject: 'General',
+          topic: 'Getting Started',
+          action: 'Start with any AP subject to build your baseline.',
+          priority: 'high'
+        }
+      ];
+    }
+
+    try {
+      const analysis = await geminiService.analyzeStudentProgress(
+        progressData.map(p => p.subject || 'Unknown'),
+        studySessions,
+        ['Time Management', 'Consistency']
+      );
+
+      return analysis.recommendations?.map((rec, index) => ({
+        type: index % 3 === 0 ? 'weakness' : index % 3 === 1 ? 'review' : 'strengthen',
+        subject: 'General',
+        topic: rec,
+        action: rec,
+        priority: index < 2 ? 'high' : 'medium'
+      })) || [];
+    } catch (error) {
+      console.error('Error generating recommendations:', error);
+      return [
+        {
+          type: 'review',
+          subject: 'General',
+          topic: 'Study Habits',
+          action: 'Keep a consistent daily study schedule.',
+          priority: 'medium'
+        }
+      ];
+    }
+  }, []);
+
+  const loadUserProgress = useCallback(async () => {
     try {
       setIsLoading(true);
 
@@ -181,7 +222,7 @@ const ProgressPage = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user, generateRecommendations]);
 
 
   const getRankInfo = (totalPoints) => {
@@ -263,46 +304,6 @@ const ProgressPage = () => {
     };
   };
 
-  const generateRecommendations = async (progressData, studySessions) => {
-    if (!progressData || studySessions.length === 0) {
-      return [
-        {
-          type: 'start',
-          subject: 'General',
-          topic: 'Getting Started',
-          action: 'Start with any AP subject to build your baseline.',
-          priority: 'high'
-        }
-      ];
-    }
-
-    try {
-      const analysis = await geminiService.analyzeStudentProgress(
-        progressData.map(p => p.subject || 'Unknown'),
-        studySessions,
-        ['Time Management', 'Consistency']
-      );
-
-      return analysis.recommendations?.map((rec, index) => ({
-        type: index % 3 === 0 ? 'weakness' : index % 3 === 1 ? 'review' : 'strengthen',
-        subject: 'General',
-        topic: rec,
-        action: rec,
-        priority: index < 2 ? 'high' : 'medium'
-      })) || [];
-    } catch (error) {
-      console.error('Error generating recommendations:', error);
-      return [
-        {
-          type: 'review',
-          subject: 'General',
-          topic: 'Study Habits',
-          action: 'Keep a consistent daily study schedule.',
-          priority: 'medium'
-        }
-      ];
-    }
-  };
 
   const getDefaultProgressData = () => ({
     overall: {

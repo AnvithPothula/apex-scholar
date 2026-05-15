@@ -11,11 +11,16 @@ import {
 
 class SchoologyCalendarService {
   constructor() {
-    // Primary: our own Netlify serverless function (first-party, no CORS issues)
-    // Fallback: public proxy in case the function is unavailable
+    // First-party Netlify serverless function ONLY. The previous fallback
+    // to `https://corsproxy.io/?` was a credential leak: private Schoology
+    // calendar URLs embed a per-user secret token in the path (the random
+    // hex segment in `/calendar/feed/ical/<userId>/<TOKEN>/ical.ics`), and
+    // forwarding the URL to a public third-party proxy hands that token —
+    // and indirectly the user's full assignment feed — to corsproxy.io.
+    // If the Netlify function is unhealthy, fail closed and surface the
+    // error to the user instead of leaking. See sentry: Codex P1.
     this.corsProxies = [
       '/.netlify/functions/cors-proxy?url=',
-      'https://corsproxy.io/?',
     ];
     this.currentProxyIndex = 0;
 
@@ -29,10 +34,18 @@ class SchoologyCalendarService {
    * Parse iCal data to extract assignments
    */
   parseICalData(icalData) {
-  const assignments = [];
-  // RFC 5545: Unfold long lines (continuation lines start with space/tab)
-  const unfoldedData = icalData.replace(/\r?\n[ \t]/g, '');
-  const lines = unfoldedData.split('\n').map(line => line.trim());
+    // Defensive type guard — the previous version of fetchCalendarFeed had
+    // a return-type bug where the cache path returned an already-parsed
+    // array, which then crashed here with an opaque
+    // "icalData.replace is not a function". Even though that's now fixed,
+    // surface a clear error for any future regression.
+    if (typeof icalData !== 'string') {
+      throw new Error(`parseICalData expected a string, received ${icalData === null ? 'null' : typeof icalData}`);
+    }
+    const assignments = [];
+    // RFC 5545: Unfold long lines (continuation lines start with space/tab)
+    const unfoldedData = icalData.replace(/\r?\n[ \t]/g, '');
+    const lines = unfoldedData.split('\n').map(line => line.trim());
     
     
     
@@ -522,13 +535,19 @@ class SchoologyCalendarService {
    * Fetch and parse Schoology calendar feed with multiple CORS proxy fallbacks
    */
   async fetchCalendarFeed(calendarUrl) {
-    // Return cached data if still fresh (avoids redundant Netlify requests)
+    // Return cached raw iCal if still fresh. The caller (parseCalendarToAssignments)
+    // expects a raw iCal STRING from this function and will pass it to
+    // parseICalData. The previous version returned the parsed Assignment[]
+    // from the cache path while returning the raw string from the network
+    // path — the type mismatch caused `icalData.replace is not a function`
+    // on the second call after the cache warmed up.
     if (
       this._cache &&
       this._cache.url === calendarUrl &&
+      typeof this._cache.data === 'string' &&
       Date.now() - this._cache.fetchedAt < this._cacheTTL
     ) {
-      return this.parseICalData(this._cache.data);
+      return this._cache.data;
     }
 
     const maxRetries = this.corsProxies.length;
@@ -559,24 +578,25 @@ class SchoologyCalendarService {
         }
 
         const icalData = await response.text();
-        
+
         if (!icalData || icalData.trim() === '') {
           throw new Error('Empty calendar data received');
         }
 
-        // Cache the successful response
-        this._cache = { url: calendarUrl, data: icalData, fetchedAt: Date.now() };
-
-        // Validate that we received iCal data
+        // Validate BEFORE caching. The previous order cached every response —
+        // including the SPA's index.html fallback when the Netlify function
+        // wasn't being matched — and then poisoned the cache for 15 minutes,
+        // so every subsequent call returned that HTML and threw a confusing
+        // `icalData.replace is not a function` downstream.
         if (!icalData.includes('BEGIN:VCALENDAR')) {
-          // Log what we actually got for diagnostics
           const preview = icalData.substring(0, 200).replace(/\s+/g, ' ');
           console.warn(`[Calendar] Proxy returned non-iCal content (first 200 chars): ${preview}`);
           throw new Error('Invalid iCal format: Missing VCALENDAR header');
         }
 
-  
-  
+        // Cache only after we know it's a real iCal response.
+        this._cache = { url: calendarUrl, data: icalData, fetchedAt: Date.now() };
+
         return icalData;
 
       } catch (error) {

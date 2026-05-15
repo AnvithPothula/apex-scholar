@@ -1013,11 +1013,15 @@ class IntelligentScheduler {
       
       if (!isNaN(deadline.getTime())) {
         const deadlineHour = deadline.getHours();
-        
-        if (isToday && format(deadline, 'yyyy-MM-dd') === todayDateStr) {
-          // Task is due today - make sure we don't schedule past the deadline
+        const deadlineDateStr = format(deadline, 'yyyy-MM-dd');
+
+        // Compare the iteration date against the deadline date. The earlier
+        // version of this check only fired when both `isToday` AND the
+        // deadline was today, meaning a task due tomorrow at 8am could still
+        // be scheduled tomorrow at 7pm — silently past its deadline.
+        if (targetDateStr === deadlineDateStr) {
           endHour = Math.min(endHour, deadlineHour);
-          debugLog(`⏰ Task due today at ${formatDateTimeInUserTimezone(deadline, { hour: '2-digit', minute: '2-digit' })}, adjusting end time to ${endHour}:00`);
+          debugLog(`⏰ Task due ${deadlineDateStr} at ${formatDateTimeInUserTimezone(deadline, { hour: '2-digit', minute: '2-digit' })}, capping end time to ${endHour}:00`);
         }
       }
     }    
@@ -1732,7 +1736,15 @@ class IntelligentScheduler {
           preferredTimeSlots: timePreference.preferred
         });
         
-        allocation[dateKey].totalCognitiveLoad += cognitiveLoad;
+        // Charge only this session's share of the task's total cognitive
+        // load. `cognitiveLoad` from calculateCognitiveLoad() is the load
+        // for the *full* task; adding it once per session double-counts
+        // (a 2hr task split into 4 sessions would otherwise burn 4× its
+        // real load against the daily budget).
+        const taskHours = task.timeRequired || (task.estimated_time ? task.estimated_time / 60 : 1);
+        const sessionHours = session.duration / 60;
+        const sessionShare = taskHours > 0 ? sessionHours / taskHours : 1;
+        allocation[dateKey].totalCognitiveLoad += cognitiveLoad * sessionShare;
         allocation[dateKey].sessionCount += 1;
         allocation[dateKey].peakHoursUsed += 1;
         sessionsAllocated++;
@@ -1781,7 +1793,12 @@ class IntelligentScheduler {
           learningPhase: 'acquisition'
         });
         
-        dayData.totalCognitiveLoad += this.calculateCognitiveLoad(task);
+        // Charge only this session's share of the task's total load.
+        // See note on the peak-hours allocator above.
+        const taskHours = task.timeRequired || (task.estimated_time ? task.estimated_time / 60 : 1);
+        const sessionHours = session.duration / 60;
+        const sessionShare = taskHours > 0 ? sessionHours / taskHours : 1;
+        dayData.totalCognitiveLoad += this.calculateCognitiveLoad(task) * sessionShare;
         dayData.sessionCount += 1;
         initialSessionsAllocated++;
         
@@ -1806,7 +1823,12 @@ class IntelligentScheduler {
             reviewInterval: reviewSession.date
           });
           
-          dayData.totalCognitiveLoad += this.calculateCognitiveLoad(task) * 0.5; // Reviews have lower cognitive load
+          // Reviews charge only this review-session's share of the task's
+          // load, with the * 0.5 review discount preserved.
+          const taskHours = task.timeRequired || (task.estimated_time ? task.estimated_time / 60 : 1);
+          const reviewHours = reviewSession.estimatedDuration || 0.5;
+          const reviewShare = taskHours > 0 ? reviewHours / taskHours : 1;
+          dayData.totalCognitiveLoad += this.calculateCognitiveLoad(task) * 0.5 * reviewShare;
           dayData.sessionCount += 1;
           
           debugLog(`📚 Allocated review session for ${task.name} to ${reviewDateKey} (${reviewSession.reviewType})`);

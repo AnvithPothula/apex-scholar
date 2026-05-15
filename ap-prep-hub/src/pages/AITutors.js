@@ -68,7 +68,12 @@ import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import geminiService, { RateLimitError } from '../services/geminiService';
+import JSONParser from '../services/ai/jsonParser';
 import errorLogger from '../utils/errorLogger';
+
+// Reuse a single parser instance — handles \t / \n / \frac / etc. inside
+// JSON string content that naive JSON.parse mangles into control chars.
+const mcqJsonParser = new JSONParser();
 
 const AITutors = () => {
   const { subject: urlSubject } = useParams();
@@ -998,14 +1003,21 @@ const AITutors = () => {
       // If MCQ mode and response is JSON, render as MCQ card
       if (selectedMode === 'Practice MCQ') {
         try {
-          // Strip markdown code fences (```json ... ```)
-          let cleaned = response.replace(/```(?:json)?\s*([\s\S]*?)```/g, '$1').trim();
-          // Try to extract JSON object — find the outermost { ... }
-          const firstBrace = cleaned.indexOf('{');
-          const lastBrace = cleaned.lastIndexOf('}');
-          if (firstBrace !== -1 && lastBrace > firstBrace) {
-            const jsonStr = cleaned.substring(firstBrace, lastBrace + 1);
-            const mcq = JSON.parse(jsonStr);
+          // Use the shared JSON repair pipeline. The naive JSON.parse we
+          // used to call here decoded any single backslash (e.g. \text in
+          // "$\text{CH}_3$") as a JSON escape — \t became a tab character,
+          // leaving "$ ext{CH}_3$" in the rendered question. The parser's
+          // repair pass first double-escapes invalid \-sequences inside
+          // strings so LaTeX content round-trips correctly.
+          const parsed = mcqJsonParser.parse(response, false);
+          // JSONParser returns {success: false} instead of throwing — re-throw
+          // so the plain-text "A. B. C. D." fallback in the catch block still
+          // fires when the JSON path is unrecoverable.
+          if (!parsed.success || !parsed.data) {
+            throw new Error(parsed.error || 'MCQ JSON parse failed');
+          }
+          {
+            const mcq = parsed.data;
             if (mcq && mcq.question && Array.isArray(mcq.choices) && mcq.choices.length >= 2) {
               // Ensure correctIndex is always a number (AI may return it as a string)
               if (mcq.correctIndex !== undefined && mcq.correctIndex !== null) {
@@ -1048,10 +1060,24 @@ const AITutors = () => {
               aiMessage.mcq = mcq;
               aiMessage.content = mcq.question;
             } else {
-              aiMessage.content = response
-                .replace(/```(?:json)?\s*[\s\S]*?```/g, '')
-                .replace(/\{[\s\S]*"question"[\s\S]*"choices"[\s\S]*\}/g, '')
-                .trim() || 'I generated a practice question but had trouble formatting it. Please try again!';
+              // Try to strip the JSON envelope. The previous regex required
+              // both "question" AND "choices" keys to be present — but a
+              // truncated MCQ response (Gemini Flash sometimes stops mid-
+              // string with chemistry LaTeX) is missing "choices", so the
+              // regex would fail and the user would see raw broken JSON
+              // like `{"question": "Consider compounds: $\text{CH}_3\\...`
+              // rendered as markdown. Detect any response that looks like
+              // an attempted JSON MCQ and replace with a clean retry prompt.
+              const trimmed = response.trim();
+              const looksLikeMcqJson = trimmed.startsWith('{') && /"question"\s*:/.test(trimmed);
+              if (looksLikeMcqJson) {
+                aiMessage.content = 'I started generating a practice question but the response was cut off. Please try again!';
+              } else {
+                aiMessage.content = response
+                  .replace(/```(?:json)?\s*[\s\S]*?```/g, '')
+                  .replace(/\{[\s\S]*"question"[\s\S]*"choices"[\s\S]*\}/g, '')
+                  .trim() || 'I generated a practice question but had trouble formatting it. Please try again!';
+              }
             }
           } catch (__) {
             aiMessage.content = 'I generated a practice question but had trouble formatting it. Please try again!';
@@ -1203,9 +1229,10 @@ ${curriculumData.examFormat ? `EXAM: ${curriculumData.examFormat.duration} — $
     ? `MODE: Practice MCQ.
 RESPOND WITH ONLY A JSON OBJECT. Start your response with { and end with }. No greetings, no markdown, no code fences, no explanation.
 Example format:
-{"question": "What is X?", "choices": ["First option", "Second option", "Third option", "Fourth option"], "correctIndex": 2, "explanations": ["Why A is wrong", "Why B is wrong", "Why C is correct", "Why D is wrong"]}
+{"question": "What is the molecule with hydrogen bonding? $\\\\text{CH}_3\\\\text{OH}$", "choices": ["$\\\\text{CH}_4$", "$\\\\text{CH}_3\\\\text{OH}$", "$\\\\text{CO}_2$", "$\\\\text{N}_2$"], "correctIndex": 1, "explanations": ["No H bonded to O/N/F", "Has O-H bond — hydrogen bonding", "No H atoms", "No H atoms"]}
 Rules: "choices" must have exactly 4 strings. "correctIndex" is 0-3. "explanations" has 4 strings matching each choice. Randomize which choice is correct (do NOT always make index 0 correct).
 Make the question AP exam-level difficulty. Include plausible distractors that test common misconceptions.
+LATEX INSIDE JSON STRINGS: Every backslash in a LaTeX command MUST be doubled. Write \\\\text{CH}_3 not \\text{CH}_3. Write \\\\frac{a}{b} not \\frac{a}{b}. Use $...$ for math; never \\\\( or \\\\[. A single backslash inside a JSON string is interpreted as an escape (\\t → tab, \\n → newline), which corrupts LaTeX.
 YOUR ENTIRE RESPONSE MUST BE VALID JSON. NO OTHER TEXT.`
     : mode === 'Walkthrough'
     ? `MODE: Step-by-step walkthrough.
@@ -1277,11 +1304,20 @@ ATTACHMENTS: ${hasFiles ? 'Files attached — analyze them first, describe conte
 
 FORMATTING:
 - Markdown: **bold**, *italics*, ## headers, bullet lists
-- LaTeX: ALWAYS wrap math in delimiters — $inline$ or $$display$$. Examples: $\\leftrightharpoons$, $\\int_a^b f(x)\\,dx$, $$\\frac{d}{dx}[f(x)]$$
-- Never write bare LaTeX commands without $ delimiters
 - Tables: Use proper Markdown table syntax with | and --- when presenting data
 - Keep responses under 400 words unless asked for more
 - No preambles ("Understood", "I'm ready", etc.)
+
+MATH (LaTeX) — strict rules, no exceptions:
+- Inline math: $x^2 + 1$  (single dollars)
+- Display math: $$\\frac{a}{b}$$  (double dollars on their own line is best)
+- NEVER use \\(...\\) or \\[...\\] — only $...$ and $$...$$
+- NEVER wrap math in code fences (no \`\`\`latex … \`\`\`, no \`\`\`math … \`\`\`)
+- NEVER nest $ inside $: write $\\sum_{n=0}^{\\infty}$, never $\\sum_{n=0}^{$\\infty$}$
+- NEVER leave a $ unclosed; every opening $ needs a closing $ on the same line
+- ALWAYS wrap any backslash command: $\\theta$, $\\frac{a}{b}$, $\\Rightarrow$, $\\int_a^b f(x)\\,dx$
+- For chemistry, wrap formulas: $\\text{CH}_3\\text{OH}$, $\\text{H}_2\\text{O}$ — never bare CH_3 or H2O
+- For Greek letters in prose, you can use Unicode (θ, π, α) OR LaTeX ($\\theta$) — pick one and be consistent within a response
 
 If asked about a non-${subjectName} topic: "${boundaryLine}"
 If ambiguous: give a brief best-effort answer, then ask one clarifying question.
