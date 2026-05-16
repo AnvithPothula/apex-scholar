@@ -334,10 +334,16 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    // A "guest" is someone who finished auth init with no signed-in user and
+    // no connection error. Guests get read-only/AI-Tutors-only access; the
+    // rest of the app is shown behind a sign-in upsell (see GuestGate).
+    const isGuest = !loading && !user && !connectionError;
+
     const value = {
         user,
         loading,
         connectionError,
+        isGuest,
         logout,
         updateUserProfile,
         signInWithGoogle,

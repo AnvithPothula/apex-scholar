@@ -8,6 +8,8 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { Layout } from './components/Layout.jsx';
 import { LoginPage } from './components/auth/LoginPage';
 import { SchoologyCallback } from './components/auth/SchoologyCallback';
+import GuestGate from './components/GuestGate';
+import { Calendar, FileQuestion, Zap, Calculator, Settings as SettingsIcon, Activity } from 'lucide-react';
 import ErrorBoundary from './components/ErrorBoundary';
 import PageSkeleton from './components/ui/PageSkeleton';
 import { ToastProvider } from './contexts/ToastContext';
@@ -30,6 +32,17 @@ const Diagnostics = lazy(() => import('./pages/Diagnostics'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 import { createPageUrl } from './utils/helpers';
 import { initializeBackgroundSync } from './services/backgroundSync';
+
+// Per-feature copy shown to guests on the sign-in upsell (GuestGate).
+// AI Tutors is intentionally absent — it's open to guests.
+const FEATURES = {
+  scheduler:   { icon: Calendar,     title: 'Smart Scheduler',  blurb: 'Sign in to build an AI study schedule that adapts to your subjects, deadlines, and Schoology assignments.' },
+  practice:    { icon: FileQuestion, title: 'Practice Tests',    blurb: 'Sign in to generate full-length AP practice tests with timed sections and detailed scoring.' },
+  flashcards:  { icon: Zap,          title: 'Flashcards',        blurb: 'Sign in to create, study, and share flashcard decks with spaced repetition.' },
+  solver:      { icon: Calculator,   title: 'Problem Solver',    blurb: 'Sign in to get step-by-step solutions to any problem from a photo or text.' },
+  settings:    { icon: SettingsIcon, title: 'Settings',          blurb: 'Sign in to pick your AP subjects, customize your tutor, and manage your account.' },
+  diagnostics: { icon: Activity,     title: 'Diagnostics',       blurb: 'Sign in to run a diagnostic that pinpoints your strengths and weak spots per subject.' },
+};
 
 // Main App Component
 function App() {
@@ -86,14 +99,14 @@ function MainApp() {
           <Route index element={<Navigate to={createPageUrl("AITutors")} replace />} />
           <Route path={createPageUrl("AITutors")} element={<AITutors />} />
           <Route path={createPageUrl("AITutors", ":subject")} element={<AITutors />} />
-          <Route path={createPageUrl("SmartScheduler")} element={<SmartScheduler />} />
-          <Route path={createPageUrl("PracticeTests")} element={<PracticeTests />} />
-          <Route path={createPageUrl("Flashcards")} element={<Flashcards />} />
-          <Route path={createPageUrl("Solver")} element={<Solver />} />
-          <Route path={createPageUrl("Settings")} element={<Settings />} />
-          <Route path={createPageUrl("Diagnostics")} element={<Diagnostics />} />
-          <Route path={createPageUrl("Diagnostics", ":subject")} element={<Diagnostics />} />
-          <Route path={createPageUrl("Diagnostics", ":subject/start")} element={<Diagnostics />} />
+          <Route path={createPageUrl("SmartScheduler")} element={<GuestGate feature={FEATURES.scheduler}><SmartScheduler /></GuestGate>} />
+          <Route path={createPageUrl("PracticeTests")} element={<GuestGate feature={FEATURES.practice}><PracticeTests /></GuestGate>} />
+          <Route path={createPageUrl("Flashcards")} element={<GuestGate feature={FEATURES.flashcards}><Flashcards /></GuestGate>} />
+          <Route path={createPageUrl("Solver")} element={<GuestGate feature={FEATURES.solver}><Solver /></GuestGate>} />
+          <Route path={createPageUrl("Settings")} element={<GuestGate feature={FEATURES.settings}><Settings /></GuestGate>} />
+          <Route path={createPageUrl("Diagnostics")} element={<GuestGate feature={FEATURES.diagnostics}><Diagnostics /></GuestGate>} />
+          <Route path={createPageUrl("Diagnostics", ":subject")} element={<GuestGate feature={FEATURES.diagnostics}><Diagnostics /></GuestGate>} />
+          <Route path={createPageUrl("Diagnostics", ":subject/start")} element={<GuestGate feature={FEATURES.diagnostics}><Diagnostics /></GuestGate>} />
 
           {/* Legacy PascalCase routes — redirect to kebab-case canonicals.
               The `/*` splat catches subpaths (e.g., /AITutors/statistics). */}

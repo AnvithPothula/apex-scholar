@@ -253,6 +253,20 @@ export function LoginPage() {
                         Continue with Google
                     </Button>
 
+                    <div className="mt-4 text-center">
+                        <button
+                            type="button"
+                            onClick={() => navigate('/ai-tutors')}
+                            disabled={isLoading}
+                            className="text-sm text-content-muted hover:text-content-primary transition-colors disabled:opacity-50"
+                        >
+                            Continue as guest
+                        </button>
+                        <p className="mt-1 text-xs text-content-disabled">
+                            Try the AI Tutors without an account. Your chats stay on this device.
+                        </p>
+                    </div>
+
                     <p className="mt-6 text-center text-sm text-content-muted">
                         {isSignUp ? "Already have an account?" : "Don't have an account?"}
                         <button

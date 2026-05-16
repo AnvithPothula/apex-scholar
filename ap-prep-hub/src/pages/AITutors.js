@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useParams, Navigate, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   Send,
   Bot,
@@ -65,6 +65,18 @@ import {
   getDocs
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import {
+  isGuestConversationId,
+  subjectFromGuestId,
+  guestConversationId,
+  ensureGuestConversation,
+  getGuestMessages,
+  appendGuestMessage,
+  clearGuestConversation,
+  GUEST_MESSAGE_LIMIT,
+  guestMessagesRemaining,
+  incrementGuestUsage,
+} from '../services/guestStore';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import geminiService, { RateLimitError } from '../services/geminiService';
@@ -78,7 +90,7 @@ const mcqJsonParser = new JSONParser();
 const AITutors = () => {
   const { subject: urlSubject } = useParams();
   const navigate = useNavigate();
-  const { user, loading } = useAuth();
+  const { user, loading, isGuest } = useAuth();
   const { toast } = useToast();
   const [selectedSubject, setSelectedSubject] = useState(urlSubject || null);
   const [conversations, setConversations] = useState([]);
@@ -97,6 +109,9 @@ const AITutors = () => {
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [isSwitchingSubjects, setIsSwitchingSubjects] = useState(false);
   const [subjectSuggestionsState, setSubjectSuggestionsState] = useState([]);
+  // Remaining free AI messages for guests today (per browser). Irrelevant
+  // for signed-in users (UI gated behind isGuest).
+  const [guestRemaining, setGuestRemaining] = useState(GUEST_MESSAGE_LIMIT);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   // Removed diagnostics UI and state
@@ -113,6 +128,11 @@ const AITutors = () => {
     return () => { cancelled = true; };
   }, []);
 
+  // Sync the guest quota into state once auth resolves as a guest.
+  useEffect(() => {
+    if (isGuest) setGuestRemaining(guestMessagesRemaining());
+  }, [isGuest]);
+
   // Load subject suggestions when selectedSubject changes
   useEffect(() => {
     let cancelled = false;
@@ -127,6 +147,11 @@ const AITutors = () => {
 
   // Load messages for a specific conversation
   const loadConversationMessages = useCallback(async (conversationId) => {
+    // Guest thread — read straight from localStorage, no Firestore listener.
+    if (isGuestConversationId(conversationId)) {
+      setMessages(getGuestMessages(subjectFromGuestId(conversationId)));
+      return () => {};
+    }
     try {
       console.log('Loading messages for conversation:', conversationId);
       const messagesRef = collection(db, 'conversations', conversationId, 'messages');
@@ -318,11 +343,43 @@ const AITutors = () => {
     }
   }, [createFirstConversation]);
 
+  // Guest equivalent of createFirstConversation + loadConversations: a single
+  // localStorage-backed conversation per subject, seeded with a welcome message.
+  const initGuestConversation = useCallback(async (subjectId) => {
+    const curriculumData = await getCurriculumData(subjectId);
+    const subjectName = curriculumData?.name || subjectId;
+    const convId = guestConversationId(subjectId);
+    const welcomeMessage = {
+      id: `${convId}_welcome`,
+      type: 'ai',
+      content: `Hello! I'm your specialized AI tutor for ${subjectName}. I'm here to help you master this AP subject with personalized explanations, practice problems, and study strategies tailored to the College Board curriculum. What would you like to learn about today?`,
+      timestamp: new Date(),
+      suggestions: await getSubjectSuggestions(subjectId),
+    };
+    // ensureGuestConversation only applies the welcome message when creating
+    // the thread for the first time; an existing thread is returned untouched.
+    const conv = ensureGuestConversation(subjectId, `${subjectName} - Guest session`, welcomeMessage);
+    setConversations([{
+      ...conv,
+      createdAt: conv.createdAt ? new Date(conv.createdAt) : new Date(),
+      updatedAt: conv.updatedAt ? new Date(conv.updatedAt) : new Date(),
+    }]);
+    setActiveConversationId(convId);
+  }, []);
+
   const handleNewConversation = async () => {
     console.log('New conversation clicked, selectedSubject:', selectedSubject);
-    
+
     if (!selectedSubject) {
       console.error('No subject selected');
+      return;
+    }
+
+    // Guests have a single thread per subject — "new chat" just clears it.
+    if (!user) {
+      clearGuestConversation(selectedSubject);
+      setMessages([]);
+      await initGuestConversation(selectedSubject);
       return;
     }
     
@@ -376,12 +433,15 @@ const AITutors = () => {
           unsubscribe = unsub;
         }
       });
+    } else if (!user && selectedSubject) {
+      // Guest: synthesize a single localStorage-backed conversation.
+      initGuestConversation(selectedSubject);
     }
     return () => {
       cancelled = true;
       if (unsubscribe) unsubscribe();
     };
-  }, [user, selectedSubject, loadConversations]);
+  }, [user, selectedSubject, loadConversations, initGuestConversation]);
 
   // Load messages when active conversation changes
   useEffect(() => {
@@ -715,9 +775,10 @@ const AITutors = () => {
     );
   }
 
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
+  // No redirect for signed-out users — AI Tutors is open to guests.
+  // Guest chat is persisted to localStorage (see guestStore); all the
+  // Firestore conversation machinery below is skipped for guests via
+  // the `guest-<subject>` conversation id namespace.
 
   // Save conversation to Firebase
   const saveConversation = async (conversation) => {
@@ -742,6 +803,19 @@ const AITutors = () => {
   // Save message to Firebase
   const saveMessage = async (conversationId, message) => {
     console.log('saveMessage called with:', { conversationId, messageType: message.type, content: message.content.substring(0, 50) });
+    // Guest thread: persist to localStorage and update state directly (there's
+    // no Firestore listener to echo the write back into `messages`).
+    if (isGuestConversationId(conversationId)) {
+      const subject = subjectFromGuestId(conversationId);
+      const id = appendGuestMessage(subject, message);
+      const withTs = { ...message, timestamp: message.timestamp || new Date() };
+      setMessages(prev => [...prev, withTs]);
+      const content = String(message.content || '');
+      setConversations(prev => prev.map(c => c.id === conversationId
+        ? { ...c, lastMessage: content.slice(0, 50) + (content.length > 50 ? '...' : ''), updatedAt: new Date() }
+        : c));
+      return id;
+    }
     if (!user || !conversationId) {
       console.error('saveMessage failed: missing user or conversationId', { user: !!user, conversationId });
       return null;
@@ -1489,7 +1563,15 @@ Please check your internet connection and try again. In the meantime:
       console.log('Message empty, already typing, or no active conversation, returning');
       return;
     }
-    
+
+    // Guest daily cap — guests share the app's client-side AI keys, so
+    // anonymous usage is bounded per browser per day.
+    if (!user && guestMessagesRemaining() <= 0) {
+      setGuestRemaining(0);
+      toast.error(`You've used today's ${GUEST_MESSAGE_LIMIT} free guest messages. Sign in to keep going.`);
+      return;
+    }
+
     const messageContent = currentMessage.trim();
     const filesToSend = [...uploadedFiles]; // Copy files before clearing
     console.log('Processing message:', messageContent);
@@ -1517,6 +1599,11 @@ Please check your internet connection and try again. In the meantime:
       const savedMessageId = await saveMessage(activeConversationId, userMessage);
       
       if (savedMessageId) {
+        // Count this guest send against today's quota (only real sends count).
+        if (!user) {
+          const used = incrementGuestUsage();
+          setGuestRemaining(Math.max(0, GUEST_MESSAGE_LIMIT - used));
+        }
         // Generate AI response with file data
         console.log('Generating AI response for:', messageContent, 'with files:', filesToSend);
         await generateAIResponse(messageContent, filesToSend);
@@ -1778,6 +1865,7 @@ Please check your internet connection and try again. In the meantime:
                     handleNewConversation();
                   }}
                   className="text-content-secondary hover:text-content-primary"
+                  title={isGuest ? 'Start a fresh chat' : 'New conversation'}
                 >
                   <Plus strokeWidth={1.5} className="w-4 h-4" />
                 </Button>
@@ -1786,6 +1874,15 @@ Please check your internet connection and try again. In the meantime:
             <p className="text-sm text-content-muted mt-1">
               {getSubjectName(selectedSubject)}
             </p>
+            {isGuest && (
+              <button
+                type="button"
+                onClick={() => navigate('/login')}
+                className="mt-2 w-full text-left text-xs text-content-muted hover:text-content-primary bg-base-800 border border-border rounded-md px-2.5 py-1.5 transition-colors"
+              >
+                You're browsing as a guest. <span className="text-content-primary font-medium">Sign in</span> to save &amp; sync your chats.
+              </button>
+            )}
           </div>
 
           {/* Conversations List */}
@@ -1863,8 +1960,9 @@ Please check your internet connection and try again. In the meantime:
                     )}
                   </div>
 
-                  {/* Conversation Menu */}
-                  {!editingConversationId && (
+                  {/* Conversation Menu — rename/delete is signed-in only;
+                      guests have a single localStorage thread per subject. */}
+                  {user && !editingConversationId && (
                     <div className="relative">
                       <Button
                         variant="ghost"
@@ -2120,13 +2218,17 @@ Please check your internet connection and try again. In the meantime:
                               onSelect={async (choiceIdx) => {
                                 try {
                                   const correct = typeof message.mcq.correctIndex === 'number' ? (choiceIdx === message.mcq.correctIndex) : null;
-                                  await addDoc(collection(db, 'conversations', activeConversationId, 'mcqResponses'), {
-                                    question: message.mcq.question,
-                                    choiceIndex: choiceIdx,
-                                    correctIndex: message.mcq.correctIndex,
-                                    correct,
-                                    createdAt: serverTimestamp()
-                                  });
+                                  // Guests have no Firestore conversation to attach MCQ
+                                  // analytics to — skip the write for them.
+                                  if (user) {
+                                    await addDoc(collection(db, 'conversations', activeConversationId, 'mcqResponses'), {
+                                      question: message.mcq.question,
+                                      choiceIndex: choiceIdx,
+                                      correctIndex: message.mcq.correctIndex,
+                                      correct,
+                                      createdAt: serverTimestamp()
+                                    });
+                                  }
                                 } catch (e) {
                                   console.error('Failed to save MCQ response', e);
                                 }
@@ -2286,7 +2388,7 @@ Please check your internet connection and try again. In the meantime:
                   console.log('Send button clicked');
                   handleSendMessage();
                 }}
-                disabled={(!currentMessage.trim() && uploadedFiles.length === 0) || isTyping}
+                disabled={(!currentMessage.trim() && uploadedFiles.length === 0) || isTyping || (isGuest && guestRemaining <= 0)}
                 className="px-3 sm:px-6 py-2 sm:py-2.5 bg-content-primary text-base-950 hover:opacity-90"
               >
                 <Send strokeWidth={1.5} className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -2294,6 +2396,36 @@ Please check your internet connection and try again. In the meantime:
             </div>
           </div>
           
+          {isGuest && (
+            guestRemaining > 0 ? (
+              <div className="mt-2.5 text-xs text-content-muted flex items-center gap-1.5 flex-wrap">
+                <span>
+                  {guestRemaining} free guest {guestRemaining === 1 ? 'message' : 'messages'} left today.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => navigate('/login')}
+                  className="text-content-primary font-medium hover:underline"
+                >
+                  Sign in
+                </button>
+                <span>for unlimited.</span>
+              </div>
+            ) : (
+              <div className="mt-2.5 p-2.5 rounded-md bg-base-800 border border-border flex items-center justify-between gap-3">
+                <span className="text-xs text-content-secondary">
+                  You've used today's {GUEST_MESSAGE_LIMIT} free guest messages.
+                </span>
+                <Button
+                  onClick={() => navigate('/login')}
+                  className="h-8 px-3 text-xs flex-shrink-0"
+                >
+                  Sign in to continue
+                </Button>
+              </div>
+            )
+          )}
+
           <div className="hidden sm:flex items-center justify-between mt-3 sm:mt-4 text-xs text-content-muted">
             <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
               <span>Enter to send • Shift+Enter for new line</span>

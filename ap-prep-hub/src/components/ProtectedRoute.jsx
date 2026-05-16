@@ -1,10 +1,8 @@
 import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 export function ProtectedRoute({ children }) {
-    const { user, loading, connectionError } = useAuth();
-    const location = useLocation();
+    const { loading, connectionError } = useAuth();
 
     if (loading) {
         return (
@@ -41,9 +39,8 @@ export function ProtectedRoute({ children }) {
         );
     }
 
-    if (!user) {
-        return <Navigate to="/login" state={{ from: location }} replace />;
-    }
-
+    // No user is fine — they browse as a guest. Per-feature access control
+    // (AI Tutors open, everything else behind a sign-in upsell) is handled
+    // by GuestGate at the route level, not here.
     return children;
 }
