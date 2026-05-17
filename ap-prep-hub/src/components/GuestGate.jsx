@@ -17,8 +17,10 @@ import { createPageUrl } from '../utils/helpers';
  * The real feature component is intentionally NOT mounted for guests: pages
  * like SmartScheduler/PracticeTests assume an authenticated user and read
  * Firestore with user.uid on mount, so rendering them live just to blur them
- * would throw. Instead we show a styled, static teaser — it conveys "this
- * exists, sign in to use it" without the crash risk.
+ * would throw. Instead we blur a real, pre-captured screenshot of the page
+ * (feature.preview, static asset in public/guest-previews) so the guest sees
+ * exactly what the feature looks like — without the crash risk. Falls back to
+ * a neutral skeleton if no screenshot is provided.
  */
 export default function GuestGate({ feature, children }) {
   const { user, isGuest, signInWithGoogle } = useAuth();
@@ -55,29 +57,43 @@ export default function GuestGate({ feature, children }) {
 
   return (
     <div className="relative min-h-[calc(100vh-3.5rem)] sm:min-h-[calc(100vh-4rem)] overflow-hidden">
-      {/* Decorative, blurred app-surface mock */}
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 select-none pointer-events-none blur-[6px] opacity-40 p-4 sm:p-6 md:p-8"
-      >
-        <div className="max-w-screen-xl mx-auto">
-          <div className="h-9 w-56 rounded-md bg-base-800 mb-6" />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-28 rounded-lg bg-base-850 border border-border" />
-            ))}
-          </div>
-          <div className="space-y-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-14 rounded-lg bg-base-850 border border-border"
-                style={{ width: `${92 - i * 6}%` }}
-              />
-            ))}
+      {/* Blurred real screenshot of the actual page (or neutral fallback) */}
+      {feature?.preview ? (
+        <>
+          <img
+            src={feature.preview}
+            alt=""
+            aria-hidden="true"
+            draggable="false"
+            className="absolute inset-0 w-full h-full object-cover object-top select-none pointer-events-none blur-[7px] scale-105 opacity-60"
+          />
+          {/* Scrim so the upsell card stays legible over the screenshot */}
+          <div aria-hidden="true" className="absolute inset-0 bg-base-950/55" />
+        </>
+      ) : (
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 select-none pointer-events-none blur-[6px] opacity-40 p-4 sm:p-6 md:p-8"
+        >
+          <div className="max-w-screen-xl mx-auto">
+            <div className="h-9 w-56 rounded-md bg-base-800 mb-6" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="h-28 rounded-lg bg-base-850 border border-border" />
+              ))}
+            </div>
+            <div className="space-y-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-14 rounded-lg bg-base-850 border border-border"
+                  style={{ width: `${92 - i * 6}%` }}
+                />
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Upsell card */}
       <div className="relative z-10 flex items-center justify-center min-h-[calc(100vh-3.5rem)] sm:min-h-[calc(100vh-4rem)] p-4">

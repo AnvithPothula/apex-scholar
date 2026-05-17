@@ -36,12 +36,12 @@ import { initializeBackgroundSync } from './services/backgroundSync';
 // Per-feature copy shown to guests on the sign-in upsell (GuestGate).
 // AI Tutors is intentionally absent — it's open to guests.
 const FEATURES = {
-  scheduler:   { icon: Calendar,     title: 'Smart Scheduler',  blurb: 'Sign in to build an AI study schedule that adapts to your subjects, deadlines, and Schoology assignments.' },
-  practice:    { icon: FileQuestion, title: 'Practice Tests',    blurb: 'Sign in to generate full-length AP practice tests with timed sections and detailed scoring.' },
-  flashcards:  { icon: Zap,          title: 'Flashcards',        blurb: 'Sign in to create, study, and share flashcard decks with spaced repetition.' },
-  solver:      { icon: Calculator,   title: 'Problem Solver',    blurb: 'Sign in to get step-by-step solutions to any problem from a photo or text.' },
-  settings:    { icon: SettingsIcon, title: 'Settings',          blurb: 'Sign in to pick your AP subjects, customize your tutor, and manage your account.' },
-  diagnostics: { icon: Activity,     title: 'Diagnostics',       blurb: 'Sign in to run a diagnostic that pinpoints your strengths and weak spots per subject.' },
+  scheduler:   { icon: Calendar,     title: 'Smart Scheduler',  preview: '/guest-previews/scheduler.jpg',   blurb: 'Sign in for free to build an AI study schedule that adapts to your subjects, deadlines, and Schoology assignments.' },
+  practice:    { icon: FileQuestion, title: 'Practice Tests',    preview: '/guest-previews/practice.jpg',    blurb: 'Sign in for free to generate full-length AP practice tests with timed sections and detailed scoring.' },
+  flashcards:  { icon: Zap,          title: 'Flashcards',        preview: '/guest-previews/flashcards.jpg',  blurb: 'Sign in for free to create, study, and share flashcard decks with spaced repetition.' },
+  solver:      { icon: Calculator,   title: 'Problem Solver',    preview: '/guest-previews/solver.jpg',      blurb: 'Sign in for free to get step-by-step solutions to any problem from a photo or text.' },
+  settings:    { icon: SettingsIcon, title: 'Settings',          preview: '/guest-previews/settings.jpg',    blurb: 'Sign in for free to pick your AP subjects, customize your tutor, and manage your account.' },
+  diagnostics: { icon: Activity,     title: 'Diagnostics',       preview: '/guest-previews/diagnostics.jpg', blurb: 'Sign in for free to run a diagnostic that pinpoints your strengths and weak spots per subject.' },
 };
 
 // Main App Component
