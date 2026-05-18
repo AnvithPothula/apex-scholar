@@ -64,6 +64,19 @@ describe('JSONParser', () => {
       expect(Array.isArray(result.data)).toBe(true);
       expect(result.data.length).toBeGreaterThanOrEqual(1);
     });
+
+    // Regression: an object truncated INSIDE a nested array must close in
+    // reverse order (`]` then `}`), not all `}` then all `]`. This is the
+    // real MCQ "raw/cut-off JSON" bug — the model stopped mid-explanations.
+    it('repairs an object truncated inside its last array value (MCQ shape)', () => {
+      const input = '{"question": "Which was a consequence of the Civil Rights Act of 1964?", "choices": ["End of all voting discrimination", "Mandatory affirmative action", "Banned discrimination in public accommodations and employment", "Immediate school desegregation"], "correctIndex": 2, "explanations": ["That was the Voting Rights Act of 1965, which followed';
+      const result = parser.parse(input, false);
+      expect(result.success).toBe(true);
+      expect(result.data.question).toMatch(/Civil Rights Act of 1964/);
+      expect(Array.isArray(result.data.choices)).toBe(true);
+      expect(result.data.choices).toHaveLength(4);
+      expect(result.data.correctIndex).toBe(2);
+    });
   });
 
   describe('parse — failure cases', () => {

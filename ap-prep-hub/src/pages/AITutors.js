@@ -1074,8 +1074,18 @@ const AITutors = () => {
         timestamp: new Date()
       };
 
-      // If MCQ mode and response is JSON, render as MCQ card
-      if (selectedMode === 'Practice MCQ') {
+      // Render as an MCQ card when EITHER the user is in Practice MCQ mode
+      // OR the model emitted MCQ-shaped JSON anyway (e.g. the user asked for
+      // a practice question in plain text while the mode chip was on Explain,
+      // or prior MCQ turns primed the format). Without the content check the
+      // JSON was rendered raw to the user. The block below is also made total:
+      // if it looks like an MCQ but doesn't yield a valid card, we replace it
+      // with a clean retry message — never raw JSON.
+      const looksLikeMcqJson = typeof response === 'string'
+        && /^\s*\{/.test(response)
+        && /"question"\s*:/.test(response)
+        && /"choices"\s*:/.test(response);
+      if (selectedMode === 'Practice MCQ' || looksLikeMcqJson) {
         try {
           // Use the shared JSON repair pipeline. The naive JSON.parse we
           // used to call here decoded any single backslash (e.g. \text in
@@ -1106,6 +1116,11 @@ const AITutors = () => {
               aiMessage.mcq = mcq;
               // Replace content with just the question text (hide raw JSON from display)
               aiMessage.content = mcq.question;
+            } else {
+              // Parsed (or repaired) but not a usable MCQ — e.g. truncated
+              // before/within "choices". Route to the catch so the user gets
+              // a clean retry message instead of raw JSON.
+              throw new Error('Parsed MCQ missing question or choices');
             }
           }
         } catch (_) {
@@ -1299,13 +1314,25 @@ ${curriculumData.examFormat ? `EXAM: ${curriculumData.examFormat.duration} — $
     citations = [];
   }
 
+  // Anti-repeat: feed the model the questions it already asked this session
+  // so a vague follow-up ("continue") produces a NEW question instead of
+  // reproducing the last one.
+  const priorMcqQuestions = (Array.isArray(messages) ? messages : [])
+    .filter(m => m && m.responseType === 'mcq' && m.mcq && m.mcq.question)
+    .map(m => String(m.mcq.question).replace(/\s+/g, ' ').trim().slice(0, 140))
+    .filter(Boolean);
+  const seenMcq = Array.from(new Set(priorMcqQuestions)).slice(-12);
+  const mcqAsked = seenMcq.length
+    ? `\nALREADY ASKED THIS SESSION — do NOT repeat or merely reword any of these. Ask a clearly DIFFERENT question testing a DIFFERENT concept:\n${seenMcq.map((q, i) => `${i + 1}. ${q}`).join('\n')}`
+    : '';
+
   const modeDirective = mode === 'Practice MCQ'
     ? `MODE: Practice MCQ.
 RESPOND WITH ONLY A JSON OBJECT. Start your response with { and end with }. No greetings, no markdown, no code fences, no explanation.
 Example format:
 {"question": "What is the molecule with hydrogen bonding? $\\\\text{CH}_3\\\\text{OH}$", "choices": ["$\\\\text{CH}_4$", "$\\\\text{CH}_3\\\\text{OH}$", "$\\\\text{CO}_2$", "$\\\\text{N}_2$"], "correctIndex": 1, "explanations": ["No H bonded to O/N/F", "Has O-H bond — hydrogen bonding", "No H atoms", "No H atoms"]}
 Rules: "choices" must have exactly 4 strings. "correctIndex" is 0-3. "explanations" has 4 strings matching each choice. Randomize which choice is correct (do NOT always make index 0 correct).
-Make the question AP exam-level difficulty. Include plausible distractors that test common misconceptions.
+Make the question AP exam-level difficulty. Include plausible distractors that test common misconceptions.${mcqAsked}
 LATEX INSIDE JSON STRINGS: Every backslash in a LaTeX command MUST be doubled. Write \\\\text{CH}_3 not \\text{CH}_3. Write \\\\frac{a}{b} not \\frac{a}{b}. Use $...$ for math; never \\\\( or \\\\[. A single backslash inside a JSON string is interpreted as an escape (\\t → tab, \\n → newline), which corrupts LaTeX.
 YOUR ENTIRE RESPONSE MUST BE VALID JSON. NO OTHER TEXT.`
     : mode === 'Walkthrough'
@@ -1451,10 +1478,14 @@ RESPONSE STRUCTURE: Direct analysis → 2-3 key concepts → AP application → 
           }
         ],
         generationConfig: {
-          temperature: mode === 'Practice MCQ' ? 0.4 : 0.7,
+          // MCQ: 0.6 (was 0.4) for question variety so "continue" doesn't
+          // reproduce the same question; still low enough for correct answers.
+          temperature: mode === 'Practice MCQ' ? 0.6 : 0.7,
           topK: 40,
           topP: 0.9,
-          maxOutputTokens: mode === 'Practice MCQ' ? 800 : 1600, // smaller for JSON
+          // MCQ JSON = question + 4 choices + 4 explanations + LaTeX. 800 was
+          // too small and truncated mid-explanations (raw/cut-off JSON bug).
+          maxOutputTokens: mode === 'Practice MCQ' ? 1500 : 1600,
           candidateCount: 1
         },
         safetySettings: [

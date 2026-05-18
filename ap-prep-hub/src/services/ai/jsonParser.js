@@ -178,9 +178,12 @@ class JSONParser {
 
     let repaired = text.trim();
 
-    // Count unclosed braces/brackets
-    let openBraces = 0;
-    let openBrackets = 0;
+    // Track the ORDER of unclosed structures, not just counts. Closing all
+    // '}' then all ']' is wrong when an array is the innermost open structure
+    // (e.g. a JSON object truncated inside its last array value produces
+    // `..."x"}]` instead of `..."x"]}`, which fails JSON.parse). We push each
+    // opener onto a stack and close in reverse order.
+    const stack = [];
     let inString = false;
     let escapeNext = false;
 
@@ -198,10 +201,11 @@ class JSONParser {
         continue;
       }
       if (!inString) {
-        if (char === '{') openBraces++;
-        if (char === '}') openBraces--;
-        if (char === '[') openBrackets++;
-        if (char === ']') openBrackets--;
+        if (char === '{' || char === '[') {
+          stack.push(char);
+        } else if (char === '}' || char === ']') {
+          stack.pop();
+        }
       }
     }
 
@@ -215,12 +219,9 @@ class JSONParser {
     repaired = repaired.replace(/,\s*"[^"]*"\s*$/g, '');
     repaired = repaired.replace(/,\s*$/g, '');
 
-    // Close unclosed structures
-    for (let i = 0; i < openBraces; i++) {
-      repaired += '}';
-    }
-    for (let i = 0; i < openBrackets; i++) {
-      repaired += ']';
+    // Close unclosed structures in reverse (innermost first)
+    for (let i = stack.length - 1; i >= 0; i--) {
+      repaired += stack[i] === '{' ? '}' : ']';
     }
 
     try {
