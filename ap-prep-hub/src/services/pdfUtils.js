@@ -101,5 +101,36 @@ export async function extractCitationsFromPdfUrl(url, query, opts = {}) {
   }
 }
 
-const pdfUtils = { base64ToUint8Array, extractPdfTextFromBase64, extractCitationsFromPdfUrl };
+/**
+ * Extract the full concatenated text of a PDF served at `url` (e.g. a file
+ * under /public). Reads every page (up to maxPages) and joins the text with
+ * page markers. Used by the curriculum content pipeline to feed noteguide /
+ * MCQ PDFs into the AI. Returns '' on failure.
+ */
+export async function extractPdfTextFromUrl(url, opts = {}) {
+  const pdfjs = await loadPdfJs();
+  const { maxPages = 60, maxChars = 120000 } = opts;
+  try {
+    const loadingTask = pdfjs.getDocument(url);
+    const doc = await loadingTask.promise;
+    const pagesToRead = Math.min(maxPages, doc.numPages);
+    let text = '';
+    for (let p = 1; p <= pagesToRead; p++) {
+      const page = await doc.getPage(p);
+      const content = await page.getTextContent();
+      const strings = content.items.map((it) => ('str' in it ? it.str : '')).filter(Boolean);
+      text += `\n[page ${p}]\n` + strings.join(' ');
+      if (text.length > maxChars) {
+        text = text.slice(0, maxChars) + '\n...[truncated]';
+        break;
+      }
+    }
+    return text.trim();
+  } catch (e) {
+    console.warn('[PDF] extractPdfTextFromUrl error', e);
+    return '';
+  }
+}
+
+const pdfUtils = { base64ToUint8Array, extractPdfTextFromBase64, extractCitationsFromPdfUrl, extractPdfTextFromUrl };
 export default pdfUtils;

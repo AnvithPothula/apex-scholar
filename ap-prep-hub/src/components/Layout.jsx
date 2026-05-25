@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { overlayVariants, modalVariants } from '../utils/animations';
-import { Brain, Calendar, Settings, LogOut, Award, Shield, X, MessageSquare, Send, FileQuestion, Zap, Calculator, Star, Code2, Sun, Moon, Lock, LogIn } from 'lucide-react';
+import { Brain, Calendar, Settings, LogOut, Award, Shield, X, MessageSquare, Send, FileQuestion, Zap, Calculator, Star, Code2, Sun, Moon, Lock, LogIn, GraduationCap } from 'lucide-react';
 import { Button, Avatar, AvatarFallback, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from './ui/UIComponents';
 import { useAuth } from '../contexts/AuthContext';
 import { createPageUrl, cn } from '../utils/helpers';
@@ -123,6 +123,21 @@ export function Layout({ children }) {
                                 <span className="hidden md:inline">Schedule</span>
                                 {isGuest && <Lock strokeWidth={1.5} size={11} className="ml-0.5 flex-shrink-0 opacity-50" />}
                             </Link>
+                            {/* Learn tab is dev-only for now */}
+                            {isAdmin(user?.uid) && (
+                            <Link
+                                to={createPageUrl("Learn")}
+                                aria-label="Learn"
+                                aria-current={isActiveTab("Learn") ? "page" : undefined}
+                                className={cn(
+                                    "px-2 sm:px-2.5 md:px-3 lg:px-4 py-1.5 sm:py-2 flex items-center space-x-1 md:space-x-1.5 font-medium transition-all duration-200 text-xs sm:text-sm",
+                                    isActiveTab("Learn") ? "text-content-primary border-b-2 border-content-primary" : "text-content-muted hover:text-content-primary"
+                                )}
+                            >
+                                <GraduationCap strokeWidth={1.5} size={14} className="sm:w-4 sm:h-4 flex-shrink-0" />
+                                <span className="hidden md:inline">Learn</span>
+                            </Link>
+                            )}
                         </nav>
                         
                         <div className="flex items-center space-x-1 sm:space-x-2">
@@ -200,6 +215,8 @@ export function Layout({ children }) {
                         { page: 'Flashcards', label: 'Cards', Icon: Zap, locked: true },
                         { page: 'Solver', label: 'Solver', Icon: Calculator, locked: true },
                         { page: 'SmartScheduler', label: 'Schedule', Icon: Calendar, locked: true },
+                        // Dev-only: Learn tab only appears in the mobile nav for admins.
+                        ...(isAdmin(user?.uid) ? [{ page: 'Learn', label: 'Learn', Icon: GraduationCap }] : []),
                         { page: 'Settings', label: 'Settings', Icon: Settings, locked: true },
                     ].map(({ page, label, Icon, locked }) => (
                         <Link

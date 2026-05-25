@@ -80,12 +80,8 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import geminiService, { RateLimitError } from '../services/geminiService';
-import JSONParser from '../services/ai/jsonParser';
+import { parseSingleMcq } from '../services/ai/mcqGenerator';
 import errorLogger from '../utils/errorLogger';
-
-// Reuse a single parser instance — handles \t / \n / \frac / etc. inside
-// JSON string content that naive JSON.parse mangles into control chars.
-const mcqJsonParser = new JSONParser();
 
 const AITutors = () => {
   const { subject: urlSubject } = useParams();
@@ -1087,41 +1083,19 @@ const AITutors = () => {
         && /"choices"\s*:/.test(response);
       if (selectedMode === 'Practice MCQ' || looksLikeMcqJson) {
         try {
-          // Use the shared JSON repair pipeline. The naive JSON.parse we
-          // used to call here decoded any single backslash (e.g. \text in
-          // "$\text{CH}_3$") as a JSON escape — \t became a tab character,
-          // leaving "$ ext{CH}_3$" in the rendered question. The parser's
-          // repair pass first double-escapes invalid \-sequences inside
-          // strings so LaTeX content round-trips correctly.
-          const parsed = mcqJsonParser.parse(response, false);
-          // JSONParser returns {success: false} instead of throwing — re-throw
-          // so the plain-text "A. B. C. D." fallback in the catch block still
-          // fires when the JSON path is unrecoverable.
-          if (!parsed.success || !parsed.data) {
-            throw new Error(parsed.error || 'MCQ JSON parse failed');
-          }
-          {
-            const mcq = parsed.data;
-            if (mcq && mcq.question && Array.isArray(mcq.choices) && mcq.choices.length >= 2) {
-              // Ensure correctIndex is always a number (AI may return it as a string)
-              if (mcq.correctIndex !== undefined && mcq.correctIndex !== null) {
-                mcq.correctIndex = parseInt(mcq.correctIndex, 10);
-                if (isNaN(mcq.correctIndex)) mcq.correctIndex = 0;
-              }
-              // Ensure explanations is an array (AI may omit or return wrong type)
-              if (!Array.isArray(mcq.explanations)) {
-                mcq.explanations = mcq.choices.map(() => '');
-              }
-              aiMessage.responseType = 'mcq';
-              aiMessage.mcq = mcq;
-              // Replace content with just the question text (hide raw JSON from display)
-              aiMessage.content = mcq.question;
-            } else {
-              // Parsed (or repaired) but not a usable MCQ — e.g. truncated
-              // before/within "choices". Route to the catch so the user gets
-              // a clean retry message instead of raw JSON.
-              throw new Error('Parsed MCQ missing question or choices');
-            }
+          // Shared parse + normalize (services/ai/mcqGenerator). Handles the
+          // JSON repair pipeline (LaTeX backslash escapes, truncation) and
+          // returns null for unrecoverable/partial JSON. Throw on null so the
+          // plain-text "A. B. C. D." fallback in the catch fires instead of
+          // rendering raw JSON.
+          const mcq = parseSingleMcq(response);
+          if (mcq) {
+            aiMessage.responseType = 'mcq';
+            aiMessage.mcq = mcq;
+            // Replace content with just the question text (hide raw JSON)
+            aiMessage.content = mcq.question;
+          } else {
+            throw new Error('Parsed MCQ missing question or choices');
           }
         } catch (_) {
           // JSON parse failed — try to parse plain text MCQ format (A. B. C. D.)
@@ -1181,15 +1155,19 @@ const AITutors = () => {
       
     } catch (error) {
       console.error('Error generating AI response:', error);
-      // Add error message
+      // A usage-limit hit isn't a failure — show its (friendly) message as-is.
+      const isUsageLimit = error?.code === 'ai_usage_limit';
+      if (isUsageLimit) toast.warning(error.message);
       const errorMessage = {
         id: `error_${Date.now()}`,
         type: 'ai',
-        content: "I apologize, but I encountered an issue generating a response. Please try asking your question again, and I'll do my best to help you learn!",
+        content: isUsageLimit
+          ? error.message
+          : "I apologize, but I encountered an issue generating a response. Please try asking your question again, and I'll do my best to help you learn!",
         timestamp: new Date(),
         responseType: 'error'
       };
-      
+
       try {
         await saveMessage(activeConversationId, errorMessage);
       } catch (saveError) {

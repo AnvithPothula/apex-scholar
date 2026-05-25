@@ -1,73 +1,80 @@
 /**
- * Schoology OAuth Callback Handler
- * Handles the OAuth callback from Schoology authentication
+ * Schoology OAuth Callback Handler.
+ *
+ * Schoology redirects back here with ?oauth_token=...&oauth_verifier=... after
+ * the user authorizes. We hand those off to schoologyAPI.handleOAuthCallback,
+ * which exchanges them for an access token (via the Netlify proxy that holds
+ * the consumer secret) and persists it to Firestore. After success the user
+ * is sent back to Settings.
  */
 
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Loader, CheckCircle, XCircle } from 'lucide-react';
-// import { schoologyAPI } from '../../services/schoologyAPI';
-// import { assignmentSync } from '../../services/assignmentSync';
+import { schoologyAPI } from '../../services/schoologyAPI';
+import { useAuth } from '../../contexts/AuthContext';
 import { Card, CardContent, Button } from '../ui/UIComponents';
 import { createPageUrl } from '../../utils/helpers';
+
+const USER_KEY = 'apex.schoology.requestUser';
 
 export function SchoologyCallback() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [status, setStatus] = useState('processing'); // processing, success, error
-  const [message, setMessage] = useState('Processing Schoology authentication...');
+  const { user, loading: authLoading } = useAuth();
+  const [status, setStatus] = useState('processing'); // processing | success | error
+  const [message, setMessage] = useState('Connecting your Schoology account…');
 
   useEffect(() => {
-    const handleOAuthCallback = async () => {
+    // Wait until auth has resolved — we need user.uid to write tokens.
+    if (authLoading) return;
+
+    const run = async () => {
       try {
-        // Get parameters from URL
         const oauthToken = searchParams.get('oauth_token');
         const oauthVerifier = searchParams.get('oauth_verifier');
-        const error = searchParams.get('error');
+        const err = searchParams.get('error') || searchParams.get('oauth_problem');
 
-        // Get user ID from session storage
-        const userId = sessionStorage.getItem('schoology_oauth_user');
-
-        if (error) {
-          throw new Error(`OAuth error: ${error}`);
-        }
-
+        if (err) throw new Error(err);
         if (!oauthToken || !oauthVerifier) {
-          throw new Error('Missing OAuth parameters');
+          throw new Error('Schoology did not return the expected verification parameters.');
         }
 
-        if (!userId) {
-          throw new Error('User session not found');
+        // Prefer the live Firebase user; fall back to the uid stashed at
+        // sign-in start (the redirect chain shouldn't change it, but be safe).
+        let uid = user?.uid || null;
+        if (!uid) {
+          try { uid = sessionStorage.getItem(USER_KEY); } catch (_) { /* ignore */ }
+        }
+        if (!uid) {
+          throw new Error('Your Apex session expired during sign-in — please sign in to Apex and try connecting Schoology again.');
         }
 
-        // Schoology OAuth token exchange requires a backend server for security.
-        // Client-only apps cannot safely complete the OAuth handshake.
-        setStatus('error');
-        setMessage('Direct Schoology login is not yet supported. You can still import your Schoology assignments using a Calendar URL in Settings.');
-
-        // Clean up session storage
-        sessionStorage.removeItem('schoology_oauth_user');
-
-        // Redirect to settings after 3 seconds
+        const result = await schoologyAPI.handleOAuthCallback(uid, oauthToken, oauthVerifier);
+        setStatus('success');
+        setMessage(
+          result?.schoologyName
+            ? `Connected as ${result.schoologyName}. Redirecting…`
+            : 'Schoology connected. Redirecting…'
+        );
         setTimeout(() => {
-          navigate(createPageUrl('Settings'), { replace: true });
-        }, 5000);
-
+          navigate(createPageUrl('Settings') + '#settings-schoology', { replace: true });
+        }, 1500);
       } catch (error) {
-        console.error('OAuth callback error:', error);
+        console.error('Schoology OAuth callback error:', error);
         setStatus('error');
-        setMessage('We couldn\'t complete the Schoology connection. You can import your assignments using a Calendar URL in Settings instead.');
-
-        // Clean up session storage
-        sessionStorage.removeItem('schoology_oauth_user');
+        setMessage(
+          error?.message ||
+            "We couldn't complete the Schoology connection. You can try again or paste a calendar URL in Settings instead."
+        );
       }
     };
 
-    handleOAuthCallback();
-  }, [searchParams, navigate]);
+    run();
+  }, [authLoading, user, searchParams, navigate]);
 
-  const handleRetry = () => {
-    navigate(createPageUrl('Settings'), { replace: true });
+  const goSettings = () => {
+    navigate(createPageUrl('Settings') + '#settings-schoology', { replace: true });
   };
 
   return (
@@ -86,40 +93,27 @@ export function SchoologyCallback() {
             )}
           </div>
 
-          <h2 className="text-xl font-semibold text-content-primary mb-4">
+          <h2 className="text-xl font-display font-semibold text-content-primary mb-3">
             {status === 'processing' && 'Connecting to Schoology'}
-            {status === 'success' && 'Connection Successful!'}
-            {status === 'error' && 'Connection Unavailable'}
+            {status === 'success' && 'Connected'}
+            {status === 'error' && "Couldn't connect"}
           </h2>
 
-          <p className="text-content-secondary mb-6">
-            {message}
-          </p>
-
-          {status === 'success' && (
-            <div className="text-sm text-content-muted mb-4">
-              Redirecting to settings in a few seconds...
-            </div>
-          )}
+          <p className="text-content-secondary mb-6">{message}</p>
 
           {status === 'error' && (
             <div className="space-y-3">
-              <Button 
-                onClick={handleRetry}
-                className="w-full bg-content-primary hover:bg-content-primary text-base-950"
-              >
-                Return to Settings
+              <Button onClick={goSettings} className="w-full">
+                Back to Settings
               </Button>
               <p className="text-xs text-content-muted">
-                You can try connecting again from the Settings page.
+                You can try again from Settings, or paste a calendar URL instead.
               </p>
             </div>
           )}
 
           {status === 'processing' && (
-            <div className="text-sm text-content-muted">
-              This may take a few moments...
-            </div>
+            <p className="text-sm text-content-muted">This usually takes a couple of seconds…</p>
           )}
         </CardContent>
       </Card>

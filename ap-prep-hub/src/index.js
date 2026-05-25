@@ -79,6 +79,15 @@ if (process.env.NODE_ENV === 'production' && process.env.REACT_APP_SENTRY_DSN) {
       /extension:\/\//i,
       /chrome-extension:\/\//i,
       /moz-extension:\/\//i,
+      // Extensions also throw via the WebExtension messaging API as
+      // unhandled promise rejections with NO stacktrace and no
+      // `extension://` in the message, so the URL patterns above miss them
+      // (e.g. password managers / content blockers on iOS Safari). Our app
+      // never calls these APIs — pure third-party noise. (APEX-SCHOLAR-8)
+      /runtime\.sendMessage/i,
+      /Tab not found/i,
+      /Extension context invalidated/i,
+      /message channel closed before a response was received/i,
       // Puter SDK reads `popup.closed` on a window reference that's null
       // when the popup-blocker bites or the socket.io handshake fails.
       // The throw originates inside the SDK's own setInterval, so we can

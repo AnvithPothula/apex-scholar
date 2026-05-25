@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
   User,
   Sparkles,
+  Gauge,
   BookOpen,
   Clock,
   Link2,
@@ -24,6 +25,7 @@ import {
 export const SETTINGS_SECTIONS = [
   { id: 'settings-profile',   label: 'Profile',            icon: User },
   { id: 'settings-ai',        label: 'AI Personalization', icon: Sparkles },
+  { id: 'settings-usage',     label: 'AI Usage',           icon: Gauge },
   { id: 'settings-subjects',  label: 'AP Subjects',        icon: BookOpen },
   {
     id: 'settings-study',

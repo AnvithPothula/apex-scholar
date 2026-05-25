@@ -5,6 +5,11 @@
 /.pnp
 .pnp.js
 
+# large media — APUSH unit review videos (~289MB). Host externally (Firebase
+# Storage / R2 / unlisted YouTube) and reference by URL in
+# src/data/curriculums/usHistory.js; never commit these to the repo.
+/public/curriculums/apush/videos
+
 # testing
 /coverage
 
@@ -22,3 +27,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .gstack/
+
+# Local Netlify folder
+.netlify

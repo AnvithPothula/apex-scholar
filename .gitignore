@@ -70,3 +70,6 @@ firebase-debug.log
 tmp/
 temp/
 .gstack/
+
+# Local Netlify folder
+.netlify

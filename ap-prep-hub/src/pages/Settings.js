@@ -8,6 +8,7 @@ import { setUserTimezonePreference } from '../utils/timezone';
 import BlackoutScheduleManager from '../components/settings/BlackoutScheduleManager';
 import { SchoologyIntegration } from '../components/settings/SchoologyIntegration';
 import SettingsSidebar from '../components/settings/SettingsSidebar';
+import AiUsageCard from '../components/settings/AiUsageCard';
 import { Button, Card, CardHeader, CardTitle, CardContent, Input, FloatingInput, ValidatedInput } from '../components/ui/UIComponents';
 import CustomDropdown from '../components/ui/CustomDropdown';
 import MultiSelectDropdown from '../components/ui/MultiSelectDropdown';
@@ -514,6 +515,8 @@ const Settings = () => {
               </div>
             </CardContent>
           </Card>
+
+          <AiUsageCard />
 
           <Card id="settings-subjects" className="bg-base-850 border-border md:col-span-2 scroll-mt-32 lg:scroll-mt-20">
             <CardHeader className="p-4 sm:p-6">

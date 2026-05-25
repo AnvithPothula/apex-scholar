@@ -3,6 +3,15 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Shared curriculum content (lessons, practice, unit summaries).
+    // World-readable (no PII); written only by admins via the Learn UI.
+    // UIDs mirror ADMIN_UIDS in src/components/DeveloperSettings.jsx.
+    match /curriculum/{document=**} {
+      allow read: if true;
+      allow write: if request.auth != null &&
+        request.auth.uid in ['b0eUycwZDHcmrkoeSEiD69QSbK32', 'A0yRGP86ZTahByzS0ALYeKAXOn52'];
+    }
+
     // User documents - only accessible by the owner
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
@@ -19,6 +28,18 @@ service cloud.firestore {
 
       // User's progress data
       match /progress/{progressId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // User's curriculum progress (completed topics + practice scores)
+      match /curriculumProgress/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // User's AI usage counters (rate limits: 5h / weekly / daily test).
+      // Owner-scoped: cross-device + survives cache clear. Not tamper-proof
+      // (the owner can write this doc); true anti-abuse needs a server function.
+      match /usage/{docId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
 

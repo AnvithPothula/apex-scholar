@@ -9,11 +9,12 @@ import { Layout } from './components/Layout.jsx';
 import { LoginPage } from './components/auth/LoginPage';
 import { SchoologyCallback } from './components/auth/SchoologyCallback';
 import GuestGate from './components/GuestGate';
-import { Calendar, FileQuestion, Zap, Calculator, Settings as SettingsIcon, Activity } from 'lucide-react';
+import { Calendar, FileQuestion, Zap, Calculator, Settings as SettingsIcon, Activity, GraduationCap } from 'lucide-react';
 import ErrorBoundary from './components/ErrorBoundary';
 import PageSkeleton from './components/ui/PageSkeleton';
 import { ToastProvider } from './contexts/ToastContext';
 import ToastContainer from './components/ui/Toast';
+import AiDowngradeNotice from './components/ui/AiDowngradeNotice';
 // eslint-disable-next-line import/first
 const AITutors = lazy(() => import('./pages/AITutors'));
 // eslint-disable-next-line import/first
@@ -29,6 +30,8 @@ const Solver = lazy(() => import('./pages/Solver'));
 // eslint-disable-next-line import/first
 const Diagnostics = lazy(() => import('./pages/Diagnostics'));
 // eslint-disable-next-line import/first
+const LearnHub = lazy(() => import('./pages/LearnHub'));
+// eslint-disable-next-line import/first
 const NotFound = lazy(() => import('./pages/NotFound'));
 import { createPageUrl } from './utils/helpers';
 import { initializeBackgroundSync } from './services/backgroundSync';
@@ -42,6 +45,7 @@ const FEATURES = {
   solver:      { icon: Calculator,   title: 'Problem Solver',    preview: '/guest-previews/solver.jpg',      blurb: 'Sign in for free to get step-by-step solutions to any problem from a photo or text.' },
   settings:    { icon: SettingsIcon, title: 'Settings',          preview: '/guest-previews/settings.jpg',    blurb: 'Sign in for free to pick your AP subjects, customize your tutor, and manage your account.' },
   diagnostics: { icon: Activity,     title: 'Diagnostics',       preview: '/guest-previews/diagnostics.jpg', blurb: 'Sign in for free to run a diagnostic that pinpoints your strengths and weak spots per subject.' },
+  learn:       { icon: GraduationCap, title: 'Learn',            blurb: 'Sign in for free to explore interactive timelines and study lessons for your AP subjects.' },
 };
 
 // Main App Component
@@ -62,6 +66,7 @@ function App() {
           <Route path="/*" element={<ProtectedRoute><MainApp /></ProtectedRoute>} />
         </Routes>
         <ToastContainer />
+        <AiDowngradeNotice />
       </Router>
     </AuthProvider>
     </ToastProvider>
@@ -107,6 +112,12 @@ function MainApp() {
           <Route path={createPageUrl("Diagnostics")} element={<GuestGate feature={FEATURES.diagnostics}><Diagnostics /></GuestGate>} />
           <Route path={createPageUrl("Diagnostics", ":subject")} element={<GuestGate feature={FEATURES.diagnostics}><Diagnostics /></GuestGate>} />
           <Route path={createPageUrl("Diagnostics", ":subject/start")} element={<GuestGate feature={FEATURES.diagnostics}><Diagnostics /></GuestGate>} />
+          {/* Learn is dev-only for now (LearnHub redirects non-admins). No
+              GuestGate wrap — guests just get redirected too, no upsell for a
+              feature users can't access yet. */}
+          <Route path={createPageUrl("Learn")} element={<LearnHub />} />
+          <Route path={`${createPageUrl("Learn")}/timeline/:subject`} element={<LearnHub />} />
+          <Route path={`${createPageUrl("Learn")}/curriculum/:subject`} element={<LearnHub />} />
 
           {/* Legacy PascalCase routes — redirect to kebab-case canonicals.
               The `/*` splat catches subpaths (e.g., /AITutors/statistics). */}

@@ -19,6 +19,8 @@ import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import { auth, db } from '../config/firebase';
 import { getFirebaseErrorMessage } from '../utils/firebaseErrorMessages';
 import errorLogger from '../utils/errorLogger';
+import { isAdmin } from '../components/DeveloperSettings';
+import aiUsageLimiter from '../services/aiUsageLimiter';
 
 const AVATAR_GRADIENTS = [
   'linear-gradient(135deg, #14b8a6, #2dd4bf)',  // Teal
@@ -333,6 +335,13 @@ export const AuthProvider = ({ children }) => {
             throw new Error(getFirebaseErrorMessage(error));
         }
     };
+
+    // Point the AI usage limiter at the current user (Firestore-backed for
+    // signed-in users, localStorage for guests) and let admins/devs bypass it.
+    useEffect(() => {
+        aiUsageLimiter.setUser(user?.uid || null);
+        aiUsageLimiter.setBypass(isAdmin(user?.uid));
+    }, [user]);
 
     // A "guest" is someone who finished auth init with no signed-in user and
     // no connection error. Guests get read-only/AI-Tutors-only access; the

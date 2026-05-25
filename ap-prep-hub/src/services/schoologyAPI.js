@@ -1,466 +1,383 @@
 /**
- * Schoology API Integration Service
- * Handles authentication and API calls to Schoology
+ * Schoology API service.
+ *
+ * Two integration paths coexist:
+ *   1) OAuth sign-in (preferred). All OAuth 1.0a signing happens in the
+ *      Netlify function /.netlify/functions/schoology-oauth (it holds the
+ *      consumer secret). This file is just a thin client that calls that
+ *      proxy and persists the resulting access token to Firestore.
+ *   2) iCal calendar URL paste (fallback). Some districts don't enable
+ *      Schoology developer apps; users can still paste their personal
+ *      calendar feed URL and get assignments that way.
+ *
+ * Token storage: users/{userId}/integrations/schoology (single doc):
+ *   accessToken, accessTokenSecret, schoologyUid, schoologyName,
+ *   connectedAt, lastSync, isActive, integrationType ('oauth' | 'calendar'),
+ *   calendarUrl (calendar-path only)
  */
 
-import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, deleteField } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import schoologyCalendar from './schoologyCalendar';
-// HMAC-SHA1 using Web Crypto API (replaces deprecated crypto-js)
-async function hmacSHA1Base64(message, key) {
-  const encoder = new TextEncoder();
-  const cryptoKey = await crypto.subtle.importKey(
-    'raw', encoder.encode(key), { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']
-  );
-  const signature = await crypto.subtle.sign('HMAC', cryptoKey, encoder.encode(message));
-  return btoa(String.fromCharCode(...new Uint8Array(signature)));
+
+const PROXY_URL = '/.netlify/functions/schoology-oauth';
+// Transient store for the request-token secret during the OAuth round-trip.
+// Saved when we kick off the flow, read back in the /schoology-callback page,
+// then cleared. sessionStorage survives the Schoology redirect in the same
+// tab and is auto-wiped when the tab closes.
+const REQUEST_SECRET_KEY = 'apex.schoology.requestTokenSecret';
+const REQUEST_USER_KEY = 'apex.schoology.requestUser';
+
+async function callProxy(action, body = {}) {
+  const res = await fetch(`${PROXY_URL}?action=${encodeURIComponent(action)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  let data = null;
+  try {
+    data = await res.json();
+  } catch (_) {
+    /* fall through */
+  }
+  if (!res.ok) {
+    const msg = data?.error || `Schoology proxy returned ${res.status}`;
+    const err = new Error(msg);
+    err.upstream = data?.upstream;
+    err.status = res.status;
+    throw err;
+  }
+  return data;
 }
 
 class SchoologyAPIService {
   constructor() {
-    this.baseURL = 'https://api.schoology.com/v1';
-    this.consumerKey = process.env.REACT_APP_SCHOOLOGY_CONSUMER_KEY;
-    this.consumerSecret = process.env.REACT_APP_SCHOOLOGY_CONSUMER_SECRET;
-    this.accessTokens = new Map(); // Cache tokens for users
+    // No consumer secret here — that lives in the Netlify function.
+    this.accessTokens = new Map(); // per-user in-memory cache
   }
 
-  /**
-   * Get authorization URL for OAuth flow
-   */
-  async getAuthorizationUrl() {
-    try {
-      // For now, provide a simplified OAuth flow
-      // In production, you would need to implement the full OAuth 1.0a flow
-      if (!this.consumerKey || !this.consumerSecret) {
-        throw new Error('Schoology API credentials not configured. Please set REACT_APP_SCHOOLOGY_CONSUMER_KEY and REACT_APP_SCHOOLOGY_CONSUMER_SECRET environment variables.');
-      }
-
-      // Return the authorization URL that would be used in production
-      const authUrl = `https://api.schoology.com/oauth/authorize?oauth_consumer_key=${this.consumerKey}`;
-      return authUrl;
-    } catch (error) {
-      console.error('Error getting authorization URL:', error);
-      throw error;
-    }
-  }
+  // ---- OAuth flow -------------------------------------------------------
 
   /**
-   * Initialize OAuth flow for Schoology authentication
+   * Kick off OAuth: ask the proxy for a request token, stash the matching
+   * token-secret in sessionStorage, then redirect the browser to Schoology
+   * for the user to authorize. They'll come back to /schoology-callback.
    */
   async initiateOAuth(userId) {
-    try {
-      // Create OAuth request token
-      const requestTokenEndpoint = `${this.baseURL}/oauth/request_token`;
-      const callbackUrl = `${window.location.origin}/schoology-callback`;
-      
-      const oauthParams = {
-        oauth_callback: callbackUrl,
-        oauth_consumer_key: this.consumerKey,
-        oauth_signature_method: 'HMAC-SHA1',
-        oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
-        oauth_nonce: this.generateNonce(),
-        oauth_version: '1.0'
-      };
-
-      // Generate signature for request token
-      const signature = await this.generateSignature('POST', requestTokenEndpoint, oauthParams);
-      oauthParams.oauth_signature = signature;
-
-      // Make request token call
-      const authHeader = 'OAuth ' + Object.keys(oauthParams)
-        .map(key => `${key}="${encodeURIComponent(oauthParams[key])}"`)
-        .join(', ');
-
-      const response = await fetch(requestTokenEndpoint, {
-        method: 'POST',
-        headers: {
-          'Authorization': authHeader,
-          'Content-Type': 'application/x-www-form-urlencoded'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`OAuth request failed: ${response.status}`);
-      }
-
-      const responseText = await response.text();
-      const tokenData = new URLSearchParams(responseText);
-      const requestToken = tokenData.get('oauth_token');
-      const requestTokenSecret = tokenData.get('oauth_token_secret');
-
-      if (!requestToken) {
-        throw new Error('Failed to get request token');
-      }
-
-      // Store request token temporarily
-      sessionStorage.setItem('schoology_request_token_secret', requestTokenSecret);
-      sessionStorage.setItem('schoology_oauth_user', userId);
-
-      // Build authorization URL
-      const authURL = `${this.baseURL}/oauth/authorize?oauth_token=${requestToken}`;
-      
-      // Open OAuth window
-      window.open(authURL, 'schoology-oauth', 'width=600,height=600,scrollbars=yes');
-      
-      return { success: true, authURL };
-    } catch (error) {
-      console.error('Error initiating Schoology OAuth:', error);
-      throw new Error('Failed to start Schoology authentication: ' + error.message);
+    if (!userId) throw new Error('userId required');
+    const callback = `${window.location.origin}/schoology-callback`;
+    const data = await callProxy('request_token', { callback });
+    const { oauth_token, oauth_token_secret, authorize_url } = data;
+    if (!oauth_token || !oauth_token_secret || !authorize_url) {
+      throw new Error('Schoology did not return a valid request token');
     }
+    try {
+      sessionStorage.setItem(REQUEST_SECRET_KEY, oauth_token_secret);
+      sessionStorage.setItem(REQUEST_USER_KEY, userId);
+    } catch (_) {
+      /* storage may be blocked; proceed anyway, callback will surface the error */
+    }
+    window.location.assign(authorize_url);
   }
 
   /**
-   * Handle OAuth callback and store tokens
+   * Complete OAuth after Schoology redirects back. Exchanges the verifier
+   * for an access token (server-signed), then fetches /users/me to capture
+   * the user's Schoology display name + uid, and persists everything to
+   * Firestore so future sessions don't need to re-auth.
    */
   async handleOAuthCallback(userId, oauthToken, oauthVerifier) {
+    if (!userId || !oauthToken || !oauthVerifier) {
+      throw new Error('Missing OAuth callback parameters');
+    }
+    const oauthTokenSecret = (() => {
+      try { return sessionStorage.getItem(REQUEST_SECRET_KEY); }
+      catch (_) { return null; }
+    })();
+    if (!oauthTokenSecret) {
+      throw new Error('Schoology sign-in session expired — please try again');
+    }
+
+    // 1. Exchange verifier for access token (server-signed).
+    const { access_token, token_secret } = await callProxy('access_token', {
+      oauth_token: oauthToken,
+      oauth_verifier: oauthVerifier,
+      oauth_token_secret: oauthTokenSecret,
+    });
+    if (!access_token || !token_secret) {
+      throw new Error('Schoology did not return an access token');
+    }
+
+    // 2. Best-effort: fetch the user's profile so we can show
+    // "Connected as <name>" in settings. Failures here are non-fatal —
+    // the access token itself is still valid.
+    let schoologyUid = null;
+    let schoologyName = null;
     try {
-      // Get request token secret from session storage
-      const requestTokenSecret = sessionStorage.getItem('schoology_request_token_secret');
-      if (!requestTokenSecret) {
-        throw new Error('Request token secret not found');
-      }
-
-      // Exchange for access token
-      const accessTokenEndpoint = `${this.baseURL}/oauth/access_token`;
-      
-      const oauthParams = {
-        oauth_consumer_key: this.consumerKey,
-        oauth_token: oauthToken,
-        oauth_verifier: oauthVerifier,
-        oauth_signature_method: 'HMAC-SHA1',
-        oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
-        oauth_nonce: this.generateNonce(),
-        oauth_version: '1.0'
-      };
-
-      // Generate signature
-      const signature = await this.generateSignature('POST', accessTokenEndpoint, oauthParams, requestTokenSecret);
-      oauthParams.oauth_signature = signature;
-
-      // Make access token request
-      const authHeader = 'OAuth ' + Object.keys(oauthParams)
-        .map(key => `${key}="${encodeURIComponent(oauthParams[key])}"`)
-        .join(', ');
-
-      const response = await fetch(accessTokenEndpoint, {
-        method: 'POST',
-        headers: {
-          'Authorization': authHeader,
-          'Content-Type': 'application/x-www-form-urlencoded'
-        }
+      const me = await callProxy('api_call', {
+        method: 'GET',
+        path: '/users/me',
+        access_token,
+        token_secret,
       });
-
-      if (!response.ok) {
-        throw new Error(`Access token request failed: ${response.status}`);
+      if (me?.ok && me.data) {
+        schoologyUid = String(me.data.uid || me.data.id || '') || null;
+        schoologyName =
+          me.data.name_display ||
+          me.data.name ||
+          [me.data.name_first, me.data.name_last].filter(Boolean).join(' ') ||
+          null;
       }
+    } catch (_) { /* non-fatal */ }
 
-      const responseText = await response.text();
-      const tokenData = new URLSearchParams(responseText);
-      const accessToken = tokenData.get('oauth_token');
-      const accessTokenSecret = tokenData.get('oauth_token_secret');
-
-      if (!accessToken || !accessTokenSecret) {
-        throw new Error('Failed to get access tokens');
-      }
-
-      // Store tokens in Firebase
-      const userTokensRef = doc(db, 'users', userId, 'integrations', 'schoology');
-      await setDoc(userTokensRef, {
-        accessToken,
-        accessTokenSecret,
+    // 3. Persist. merge:true keeps any calendar URL already configured.
+    const ref = doc(db, 'users', userId, 'integrations', 'schoology');
+    await setDoc(
+      ref,
+      {
+        accessToken: access_token,
+        accessTokenSecret: token_secret,
+        schoologyUid,
+        schoologyName,
         connectedAt: new Date(),
-        lastSync: null,
         isActive: true,
-        calendarUrl: null // Will be set separately if user provides it
-      });
+        integrationType: 'oauth',
+      },
+      { merge: true }
+    );
 
-      // Cache tokens for immediate use
-      this.accessTokens.set(userId, {
-        accessToken,
-        accessTokenSecret
-      });
+    this.accessTokens.set(userId, { accessToken: access_token, accessTokenSecret: token_secret });
+    try {
+      sessionStorage.removeItem(REQUEST_SECRET_KEY);
+      sessionStorage.removeItem(REQUEST_USER_KEY);
+    } catch (_) { /* ignore */ }
 
-      // Clean up session storage
-      sessionStorage.removeItem('schoology_request_token_secret');
-
-      console.log('✅ Schoology OAuth tokens stored successfully');
-      return { success: true };
-    } catch (error) {
-      console.error('Error handling OAuth callback:', error);
-      throw new Error('Failed to complete Schoology authentication: ' + error.message);
-    }
+    return { success: true, schoologyUid, schoologyName };
   }
 
-  /**
-   * Get stored tokens for a user
-   */
+  // ---- Token + connection state ----------------------------------------
+
   async getTokens(userId) {
+    if (this.accessTokens.has(userId)) return this.accessTokens.get(userId);
     try {
-      // Check cache first
-      if (this.accessTokens.has(userId)) {
-        return this.accessTokens.get(userId);
-      }
-
-      // Fetch from Firebase
-      const userTokensRef = doc(db, 'users', userId, 'integrations', 'schoology');
-      const tokenDoc = await getDoc(userTokensRef);
-      
-      if (tokenDoc.exists() && tokenDoc.data().isActive) {
-        const tokens = {
-          accessToken: tokenDoc.data().accessToken,
-          accessTokenSecret: tokenDoc.data().accessTokenSecret
-        };
-        
-        // Cache for future use
-        this.accessTokens.set(userId, tokens);
-        return tokens;
-      }
-
-      return null;
-    } catch (error) {
-      console.error('Error fetching Schoology tokens:', error);
+      const ref = doc(db, 'users', userId, 'integrations', 'schoology');
+      const snap = await getDoc(ref);
+      if (!snap.exists()) return null;
+      const d = snap.data();
+      if (d.isActive === false || !d.accessToken || !d.accessTokenSecret) return null;
+      const tokens = { accessToken: d.accessToken, accessTokenSecret: d.accessTokenSecret };
+      this.accessTokens.set(userId, tokens);
+      return tokens;
+    } catch (e) {
+      console.error('Error fetching Schoology tokens:', e);
       return null;
     }
   }
 
   /**
-   * Make authenticated API request to Schoology
-   */
-  async makeAPIRequest(userId, endpoint, method = 'GET', data = null) {
-    try {
-      const tokens = await this.getTokens(userId);
-      if (!tokens) {
-        throw new Error('No Schoology authentication found');
-      }
-
-      // Generate OAuth 1.0a signature
-      const oauthParams = {
-        oauth_consumer_key: this.consumerKey,
-        oauth_token: tokens.accessToken,
-        oauth_signature_method: 'HMAC-SHA1',
-        oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
-        oauth_nonce: this.generateNonce(),
-        oauth_version: '1.0'
-      };
-
-      // Create signature
-      const signature = await this.generateSignature(method, `${this.baseURL}${endpoint}`, oauthParams, tokens.accessTokenSecret);
-      oauthParams.oauth_signature = signature;
-
-      // Create Authorization header
-      const authHeader = 'OAuth ' + Object.keys(oauthParams)
-        .map(key => `${key}="${encodeURIComponent(oauthParams[key])}"`)
-        .join(', ');
-
-      const response = await fetch(`${this.baseURL}${endpoint}`, {
-        method,
-        headers: {
-          'Authorization': authHeader,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: data ? JSON.stringify(data) : undefined
-      });
-
-      if (!response.ok) {
-        throw new Error(`Schoology API error: ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Schoology API request failed:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get user's courses from Schoology
-   */
-  async getCourses(userId) {
-    try {
-      const response = await this.makeAPIRequest(userId, '/users/me/sections');
-      return response.section || [];
-    } catch (error) {
-      console.error('Error fetching Schoology courses:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Get assignments for a specific course
-   */
-  async getAssignments(userId, courseId, startDate = null) {
-    try {
-      let endpoint = `/sections/${courseId}/assignments`;
-      
-      // Add date filter if provided
-      if (startDate) {
-        const dateStr = startDate.toISOString().split('T')[0];
-        endpoint += `?start=${dateStr}`;
-      }
-
-      const response = await this.makeAPIRequest(userId, endpoint);
-      return response.assignment || [];
-    } catch (error) {
-      console.error('Error fetching Schoology assignments:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Get all assignments for user from calendar only
-   */
-  async getAllAssignments(userId, daysBack = 7) {
-    try {
-  // minimize console noise during fetch
-      return await this.getAssignmentsFromCalendar(userId);
-    } catch (error) {
-      console.error('Error fetching Schoology assignments:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Get assignments from calendar feed
-   */
-  async getAssignmentsFromCalendar(userId) {
-    try {
-      // Get calendar URL from user settings
-      const userTokensRef = doc(db, 'users', userId, 'integrations', 'schoology');
-      const tokenDoc = await getDoc(userTokensRef);
-      
-      if (!tokenDoc.exists() || !tokenDoc.data().calendarUrl) {
-        return [];
-      }
-
-      const calendarUrl = tokenDoc.data().calendarUrl;
-      const assignments = await schoologyCalendar.parseCalendarToAssignments(calendarUrl);
-      
-      return assignments;
-    } catch (error) {
-      console.error('Error fetching assignments from calendar:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Get combined assignments (now just calendar)
-   */
-  async getCombinedAssignments(userId, daysBack = 7) {
-    return await this.getAllAssignments(userId, daysBack);
-  }
-
-  /**
-   * Set calendar URL for user
-   */
-  async setCalendarUrl(userId, calendarUrl) {
-    try {
-      // Validate URL
-      if (!schoologyCalendar.isValidCalendarUrl(calendarUrl)) {
-        throw new Error('Invalid calendar URL format');
-      }
-
-      // Normalize URL (convert webcal:// to https://)
-      const normalizedUrl = schoologyCalendar.normalizeCalendarUrl(calendarUrl);
-
-      // Test the calendar URL
-      await schoologyCalendar.fetchCalendarFeed(normalizedUrl);
-
-      // Store in Firebase
-      const userTokensRef = doc(db, 'users', userId, 'integrations', 'schoology');
-      await setDoc(userTokensRef, {
-        calendarUrl: normalizedUrl,
-        calendarConfiguredAt: new Date(),
-        isActive: true,
-        integrationType: 'calendar'
-      }, { merge: true });
-
-      console.log('✅ Calendar URL configured successfully');
-      return { success: true };
-    } catch (error) {
-      console.error('Error setting calendar URL:', error);
-      throw new Error('Failed to configure calendar URL: ' + error.message);
-    }
-  }
-
-  /**
-   * Check if user has Schoology integration active
+   * Returns a snapshot describing how (if at all) the user is connected to
+   * Schoology. Kept boolean-coercible (truthy when any connection exists)
+   * so existing callsites that did `if (await isConnected(uid))` still work.
    */
   async isConnected(userId) {
     try {
-      const userTokensRef = doc(db, 'users', userId, 'integrations', 'schoology');
-      const tokenDoc = await getDoc(userTokensRef);
-      
-      if (!tokenDoc.exists()) {
-        return false;
-      }
-      
-      const data = tokenDoc.data();
-      
-      // User is connected if they have a calendar URL AND the integration is active
-      return !!(data.calendarUrl && data.isActive !== false);
-    } catch (error) {
-      console.error('Error checking Schoology connection:', error);
+      const ref = doc(db, 'users', userId, 'integrations', 'schoology');
+      const snap = await getDoc(ref);
+      if (!snap.exists()) return false;
+      const d = snap.data();
+      if (d.isActive === false) return false;
+      const oauth = !!(d.accessToken && d.accessTokenSecret);
+      const calendar = !!d.calendarUrl;
+      if (!oauth && !calendar) return false;
+      // Truthy object — old `if (isConnected)` checks pass; new code can read
+      // .oauth / .calendar / .schoologyName for fuller state.
+      return {
+        oauth,
+        calendar,
+        schoologyName: d.schoologyName || null,
+        schoologyUid: d.schoologyUid || null,
+        connectedAt: d.connectedAt || null,
+        lastSync: d.lastSync || null,
+        valueOf() { return true; },
+      };
+    } catch (e) {
+      console.error('Error checking Schoology connection:', e);
       return false;
     }
   }
 
   /**
-   * Disconnect Schoology integration
+   * Sign the user out of Schoology OAuth only. Leaves any separately
+   * configured calendar URL in place so a user who set up both doesn't
+   * lose their calendar feed when they sign out of OAuth.
+   *
+   * Schoology has no remote-revoke endpoint for legacy OAuth 1.0a tokens,
+   * so this stops Apex from using the token but the token remains valid
+   * on Schoology's side until they expire or the user revokes via the
+   * Schoology UI.
    */
-  async disconnect(userId) {
+  async disconnectOAuth(userId) {
     try {
-      const userTokensRef = doc(db, 'users', userId, 'integrations', 'schoology');
-      await updateDoc(userTokensRef, {
-        isActive: false,
-        calendarUrl: null, // Clear the calendar URL
-        disconnectedAt: new Date()
+      const ref = doc(db, 'users', userId, 'integrations', 'schoology');
+      const snap = await getDoc(ref);
+      if (!snap.exists()) return { success: true };
+      const d = snap.data();
+      // If the only thing this doc held was OAuth state, mark inactive too.
+      const stillHasCalendar = !!d.calendarUrl;
+      await updateDoc(ref, {
+        accessToken: deleteField(),
+        accessTokenSecret: deleteField(),
+        schoologyUid: deleteField(),
+        schoologyName: deleteField(),
+        ...(stillHasCalendar
+          ? { integrationType: 'calendar' }
+          : { isActive: false, integrationType: deleteField() }),
+        disconnectedAt: new Date(),
       });
-
-      // Remove from cache
       this.accessTokens.delete(userId);
-
-      console.log('✅ Schoology integration disconnected');
       return { success: true };
-    } catch (error) {
-      console.error('Error disconnecting Schoology:', error);
-      throw new Error('Failed to disconnect Schoology integration');
+    } catch (e) {
+      console.error('Error disconnecting Schoology OAuth:', e);
+      throw new Error('Failed to sign out of Schoology');
     }
   }
 
   /**
-   * Update last sync timestamp
+   * Disconnect entirely (both OAuth and calendar). Schoology has no
+   * remote-revoke endpoint for legacy OAuth 1.0a tokens, so this stops
+   * Apex from using the token but the token remains valid on Schoology's
+   * side until they expire or the user revokes via Schoology directly.
    */
-  async updateLastSync(userId) {
+  async disconnect(userId) {
     try {
-      const userTokensRef = doc(db, 'users', userId, 'integrations', 'schoology');
-      await updateDoc(userTokensRef, {
-        lastSync: new Date()
+      const ref = doc(db, 'users', userId, 'integrations', 'schoology');
+      await updateDoc(ref, {
+        isActive: false,
+        accessToken: deleteField(),
+        accessTokenSecret: deleteField(),
+        schoologyUid: deleteField(),
+        schoologyName: deleteField(),
+        calendarUrl: deleteField(),
+        integrationType: deleteField(),
+        disconnectedAt: new Date(),
       });
-    } catch (error) {
-      console.error('Error updating last sync:', error);
+      this.accessTokens.delete(userId);
+      return { success: true };
+    } catch (e) {
+      console.error('Error disconnecting Schoology:', e);
+      throw new Error('Failed to disconnect Schoology integration');
     }
   }
 
-  // Helper methods
-  generateNonce() {
-    return Math.random().toString(36).substring(2, 15) + 
-           Math.random().toString(36).substring(2, 15);
+  async updateLastSync(userId) {
+    try {
+      const ref = doc(db, 'users', userId, 'integrations', 'schoology');
+      await updateDoc(ref, { lastSync: new Date() });
+    } catch (e) {
+      console.error('Error updating last sync:', e);
+    }
   }
 
-  async generateSignature(method, url, params, tokenSecret = '') {
-    const sortedParams = Object.keys(params)
-      .sort()
-      .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
-      .join('&');
+  // ---- Signed API calls (via proxy) ------------------------------------
 
-    const baseString = `${method.toUpperCase()}&${encodeURIComponent(url)}&${encodeURIComponent(sortedParams)}`;
-    const signingKey = `${encodeURIComponent(this.consumerSecret)}&${encodeURIComponent(tokenSecret)}`;
+  /**
+   * Generic signed Schoology API call. Forwards through the proxy so the
+   * consumer secret stays server-side.
+   */
+  async makeAPIRequest(userId, endpoint, method = 'GET', data = null) {
+    const tokens = await this.getTokens(userId);
+    if (!tokens) throw new Error('No Schoology authentication found');
+    const result = await callProxy('api_call', {
+      method,
+      path: endpoint.startsWith('/') ? endpoint : `/${endpoint}`,
+      access_token: tokens.accessToken,
+      token_secret: tokens.accessTokenSecret,
+      body: data,
+    });
+    if (!result.ok) {
+      throw new Error(`Schoology API error: ${result.status}`);
+    }
+    return result.data;
+  }
 
-    return hmacSHA1Base64(baseString, signingKey);
+  async getCourses(userId) {
+    try {
+      const r = await this.makeAPIRequest(userId, '/users/me/sections');
+      return r?.section || [];
+    } catch (e) {
+      console.error('Error fetching Schoology courses:', e);
+      return [];
+    }
+  }
+
+  async getAssignments(userId, courseId, startDate = null) {
+    try {
+      let endpoint = `/sections/${courseId}/assignments`;
+      if (startDate) {
+        const dateStr = startDate.toISOString().split('T')[0];
+        endpoint += `?start=${dateStr}`;
+      }
+      const r = await this.makeAPIRequest(userId, endpoint);
+      return r?.assignment || [];
+    } catch (e) {
+      console.error('Error fetching Schoology assignments:', e);
+      return [];
+    }
+  }
+
+  async getAllAssignments(userId /* , daysBack = 7 */) {
+    try {
+      return await this.getAssignmentsFromCalendar(userId);
+    } catch (e) {
+      console.error('Error fetching Schoology assignments:', e);
+      return [];
+    }
+  }
+
+  async getAssignmentsFromCalendar(userId) {
+    try {
+      const ref = doc(db, 'users', userId, 'integrations', 'schoology');
+      const snap = await getDoc(ref);
+      if (!snap.exists() || !snap.data().calendarUrl) return [];
+      const calendarUrl = snap.data().calendarUrl;
+      return await schoologyCalendar.parseCalendarToAssignments(calendarUrl);
+    } catch (e) {
+      console.error('Error fetching assignments from calendar:', e);
+      return [];
+    }
+  }
+
+  async getCombinedAssignments(userId, daysBack = 7) {
+    return await this.getAllAssignments(userId, daysBack);
+  }
+
+  // ---- Calendar URL (fallback path) -------------------------------------
+
+  async setCalendarUrl(userId, calendarUrl) {
+    try {
+      if (!schoologyCalendar.isValidCalendarUrl(calendarUrl)) {
+        throw new Error('Invalid calendar URL format');
+      }
+      const normalizedUrl = schoologyCalendar.normalizeCalendarUrl(calendarUrl);
+      await schoologyCalendar.fetchCalendarFeed(normalizedUrl);
+      const ref = doc(db, 'users', userId, 'integrations', 'schoology');
+      await setDoc(
+        ref,
+        {
+          calendarUrl: normalizedUrl,
+          calendarConfiguredAt: new Date(),
+          isActive: true,
+          // Don't overwrite integrationType if OAuth already set it.
+        },
+        { merge: true }
+      );
+      return { success: true };
+    } catch (e) {
+      console.error('Error setting calendar URL:', e);
+      throw new Error('Failed to configure calendar URL: ' + e.message);
+    }
   }
 }
 
-// Export singleton instance
 export const schoologyAPI = new SchoologyAPIService();
 export default schoologyAPI;

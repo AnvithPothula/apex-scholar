@@ -1,6 +1,15 @@
 import apiKeyManager from './APIKeyManager';
 import errorLogger from '../utils/errorLogger';
 import JSONParser from './ai/jsonParser';
+import aiUsageLimiter from './aiUsageLimiter';
+
+// Persisted Puter "out of free credits" flag. Once Puter returns 402
+// insufficient_funds we skip it for a day so we don't 402-spam on every page
+// load (the probe loop tries 7 models). TTL lets it re-check after credits
+// may have refilled.
+const PUTER_DOWN_KEY = 'apex.ai.puterDown';
+const PUTER_DOWN_TTL_MS = 24 * 60 * 60 * 1000;
+const DOWNGRADE_NOTICE_KEY = 'apex.ai.downgradeNoticeShown';
 
 // Small utility: wait for a promise with timeout
 const withTimeout = (promise, ms, errMsg = 'Timed out') => {
@@ -160,6 +169,17 @@ class GeminiService {
     this._lastPuterFailureAt = 0; // for backoff on repeated failures
     this._rateLimitUntil = 0; // Timestamp until which we should not make requests
     this._puterAuthBroken = false; // Track if Puter auth is in a broken/stuck state
+    this._puterOutOfCredits = false; // Track if Puter has no free usage left (402); skip it for the session
+    // Restore a recent "out of credits" trip so we don't probe Puter (and
+    // 402-spam the console) again on a fresh page load within the TTL.
+    try {
+      const raw = localStorage.getItem(PUTER_DOWN_KEY);
+      if (raw) {
+        const at = parseInt(raw, 10);
+        if (at && Date.now() - at < PUTER_DOWN_TTL_MS) this._puterOutOfCredits = true;
+        else localStorage.removeItem(PUTER_DOWN_KEY);
+      }
+    } catch (e) { /* localStorage blocked — ignore */ }
     this._puterAuthResetCount = 0; // How many times we've reset Puter auth this session
 
     // Request deduplication cache
@@ -461,6 +481,11 @@ class GeminiService {
   async ensureWorkingModel(opts = {}) {
     const multimodal = !!opts.multimodal;
     const probeMs = typeof opts.probeMs === 'number' ? opts.probeMs : 8000; // generous probe timeout
+    // If Puter is out of free usage, don't probe at all (avoids 402-spamming
+    // every candidate model on each page load).
+    if (this._puterOutOfCredits) {
+      throw new Error('Puter unavailable (out of free usage)');
+    }
     // Basic backoff to avoid hammering Puter when it's down
     if (this._lastPuterFailureAt && Date.now() - this._lastPuterFailureAt < 15000) {
       throw new Error('Puter temporarily unavailable (backoff)');
@@ -540,6 +565,11 @@ class GeminiService {
       const formatted = this._formatErrorForLog(e);
       if (this.debug) console.warn(`[AI] ensureWorkingModel default probe failed: ${formatted.summary}`, formatted.details);
       this._lastPuterFailureAt = Date.now();
+      // Out of free usage? Every candidate will 402 the same way — bail now.
+      this._handlePuterCreditError(e);
+      if (this._puterOutOfCredits) {
+        throw new Error('Puter out of free usage — skipping all candidates');
+      }
       // If CORS/network error, no point trying individual models — they'll all fail
       if (isCorsOrNetworkError(e)) {
         throw new Error('Puter API blocked by CORS/network — skipping all candidates');
@@ -574,6 +604,11 @@ class GeminiService {
         const formatted = this._formatErrorForLog(e);
         if (this.debug) console.warn(`[AI] ensureWorkingModel candidate failed (${m}): ${formatted.summary}`, formatted.details);
         this._lastPuterFailureAt = Date.now();
+        // Out of free usage? Stop probing — the rest will 402 identically.
+        this._handlePuterCreditError(e);
+        if (this._puterOutOfCredits) {
+          throw new Error('Puter out of free usage — skipping remaining candidates');
+        }
         // If CORS/network error, bail — all subsequent candidates will fail too
         if (isCorsOrNetworkError(e)) {
           throw new Error(`Puter API blocked by CORS/network (detected at ${m})`);
@@ -684,6 +719,47 @@ class GeminiService {
   }
 
   /**
+   * Detect Puter "out of free credits" errors (HTTP 402 / insufficient_funds).
+   * When this happens, every Puter call this session will fail the same way, so
+   * we trip a circuit breaker: subsequent calls skip Puter entirely and go
+   * straight to the Google Gemini fallback (no wasted 402 round-trip + retry).
+   */
+  _handlePuterCreditError(error) {
+    if (this._puterOutOfCredits) return;
+    const msg = String(error?.message || error || '').toLowerCase();
+    const isCreditError = (
+      msg.includes('insufficient_funds') ||
+      msg.includes('insufficient funds') ||
+      msg.includes('no usage left') ||
+      msg.includes('error_402') ||
+      msg.includes('"status":402') ||
+      msg.includes('status: 402') ||
+      msg.includes('http 402') ||
+      / 402\b/.test(msg)
+    );
+    if (isCreditError) this._tripCreditBreaker();
+  }
+
+  /**
+   * Trip the Puter credit circuit breaker: skip Puter for the session, persist
+   * the trip (so fresh loads don't re-probe within the TTL), and fire a
+   * one-time downgrade notice for the UI to surface in our own words.
+   */
+  _tripCreditBreaker() {
+    if (this._puterOutOfCredits) return;
+    this._puterOutOfCredits = true;
+    this._notifyStatusChange({ puterAvailable: false });
+    console.warn('[AI] Puter out of free usage — switching to the standard AI model for this browser.');
+    try { localStorage.setItem(PUTER_DOWN_KEY, String(Date.now())); } catch (e) { /* ignore */ }
+    // Notify the user once, ever, in our own words (no Puter/credit mention).
+    try {
+      if (typeof window !== 'undefined' && !localStorage.getItem(DOWNGRADE_NOTICE_KEY)) {
+        window.dispatchEvent(new CustomEvent('apex:ai-downgraded'));
+      }
+    } catch (e) { /* SSR / no window — ignore */ }
+  }
+
+  /**
    * Check for and clean up stuck Puter auth state. Called on construction,
    * on page visibility change (returning from failed popup), and before
    * each Puter API call.
@@ -758,6 +834,12 @@ class GeminiService {
         return null;
       }
 
+      // If Puter is out of free credits (402), skip it for the rest of the session
+      if (this._puterOutOfCredits) {
+        if (this.debug) console.debug('[AI] Skipping Puter (out of free credits for this session)');
+        return null;
+      }
+
       if (typeof window !== 'undefined' && window.puter && window.puter.ai && typeof window.puter.ai.chat === 'function') {
         // Before returning, check if auth is stuck and clean it up
         if (this._isPuterAuthStuck()) {
@@ -824,6 +906,9 @@ class GeminiService {
   }
 
   async generateContent(prompt, options = {}) {
+    // Meter against the per-browser AI usage budget (no-op for admins and for
+    // exempt categories like practice tests). Throws AiUsageLimitError if over.
+    await aiUsageLimiter.consume(options?.usageCategory);
     let model = this._resolveModel(options.model);
     const t0 = Date.now();
 
@@ -873,6 +958,8 @@ class GeminiService {
       }
       // Check if this is a Puter auth error (Forbidden, cancelled, etc.)
       this._handlePuterAuthError(e);
+      // Trip the circuit breaker if Puter is out of free credits (402)
+      this._handlePuterCreditError(e);
 
       const formatted = this._formatErrorForLog(e);
       if (this.debug) console.warn(`[AI] Puter.generateContent failed, falling back to Google: ${formatted.summary}`, { ...formatted.details, ms: Date.now() - t0 });
@@ -930,7 +1017,87 @@ class GeminiService {
     );
   }
 
-  async _requestGoogleWithRotation(body, { context = 'Google API', maxAttempts = 4 } = {}) {
+  /** Resolve the Netlify AI proxy URL (same-origin function by default). */
+  _aiProxyUrl() {
+    return (process.env.REACT_APP_AI_PROXY_URL || '/.netlify/functions/ai-proxy').trim();
+  }
+
+  /**
+   * Whether to route Gemini calls through the server-side proxy (keys never
+   * enter the JS bundle). Policy:
+   *   - REACT_APP_USE_AI_PROXY=true  -> always proxy
+   *   - REACT_APP_USE_AI_PROXY=false -> never proxy (direct client keys)
+   *   - default: proxy in production; in dev, proxy only when there are no
+   *     client keys (so `npm start` with REACT_APP_GEMINI_API_KEY keeps working
+   *     without netlify dev, while prod ships zero keys and uses the proxy).
+   */
+  _useProxyFirst() {
+    const flag = (process.env.REACT_APP_USE_AI_PROXY || '').toLowerCase();
+    if (flag === 'true') return true;
+    if (flag === 'false') return false;
+    if (process.env.NODE_ENV === 'production') return true;
+    return apiKeyManager.getTotalKeys() === 0;
+  }
+
+  /** True if Google is reachable at all (proxy enabled OR client keys present). */
+  _googleConfigured() {
+    return this._useProxyFirst() || apiKeyManager.getTotalKeys() > 0;
+  }
+
+  /**
+   * POST a generateContent payload to the Netlify proxy, which injects a
+   * server-side key and forwards to Google. Returns Google's JSON response.
+   * Throws on any proxy/transport failure so callers can dev-fallback.
+   */
+  async _requestViaProxy(body, model, context = 'AI proxy') {
+    const url = this._aiProxyUrl();
+    const headers = { 'Content-Type': 'application/json' };
+    const appToken = (process.env.REACT_APP_AI_PROXY_APP_TOKEN || '').trim();
+    if (appToken) headers['X-App-Token'] = appToken;
+
+    const payload = { model: model || apiKeyManager.defaultModel, ...body };
+    let res;
+    try {
+      res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(payload) });
+    } catch (e) {
+      throw new Error(`${context}: proxy unreachable (${e.message})`);
+    }
+
+    if (res.status === 429) {
+      const retryAfter = parseInt(res.headers.get('retry-after') || '60', 10);
+      this._handleRateLimit(new Error(`${context}: proxy rate limited`), context);
+      throw new RateLimitError(`AI service is busy. Please wait ${retryAfter} seconds and try again.`, retryAfter);
+    }
+
+    // A non-JSON body means the function isn't actually running (e.g. plain
+    // `npm start` serves the SPA index.html) — treat as unavailable.
+    const ctype = (res.headers.get('content-type') || '').toLowerCase();
+    if (!ctype.includes('application/json')) {
+      throw new Error(`${context}: proxy returned non-JSON (status ${res.status})`);
+    }
+
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data) {
+      const detail = (data && (data.error || data.message)) || `status ${res.status}`;
+      throw new Error(`${context}: proxy error (${detail})`);
+    }
+    return data;
+  }
+
+  async _requestGoogleWithRotation(body, { context = 'Google API', maxAttempts = 4, model } = {}) {
+    // Primary transport: server-side Netlify proxy. Keys live in Netlify env
+    // (GEMINI_API_KEY*), never in the client bundle.
+    if (this._useProxyFirst()) {
+      try {
+        return await this._requestViaProxy(body, model, context);
+      } catch (e) {
+        if (e instanceof RateLimitError) throw e;
+        const canDevFallback = process.env.NODE_ENV !== 'production' && apiKeyManager.getTotalKeys() > 0;
+        if (!canDevFallback) throw e;
+        if (this.debug) console.warn(`[AI] ${context}: proxy unavailable, dev fallback to direct keys (${e.message})`);
+      }
+    }
+
     const totalKeys = apiKeyManager.getTotalKeys();
     if (totalKeys === 0) {
       throw new Error('No Google API keys configured.');
@@ -1010,15 +1177,16 @@ class GeminiService {
    * Google API fallback with proper rate limit handling
    */
   async _googleFallback(prompt, options = {}) {
-    // Bail early if no Google API keys are configured at all
-    if (apiKeyManager.getTotalKeys() === 0) {
-      throw new Error('No Google API keys configured. AI requires Puter authentication or REACT_APP_GEMINI_API_KEY env vars.');
+    // Bail only if there's no transport at all (no proxy AND no client keys).
+    if (!this._googleConfigured()) {
+      throw new Error('No Google AI configured. AI requires Puter, the AI proxy, or REACT_APP_GEMINI_API_KEY env vars.');
     }
-    // Check if all API keys are rate limited
-    const keyStatus = apiKeyManager.getKeyStatus();
-    const allFailed = keyStatus.every(k => k.isFailed);
-    if (allFailed) {
-      this._handleRateLimit(new Error('All API keys exhausted'), 'Google fallback');
+    // Direct-key path only: bail if every client key is currently rate limited.
+    if (!this._useProxyFirst()) {
+      const keyStatus = apiKeyManager.getKeyStatus();
+      if (keyStatus.every(k => k.isFailed)) {
+        this._handleRateLimit(new Error('All API keys exhausted'), 'Google fallback');
+      }
     }
 
     const body = {
@@ -1052,6 +1220,8 @@ class GeminiService {
   }
 
   async generateWithImages(prompt, images = [], options = {}) {
+    // Meter against the per-browser AI usage budget (no-op for admins / exempt).
+    await aiUsageLimiter.consume(options?.usageCategory);
     // Check if we're rate limited
     if (this.isRateLimited()) {
       const seconds = this.getRateLimitSecondsRemaining();
@@ -1110,6 +1280,8 @@ class GeminiService {
       }
       // Check if this is a Puter auth error (Forbidden, cancelled, etc.)
       this._handlePuterAuthError(e);
+      // Trip the circuit breaker if Puter is out of free credits (402)
+      this._handlePuterCreditError(e);
       const formatted = this._formatErrorForLog(e);
       if (this.debug) console.warn(`[AI] Puter.generateWithImages failed, falling back to Google: ${formatted.summary}`, { ...formatted.details, ms: Date.now() - t0 });
       this._lastPuterFailureAt = Date.now();
@@ -1119,15 +1291,16 @@ class GeminiService {
 
   // Internal helper to call Google for image generation with rate limit handling
   async _googleGenerateWithImages(prompt, imageArg, options = {}) {
-    // Bail early if no Google API keys are configured at all
-    if (apiKeyManager.getTotalKeys() === 0) {
-      throw new Error('No Google API keys configured. Image analysis requires Puter authentication or REACT_APP_GEMINI_API_KEY env vars.');
+    // Bail only if there's no transport at all (no proxy AND no client keys).
+    if (!this._googleConfigured()) {
+      throw new Error('No Google AI configured. Image analysis requires Puter, the AI proxy, or REACT_APP_GEMINI_API_KEY env vars.');
     }
-    // Check if all API keys are rate limited
-    const keyStatus = apiKeyManager.getKeyStatus();
-    const allFailed = keyStatus.every(k => k.isFailed);
-    if (allFailed) {
-      this._handleRateLimit(new Error('All API keys exhausted for image request'), 'Google image fallback');
+    // Direct-key path only: bail if every client key is currently rate limited.
+    if (!this._useProxyFirst()) {
+      const keyStatus = apiKeyManager.getKeyStatus();
+      if (keyStatus.every(k => k.isFailed)) {
+        this._handleRateLimit(new Error('All API keys exhausted for image request'), 'Google image fallback');
+      }
     }
 
     const parts = [{ text: prompt }];
@@ -1163,6 +1336,8 @@ class GeminiService {
    */
   async generateFromPayload(payload) {
     console.log('[AI] generateFromPayload called');
+    // Meter against the per-browser AI usage budget (no-op for admins / exempt).
+    await aiUsageLimiter.consume(payload?.usageCategory);
 
     // Check if we're rate limited
     if (this.isRateLimited()) {
@@ -1267,6 +1442,8 @@ class GeminiService {
       console.warn(`[AI] Puter.generateFromPayload failed, falling back to Google: ${formatted.summary}`, { ...formatted.details, ms: Date.now() - t0 });
       // Check if this is a Puter auth error (Forbidden, cancelled, etc.)
       this._handlePuterAuthError(e);
+      // Trip the circuit breaker if Puter is out of free credits (402)
+      this._handlePuterCreditError(e);
       const previousFailureTime = this._lastPuterFailureAt;
       this._lastPuterFailureAt = Date.now();
 
@@ -1297,13 +1474,11 @@ class GeminiService {
         console.warn(`[AI] Puter.generateFromPayload retry failed: ${formattedRetry.summary}`, formattedRetry.details);
       }
 
-      // Fallback to Google
-      if (apiKeyManager.getTotalKeys() === 0) {
-        throw new Error('No Google API keys configured. AI requires Puter authentication or REACT_APP_GEMINI_API_KEY env vars.');
+      // Fallback to Google (via proxy in prod, direct client keys in dev).
+      if (!this._googleConfigured()) {
+        throw new Error('No Google AI configured. AI requires Puter, the AI proxy, or REACT_APP_GEMINI_API_KEY env vars.');
       }
       console.log('[AI] Using Google Gemini API fallback...');
-      const apiUrl = apiKeyManager.getCurrentUrl();
-      console.log('[AI] Google API URL:', apiUrl.replace(/key=.*/, 'key=***'));
       const normalized = this._normalizePayloadForGoogle(payload);
       const t1 = Date.now();
       console.log('[AI] Sending request to Google API...');
