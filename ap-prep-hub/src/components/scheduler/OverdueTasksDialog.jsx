@@ -1,5 +1,6 @@
 import React from 'react';
 import { Button } from '../ui/UIComponents';
+import { useConfirm } from '../../contexts/ConfirmContext';
 
 const formatLocalDateTimeInput = (date = new Date()) => {
   const pad = (value) => String(value).padStart(2, '0');
@@ -14,6 +15,7 @@ export default function OverdueTasksDialog({
   onCancel,
   deletingTaskRef,
 }) {
+  const confirm = useConfirm();
   if (!tasks || tasks.length === 0) return null;
 
   return (
@@ -55,9 +57,14 @@ export default function OverdueTasksDialog({
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => {
+                    onClick={async () => {
                       if (deletingTaskRef?.current === task.id) return;
-                      if (window.confirm(`Are you sure you want to delete "${task.name}"?`)) {
+                      const ok = await confirm({
+                        title: 'Delete task?',
+                        message: `Delete "${task.name}"? This can't be undone.`,
+                        confirmText: 'Delete',
+                      });
+                      if (ok) {
                         if (deletingTaskRef) deletingTaskRef.current = task.id;
                         onDelete(task);
                         setTimeout(() => {

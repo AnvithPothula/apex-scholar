@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { AlertTriangle, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { Button } from '../ui/UIComponents';
+import { useConfirm } from '../../contexts/ConfirmContext';
 
 const formatLocalDateTimeInput = (date = new Date()) => {
   const pad = (value) => String(value).padStart(2, '0');
@@ -20,6 +21,7 @@ export default function OverdueTasksBanner({
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
+  const confirm = useConfirm();
   if (!tasks || tasks.length === 0) return null;
 
   return (
@@ -85,10 +87,11 @@ export default function OverdueTasksBanner({
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={(e) => {
+                    onClick={async (e) => {
                       e.stopPropagation();
                       if (deletingTaskRef?.current === task.id) return;
-                      if (window.confirm(`Delete "${task.name}"?`)) {
+                      const ok = await confirm({ title: 'Delete task?', message: `Delete "${task.name}"? This can't be undone.`, confirmText: 'Delete' });
+                      if (ok) {
                         if (deletingTaskRef) deletingTaskRef.current = task.id;
                         onDelete(task);
                         setTimeout(() => {

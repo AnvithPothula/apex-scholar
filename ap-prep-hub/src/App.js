@@ -13,6 +13,7 @@ import { Calendar, FileQuestion, Zap, Calculator, Settings as SettingsIcon, Acti
 import ErrorBoundary from './components/ErrorBoundary';
 import PageSkeleton from './components/ui/PageSkeleton';
 import { ToastProvider } from './contexts/ToastContext';
+import { ConfirmProvider } from './contexts/ConfirmContext';
 import ToastContainer from './components/ui/Toast';
 import AiDowngradeNotice from './components/ui/AiDowngradeNotice';
 // eslint-disable-next-line import/first
@@ -58,6 +59,7 @@ function App() {
   return (
     <ThemeProvider>
     <ToastProvider>
+    <ConfirmProvider>
     <AuthProvider>
       <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
@@ -69,6 +71,7 @@ function App() {
         <AiDowngradeNotice />
       </Router>
     </AuthProvider>
+    </ConfirmProvider>
     </ToastProvider>
     </ThemeProvider>
   );

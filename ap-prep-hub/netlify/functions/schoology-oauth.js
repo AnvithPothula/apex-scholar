@@ -118,6 +118,57 @@ async function callSchoology(method, url, params, tokenSecret = '', body = null)
   return fetch(url, opts);
 }
 
+// ---- Firebase auth + admin Firestore -------------------------------------
+// Tokens live ONLY server-side now (users/{uid}/private/schoology). Every
+// action requires a verified Firebase ID token; the access/request token
+// secrets never travel through the browser.
+
+let _adminApp = null;
+let _adminTried = false;
+function getAdminApp() {
+  if (_adminTried) return _adminApp;
+  _adminTried = true;
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
+  if (!raw) return null;
+  try {
+    const admin = require('firebase-admin');
+    const creds = JSON.parse(raw);
+    _adminApp = (admin.apps && admin.apps.length)
+      ? admin.app()
+      : admin.initializeApp({ credential: admin.credential.cert(creds) });
+    _adminApp.__admin = admin;
+    return _adminApp;
+  } catch (err) {
+    console.error('[schoology-oauth] firebase-admin init failed:', err.message);
+    _adminApp = null;
+    return null;
+  }
+}
+
+async function verifyUid(event, app) {
+  const h = event.headers || {};
+  const authHeaderVal = h.authorization || h.Authorization || '';
+  const m = authHeaderVal.match(/^Bearer\s+(.+)$/i);
+  if (!m) return null;
+  try {
+    const decoded = await app.auth().verifyIdToken(m[1]);
+    return decoded.uid || null;
+  } catch {
+    return null;
+  }
+}
+
+// Callback must be one of our own origins + the fixed callback path (not an
+// arbitrary URL we'd otherwise sign a request token for).
+function callbackAllowed(callback) {
+  try {
+    const u = new URL(callback);
+    return ALLOWED_ORIGINS.includes(u.origin) && u.pathname === '/schoology-callback';
+  } catch {
+    return false;
+  }
+}
+
 // ---- Handler -------------------------------------------------------------
 
 exports.handler = async (event) => {
@@ -151,15 +202,30 @@ exports.handler = async (event) => {
   const action =
     (event.queryStringParameters && event.queryStringParameters.action) || body.action;
 
+  // Require a verified Firebase user for every action. Tokens are stored and
+  // signed server-side, keyed by this uid — they never go through the browser.
+  const adminApp = getAdminApp();
+  if (!adminApp) {
+    return {
+      statusCode: 503,
+      headers,
+      body: JSON.stringify({ error: 'Server auth not configured (FIREBASE_SERVICE_ACCOUNT missing).' }),
+    };
+  }
+  const uid = await verifyUid(event, adminApp);
+  if (!uid) {
+    return { statusCode: 401, headers, body: JSON.stringify({ error: 'Authentication required' }) };
+  }
+  const db = adminApp.firestore();
+  const FieldValue = adminApp.__admin.firestore.FieldValue;
+  const privateTokenRef = db.doc(`users/${uid}/private/schoology`);
+  const oauthTempRef = db.doc(`users/${uid}/private/schoologyOAuth`);
+
   try {
     if (action === 'request_token') {
       const { callback } = body;
-      if (!callback || typeof callback !== 'string') {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ error: 'callback required' }),
-        };
+      if (!callback || !callbackAllowed(callback)) {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'invalid callback' }) };
       }
       const url = `${SCHOOLOGY_BASE}/oauth/request_token`;
       const params = { ...oauthBase(), oauth_callback: callback };
@@ -176,33 +242,31 @@ exports.handler = async (event) => {
       const oauth_token = usp.get('oauth_token');
       const oauth_token_secret = usp.get('oauth_token_secret');
       if (!oauth_token || !oauth_token_secret) {
-        return {
-          statusCode: 502,
-          headers,
-          body: JSON.stringify({ error: 'malformed upstream response' }),
-        };
+        return { statusCode: 502, headers, body: JSON.stringify({ error: 'malformed upstream response' }) };
       }
-      const authorize_url = `${SCHOOLOGY_BASE}/oauth/authorize?oauth_token=${encodeURIComponent(
-        oauth_token
-      )}`;
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ oauth_token, oauth_token_secret, authorize_url }),
-      };
+      // Stash the request-token secret SERVER-SIDE (not in the browser).
+      await oauthTempRef.set({
+        requestToken: oauth_token,
+        requestTokenSecret: oauth_token_secret,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+      const authorize_url = `${SCHOOLOGY_BASE}/oauth/authorize?oauth_token=${encodeURIComponent(oauth_token)}`;
+      // Note: no oauth_token_secret returned to the client.
+      return { statusCode: 200, headers, body: JSON.stringify({ oauth_token, authorize_url }) };
     }
 
     if (action === 'access_token') {
-      const { oauth_token, oauth_verifier, oauth_token_secret } = body;
-      if (!oauth_token || !oauth_verifier || !oauth_token_secret) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({
-            error: 'oauth_token, oauth_verifier, oauth_token_secret required',
-          }),
-        };
+      const { oauth_token, oauth_verifier } = body;
+      if (!oauth_token || !oauth_verifier) {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'oauth_token, oauth_verifier required' }) };
       }
+      // Recover the request-token secret we stored server-side at request_token.
+      const tempSnap = await oauthTempRef.get();
+      if (!tempSnap.exists || tempSnap.data().requestToken !== oauth_token) {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'OAuth session expired or mismatched — please retry sign-in' }) };
+      }
+      const oauth_token_secret = tempSnap.data().requestTokenSecret;
+
       const url = `${SCHOOLOGY_BASE}/oauth/access_token`;
       const params = { ...oauthBase(), oauth_token, oauth_verifier };
       const res = await callSchoology('POST', url, params, oauth_token_secret);
@@ -218,76 +282,90 @@ exports.handler = async (event) => {
       const access_token = usp.get('oauth_token');
       const token_secret = usp.get('oauth_token_secret');
       if (!access_token || !token_secret) {
-        return {
-          statusCode: 502,
-          headers,
-          body: JSON.stringify({ error: 'malformed upstream response' }),
-        };
+        return { statusCode: 502, headers, body: JSON.stringify({ error: 'malformed upstream response' }) };
       }
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ access_token, token_secret }),
-      };
+
+      // Best-effort: fetch the profile (server-side) for "Connected as <name>".
+      let schoologyUid = null;
+      let schoologyName = null;
+      try {
+        const meParams = { ...oauthBase(), oauth_token: access_token };
+        const meRes = await callSchoology('GET', `${SCHOOLOGY_BASE}/users/me`, meParams, token_secret);
+        if (meRes.ok) {
+          const me = JSON.parse(await meRes.text());
+          schoologyUid = String(me.uid || me.id || '') || null;
+          schoologyName =
+            me.name_display || me.name ||
+            [me.name_first, me.name_last].filter(Boolean).join(' ') || null;
+        }
+      } catch (_) { /* non-fatal */ }
+
+      // Tokens -> server-only doc (clients can't read it; see firestore.rules).
+      await privateTokenRef.set({
+        accessToken: access_token,
+        accessTokenSecret: token_secret,
+        schoologyUid,
+        schoologyName,
+        connectedAt: FieldValue.serverTimestamp(),
+        isActive: true,
+      }, { merge: true });
+
+      // Non-sensitive status -> client-readable doc (NO tokens). merge keeps
+      // calendarUrl; explicitly scrub any legacy client-stored tokens.
+      await db.doc(`users/${uid}/integrations/schoology`).set({
+        isActive: true,
+        integrationType: 'oauth',
+        schoologyName,
+        schoologyUid,
+        connectedAt: FieldValue.serverTimestamp(),
+        accessToken: FieldValue.delete(),
+        accessTokenSecret: FieldValue.delete(),
+      }, { merge: true });
+
+      await oauthTempRef.delete().catch(() => {});
+      // Return only derived data — never the token.
+      return { statusCode: 200, headers, body: JSON.stringify({ success: true, schoologyName, schoologyUid }) };
     }
 
     if (action === 'api_call') {
-      const {
-        method = 'GET',
-        path,
-        access_token,
-        token_secret,
-        body: apiBody = null,
-      } = body;
+      const { method = 'GET', path, body: apiBody = null } = body;
       if (!path || typeof path !== 'string' || !path.startsWith('/')) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ error: 'path must start with /' }),
-        };
-      }
-      if (!access_token || !token_secret) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ error: 'access_token + token_secret required' }),
-        };
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'path must start with /' }) };
       }
       const m = String(method).toUpperCase();
       if (!['GET', 'POST', 'PUT', 'DELETE'].includes(m)) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ error: 'method not allowed' }),
-        };
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'method not allowed' }) };
+      }
+      // Load the caller's tokens server-side — the client never supplies them.
+      const tokSnap = await privateTokenRef.get();
+      const tok = tokSnap.exists ? tokSnap.data() : null;
+      if (!tok || tok.isActive === false || !tok.accessToken || !tok.accessTokenSecret) {
+        return { statusCode: 401, headers, body: JSON.stringify({ error: 'No Schoology authentication for this user' }) };
       }
       const url = `${SCHOOLOGY_BASE}${path}`;
-      const params = { ...oauthBase(), oauth_token: access_token };
-      const res = await callSchoology(m, url, params, token_secret, apiBody);
+      const params = { ...oauthBase(), oauth_token: tok.accessToken };
+      const res = await callSchoology(m, url, params, tok.accessTokenSecret, apiBody);
       const text = await res.text();
       let data;
-      try {
-        data = JSON.parse(text);
-      } catch (_) {
-        data = text;
-      }
-      return {
-        statusCode: 200, // wrap upstream status in body so client gets a uniform shape
-        headers,
-        body: JSON.stringify({ status: res.status, ok: res.ok, data }),
-      };
+      try { data = JSON.parse(text); } catch (_) { data = text; }
+      return { statusCode: 200, headers, body: JSON.stringify({ status: res.status, ok: res.ok, data }) };
+    }
+
+    if (action === 'disconnect') {
+      // Wipe server-side tokens. (The non-sensitive status doc is updated by the
+      // client, which can write it.) Schoology has no remote-revoke for legacy
+      // OAuth 1.0a tokens.
+      await privateTokenRef.delete().catch(() => {});
+      await oauthTempRef.delete().catch(() => {});
+      return { statusCode: 200, headers, body: JSON.stringify({ success: true }) };
     }
 
     return {
       statusCode: 400,
       headers,
-      body: JSON.stringify({ error: 'unknown action (use request_token | access_token | api_call)' }),
+      body: JSON.stringify({ error: 'unknown action (use request_token | access_token | api_call | disconnect)' }),
     };
   } catch (e) {
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ error: e.message || 'unknown error' }),
-    };
+    return { statusCode: 500, headers, body: JSON.stringify({ error: e.message || 'unknown error' }) };
   }
 };

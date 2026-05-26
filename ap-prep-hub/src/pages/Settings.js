@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth, AVATAR_GRADIENTS } from '../contexts/AuthContext';
+import { useConfirm } from '../contexts/ConfirmContext';
 import { auth } from '../config/firebase';
 import { getAvailableSubjects, getSubjectName } from '../constants/comprehensiveCurriculum';
 import { setUserTimezonePreference } from '../utils/timezone';
@@ -18,6 +19,7 @@ const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"
 
 const Settings = () => {
   const { user, updateUserProfile, changePassword, changeEmail } = useAuth();
+  const confirm = useConfirm();
 
   // Define default study preferences
   const getDefaultStudyPreferences = () => ({
@@ -266,8 +268,13 @@ const Settings = () => {
     fetchSettings();
   }, [fetchSettings]);
 
-  const handleRevertToDefaults = () => {
-    if (window.confirm("Are you sure you want to revert all study preferences to their default values? This cannot be undone.")) {
+  const handleRevertToDefaults = async () => {
+    const ok = await confirm({
+      title: 'Revert study preferences?',
+      message: 'All study preferences return to defaults. This cannot be undone.',
+      confirmText: 'Revert',
+    });
+    if (ok) {
       setStudyPreferences(getDefaultStudyPreferences());
       setMessage('Study preferences reverted to defaults and will be saved automatically.');
       setTimeout(() => setMessage(''), 3000);

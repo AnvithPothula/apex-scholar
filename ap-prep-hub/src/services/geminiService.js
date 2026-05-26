@@ -878,25 +878,18 @@ class GeminiService {
           } catch (e) { errorLogger.debug('localStorage access blocked', { error: e?.message }); }
         }
 
-        // Signal 3: Our own flag from a previous successful Puter call.
-        // The SDK's WebSocket failures can wipe auth state from memory, but
-        // if we previously authenticated and used Puter successfully, trust that.
+        // NOTE: we deliberately do NOT treat the `apex.puter.authenticated`
+        // localStorage flag as proof of auth (Codex P3-2). It's a never-cleared
+        // UX hint (used by PuterAuthPrompt to decide whether to show the prompt),
+        // not a credential. Requiring a live token here means a wiped/expired
+        // session cleanly falls back to Gemini instead of trying Puter with no
+        // token (which fails or triggers a popup).
         if (!hasAuth) {
-          try {
-            const prevAuth = localStorage.getItem('apex.puter.authenticated');
-            if (prevAuth === 'true') {
-              hasAuth = true;
-              if (this.debug) console.debug('[AI] Puter previously authenticated (apex.puter.authenticated flag)');
-            }
-          } catch (e) { errorLogger.debug('localStorage access blocked', { error: e?.message }); }
-        }
-
-        if (!hasAuth) {
-          if (this.debug) console.debug('[AI] Puter SDK loaded but user not authenticated — skipping to avoid auth popup');
+          if (this.debug) console.debug('[AI] Puter SDK loaded but no live auth token — skipping (falling back to Google)');
           return null;
         }
 
-        // Mark as permanently authenticated so we remember for next time
+        // Record that the user has a working Puter session (UX hint only).
         try { localStorage.setItem('apex.puter.authenticated', 'true'); } catch (e) { errorLogger.debug('localStorage write failed (puter auth flag)', { error: e?.message }); }
 
         return window.puter;
@@ -1045,6 +1038,18 @@ class GeminiService {
   }
 
   /**
+   * Public: send a raw generateContent payload to Google through the same
+   * proxy-first transport (used by apiManager so its legacy path doesn't hit
+   * Google directly with client keys). Returns Google's JSON response.
+   */
+  async requestGoogleRaw(body, opts = {}) {
+    if (!this._googleConfigured()) {
+      throw new Error('No Google AI configured (proxy disabled and no client keys).');
+    }
+    return this._requestGoogleWithRotation(body, opts);
+  }
+
+  /**
    * POST a generateContent payload to the Netlify proxy, which injects a
    * server-side key and forwards to Google. Returns Google's JSON response.
    * Throws on any proxy/transport failure so callers can dev-fallback.
@@ -1054,6 +1059,19 @@ class GeminiService {
     const headers = { 'Content-Type': 'application/json' };
     const appToken = (process.env.REACT_APP_AI_PROXY_APP_TOKEN || '').trim();
     if (appToken) headers['X-App-Token'] = appToken;
+
+    // Attach the signed-in user's Firebase ID token so the proxy can verify
+    // identity and enforce a tamper-proof per-user quota. Guests have no user,
+    // so they call anonymously (the proxy allows that unless AI_PROXY_REQUIRE_AUTH).
+    // Lazy import keeps firebase/auth out of the unit-test module graph.
+    try {
+      const { auth } = await import('../config/firebase');
+      const user = auth && auth.currentUser;
+      if (user) {
+        const idToken = await user.getIdToken();
+        if (idToken) headers['Authorization'] = `Bearer ${idToken}`;
+      }
+    } catch (e) { /* not signed in / auth unavailable — proceed anonymously */ }
 
     const payload = { model: model || apiKeyManager.defaultModel, ...body };
     let res;

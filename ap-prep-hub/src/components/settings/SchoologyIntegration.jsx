@@ -20,12 +20,14 @@ import {
 import { Button, Card, CardHeader, CardTitle, CardContent } from '../ui/UIComponents';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import schoologyAPI from '../../services/schoologyAPI';
 import assignmentSync from '../../services/assignmentSync';
 
 export function SchoologyIntegration() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const confirm = useConfirm();
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -100,7 +102,12 @@ export function SchoologyIntegration() {
   };
 
   const handleSchoologySignOut = async () => {
-    if (!window.confirm('Sign out of Schoology? Your calendar URL (if any) will be kept.')) return;
+    const ok = await confirm({
+      title: 'Sign out of Schoology?',
+      message: 'Your calendar URL (if any) will be kept.',
+      confirmText: 'Sign out',
+    });
+    if (!ok) return;
     try {
       setIsSigningOut(true);
       setError(null);
@@ -119,24 +126,28 @@ export function SchoologyIntegration() {
   };
 
   const handleDisconnect = async () => {
+    const ok = await confirm({
+      title: 'Disconnect Schoology?',
+      message: 'This will stop automatic assignment syncing.',
+      confirmText: 'Disconnect',
+    });
+    if (!ok) return;
     try {
       setIsLoading(true);
       setError(null);
 
-      if (window.confirm('Are you sure you want to disconnect Schoology? This will stop automatic assignment syncing.')) {
-        await schoologyAPI.disconnect(user.uid);
-        assignmentSync.stopAutoSync(user.uid);
+      await schoologyAPI.disconnect(user.uid);
+      assignmentSync.stopAutoSync(user.uid);
 
-        // Update local state
-        setIsConnected(false);
-        setAutoSync(false);
-        setLastSync(null);
-        setSyncResults(null);
-        setCalendarUrl(''); // Clear the calendar URL input
+      // Update local state
+      setIsConnected(false);
+      setAutoSync(false);
+      setLastSync(null);
+      setSyncResults(null);
+      setCalendarUrl(''); // Clear the calendar URL input
 
-        // Reload integration status to ensure consistency
-        await loadIntegrationStatus();
-      }
+      // Reload integration status to ensure consistency
+      await loadIntegrationStatus();
     } catch (error) {
       console.error('Error disconnecting Schoology:', error);
       setError(error.message);
@@ -220,12 +231,28 @@ export function SchoologyIntegration() {
   };
 
   const handleIntervalChange = async (newInterval) => {
+    const prevInterval = syncInterval;
     setSyncInterval(newInterval);
 
-    // If auto-sync is enabled, restart with new interval and save to Firebase
-    if (autoSync) {
-      await assignmentSync.stopAutoSync(user.uid);
-      await assignmentSync.startAutoSync(user.uid, newInterval);
+    try {
+      // If auto-sync is enabled, restart it with the new interval.
+      if (autoSync) {
+        await assignmentSync.stopAutoSync(user.uid);
+        await assignmentSync.startAutoSync(user.uid, newInterval);
+      }
+
+      // Always persist the interval — even when auto-sync is off — so it
+      // doesn't revert on reload or when auto-sync is later enabled.
+      await assignmentSync.saveSyncSettings(user.uid, {
+        isConnected,
+        hasAutoSync: autoSync,
+        syncInterval: newInterval,
+        lastSync
+      });
+    } catch (error) {
+      console.error('Error saving sync interval:', error);
+      setError('Failed to save sync interval');
+      setSyncInterval(prevInterval); // revert UI on failure
     }
   };
 

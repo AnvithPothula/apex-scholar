@@ -191,8 +191,11 @@ class AchievementsService {
       if (userAchievementsDoc.exists()) {
         return userAchievementsDoc.data();
       } else {
-        // Initialize user achievements
+        // Initialize user achievements. userId is required by firestore.rules
+        // on create (allow create: request.resource.data.userId == auth.uid);
+        // omitting it made the very first write fail.
         const initialData = {
+          userId,
           unlockedAchievements: [],
           progress: {},
           totalPoints: 0,

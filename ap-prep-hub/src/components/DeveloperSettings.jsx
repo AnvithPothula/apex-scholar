@@ -5,6 +5,7 @@ import { getAuth } from 'firebase/auth';
 import { collection, query, orderBy, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { seedAllPublicDecks } from '../utils/seedPublicDecks';
 import { useToast } from '../contexts/ToastContext';
+import { useConfirm } from '../contexts/ConfirmContext';
 
 // Admin UIDs that can access Developer Settings
 const ADMIN_UIDS = [
@@ -18,6 +19,7 @@ export function isAdmin(uid) {
 
 export default function DeveloperSettings({ onClose }) {
     const { toast } = useToast();
+    const confirm = useConfirm();
     const [reviews, setReviews] = useState([]);
     const [loading, setLoading] = useState(true);
     const [expandedSection, setExpandedSection] = useState('reviews');
@@ -77,7 +79,8 @@ export default function DeveloperSettings({ onClose }) {
     };
 
     const handleDeleteReview = async (reviewId) => {
-        if (!window.confirm('Delete this review?')) return;
+        const ok = await confirm({ title: 'Delete this review?', confirmText: 'Delete' });
+        if (!ok) return;
         try {
             await deleteDoc(doc(db, 'reviews', reviewId));
             setReviews(prev => prev.filter(r => r.id !== reviewId));

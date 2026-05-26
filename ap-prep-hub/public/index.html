@@ -253,6 +253,22 @@
                 return Promise.reject(new Error('Auth suppressed by Apex Scholar'));
               };
             }
+            // Suppress the SDK's built-in popup dialogs (e.g. the centered
+            // "No usage left for request" insufficient-funds alert). Apex
+            // Scholar shows its own centered notice instead (AiDowngradeNotice,
+            // fired off the apex:ai-downgraded event). Originals are kept under
+            // _original_<name> in case they're ever needed.
+            if (p.ui) {
+              var _puterDialogFns = ['alert', 'notify', 'showError'];
+              for (var _i = 0; _i < _puterDialogFns.length; _i++) {
+                (function(fn) {
+                  if (typeof p.ui[fn] === 'function') {
+                    p.ui['_original_' + fn] = p.ui[fn];
+                    p.ui[fn] = function() { return Promise.resolve(); };
+                  }
+                })(_puterDialogFns[_i]);
+              }
+            }
           } catch(e) {
             markBlocked('SDK onload handler threw: ' + e);
           }

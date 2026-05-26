@@ -54,10 +54,21 @@ REACT_APP_FIREBASE_MEASUREMENT_ID=
 ```
 
 **AI (optional, for Gemini fallback):**
+
+In **production**, do NOT put Gemini keys in `REACT_APP_*` — those are inlined into
+the client bundle and exposed. Set the keys **server-side** in Netlify env so the
+`ai-proxy` function uses them and the browser never sees them:
+```
+# Netlify env (server-side, NO REACT_APP_ prefix)
+GEMINI_API_KEY=                     # Primary key
+GEMINI_API_KEY_2= … GEMINI_API_KEY_11=   # Keys 2-11 for rotation
+```
+For **local dev only**, you may set `REACT_APP_GEMINI_API_KEY*` so `npm start` can
+hit Gemini directly without running `netlify dev`. Never set them in a deployed env.
 ```env
-REACT_APP_GEMINI_API_KEY=           # Primary key
-REACT_APP_GEMINI_API_KEY_2=         # Keys 2-11 for rotation
-...
+# local dev only — leave blank in production
+REACT_APP_GEMINI_API_KEY=
+REACT_APP_GEMINI_API_KEY_2=
 REACT_APP_GEMINI_API_KEY_11=
 ```
 

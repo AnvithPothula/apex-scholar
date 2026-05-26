@@ -17,21 +17,27 @@
  */
 
 import { doc, setDoc, getDoc, updateDoc, deleteField } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db, auth } from '../config/firebase';
 import schoologyCalendar from './schoologyCalendar';
 
 const PROXY_URL = '/.netlify/functions/schoology-oauth';
-// Transient store for the request-token secret during the OAuth round-trip.
-// Saved when we kick off the flow, read back in the /schoology-callback page,
-// then cleared. sessionStorage survives the Schoology redirect in the same
-// tab and is auto-wiped when the tab closes.
-const REQUEST_SECRET_KEY = 'apex.schoology.requestTokenSecret';
-const REQUEST_USER_KEY = 'apex.schoology.requestUser';
 
+// Every proxy action requires a verified Firebase ID token — the function uses
+// it to key the user's (server-only) Schoology tokens. Nothing sensitive is
+// kept in the browser anymore.
 async function callProxy(action, body = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+  try {
+    const user = auth && auth.currentUser;
+    if (user) {
+      const idToken = await user.getIdToken();
+      if (idToken) headers['Authorization'] = `Bearer ${idToken}`;
+    }
+  } catch (_) { /* not signed in — the function will reject with 401 */ }
+
   const res = await fetch(`${PROXY_URL}?action=${encodeURIComponent(action)}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(body),
   });
   let data = null;
@@ -50,12 +56,9 @@ async function callProxy(action, body = {}) {
   return data;
 }
 
+// No consumer secret AND no access tokens live in this client — both are held
+// server-side by the Netlify function.
 class SchoologyAPIService {
-  constructor() {
-    // No consumer secret here — that lives in the Netlify function.
-    this.accessTokens = new Map(); // per-user in-memory cache
-  }
-
   // ---- OAuth flow -------------------------------------------------------
 
   /**
@@ -66,113 +69,38 @@ class SchoologyAPIService {
   async initiateOAuth(userId) {
     if (!userId) throw new Error('userId required');
     const callback = `${window.location.origin}/schoology-callback`;
+    // The function stores the request-token secret server-side keyed by uid —
+    // it no longer comes back to the browser.
     const data = await callProxy('request_token', { callback });
-    const { oauth_token, oauth_token_secret, authorize_url } = data;
-    if (!oauth_token || !oauth_token_secret || !authorize_url) {
+    const { oauth_token, authorize_url } = data;
+    if (!oauth_token || !authorize_url) {
       throw new Error('Schoology did not return a valid request token');
-    }
-    try {
-      sessionStorage.setItem(REQUEST_SECRET_KEY, oauth_token_secret);
-      sessionStorage.setItem(REQUEST_USER_KEY, userId);
-    } catch (_) {
-      /* storage may be blocked; proceed anyway, callback will surface the error */
     }
     window.location.assign(authorize_url);
   }
 
   /**
-   * Complete OAuth after Schoology redirects back. Exchanges the verifier
-   * for an access token (server-signed), then fetches /users/me to capture
-   * the user's Schoology display name + uid, and persists everything to
-   * Firestore so future sessions don't need to re-auth.
+   * Complete OAuth after Schoology redirects back. The function verifies the
+   * Firebase user, recovers the request secret it stored, exchanges the
+   * verifier, and persists the access token SERVER-SIDE. The browser never
+   * sees a token — it only gets the display name back.
    */
   async handleOAuthCallback(userId, oauthToken, oauthVerifier) {
     if (!userId || !oauthToken || !oauthVerifier) {
       throw new Error('Missing OAuth callback parameters');
     }
-    const oauthTokenSecret = (() => {
-      try { return sessionStorage.getItem(REQUEST_SECRET_KEY); }
-      catch (_) { return null; }
-    })();
-    if (!oauthTokenSecret) {
-      throw new Error('Schoology sign-in session expired — please try again');
-    }
-
-    // 1. Exchange verifier for access token (server-signed).
-    const { access_token, token_secret } = await callProxy('access_token', {
+    const result = await callProxy('access_token', {
       oauth_token: oauthToken,
       oauth_verifier: oauthVerifier,
-      oauth_token_secret: oauthTokenSecret,
     });
-    if (!access_token || !token_secret) {
-      throw new Error('Schoology did not return an access token');
-    }
-
-    // 2. Best-effort: fetch the user's profile so we can show
-    // "Connected as <name>" in settings. Failures here are non-fatal —
-    // the access token itself is still valid.
-    let schoologyUid = null;
-    let schoologyName = null;
-    try {
-      const me = await callProxy('api_call', {
-        method: 'GET',
-        path: '/users/me',
-        access_token,
-        token_secret,
-      });
-      if (me?.ok && me.data) {
-        schoologyUid = String(me.data.uid || me.data.id || '') || null;
-        schoologyName =
-          me.data.name_display ||
-          me.data.name ||
-          [me.data.name_first, me.data.name_last].filter(Boolean).join(' ') ||
-          null;
-      }
-    } catch (_) { /* non-fatal */ }
-
-    // 3. Persist. merge:true keeps any calendar URL already configured.
-    const ref = doc(db, 'users', userId, 'integrations', 'schoology');
-    await setDoc(
-      ref,
-      {
-        accessToken: access_token,
-        accessTokenSecret: token_secret,
-        schoologyUid,
-        schoologyName,
-        connectedAt: new Date(),
-        isActive: true,
-        integrationType: 'oauth',
-      },
-      { merge: true }
-    );
-
-    this.accessTokens.set(userId, { accessToken: access_token, accessTokenSecret: token_secret });
-    try {
-      sessionStorage.removeItem(REQUEST_SECRET_KEY);
-      sessionStorage.removeItem(REQUEST_USER_KEY);
-    } catch (_) { /* ignore */ }
-
-    return { success: true, schoologyUid, schoologyName };
+    return {
+      success: true,
+      schoologyUid: result?.schoologyUid || null,
+      schoologyName: result?.schoologyName || null,
+    };
   }
 
-  // ---- Token + connection state ----------------------------------------
-
-  async getTokens(userId) {
-    if (this.accessTokens.has(userId)) return this.accessTokens.get(userId);
-    try {
-      const ref = doc(db, 'users', userId, 'integrations', 'schoology');
-      const snap = await getDoc(ref);
-      if (!snap.exists()) return null;
-      const d = snap.data();
-      if (d.isActive === false || !d.accessToken || !d.accessTokenSecret) return null;
-      const tokens = { accessToken: d.accessToken, accessTokenSecret: d.accessTokenSecret };
-      this.accessTokens.set(userId, tokens);
-      return tokens;
-    } catch (e) {
-      console.error('Error fetching Schoology tokens:', e);
-      return null;
-    }
-  }
+  // ---- Connection state -------------------------------------------------
 
   /**
    * Returns a snapshot describing how (if at all) the user is connected to
@@ -186,7 +114,9 @@ class SchoologyAPIService {
       if (!snap.exists()) return false;
       const d = snap.data();
       if (d.isActive === false) return false;
-      const oauth = !!(d.accessToken && d.accessTokenSecret);
+      // Tokens live server-side now; OAuth connection is reflected by the
+      // non-sensitive status fields the function writes.
+      const oauth = d.integrationType === 'oauth';
       const calendar = !!d.calendarUrl;
       if (!oauth && !calendar) return false;
       // Truthy object — old `if (isConnected)` checks pass; new code can read
@@ -218,6 +148,8 @@ class SchoologyAPIService {
    */
   async disconnectOAuth(userId) {
     try {
+      // Server wipes the access token (stored server-side).
+      await callProxy('disconnect').catch(() => {});
       const ref = doc(db, 'users', userId, 'integrations', 'schoology');
       const snap = await getDoc(ref);
       if (!snap.exists()) return { success: true };
@@ -225,6 +157,7 @@ class SchoologyAPIService {
       // If the only thing this doc held was OAuth state, mark inactive too.
       const stillHasCalendar = !!d.calendarUrl;
       await updateDoc(ref, {
+        // Scrub any legacy client-stored tokens too.
         accessToken: deleteField(),
         accessTokenSecret: deleteField(),
         schoologyUid: deleteField(),
@@ -234,7 +167,6 @@ class SchoologyAPIService {
           : { isActive: false, integrationType: deleteField() }),
         disconnectedAt: new Date(),
       });
-      this.accessTokens.delete(userId);
       return { success: true };
     } catch (e) {
       console.error('Error disconnecting Schoology OAuth:', e);
@@ -250,6 +182,7 @@ class SchoologyAPIService {
    */
   async disconnect(userId) {
     try {
+      await callProxy('disconnect').catch(() => {});
       const ref = doc(db, 'users', userId, 'integrations', 'schoology');
       await updateDoc(ref, {
         isActive: false,
@@ -261,7 +194,6 @@ class SchoologyAPIService {
         integrationType: deleteField(),
         disconnectedAt: new Date(),
       });
-      this.accessTokens.delete(userId);
       return { success: true };
     } catch (e) {
       console.error('Error disconnecting Schoology:', e);
@@ -285,13 +217,11 @@ class SchoologyAPIService {
    * consumer secret stays server-side.
    */
   async makeAPIRequest(userId, endpoint, method = 'GET', data = null) {
-    const tokens = await this.getTokens(userId);
-    if (!tokens) throw new Error('No Schoology authentication found');
+    // No tokens here — the function loads the caller's server-side tokens from
+    // the verified Firebase uid and signs the request.
     const result = await callProxy('api_call', {
       method,
       path: endpoint.startsWith('/') ? endpoint : `/${endpoint}`,
-      access_token: tokens.accessToken,
-      token_secret: tokens.accessTokenSecret,
       body: data,
     });
     if (!result.ok) {

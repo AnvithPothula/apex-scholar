@@ -79,6 +79,7 @@ import {
 } from '../services/guestStore';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import { useConfirm } from '../contexts/ConfirmContext';
 import geminiService, { RateLimitError } from '../services/geminiService';
 import { parseSingleMcq } from '../services/ai/mcqGenerator';
 import errorLogger from '../utils/errorLogger';
@@ -88,6 +89,7 @@ const AITutors = () => {
   const navigate = useNavigate();
   const { user, loading, isGuest } = useAuth();
   const { toast } = useToast();
+  const confirm = useConfirm();
   const [selectedSubject, setSelectedSubject] = useState(urlSubject || null);
   const [conversations, setConversations] = useState([]);
   const [activeConversationId, setActiveConversationId] = useState(null);
@@ -947,18 +949,23 @@ const AITutors = () => {
     setEditingName('');
   };
 
-  const confirmDeleteConversation = (conversationId) => {
+  const confirmDeleteConversation = async (conversationId) => {
     // Check if this is the last conversation
     if (conversations.length <= 1) {
       toast.warning('You must have at least one conversation. This is the last conversation for this subject.');
       setShowConversationMenu(null);
       return;
     }
-    
-    if (window.confirm('Are you sure you want to delete this conversation? This action cannot be undone.')) {
+
+    setShowConversationMenu(null);
+    const ok = await confirm({
+      title: 'Delete conversation?',
+      message: 'This action cannot be undone.',
+      confirmText: 'Delete',
+    });
+    if (ok) {
       handleDeleteConversation(conversationId);
     }
-    setShowConversationMenu(null);
   };
 
   const getSubjectSuggestions = async (subjectId) => {
