@@ -124,10 +124,21 @@ function serializeMessage(message) {
  */
 export function appendGuestMessage(subject, message) {
   const all = readAll();
+
+  // Avoid recursion: localStorage may be blocked, so a create attempt might not persist.
   if (!all[subject]) {
-    ensureGuestConversation(subject);
-    return appendGuestMessage(subject, message);
+    const now = new Date().toISOString();
+    all[subject] = {
+      id: guestConversationId(subject),
+      name: 'Guest session',
+      subject,
+      messages: [],
+      lastMessage: '',
+      createdAt: now,
+      updatedAt: now,
+    };
   }
+
   const conv = all[subject];
   const serial = serializeMessage(message);
   conv.messages = [...(conv.messages || []), serial];

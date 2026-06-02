@@ -81,14 +81,17 @@ export class AiUsageLimitError extends Error {
 
 export function humanizeUntil(resetAt) {
   const ms = Math.max(0, resetAt - Date.now());
-  const hours = Math.floor(ms / (60 * 60 * 1000));
-  const mins = Math.round((ms % (60 * 60 * 1000)) / (60 * 1000));
-  if (hours >= 24) {
-    const days = Math.round(hours / 24);
-    return `${days} day${days === 1 ? '' : 's'}`;
-  }
+  const totalMins = Math.max(1, Math.ceil(ms / (60 * 1000)));
+
+  const days = Math.floor(totalMins / (24 * 60));
+  if (days >= 1) return `${days} day${days === 1 ? '' : 's'}`;
+
+  const hours = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
   if (hours >= 1) return `${hours}h ${mins}m`;
-  return `${Math.max(1, mins)} min`;
+
+  return `${totalMins} min`;
+}
 }
 
 function buildMessage(scope, resetAt) {
