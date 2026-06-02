@@ -8,10 +8,14 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { Layout } from './components/Layout.jsx';
 import { LoginPage } from './components/auth/LoginPage';
 import { SchoologyCallback } from './components/auth/SchoologyCallback';
+import GuestGate from './components/GuestGate';
+import { Calendar, FileQuestion, Zap, Calculator, Settings as SettingsIcon, Activity, GraduationCap } from 'lucide-react';
 import ErrorBoundary from './components/ErrorBoundary';
 import PageSkeleton from './components/ui/PageSkeleton';
 import { ToastProvider } from './contexts/ToastContext';
+import { ConfirmProvider } from './contexts/ConfirmContext';
 import ToastContainer from './components/ui/Toast';
+import AiDowngradeNotice from './components/ui/AiDowngradeNotice';
 // eslint-disable-next-line import/first
 const AITutors = lazy(() => import('./pages/AITutors'));
 // eslint-disable-next-line import/first
@@ -27,9 +31,23 @@ const Solver = lazy(() => import('./pages/Solver'));
 // eslint-disable-next-line import/first
 const Diagnostics = lazy(() => import('./pages/Diagnostics'));
 // eslint-disable-next-line import/first
+const LearnHub = lazy(() => import('./pages/LearnHub'));
+// eslint-disable-next-line import/first
 const NotFound = lazy(() => import('./pages/NotFound'));
 import { createPageUrl } from './utils/helpers';
 import { initializeBackgroundSync } from './services/backgroundSync';
+
+// Per-feature copy shown to guests on the sign-in upsell (GuestGate).
+// AI Tutors is intentionally absent — it's open to guests.
+const FEATURES = {
+  scheduler:   { icon: Calendar,     title: 'Smart Scheduler',  preview: '/guest-previews/scheduler.jpg',   blurb: 'Sign in for free to build an AI study schedule that adapts to your subjects, deadlines, and Schoology assignments.' },
+  practice:    { icon: FileQuestion, title: 'Practice Tests',    preview: '/guest-previews/practice.jpg',    blurb: 'Sign in for free to generate full-length AP practice tests with timed sections and detailed scoring.' },
+  flashcards:  { icon: Zap,          title: 'Flashcards',        preview: '/guest-previews/flashcards.jpg',  blurb: 'Sign in for free to create, study, and share flashcard decks with spaced repetition.' },
+  solver:      { icon: Calculator,   title: 'Problem Solver',    preview: '/guest-previews/solver.jpg',      blurb: 'Sign in for free to get step-by-step solutions to any problem from a photo or text.' },
+  settings:    { icon: SettingsIcon, title: 'Settings',          preview: '/guest-previews/settings.jpg',    blurb: 'Sign in for free to pick your AP subjects, customize your tutor, and manage your account.' },
+  diagnostics: { icon: Activity,     title: 'Diagnostics',       preview: '/guest-previews/diagnostics.jpg', blurb: 'Sign in for free to run a diagnostic that pinpoints your strengths and weak spots per subject.' },
+  learn:       { icon: GraduationCap, title: 'Learn',            blurb: 'Sign in for free to explore interactive timelines and study lessons for your AP subjects.' },
+};
 
 // Main App Component
 function App() {
@@ -41,6 +59,7 @@ function App() {
   return (
     <ThemeProvider>
     <ToastProvider>
+    <ConfirmProvider>
     <AuthProvider>
       <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
@@ -49,8 +68,10 @@ function App() {
           <Route path="/*" element={<ProtectedRoute><MainApp /></ProtectedRoute>} />
         </Routes>
         <ToastContainer />
+        <AiDowngradeNotice />
       </Router>
     </AuthProvider>
+    </ConfirmProvider>
     </ToastProvider>
     </ThemeProvider>
   );
@@ -86,14 +107,20 @@ function MainApp() {
           <Route index element={<Navigate to={createPageUrl("AITutors")} replace />} />
           <Route path={createPageUrl("AITutors")} element={<AITutors />} />
           <Route path={createPageUrl("AITutors", ":subject")} element={<AITutors />} />
-          <Route path={createPageUrl("SmartScheduler")} element={<SmartScheduler />} />
-          <Route path={createPageUrl("PracticeTests")} element={<PracticeTests />} />
-          <Route path={createPageUrl("Flashcards")} element={<Flashcards />} />
-          <Route path={createPageUrl("Solver")} element={<Solver />} />
-          <Route path={createPageUrl("Settings")} element={<Settings />} />
-          <Route path={createPageUrl("Diagnostics")} element={<Diagnostics />} />
-          <Route path={createPageUrl("Diagnostics", ":subject")} element={<Diagnostics />} />
-          <Route path={createPageUrl("Diagnostics", ":subject/start")} element={<Diagnostics />} />
+          <Route path={createPageUrl("SmartScheduler")} element={<GuestGate feature={FEATURES.scheduler}><SmartScheduler /></GuestGate>} />
+          <Route path={createPageUrl("PracticeTests")} element={<GuestGate feature={FEATURES.practice}><PracticeTests /></GuestGate>} />
+          <Route path={createPageUrl("Flashcards")} element={<GuestGate feature={FEATURES.flashcards}><Flashcards /></GuestGate>} />
+          <Route path={createPageUrl("Solver")} element={<GuestGate feature={FEATURES.solver}><Solver /></GuestGate>} />
+          <Route path={createPageUrl("Settings")} element={<GuestGate feature={FEATURES.settings}><Settings /></GuestGate>} />
+          <Route path={createPageUrl("Diagnostics")} element={<GuestGate feature={FEATURES.diagnostics}><Diagnostics /></GuestGate>} />
+          <Route path={createPageUrl("Diagnostics", ":subject")} element={<GuestGate feature={FEATURES.diagnostics}><Diagnostics /></GuestGate>} />
+          <Route path={createPageUrl("Diagnostics", ":subject/start")} element={<GuestGate feature={FEATURES.diagnostics}><Diagnostics /></GuestGate>} />
+          {/* Learn is dev-only for now (LearnHub redirects non-admins). No
+              GuestGate wrap — guests just get redirected too, no upsell for a
+              feature users can't access yet. */}
+          <Route path={createPageUrl("Learn")} element={<LearnHub />} />
+          <Route path={`${createPageUrl("Learn")}/timeline/:subject`} element={<LearnHub />} />
+          <Route path={`${createPageUrl("Learn")}/curriculum/:subject`} element={<LearnHub />} />
 
           {/* Legacy PascalCase routes — redirect to kebab-case canonicals.
               The `/*` splat catches subpaths (e.g., /AITutors/statistics). */}

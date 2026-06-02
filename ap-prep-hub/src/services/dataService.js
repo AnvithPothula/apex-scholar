@@ -1,10 +1,11 @@
 import { db } from '../config/firebase';
 import errorLogger from '../utils/errorLogger';
 import { 
-  collection, 
-  doc, 
-  addDoc, 
-  updateDoc, 
+  collection,
+  doc,
+  addDoc,
+  setDoc,
+  updateDoc,
   deleteDoc, 
   getDoc, 
   getDocs, 
@@ -23,23 +24,16 @@ class DataService {
 
   // User Progress Management
   async saveUserProgress(userId, subject, progressData) {
-    try {
-      const progressRef = doc(this.db, 'userProgress', `${userId}_${subject}`);
-      await updateDoc(progressRef, {
-        ...progressData,
-        lastUpdated: serverTimestamp(),
-        subject
-      });
-    } catch (error) {
-      // If document doesn't exist, create it
-      await addDoc(collection(this.db, 'userProgress'), {
-        userId,
-        subject,
-        ...progressData,
-        createdAt: serverTimestamp(),
-        lastUpdated: serverTimestamp()
-      });
-    }
+    // Deterministic doc id so getUserProgress(userId, subject) always finds it.
+    // setDoc(merge) creates-or-updates in one call (the old update-then-addDoc
+    // fallback created a second, unreachable random-id doc on first save).
+    const progressRef = doc(this.db, 'userProgress', `${userId}_${subject}`);
+    await setDoc(progressRef, {
+      userId,
+      subject,
+      ...progressData,
+      lastUpdated: serverTimestamp()
+    }, { merge: true });
   }
 
   async getUserProgress(userId, subject = null) {

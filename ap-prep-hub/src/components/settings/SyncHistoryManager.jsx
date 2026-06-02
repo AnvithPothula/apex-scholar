@@ -7,11 +7,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import { assignmentSync } from '../../services/assignmentSync';
 
 const SyncHistoryManager = () => {
   const { currentUser } = useAuth();
   const { toast } = useToast();
+  const confirm = useConfirm();
   // const [syncHistory, setSyncHistory] = useState(null); // Commented out - saved for future use
   const [syncStats, setSyncStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -44,9 +46,10 @@ const SyncHistoryManager = () => {
   const clearSyncHistory = async () => {
     if (!currentUser) return;
 
-    const confirmMessage = 'Are you sure you want to clear your sync history? This will allow all Schoology assignments to be synced again, including ones you previously deleted. This action cannot be undone.';
+    const confirmMessage = 'This will allow all Schoology assignments to be synced again, including ones you previously deleted. This action cannot be undone.';
 
-    if (window.confirm(confirmMessage)) {
+    const ok = await confirm({ title: 'Clear sync history?', message: confirmMessage, confirmText: 'Clear' });
+    if (ok) {
       try {
         await assignmentSync.clearSyncHistory(currentUser.uid);
         toast.success('Sync history cleared successfully. Your next sync will import all assignments from Schoology again.');

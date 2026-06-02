@@ -31,7 +31,9 @@ const KATEX_MACROS = {
 const remarkPlugins = [remarkMath];
 const rehypePlugins = [[rehypeKatex, {
   strict: false,        // don't crash on unknown commands, render with errorColor
-  trust: true,          // allow \htmlClass, \href, etc. (we control the AI prompt)
+  trust: false,         // SECURITY: disallow \href/\htmlClass/etc. so AI- or
+                        // user-supplied LaTeX can't inject links/markup (Codex P2-1).
+                        // AP math content doesn't rely on these.
   throwOnError: false,  // never throw — show the original source in errorColor
   errorColor: '#f87171', // tailwind error-400
   macros: KATEX_MACROS,

@@ -70,3 +70,9 @@ firebase-debug.log
 tmp/
 temp/
 .gstack/
+
+# Local Netlify folder
+.netlify
+
+# Local Claude settings
+.claude/settings.local.json

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { overlayVariants, modalVariants } from '../utils/animations';
-import { Brain, Calendar, Settings, LogOut, Award, Shield, X, MessageSquare, Send, FileQuestion, Zap, Calculator, Star, Code2, Sun, Moon } from 'lucide-react';
+import { Brain, Calendar, Settings, LogOut, Award, Shield, X, MessageSquare, Send, FileQuestion, Zap, Calculator, Star, Code2, Sun, Moon, Lock, LogIn, GraduationCap } from 'lucide-react';
 import { Button, Avatar, AvatarFallback, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from './ui/UIComponents';
 import { useAuth } from '../contexts/AuthContext';
 import { createPageUrl, cn } from '../utils/helpers';
@@ -17,7 +17,7 @@ import { useTheme } from '../contexts/ThemeContext';
 export function Layout({ children }) {
     const location = useLocation();
     const navigate = useNavigate();
-    const { user, logout } = useAuth();
+    const { user, isGuest, logout } = useAuth();
     const [showCreditsModal, setShowCreditsModal] = useState(false);
     const [showPrivacyModal, setShowPrivacyModal] = useState(false);
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -82,6 +82,7 @@ export function Layout({ children }) {
                             >
                                 <FileQuestion strokeWidth={1.5} size={14} className="sm:w-4 sm:h-4 flex-shrink-0" />
                                 <span className="hidden md:inline">Tests</span>
+                                {isGuest && <Lock strokeWidth={1.5} size={11} className="ml-0.5 flex-shrink-0 opacity-50" />}
                             </Link>
                             <Link
                                 to={createPageUrl("Flashcards")}
@@ -94,6 +95,7 @@ export function Layout({ children }) {
                             >
                                 <Zap strokeWidth={1.5} size={14} className="sm:w-4 sm:h-4 flex-shrink-0" />
                                 <span className="hidden md:inline">Cards</span>
+                                {isGuest && <Lock strokeWidth={1.5} size={11} className="ml-0.5 flex-shrink-0 opacity-50" />}
                             </Link>
                             <Link
                                 to={createPageUrl("Solver")}
@@ -106,6 +108,7 @@ export function Layout({ children }) {
                             >
                                 <Calculator strokeWidth={1.5} size={14} className="sm:w-4 sm:h-4 flex-shrink-0" />
                                 <span className="hidden md:inline">Solver</span>
+                                {isGuest && <Lock strokeWidth={1.5} size={11} className="ml-0.5 flex-shrink-0 opacity-50" />}
                             </Link>
                             <Link
                                 to={createPageUrl("SmartScheduler")}
@@ -118,7 +121,23 @@ export function Layout({ children }) {
                             >
                                 <Calendar strokeWidth={1.5} size={14} className="sm:w-4 sm:h-4 flex-shrink-0" />
                                 <span className="hidden md:inline">Schedule</span>
+                                {isGuest && <Lock strokeWidth={1.5} size={11} className="ml-0.5 flex-shrink-0 opacity-50" />}
                             </Link>
+                            {/* Learn tab is dev-only for now */}
+                            {isAdmin(user?.uid) && (
+                            <Link
+                                to={createPageUrl("Learn")}
+                                aria-label="Learn"
+                                aria-current={isActiveTab("Learn") ? "page" : undefined}
+                                className={cn(
+                                    "px-2 sm:px-2.5 md:px-3 lg:px-4 py-1.5 sm:py-2 flex items-center space-x-1 md:space-x-1.5 font-medium transition-all duration-200 text-xs sm:text-sm",
+                                    isActiveTab("Learn") ? "text-content-primary border-b-2 border-content-primary" : "text-content-muted hover:text-content-primary"
+                                )}
+                            >
+                                <GraduationCap strokeWidth={1.5} size={14} className="sm:w-4 sm:h-4 flex-shrink-0" />
+                                <span className="hidden md:inline">Learn</span>
+                            </Link>
+                            )}
                         </nav>
                         
                         <div className="flex items-center space-x-1 sm:space-x-2">
@@ -131,6 +150,15 @@ export function Layout({ children }) {
                             >
                                 {isDark ? <Sun strokeWidth={1.5} size={16} className="sm:w-[18px] sm:h-[18px]" /> : <Moon strokeWidth={1.5} size={16} className="sm:w-[18px] sm:h-[18px]" />}
                             </button>
+                            {!user ? (
+                                <Button
+                                    onClick={() => navigate('/login')}
+                                    className="h-8 sm:h-9 px-3 sm:px-4 text-xs sm:text-sm"
+                                >
+                                    <LogIn strokeWidth={1.5} size={14} className="mr-1.5" />
+                                    Sign in
+                                </Button>
+                            ) : (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" className="flex items-center space-x-1 sm:space-x-2 p-0.5 sm:p-1 rounded-full hover:bg-base-850 transition-all duration-200">
@@ -171,6 +199,7 @@ export function Layout({ children }) {
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -182,12 +211,14 @@ export function Layout({ children }) {
                 <div className="flex items-stretch justify-around">
                     {[
                         { page: 'AITutors', label: 'Tutors', Icon: Brain },
-                        { page: 'PracticeTests', label: 'Tests', Icon: FileQuestion },
-                        { page: 'Flashcards', label: 'Cards', Icon: Zap },
-                        { page: 'Solver', label: 'Solver', Icon: Calculator },
-                        { page: 'SmartScheduler', label: 'Schedule', Icon: Calendar },
-                        { page: 'Settings', label: 'Settings', Icon: Settings },
-                    ].map(({ page, label, Icon }) => (
+                        { page: 'PracticeTests', label: 'Tests', Icon: FileQuestion, locked: true },
+                        { page: 'Flashcards', label: 'Cards', Icon: Zap, locked: true },
+                        { page: 'Solver', label: 'Solver', Icon: Calculator, locked: true },
+                        { page: 'SmartScheduler', label: 'Schedule', Icon: Calendar, locked: true },
+                        // Dev-only: Learn tab only appears in the mobile nav for admins.
+                        ...(isAdmin(user?.uid) ? [{ page: 'Learn', label: 'Learn', Icon: GraduationCap }] : []),
+                        { page: 'Settings', label: 'Settings', Icon: Settings, locked: true },
+                    ].map(({ page, label, Icon, locked }) => (
                         <Link
                             key={page}
                             to={createPageUrl(page)}
@@ -198,7 +229,12 @@ export function Layout({ children }) {
                                 isActiveTab(page) ? 'text-content-primary' : 'text-content-muted'
                             )}
                         >
-                            <Icon strokeWidth={1.5} size={16} />
+                            <span className="relative">
+                                <Icon strokeWidth={1.5} size={16} />
+                                {isGuest && locked && (
+                                    <Lock strokeWidth={2} size={9} className="absolute -top-1 -right-1.5 text-content-muted" />
+                                )}
+                            </span>
                             <span className="text-[10px] leading-tight">{label}</span>
                         </Link>
                     ))}
@@ -366,8 +402,9 @@ export function Layout({ children }) {
             {/* Puter AI auth prompt — shown once after login if not yet connected */}
             <PuterAuthPrompt />
 
-            {/* Onboarding walkthrough — shown once for new users */}
-            <OnboardingWalkthrough />
+            {/* Onboarding walkthrough — signed-in users only (it writes
+                completion state to Firestore and tours member-only pages) */}
+            {user && <OnboardingWalkthrough />}
 
             {/* Global command palette (Cmd+K) */}
             <CommandPalette />

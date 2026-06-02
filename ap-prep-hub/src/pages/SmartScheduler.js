@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import { addDoc, collection, query, orderBy, onSnapshot, updateDoc, deleteDoc, doc, serverTimestamp, getDoc, setDoc } from "firebase/firestore";
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
+import { useConfirm } from "../contexts/ConfirmContext";
 import errorLogger from "../utils/errorLogger";
 import { db } from "../config/firebase";
 import { TaskCard } from "../components/scheduler/TaskCard.jsx";
@@ -79,6 +80,7 @@ const toSerializableDate = (value) => {
 export default function SmartScheduler() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const confirm = useConfirm();
   const [tasks, setTasks] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
@@ -401,7 +403,8 @@ export default function SmartScheduler() {
 
   // Refresh entire schedule
   const refreshSchedule = async () => {
-    if (window.confirm("Are you sure you want to refresh the entire schedule?")) {
+    const ok = await confirm({ title: 'Refresh entire schedule?', message: 'This regenerates your schedule from scratch.', confirmText: 'Refresh' });
+    if (ok) {
       try {
         setAiSchedule([]);
         await saveAiScheduleToFirebase([]);
@@ -424,8 +427,9 @@ export default function SmartScheduler() {
   const handleDeleteTask = async (taskId) => {
     // Prevent double execution in StrictMode
     if (deletingTaskRef.current === taskId) return;
-    
-    if (window.confirm("Are you sure you want to delete this task?")) {
+
+    const ok = await confirm({ title: 'Delete task?', message: 'This task will be removed from your schedule.', confirmText: 'Delete' });
+    if (ok) {
       deletingTaskRef.current = taskId;
       try {
         await deleteDoc(doc(db, "users", user.uid, "tasks", taskId));

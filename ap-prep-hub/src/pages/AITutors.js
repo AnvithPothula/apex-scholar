@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useParams, Navigate, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   Send,
   Bot,
@@ -65,21 +65,31 @@ import {
   getDocs
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import {
+  isGuestConversationId,
+  subjectFromGuestId,
+  guestConversationId,
+  ensureGuestConversation,
+  getGuestMessages,
+  appendGuestMessage,
+  clearGuestConversation,
+  GUEST_MESSAGE_LIMIT,
+  guestMessagesRemaining,
+  incrementGuestUsage,
+} from '../services/guestStore';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import { useConfirm } from '../contexts/ConfirmContext';
 import geminiService, { RateLimitError } from '../services/geminiService';
-import JSONParser from '../services/ai/jsonParser';
+import { parseSingleMcq } from '../services/ai/mcqGenerator';
 import errorLogger from '../utils/errorLogger';
-
-// Reuse a single parser instance — handles \t / \n / \frac / etc. inside
-// JSON string content that naive JSON.parse mangles into control chars.
-const mcqJsonParser = new JSONParser();
 
 const AITutors = () => {
   const { subject: urlSubject } = useParams();
   const navigate = useNavigate();
-  const { user, loading } = useAuth();
+  const { user, loading, isGuest } = useAuth();
   const { toast } = useToast();
+  const confirm = useConfirm();
   const [selectedSubject, setSelectedSubject] = useState(urlSubject || null);
   const [conversations, setConversations] = useState([]);
   const [activeConversationId, setActiveConversationId] = useState(null);
@@ -97,6 +107,9 @@ const AITutors = () => {
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [isSwitchingSubjects, setIsSwitchingSubjects] = useState(false);
   const [subjectSuggestionsState, setSubjectSuggestionsState] = useState([]);
+  // Remaining free AI messages for guests today (per browser). Irrelevant
+  // for signed-in users (UI gated behind isGuest).
+  const [guestRemaining, setGuestRemaining] = useState(GUEST_MESSAGE_LIMIT);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   // Removed diagnostics UI and state
@@ -113,6 +126,11 @@ const AITutors = () => {
     return () => { cancelled = true; };
   }, []);
 
+  // Sync the guest quota into state once auth resolves as a guest.
+  useEffect(() => {
+    if (isGuest) setGuestRemaining(guestMessagesRemaining());
+  }, [isGuest]);
+
   // Load subject suggestions when selectedSubject changes
   useEffect(() => {
     let cancelled = false;
@@ -127,6 +145,11 @@ const AITutors = () => {
 
   // Load messages for a specific conversation
   const loadConversationMessages = useCallback(async (conversationId) => {
+    // Guest thread — read straight from localStorage, no Firestore listener.
+    if (isGuestConversationId(conversationId)) {
+      setMessages(getGuestMessages(subjectFromGuestId(conversationId)));
+      return () => {};
+    }
     try {
       console.log('Loading messages for conversation:', conversationId);
       const messagesRef = collection(db, 'conversations', conversationId, 'messages');
@@ -318,11 +341,43 @@ const AITutors = () => {
     }
   }, [createFirstConversation]);
 
+  // Guest equivalent of createFirstConversation + loadConversations: a single
+  // localStorage-backed conversation per subject, seeded with a welcome message.
+  const initGuestConversation = useCallback(async (subjectId) => {
+    const curriculumData = await getCurriculumData(subjectId);
+    const subjectName = curriculumData?.name || subjectId;
+    const convId = guestConversationId(subjectId);
+    const welcomeMessage = {
+      id: `${convId}_welcome`,
+      type: 'ai',
+      content: `Hello! I'm your specialized AI tutor for ${subjectName}. I'm here to help you master this AP subject with personalized explanations, practice problems, and study strategies tailored to the College Board curriculum. What would you like to learn about today?`,
+      timestamp: new Date(),
+      suggestions: await getSubjectSuggestions(subjectId),
+    };
+    // ensureGuestConversation only applies the welcome message when creating
+    // the thread for the first time; an existing thread is returned untouched.
+    const conv = ensureGuestConversation(subjectId, `${subjectName} - Guest session`, welcomeMessage);
+    setConversations([{
+      ...conv,
+      createdAt: conv.createdAt ? new Date(conv.createdAt) : new Date(),
+      updatedAt: conv.updatedAt ? new Date(conv.updatedAt) : new Date(),
+    }]);
+    setActiveConversationId(convId);
+  }, []);
+
   const handleNewConversation = async () => {
     console.log('New conversation clicked, selectedSubject:', selectedSubject);
-    
+
     if (!selectedSubject) {
       console.error('No subject selected');
+      return;
+    }
+
+    // Guests have a single thread per subject — "new chat" just clears it.
+    if (!user) {
+      clearGuestConversation(selectedSubject);
+      setMessages([]);
+      await initGuestConversation(selectedSubject);
       return;
     }
     
@@ -376,12 +431,15 @@ const AITutors = () => {
           unsubscribe = unsub;
         }
       });
+    } else if (!user && selectedSubject) {
+      // Guest: synthesize a single localStorage-backed conversation.
+      initGuestConversation(selectedSubject);
     }
     return () => {
       cancelled = true;
       if (unsubscribe) unsubscribe();
     };
-  }, [user, selectedSubject, loadConversations]);
+  }, [user, selectedSubject, loadConversations, initGuestConversation]);
 
   // Load messages when active conversation changes
   useEffect(() => {
@@ -715,9 +773,10 @@ const AITutors = () => {
     );
   }
 
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
+  // No redirect for signed-out users — AI Tutors is open to guests.
+  // Guest chat is persisted to localStorage (see guestStore); all the
+  // Firestore conversation machinery below is skipped for guests via
+  // the `guest-<subject>` conversation id namespace.
 
   // Save conversation to Firebase
   const saveConversation = async (conversation) => {
@@ -742,6 +801,19 @@ const AITutors = () => {
   // Save message to Firebase
   const saveMessage = async (conversationId, message) => {
     console.log('saveMessage called with:', { conversationId, messageType: message.type, content: message.content.substring(0, 50) });
+    // Guest thread: persist to localStorage and update state directly (there's
+    // no Firestore listener to echo the write back into `messages`).
+    if (isGuestConversationId(conversationId)) {
+      const subject = subjectFromGuestId(conversationId);
+      const id = appendGuestMessage(subject, message);
+      const withTs = { ...message, timestamp: message.timestamp || new Date() };
+      setMessages(prev => [...prev, withTs]);
+      const content = String(message.content || '');
+      setConversations(prev => prev.map(c => c.id === conversationId
+        ? { ...c, lastMessage: content.slice(0, 50) + (content.length > 50 ? '...' : ''), updatedAt: new Date() }
+        : c));
+      return id;
+    }
     if (!user || !conversationId) {
       console.error('saveMessage failed: missing user or conversationId', { user: !!user, conversationId });
       return null;
@@ -877,18 +949,23 @@ const AITutors = () => {
     setEditingName('');
   };
 
-  const confirmDeleteConversation = (conversationId) => {
+  const confirmDeleteConversation = async (conversationId) => {
     // Check if this is the last conversation
     if (conversations.length <= 1) {
       toast.warning('You must have at least one conversation. This is the last conversation for this subject.');
       setShowConversationMenu(null);
       return;
     }
-    
-    if (window.confirm('Are you sure you want to delete this conversation? This action cannot be undone.')) {
+
+    setShowConversationMenu(null);
+    const ok = await confirm({
+      title: 'Delete conversation?',
+      message: 'This action cannot be undone.',
+      confirmText: 'Delete',
+    });
+    if (ok) {
       handleDeleteConversation(conversationId);
     }
-    setShowConversationMenu(null);
   };
 
   const getSubjectSuggestions = async (subjectId) => {
@@ -1000,39 +1077,32 @@ const AITutors = () => {
         timestamp: new Date()
       };
 
-      // If MCQ mode and response is JSON, render as MCQ card
-      if (selectedMode === 'Practice MCQ') {
+      // Render as an MCQ card when EITHER the user is in Practice MCQ mode
+      // OR the model emitted MCQ-shaped JSON anyway (e.g. the user asked for
+      // a practice question in plain text while the mode chip was on Explain,
+      // or prior MCQ turns primed the format). Without the content check the
+      // JSON was rendered raw to the user. The block below is also made total:
+      // if it looks like an MCQ but doesn't yield a valid card, we replace it
+      // with a clean retry message — never raw JSON.
+      const looksLikeMcqJson = typeof response === 'string'
+        && /^\s*\{/.test(response)
+        && /"question"\s*:/.test(response)
+        && /"choices"\s*:/.test(response);
+      if (selectedMode === 'Practice MCQ' || looksLikeMcqJson) {
         try {
-          // Use the shared JSON repair pipeline. The naive JSON.parse we
-          // used to call here decoded any single backslash (e.g. \text in
-          // "$\text{CH}_3$") as a JSON escape — \t became a tab character,
-          // leaving "$ ext{CH}_3$" in the rendered question. The parser's
-          // repair pass first double-escapes invalid \-sequences inside
-          // strings so LaTeX content round-trips correctly.
-          const parsed = mcqJsonParser.parse(response, false);
-          // JSONParser returns {success: false} instead of throwing — re-throw
-          // so the plain-text "A. B. C. D." fallback in the catch block still
-          // fires when the JSON path is unrecoverable.
-          if (!parsed.success || !parsed.data) {
-            throw new Error(parsed.error || 'MCQ JSON parse failed');
-          }
-          {
-            const mcq = parsed.data;
-            if (mcq && mcq.question && Array.isArray(mcq.choices) && mcq.choices.length >= 2) {
-              // Ensure correctIndex is always a number (AI may return it as a string)
-              if (mcq.correctIndex !== undefined && mcq.correctIndex !== null) {
-                mcq.correctIndex = parseInt(mcq.correctIndex, 10);
-                if (isNaN(mcq.correctIndex)) mcq.correctIndex = 0;
-              }
-              // Ensure explanations is an array (AI may omit or return wrong type)
-              if (!Array.isArray(mcq.explanations)) {
-                mcq.explanations = mcq.choices.map(() => '');
-              }
-              aiMessage.responseType = 'mcq';
-              aiMessage.mcq = mcq;
-              // Replace content with just the question text (hide raw JSON from display)
-              aiMessage.content = mcq.question;
-            }
+          // Shared parse + normalize (services/ai/mcqGenerator). Handles the
+          // JSON repair pipeline (LaTeX backslash escapes, truncation) and
+          // returns null for unrecoverable/partial JSON. Throw on null so the
+          // plain-text "A. B. C. D." fallback in the catch fires instead of
+          // rendering raw JSON.
+          const mcq = parseSingleMcq(response);
+          if (mcq) {
+            aiMessage.responseType = 'mcq';
+            aiMessage.mcq = mcq;
+            // Replace content with just the question text (hide raw JSON)
+            aiMessage.content = mcq.question;
+          } else {
+            throw new Error('Parsed MCQ missing question or choices');
           }
         } catch (_) {
           // JSON parse failed — try to parse plain text MCQ format (A. B. C. D.)
@@ -1092,15 +1162,19 @@ const AITutors = () => {
       
     } catch (error) {
       console.error('Error generating AI response:', error);
-      // Add error message
+      // A usage-limit hit isn't a failure — show its (friendly) message as-is.
+      const isUsageLimit = error?.code === 'ai_usage_limit';
+      if (isUsageLimit) toast.warning(error.message);
       const errorMessage = {
         id: `error_${Date.now()}`,
         type: 'ai',
-        content: "I apologize, but I encountered an issue generating a response. Please try asking your question again, and I'll do my best to help you learn!",
+        content: isUsageLimit
+          ? error.message
+          : "I apologize, but I encountered an issue generating a response. Please try asking your question again, and I'll do my best to help you learn!",
         timestamp: new Date(),
         responseType: 'error'
       };
-      
+
       try {
         await saveMessage(activeConversationId, errorMessage);
       } catch (saveError) {
@@ -1225,13 +1299,25 @@ ${curriculumData.examFormat ? `EXAM: ${curriculumData.examFormat.duration} — $
     citations = [];
   }
 
+  // Anti-repeat: feed the model the questions it already asked this session
+  // so a vague follow-up ("continue") produces a NEW question instead of
+  // reproducing the last one.
+  const priorMcqQuestions = (Array.isArray(messages) ? messages : [])
+    .filter(m => m && m.responseType === 'mcq' && m.mcq && m.mcq.question)
+    .map(m => String(m.mcq.question).replace(/\s+/g, ' ').trim().slice(0, 140))
+    .filter(Boolean);
+  const seenMcq = Array.from(new Set(priorMcqQuestions)).slice(-12);
+  const mcqAsked = seenMcq.length
+    ? `\nALREADY ASKED THIS SESSION — do NOT repeat or merely reword any of these. Ask a clearly DIFFERENT question testing a DIFFERENT concept:\n${seenMcq.map((q, i) => `${i + 1}. ${q}`).join('\n')}`
+    : '';
+
   const modeDirective = mode === 'Practice MCQ'
     ? `MODE: Practice MCQ.
 RESPOND WITH ONLY A JSON OBJECT. Start your response with { and end with }. No greetings, no markdown, no code fences, no explanation.
 Example format:
 {"question": "What is the molecule with hydrogen bonding? $\\\\text{CH}_3\\\\text{OH}$", "choices": ["$\\\\text{CH}_4$", "$\\\\text{CH}_3\\\\text{OH}$", "$\\\\text{CO}_2$", "$\\\\text{N}_2$"], "correctIndex": 1, "explanations": ["No H bonded to O/N/F", "Has O-H bond — hydrogen bonding", "No H atoms", "No H atoms"]}
 Rules: "choices" must have exactly 4 strings. "correctIndex" is 0-3. "explanations" has 4 strings matching each choice. Randomize which choice is correct (do NOT always make index 0 correct).
-Make the question AP exam-level difficulty. Include plausible distractors that test common misconceptions.
+Make the question AP exam-level difficulty. Include plausible distractors that test common misconceptions.${mcqAsked}
 LATEX INSIDE JSON STRINGS: Every backslash in a LaTeX command MUST be doubled. Write \\\\text{CH}_3 not \\text{CH}_3. Write \\\\frac{a}{b} not \\frac{a}{b}. Use $...$ for math; never \\\\( or \\\\[. A single backslash inside a JSON string is interpreted as an escape (\\t → tab, \\n → newline), which corrupts LaTeX.
 YOUR ENTIRE RESPONSE MUST BE VALID JSON. NO OTHER TEXT.`
     : mode === 'Walkthrough'
@@ -1377,10 +1463,14 @@ RESPONSE STRUCTURE: Direct analysis → 2-3 key concepts → AP application → 
           }
         ],
         generationConfig: {
-          temperature: mode === 'Practice MCQ' ? 0.4 : 0.7,
+          // MCQ: 0.6 (was 0.4) for question variety so "continue" doesn't
+          // reproduce the same question; still low enough for correct answers.
+          temperature: mode === 'Practice MCQ' ? 0.6 : 0.7,
           topK: 40,
           topP: 0.9,
-          maxOutputTokens: mode === 'Practice MCQ' ? 800 : 1600, // smaller for JSON
+          // MCQ JSON = question + 4 choices + 4 explanations + LaTeX. 800 was
+          // too small and truncated mid-explanations (raw/cut-off JSON bug).
+          maxOutputTokens: mode === 'Practice MCQ' ? 1500 : 1600,
           candidateCount: 1
         },
         safetySettings: [
@@ -1489,7 +1579,15 @@ Please check your internet connection and try again. In the meantime:
       console.log('Message empty, already typing, or no active conversation, returning');
       return;
     }
-    
+
+    // Guest daily cap — guests share the app's client-side AI keys, so
+    // anonymous usage is bounded per browser per day.
+    if (!user && guestMessagesRemaining() <= 0) {
+      setGuestRemaining(0);
+      toast.error(`You've used today's ${GUEST_MESSAGE_LIMIT} free guest messages. Sign in to keep going.`);
+      return;
+    }
+
     const messageContent = currentMessage.trim();
     const filesToSend = [...uploadedFiles]; // Copy files before clearing
     console.log('Processing message:', messageContent);
@@ -1517,6 +1615,11 @@ Please check your internet connection and try again. In the meantime:
       const savedMessageId = await saveMessage(activeConversationId, userMessage);
       
       if (savedMessageId) {
+        // Count this guest send against today's quota (only real sends count).
+        if (!user) {
+          const used = incrementGuestUsage();
+          setGuestRemaining(Math.max(0, GUEST_MESSAGE_LIMIT - used));
+        }
         // Generate AI response with file data
         console.log('Generating AI response for:', messageContent, 'with files:', filesToSend);
         await generateAIResponse(messageContent, filesToSend);
@@ -1778,6 +1881,7 @@ Please check your internet connection and try again. In the meantime:
                     handleNewConversation();
                   }}
                   className="text-content-secondary hover:text-content-primary"
+                  title={isGuest ? 'Start a fresh chat' : 'New conversation'}
                 >
                   <Plus strokeWidth={1.5} className="w-4 h-4" />
                 </Button>
@@ -1786,6 +1890,15 @@ Please check your internet connection and try again. In the meantime:
             <p className="text-sm text-content-muted mt-1">
               {getSubjectName(selectedSubject)}
             </p>
+            {isGuest && (
+              <button
+                type="button"
+                onClick={() => navigate('/login')}
+                className="mt-2 w-full text-left text-xs text-content-muted hover:text-content-primary bg-base-800 border border-border rounded-md px-2.5 py-1.5 transition-colors"
+              >
+                You're browsing as a guest. <span className="text-content-primary font-medium">Sign in</span> to save &amp; sync your chats.
+              </button>
+            )}
           </div>
 
           {/* Conversations List */}
@@ -1863,8 +1976,9 @@ Please check your internet connection and try again. In the meantime:
                     )}
                   </div>
 
-                  {/* Conversation Menu */}
-                  {!editingConversationId && (
+                  {/* Conversation Menu — rename/delete is signed-in only;
+                      guests have a single localStorage thread per subject. */}
+                  {user && !editingConversationId && (
                     <div className="relative">
                       <Button
                         variant="ghost"
@@ -2120,13 +2234,17 @@ Please check your internet connection and try again. In the meantime:
                               onSelect={async (choiceIdx) => {
                                 try {
                                   const correct = typeof message.mcq.correctIndex === 'number' ? (choiceIdx === message.mcq.correctIndex) : null;
-                                  await addDoc(collection(db, 'conversations', activeConversationId, 'mcqResponses'), {
-                                    question: message.mcq.question,
-                                    choiceIndex: choiceIdx,
-                                    correctIndex: message.mcq.correctIndex,
-                                    correct,
-                                    createdAt: serverTimestamp()
-                                  });
+                                  // Guests have no Firestore conversation to attach MCQ
+                                  // analytics to — skip the write for them.
+                                  if (user) {
+                                    await addDoc(collection(db, 'conversations', activeConversationId, 'mcqResponses'), {
+                                      question: message.mcq.question,
+                                      choiceIndex: choiceIdx,
+                                      correctIndex: message.mcq.correctIndex,
+                                      correct,
+                                      createdAt: serverTimestamp()
+                                    });
+                                  }
                                 } catch (e) {
                                   console.error('Failed to save MCQ response', e);
                                 }
@@ -2286,7 +2404,7 @@ Please check your internet connection and try again. In the meantime:
                   console.log('Send button clicked');
                   handleSendMessage();
                 }}
-                disabled={(!currentMessage.trim() && uploadedFiles.length === 0) || isTyping}
+                disabled={(!currentMessage.trim() && uploadedFiles.length === 0) || isTyping || (isGuest && guestRemaining <= 0)}
                 className="px-3 sm:px-6 py-2 sm:py-2.5 bg-content-primary text-base-950 hover:opacity-90"
               >
                 <Send strokeWidth={1.5} className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -2294,6 +2412,36 @@ Please check your internet connection and try again. In the meantime:
             </div>
           </div>
           
+          {isGuest && (
+            guestRemaining > 0 ? (
+              <div className="mt-2.5 text-xs text-content-muted flex items-center gap-1.5 flex-wrap">
+                <span>
+                  {guestRemaining} free guest {guestRemaining === 1 ? 'message' : 'messages'} left today.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => navigate('/login')}
+                  className="text-content-primary font-medium hover:underline"
+                >
+                  Sign in
+                </button>
+                <span>for unlimited.</span>
+              </div>
+            ) : (
+              <div className="mt-2.5 p-2.5 rounded-md bg-base-800 border border-border flex items-center justify-between gap-3">
+                <span className="text-xs text-content-secondary">
+                  You've used today's {GUEST_MESSAGE_LIMIT} free guest messages.
+                </span>
+                <Button
+                  onClick={() => navigate('/login')}
+                  className="h-8 px-3 text-xs flex-shrink-0"
+                >
+                  Sign in to continue
+                </Button>
+              </div>
+            )
+          )}
+
           <div className="hidden sm:flex items-center justify-between mt-3 sm:mt-4 text-xs text-content-muted">
             <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
               <span>Enter to send • Shift+Enter for new line</span>

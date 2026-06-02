@@ -2,12 +2,14 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth, AVATAR_GRADIENTS } from '../contexts/AuthContext';
+import { useConfirm } from '../contexts/ConfirmContext';
 import { auth } from '../config/firebase';
 import { getAvailableSubjects, getSubjectName } from '../constants/comprehensiveCurriculum';
 import { setUserTimezonePreference } from '../utils/timezone';
 import BlackoutScheduleManager from '../components/settings/BlackoutScheduleManager';
 import { SchoologyIntegration } from '../components/settings/SchoologyIntegration';
 import SettingsSidebar from '../components/settings/SettingsSidebar';
+import AiUsageCard from '../components/settings/AiUsageCard';
 import { Button, Card, CardHeader, CardTitle, CardContent, Input, FloatingInput, ValidatedInput } from '../components/ui/UIComponents';
 import CustomDropdown from '../components/ui/CustomDropdown';
 import MultiSelectDropdown from '../components/ui/MultiSelectDropdown';
@@ -17,6 +19,7 @@ const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"
 
 const Settings = () => {
   const { user, updateUserProfile, changePassword, changeEmail } = useAuth();
+  const confirm = useConfirm();
 
   // Define default study preferences
   const getDefaultStudyPreferences = () => ({
@@ -265,8 +268,13 @@ const Settings = () => {
     fetchSettings();
   }, [fetchSettings]);
 
-  const handleRevertToDefaults = () => {
-    if (window.confirm("Are you sure you want to revert all study preferences to their default values? This cannot be undone.")) {
+  const handleRevertToDefaults = async () => {
+    const ok = await confirm({
+      title: 'Revert study preferences?',
+      message: 'All study preferences return to defaults. This cannot be undone.',
+      confirmText: 'Revert',
+    });
+    if (ok) {
       setStudyPreferences(getDefaultStudyPreferences());
       setMessage('Study preferences reverted to defaults and will be saved automatically.');
       setTimeout(() => setMessage(''), 3000);
@@ -514,6 +522,8 @@ const Settings = () => {
               </div>
             </CardContent>
           </Card>
+
+          <AiUsageCard />
 
           <Card id="settings-subjects" className="bg-base-850 border-border md:col-span-2 scroll-mt-32 lg:scroll-mt-20">
             <CardHeader className="p-4 sm:p-6">

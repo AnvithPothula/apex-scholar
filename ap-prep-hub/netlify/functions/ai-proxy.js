@@ -73,6 +73,105 @@ const RATE_LIMIT_WINDOW_MS = Number(process.env.AI_PROXY_RATE_LIMIT_WINDOW_MS ||
 const RATE_LIMIT_MAX_REQUESTS = Number(process.env.AI_PROXY_RATE_LIMIT_MAX_REQUESTS || 60);
 const requestBuckets = new Map();
 
+// ---------------------------------------------------------------------------
+// Optional Firebase auth + tamper-proof server-side quota.
+//
+// Entirely gated on FIREBASE_SERVICE_ACCOUNT (a service-account JSON string in
+// Netlify env). If it's absent, none of this runs and the proxy behaves exactly
+// as before — so deploying this code changes nothing until you add the env var.
+//
+// When configured:
+//   - A valid `Authorization: Bearer <Firebase ID token>` is verified; the
+//     per-UID call count is enforced in users/{uid}/usage/aiServer (written by
+//     the admin SDK; clients can only read it — see firestore.rules). This is
+//     the tamper-proof backstop. The client-side limits remain the tighter,
+//     user-facing UX caps.
+//   - No/invalid token: allowed as anonymous (guests) unless AI_PROXY_REQUIRE_AUTH
+//     is "true", in which case it's rejected. IP rate-limiting still applies.
+// ---------------------------------------------------------------------------
+const REQUIRE_AUTH = (process.env.AI_PROXY_REQUIRE_AUTH || '').toLowerCase() === 'true';
+const SRV_5H_LIMIT = Number(process.env.AI_PROXY_5H_LIMIT || 120);
+const SRV_WEEK_LIMIT = Number(process.env.AI_PROXY_WEEK_LIMIT || 600);
+const SRV_FIVE_H_MS = 5 * 60 * 60 * 1000;
+const SRV_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+let _adminApp = null;
+let _adminTried = false;
+// Build service-account creds. Prefer the 3 split vars (small — keeps the
+// function's total env payload under AWS Lambda's 4KB limit); fall back to the
+// full FIREBASE_SERVICE_ACCOUNT JSON if that's what's set.
+function loadServiceAccount() {
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+  if (projectId && clientEmail && privateKey) {
+    return { projectId, clientEmail, privateKey: privateKey.replace(/\\n/g, '\n') };
+  }
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
+  if (raw) return JSON.parse(raw);
+  return null;
+}
+
+function getAdminApp() {
+  if (_adminTried) return _adminApp;
+  _adminTried = true;
+  try {
+    const creds = loadServiceAccount();
+    if (!creds) return null;
+    const admin = require('firebase-admin');
+    _adminApp = (admin.apps && admin.apps.length)
+      ? admin.app()
+      : admin.initializeApp({ credential: admin.credential.cert(creds) });
+    _adminApp.__admin = admin; // stash for FieldValue
+    return _adminApp;
+  } catch (err) {
+    console.error('[ai-proxy] firebase-admin init failed:', err.message);
+    _adminApp = null;
+    return null;
+  }
+}
+
+async function verifyUid(event, app) {
+  const authHeader = getHeader(event, 'authorization') || '';
+  const match = authHeader.match(/^Bearer\s+(.+)$/i);
+  if (!match) return null;
+  try {
+    const decoded = await app.auth().verifyIdToken(match[1]);
+    return decoded.uid || null;
+  } catch {
+    return null;
+  }
+}
+
+function rollServerWindow(bucket, durationMs, now) {
+  if (!bucket || !bucket.start || now - bucket.start >= durationMs) return { start: now, count: 0 };
+  return { start: bucket.start, count: bucket.count || 0 };
+}
+
+// Returns { ok: true } or { ok: false, scope, resetAt }. Throws only on infra error.
+async function enforceServerQuota(app, uid) {
+  const admin = app.__admin;
+  const db = app.firestore();
+  const ref = db.doc(`users/${uid}/usage/aiServer`);
+  const now = Date.now();
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const d = snap.exists ? snap.data() : {};
+    const fh = rollServerWindow(d.fiveHour, SRV_FIVE_H_MS, now);
+    const wk = rollServerWindow(d.week, SRV_WEEK_MS, now);
+    if (fh.count >= SRV_5H_LIMIT) return { ok: false, scope: '5h', resetAt: fh.start + SRV_FIVE_H_MS };
+    if (wk.count >= SRV_WEEK_LIMIT) return { ok: false, scope: 'week', resetAt: wk.start + SRV_WEEK_MS };
+    fh.count += 1;
+    wk.count += 1;
+    tx.set(ref, {
+      fiveHour: fh,
+      week: wk,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    return { ok: true };
+  });
+}
+
 function getHeader(event, name) {
   const headers = event?.headers || {};
   const target = name.toLowerCase();
@@ -194,6 +293,38 @@ exports.handler = async (event) => {
       },
       body: JSON.stringify({ error: 'Rate limit exceeded' }),
     };
+  }
+
+  // Firebase auth + tamper-proof per-user quota (only if a service account is
+  // configured; otherwise this whole block is skipped and behavior is unchanged).
+  const adminApp = getAdminApp();
+  if (adminApp) {
+    const uid = await verifyUid(event, adminApp);
+    if (!uid) {
+      if (REQUIRE_AUTH) {
+        return {
+          statusCode: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ error: 'Authentication required' }),
+        };
+      }
+      // else: anonymous (e.g. guest) — IP rate-limit already applied above.
+    } else {
+      try {
+        const quota = await enforceServerQuota(adminApp, uid);
+        if (!quota.ok) {
+          const retryAfter = Math.max(1, Math.ceil((quota.resetAt - Date.now()) / 1000));
+          return {
+            statusCode: 429,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(retryAfter) },
+            body: JSON.stringify({ error: 'AI usage limit reached', scope: quota.scope, resetAt: quota.resetAt }),
+          };
+        }
+      } catch (err) {
+        // Don't block users if the quota store has an infra hiccup — fail open.
+        console.error('[ai-proxy] server quota check failed (fail-open):', err.message);
+      }
+    }
   }
 
   if (API_KEYS.length === 0) {

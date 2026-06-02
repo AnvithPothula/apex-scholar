@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Play, Pause, RotateCw, Flag, X, CheckCircle, Clock, ArrowLeft, Settings, ArrowRight } from 'lucide-react';
 import { Button, Card, Badge } from '../ui/UIComponents';
 import LaTeXRenderer from '../LaTeXRenderer';
+import { useConfirm } from '../../contexts/ConfirmContext';
 
 const formatTimeFromSeconds = (seconds) => {
   const mins = Math.floor(seconds / 60);
@@ -36,6 +37,7 @@ const TestPanel = ({
   resetTest,
   renderSafeValue,
 }) => {
+  const confirm = useConfirm();
   const currentQuestion = questions[currentQuestionIndex];
 
   // Show error if no questions are available
@@ -198,8 +200,8 @@ const TestPanel = ({
 
               <Button
                 variant="destructive"
-                onClick={() => {
-                  if (window.confirm('Are you sure you want to submit the test? This action cannot be undone.')) {
+                onClick={async () => {
+                  if (await confirm({ title: 'Submit test?', message: 'This action cannot be undone.', confirmText: 'Submit' })) {
                     handleSubmitTest();
                   }
                 }}
@@ -615,8 +617,8 @@ const TestPanel = ({
 
                   <Button
                     variant="ghost"
-                    onClick={currentQuestionIndex === questions.length - 1 ? () => {
-                      if (window.confirm('Are you sure you want to submit the test? This action cannot be undone.')) {
+                    onClick={currentQuestionIndex === questions.length - 1 ? async () => {
+                      if (await confirm({ title: 'Submit test?', message: 'This action cannot be undone.', confirmText: 'Submit' })) {
                         handleSubmitTest();
                       }
                     } : handleNextQuestion}

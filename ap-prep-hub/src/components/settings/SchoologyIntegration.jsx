@@ -12,17 +12,22 @@ import {
   Clock,
   BookOpen,
   AlertCircle,
-  Loader
+  Loader,
+  LogIn,
+  LogOut,
+  ExternalLink
 } from 'lucide-react';
 import { Button, Card, CardHeader, CardTitle, CardContent } from '../ui/UIComponents';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import schoologyAPI from '../../services/schoologyAPI';
 import assignmentSync from '../../services/assignmentSync';
 
 export function SchoologyIntegration() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const confirm = useConfirm();
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -33,6 +38,11 @@ export function SchoologyIntegration() {
   const [syncResults, setSyncResults] = useState(null);
   const [calendarUrl, setCalendarUrl] = useState('');
   const [isSettingCalendar, setIsSettingCalendar] = useState(false);
+  // OAuth-side state (separate from the calendar-feed `isConnected` above).
+  const [oauthConnected, setOauthConnected] = useState(false);
+  const [schoologyName, setSchoologyName] = useState(null);
+  const [isSigningIn, setIsSigningIn] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   // Load integration status on component mount
   const loadIntegrationStatus = useCallback(async () => {
@@ -45,6 +55,18 @@ export function SchoologyIntegration() {
       setAutoSync(status.hasAutoSync);
       setSyncInterval(status.syncInterval || 1); // Use interval from Firebase
       setLastSync(status.lastSync);
+
+      // OAuth state (independent of calendar feed). schoologyAPI.isConnected
+      // returns a truthy object with .oauth / .calendar / .schoologyName when
+      // anything is configured, or false otherwise.
+      const conn = await schoologyAPI.isConnected(user.uid);
+      if (conn && typeof conn === 'object') {
+        setOauthConnected(!!conn.oauth);
+        setSchoologyName(conn.schoologyName || null);
+      } else {
+        setOauthConnected(false);
+        setSchoologyName(null);
+      }
 
       console.log('📊 Schoology integration status:', status);
     } catch (error) {
@@ -61,25 +83,71 @@ export function SchoologyIntegration() {
     }
   }, [user, loadIntegrationStatus]);
 
+  const handleSchoologySignIn = async () => {
+    try {
+      setIsSigningIn(true);
+      setError(null);
+      // Initiates OAuth and redirects the browser to Schoology. The callback
+      // page (/schoology-callback) finishes the dance and writes tokens to
+      // Firestore. We don't reach the .then() because the page unloads.
+      await schoologyAPI.initiateOAuth(user.uid);
+    } catch (error) {
+      console.error('Error starting Schoology sign-in:', error);
+      setError(
+        error?.message ||
+          "Couldn't start Schoology sign-in. If the problem persists, paste a calendar URL below as a fallback."
+      );
+      setIsSigningIn(false);
+    }
+  };
+
+  const handleSchoologySignOut = async () => {
+    const ok = await confirm({
+      title: 'Sign out of Schoology?',
+      message: 'Your calendar URL (if any) will be kept.',
+      confirmText: 'Sign out',
+    });
+    if (!ok) return;
+    try {
+      setIsSigningOut(true);
+      setError(null);
+      await schoologyAPI.disconnectOAuth(user.uid);
+      setOauthConnected(false);
+      setSchoologyName(null);
+      // Reload everything so the broader connection/sync state stays in sync.
+      await loadIntegrationStatus();
+      toast.success?.('Signed out of Schoology.');
+    } catch (error) {
+      console.error('Error signing out of Schoology:', error);
+      setError(error?.message || 'Failed to sign out of Schoology.');
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
+
   const handleDisconnect = async () => {
+    const ok = await confirm({
+      title: 'Disconnect Schoology?',
+      message: 'This will stop automatic assignment syncing.',
+      confirmText: 'Disconnect',
+    });
+    if (!ok) return;
     try {
       setIsLoading(true);
       setError(null);
 
-      if (window.confirm('Are you sure you want to disconnect Schoology? This will stop automatic assignment syncing.')) {
-        await schoologyAPI.disconnect(user.uid);
-        assignmentSync.stopAutoSync(user.uid);
+      await schoologyAPI.disconnect(user.uid);
+      assignmentSync.stopAutoSync(user.uid);
 
-        // Update local state
-        setIsConnected(false);
-        setAutoSync(false);
-        setLastSync(null);
-        setSyncResults(null);
-        setCalendarUrl(''); // Clear the calendar URL input
+      // Update local state
+      setIsConnected(false);
+      setAutoSync(false);
+      setLastSync(null);
+      setSyncResults(null);
+      setCalendarUrl(''); // Clear the calendar URL input
 
-        // Reload integration status to ensure consistency
-        await loadIntegrationStatus();
-      }
+      // Reload integration status to ensure consistency
+      await loadIntegrationStatus();
     } catch (error) {
       console.error('Error disconnecting Schoology:', error);
       setError(error.message);
@@ -163,12 +231,28 @@ export function SchoologyIntegration() {
   };
 
   const handleIntervalChange = async (newInterval) => {
+    const prevInterval = syncInterval;
     setSyncInterval(newInterval);
 
-    // If auto-sync is enabled, restart with new interval and save to Firebase
-    if (autoSync) {
-      await assignmentSync.stopAutoSync(user.uid);
-      await assignmentSync.startAutoSync(user.uid, newInterval);
+    try {
+      // If auto-sync is enabled, restart it with the new interval.
+      if (autoSync) {
+        await assignmentSync.stopAutoSync(user.uid);
+        await assignmentSync.startAutoSync(user.uid, newInterval);
+      }
+
+      // Always persist the interval — even when auto-sync is off — so it
+      // doesn't revert on reload or when auto-sync is later enabled.
+      await assignmentSync.saveSyncSettings(user.uid, {
+        isConnected,
+        hasAutoSync: autoSync,
+        syncInterval: newInterval,
+        lastSync
+      });
+    } catch (error) {
+      console.error('Error saving sync interval:', error);
+      setError('Failed to save sync interval');
+      setSyncInterval(prevInterval); // revert UI on failure
     }
   };
 
@@ -228,8 +312,73 @@ export function SchoologyIntegration() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Connection Status */}
-        <div className="space-y-4">
+        {/* Schoology Account (OAuth) — primary path */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <h3 className="font-medium text-content-primary">Schoology Account</h3>
+            <span className="text-[10px] uppercase tracking-wide font-semibold text-primary-400 bg-primary-900/40 border border-primary-700/40 rounded px-1.5 py-0.5">
+              Recommended
+            </span>
+          </div>
+          {oauthConnected ? (
+            <div className="flex items-center justify-between gap-3 p-3 rounded-md bg-base-800 border border-border">
+              <div className="flex items-center gap-2 min-w-0">
+                <CheckCircle className="w-5 h-5 text-success-400 flex-shrink-0" strokeWidth={1.5} />
+                <div className="min-w-0">
+                  <div className="text-sm text-content-primary truncate">
+                    {schoologyName ? `Connected as ${schoologyName}` : 'Signed in to Schoology'}
+                  </div>
+                  <div className="text-xs text-content-muted">Apex stays signed in across sessions.</div>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                onClick={handleSchoologySignOut}
+                disabled={isSigningOut}
+                className="text-error-400 border-error-400 hover:bg-error-400/10 flex-shrink-0"
+              >
+                {isSigningOut ? (
+                  <Loader className="w-4 h-4 animate-spin" strokeWidth={1.5} />
+                ) : (
+                  <>
+                    <LogOut className="w-4 h-4 mr-1.5" strokeWidth={1.5} />
+                    Sign out
+                  </>
+                )}
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-content-secondary">
+                Sign in with your Schoology account to sync directly. You stay signed in until you log out.
+              </p>
+              <Button
+                onClick={handleSchoologySignIn}
+                disabled={isSigningIn}
+                className="w-full sm:w-auto"
+              >
+                {isSigningIn ? (
+                  <>
+                    <Loader className="w-4 h-4 mr-2 animate-spin" strokeWidth={1.5} />
+                    Redirecting…
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="w-4 h-4 mr-2" strokeWidth={1.5} />
+                    Sign in with Schoology
+                    <ExternalLink className="w-3 h-3 ml-1.5 opacity-60" strokeWidth={1.5} />
+                  </>
+                )}
+              </Button>
+              <p className="text-xs text-content-muted">
+                Some districts disable third-party app sign-in. If it doesn&apos;t work for you, paste a calendar URL below instead.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Connection Status (calendar feed) */}
+        <div className="space-y-4 border-t border-border-strong pt-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               {isConnected ? (

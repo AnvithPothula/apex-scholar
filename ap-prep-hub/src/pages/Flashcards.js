@@ -10,6 +10,7 @@ import dataService from '../services/dataService';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import ModelSelector, { getDefaultModel, saveSelectedModel } from '../components/ui/ModelSelector';
 import { useToast } from '../contexts/ToastContext';
+import { useConfirm } from '../contexts/ConfirmContext';
 
 // Custom Dropdown Component
 const CustomDropdown = ({ options, value, onChange, placeholder, className = "" }) => {
@@ -69,6 +70,7 @@ const FlashcardsPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const confirm = useConfirm();
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showManualCreate, setShowManualCreate] = useState(false);
@@ -462,9 +464,12 @@ const FlashcardsPage = () => {
   };
 
   const deleteDeck = async (deckId) => {
-    if (!window.confirm('Are you sure you want to delete this deck? This action cannot be undone.')) {
-      return;
-    }
+    const ok = await confirm({
+      title: 'Delete deck?',
+      message: 'This action cannot be undone.',
+      confirmText: 'Delete',
+    });
+    if (!ok) return;
 
     try {
       await dataService.deleteFlashcardDeck(deckId);

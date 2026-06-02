@@ -3,175 +3,218 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // User documents - only accessible by the owner
+    // ---- Shared helpers ------------------------------------------------
+    function signedIn() {
+      return request.auth != null;
+    }
+    // Caller owns the EXISTING doc (read/update/delete).
+    function ownsExisting() {
+      return signedIn() && request.auth.uid == resource.data.userId;
+    }
+    // Caller owns the INCOMING doc (create/update) — also enforces that the
+    // userId being written equals the caller, so owners can't reassign a doc
+    // to another user on update.
+    function ownsIncoming() {
+      return signedIn() && request.auth.uid == request.resource.data.userId;
+    }
+    // Single source of truth for admin. Mirrors ADMIN_UIDS in
+    // src/components/DeveloperSettings.jsx and also honors /admins/{uid} docs.
+    function isAdmin() {
+      return signedIn() && (
+        request.auth.uid in ['b0eUycwZDHcmrkoeSEiD69QSbK32', 'A0yRGP86ZTahByzS0ALYeKAXOn52'] ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // Shared curriculum content (lessons, practice, unit summaries).
+    // World-readable (no PII); written only by admins via the Learn UI.
+    match /curriculum/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // User documents - only accessible by the owner (path-scoped, so userId is
+    // taken from the path and cannot be spoofed via document data).
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if signedIn() && request.auth.uid == userId;
 
       // User's test history
       match /testHistory/{testId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if signedIn() && request.auth.uid == userId;
       }
 
       // User's flashcards
       match /flashcards/{flashcardId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if signedIn() && request.auth.uid == userId;
       }
 
       // User's progress data
       match /progress/{progressId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if signedIn() && request.auth.uid == userId;
+      }
+
+      // User's curriculum progress (completed topics + practice scores)
+      match /curriculumProgress/{docId} {
+        allow read, write: if signedIn() && request.auth.uid == userId;
+      }
+
+      // User's AI usage counters.
+      //   usage/ai       — client-written soft cap (UX display + client limit).
+      //   usage/aiServer — written ONLY by the ai-proxy function (admin SDK);
+      //                    clients can read it but never write it, so the
+      //                    server-enforced quota is tamper-proof (Codex P1-1).
+      match /usage/{docId} {
+        allow read: if signedIn() && request.auth.uid == userId;
+        allow write: if signedIn() && request.auth.uid == userId && docId != 'aiServer';
+      }
+
+      // Server-only secrets (Schoology OAuth tokens, etc.). Written/read ONLY by
+      // the Netlify functions via the admin SDK (which bypasses rules). Clients
+      // are fully denied so tokens can never reach the browser (Codex P1-4).
+      match /private/{docId} {
+        allow read, write: if false;
       }
 
       // User's Schoology tokens - extra sensitive
       match /schoologyTokens/{tokenId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if signedIn() && request.auth.uid == userId;
       }
 
       // User's settings and preferences
       match /settings/{settingId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if signedIn() && request.auth.uid == userId;
       }
 
       // User's scheduler tasks
       match /tasks/{taskId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if signedIn() && request.auth.uid == userId;
       }
 
       // User's scheduler preferences
       match /schedulerPreferences/{prefId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if signedIn() && request.auth.uid == userId;
       }
 
       // User's third-party integrations (Schoology, etc.)
       match /integrations/{integrationId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if signedIn() && request.auth.uid == userId;
       }
 
       // User's sync history (Schoology assignment sync tracking)
       match /syncHistory/{syncId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if signedIn() && request.auth.uid == userId;
       }
     }
 
-    // Conversations at root level - accessible by owner
+    // Conversations at root level - accessible by owner.
+    // Split create/update/delete so the owner can't reassign userId (P1-3).
     match /conversations/{conversationId} {
-      allow read, write: if request.auth != null &&
-                           request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null &&
-                      request.auth.uid == request.resource.data.userId;
+      allow read: if ownsExisting();
+      allow create: if ownsIncoming();
+      allow update: if ownsExisting() && ownsIncoming();
+      allow delete: if ownsExisting();
 
       // Messages within conversations — scoped to conversation owner
       match /messages/{messageId} {
-        allow read, write: if request.auth != null &&
+        allow read, write: if signedIn() &&
                              request.auth.uid == get(/databases/$(database)/documents/conversations/$(conversationId)).data.userId;
       }
 
       // MCQ responses within conversations — scoped to conversation owner
       match /mcqResponses/{responseId} {
-        allow read, write: if request.auth != null &&
+        allow read, write: if signedIn() &&
                              request.auth.uid == get(/databases/$(database)/documents/conversations/$(conversationId)).data.userId;
       }
     }
 
-    // Flashcard decks at root level - owner can read/write, anyone authenticated can read public decks
+    // Flashcard decks at root level - owner full access; any authenticated
+    // user can read a public deck.
     match /flashcardDecks/{deckId} {
-      // Owner can always read/write their own decks
-      allow read, write: if request.auth != null &&
-                           request.auth.uid == resource.data.userId;
-      // Any authenticated user can read a public deck
-      allow read: if request.auth != null &&
-                    resource.data.isPublic == true;
-      allow create: if request.auth != null &&
-                      request.auth.uid == request.resource.data.userId;
+      allow read: if ownsExisting() || (signedIn() && resource.data.isPublic == true);
+      allow create: if ownsIncoming();
+      allow update: if ownsExisting() && ownsIncoming();
+      allow delete: if ownsExisting();
     }
 
     // Solver history at root level - accessible by owner
     match /solverHistory/{historyId} {
-      allow read, write: if request.auth != null &&
-                           request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null &&
-                      request.auth.uid == request.resource.data.userId;
+      allow read: if ownsExisting();
+      allow create: if ownsIncoming();
+      allow update: if ownsExisting() && ownsIncoming();
+      allow delete: if ownsExisting();
     }
 
     // Schoology tokens at root level - accessible by owner
     match /schoologyTokens/{tokenId} {
-      allow read, write: if request.auth != null &&
-                           request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null &&
-                      request.auth.uid == request.resource.data.userId;
+      allow read: if ownsExisting();
+      allow create: if ownsIncoming();
+      allow update: if ownsExisting() && ownsIncoming();
+      allow delete: if ownsExisting();
     }
 
     // User progress at root level - accessible by owner
     match /userProgress/{progressId} {
-      allow read, write: if request.auth != null &&
-                           request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null &&
-                      request.auth.uid == request.resource.data.userId;
+      allow read: if ownsExisting();
+      allow create: if ownsIncoming();
+      allow update: if ownsExisting() && ownsIncoming();
+      allow delete: if ownsExisting();
     }
 
     // Practice tests at root level - accessible by owner
     match /practiceTests/{testId} {
-      allow read, write: if request.auth != null &&
-                           request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null &&
-                      request.auth.uid == request.resource.data.userId;
+      allow read: if ownsExisting();
+      allow create: if ownsIncoming();
+      allow update: if ownsExisting() && ownsIncoming();
+      allow delete: if ownsExisting();
     }
 
     // Test progress at root level - accessible by owner
     match /testProgress/{progressId} {
-      allow read, write: if request.auth != null &&
-                           request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null &&
-                      request.auth.uid == request.resource.data.userId;
+      allow read: if ownsExisting();
+      allow create: if ownsIncoming();
+      allow update: if ownsExisting() && ownsIncoming();
+      allow delete: if ownsExisting();
     }
 
     // Study sessions at root level - accessible by owner
     match /studySessions/{sessionId} {
-      allow read, write: if request.auth != null &&
-                           request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null &&
-                      request.auth.uid == request.resource.data.userId;
+      allow read: if ownsExisting();
+      allow create: if ownsIncoming();
+      allow update: if ownsExisting() && ownsIncoming();
+      allow delete: if ownsExisting();
     }
 
     // Diagnostic results at root level - accessible by owner
     match /diagnosticResults/{resultId} {
-      allow read, write: if request.auth != null &&
-                           request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null &&
-                      request.auth.uid == request.resource.data.userId;
+      allow read: if ownsExisting();
+      allow create: if ownsIncoming();
+      allow update: if ownsExisting() && ownsIncoming();
+      allow delete: if ownsExisting();
     }
 
     // User achievements at root level - accessible by owner
     match /userAchievements/{achievementId} {
-      allow read, write: if request.auth != null &&
-                           request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null &&
-                      request.auth.uid == request.resource.data.userId;
+      allow read: if ownsExisting();
+      allow create: if ownsIncoming();
+      allow update: if ownsExisting() && ownsIncoming();
+      allow delete: if ownsExisting();
     }
 
     // Public read-only data (for future use - e.g., shared study resources)
     match /publicData/{document=**} {
       allow read: if true;
-      allow write: if false; // Only admins can write (implement admin check if needed)
-    }
-
-    // Admin list — add admin UIDs as documents in this collection
-    // e.g., /admins/{uid} with any field
-    function isAdmin() {
-      return request.auth != null &&
-             exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+      allow write: if false;
     }
 
     // Reviews - any authenticated user can create; admins can read/delete
     match /reviews/{reviewId} {
-      allow create: if request.auth != null &&
-                      request.auth.uid == request.resource.data.userId;
+      allow create: if ownsIncoming();
       allow read, delete: if isAdmin();
     }
 
     // Admin collection - only admins can read, no one can write via client
     match /admins/{adminId} {
-      allow read: if request.auth != null && request.auth.uid == adminId;
+      allow read: if signedIn() && request.auth.uid == adminId;
       allow write: if false;
     }
 

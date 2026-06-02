@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
   User,
   Sparkles,
+  Gauge,
   BookOpen,
   Clock,
   Link2,
@@ -9,6 +10,7 @@ import {
   Lock,
   RotateCcw,
 } from 'lucide-react';
+import { useConfirm } from '../../contexts/ConfirmContext';
 
 /**
  * Sticky settings sidebar with section anchors.
@@ -24,6 +26,7 @@ import {
 export const SETTINGS_SECTIONS = [
   { id: 'settings-profile',   label: 'Profile',            icon: User },
   { id: 'settings-ai',        label: 'AI Personalization', icon: Sparkles },
+  { id: 'settings-usage',     label: 'AI Usage',           icon: Gauge },
   { id: 'settings-subjects',  label: 'AP Subjects',        icon: BookOpen },
   {
     id: 'settings-study',
@@ -60,6 +63,7 @@ const PARENT_OF = (() => {
 const SettingsSidebar = ({ isSaving = false, onResetAll }) => {
   // activeId can be a top-level OR a child id; activeParentId is always top-level
   const [activeId, setActiveId] = useState(SETTINGS_SECTIONS[0].id);
+  const confirm = useConfirm();
 
   useEffect(() => {
     const sections = ALL_IDS
@@ -114,16 +118,15 @@ const SettingsSidebar = ({ isSaving = false, onResetAll }) => {
     el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, []);
 
-  const handleReset = useCallback(() => {
+  const handleReset = useCallback(async () => {
     if (typeof onResetAll !== 'function') return;
-    const ok = window.confirm(
-      'Reset all settings to defaults?\n\n' +
-      'This will revert your study preferences, AI personalization, and ' +
-      'blackout schedule. Your AP subjects and account info will not be ' +
-      'changed. This cannot be undone.',
-    );
+    const ok = await confirm({
+      title: 'Reset all settings to defaults?',
+      message: 'This reverts your study preferences, AI personalization, and blackout schedule. Your AP subjects and account info are not changed. This cannot be undone.',
+      confirmText: 'Reset',
+    });
     if (ok) onResetAll();
-  }, [onResetAll]);
+  }, [onResetAll, confirm]);
 
   return (
     <>
