@@ -125,14 +125,27 @@ async function callSchoology(method, url, params, tokenSecret = '', body = null)
 
 let _adminApp = null;
 let _adminTried = false;
+// Prefer the 3 split vars (small — keeps total function env under AWS Lambda's
+// 4KB limit); fall back to the full FIREBASE_SERVICE_ACCOUNT JSON.
+function loadServiceAccount() {
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+  if (projectId && clientEmail && privateKey) {
+    return { projectId, clientEmail, privateKey: privateKey.replace(/\\n/g, '\n') };
+  }
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
+  if (raw) return JSON.parse(raw);
+  return null;
+}
+
 function getAdminApp() {
   if (_adminTried) return _adminApp;
   _adminTried = true;
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
-  if (!raw) return null;
   try {
+    const creds = loadServiceAccount();
+    if (!creds) return null;
     const admin = require('firebase-admin');
-    const creds = JSON.parse(raw);
     _adminApp = (admin.apps && admin.apps.length)
       ? admin.app()
       : admin.initializeApp({ credential: admin.credential.cert(creds) });

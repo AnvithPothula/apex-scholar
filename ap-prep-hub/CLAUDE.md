@@ -139,3 +139,7 @@ npm test         # Jest test runner
 **Environment variables:** All prefixed `REACT_APP_*` (CRA requirement). See `.env.example` for full list.
 
 **Important:** `REACT_APP_*` vars are inlined into the JS bundle at build time. Do not store secrets that shouldn't be client-visible.
+
+## Workflow Rules
+
+- **Never commit code unless explicitly told to.** "Make it deploy-ready", "tie up loose ends", "finish this", etc. do NOT imply committing. Build, test, and verify — then stop and wait for an explicit "commit" instruction. Same for `git push` and any deploy.
