@@ -92,7 +92,6 @@ export function humanizeUntil(resetAt) {
 
   return `${totalMins} min`;
 }
-}
 
 function buildMessage(scope, resetAt) {
   if (scope === 'testDaily') {
