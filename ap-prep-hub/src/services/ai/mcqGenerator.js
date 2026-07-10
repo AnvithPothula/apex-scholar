@@ -105,7 +105,7 @@ ${sourceText}`;
  */
 export async function generateMcqs({ subjectName, sourceText, count = 10, instruction = '', maxOutputTokens = 8000 }) {
   const prompt = buildBatchMcqPrompt({ subjectName, sourceText, count, instruction });
-  const resp = await geminiService.generateContent(prompt, { temperature: 0.4, maxOutputTokens });
+  const resp = await geminiService.generateContent(prompt, { temperature: 0.4, maxOutputTokens, task: 'mcqGenerate' });
   return parseMcqArray(String(resp || ''));
 }
 

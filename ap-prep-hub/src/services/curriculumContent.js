@@ -128,6 +128,7 @@ export async function generateUnit(unitNumber, opts = {}) {
         await geminiService.generateContent(lessonPrompt({ topic, noteguideText }), {
           temperature: 0.5,
           maxOutputTokens: 2400, // full teaching lesson (~500-800 words)
+          task: 'lessonTeach',
         }) || ''
       ).trim();
       if (!md) throw new Error('empty lesson');
@@ -151,6 +152,7 @@ export async function generateUnit(unitNumber, opts = {}) {
       await geminiService.generateContent(summaryPrompt({ unit, noteguideText }), {
         temperature: 0.5,
         maxOutputTokens: 900,
+        task: 'summarize',
       }) || ''
     ).trim();
     await setDoc(unitRef(unitNumber), {

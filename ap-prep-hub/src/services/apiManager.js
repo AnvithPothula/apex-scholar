@@ -236,7 +236,8 @@ class APIManager {
     const maxAttempts = Math.max(1, Math.min(3, apiKeyManager.getTotalKeys() || 3));
     const result = await geminiService.requestGoogleRaw(body, {
       context: 'API Manager',
-      maxAttempts
+      maxAttempts,
+      task: 'practiceTest'
     });
 
     if (!result?.candidates?.[0]?.content?.parts?.[0]?.text) {

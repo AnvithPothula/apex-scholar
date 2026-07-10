@@ -1054,7 +1054,7 @@ class GeminiService {
    * server-side key and forwards to Google. Returns Google's JSON response.
    * Throws on any proxy/transport failure so callers can dev-fallback.
    */
-  async _requestViaProxy(body, model, context = 'AI proxy') {
+  async _requestViaProxy(body, model, context = 'AI proxy', task = '') {
     const url = this._aiProxyUrl();
     const headers = { 'Content-Type': 'application/json' };
     const appToken = (process.env.REACT_APP_AI_PROXY_APP_TOKEN || '').trim();
@@ -1073,7 +1073,11 @@ class GeminiService {
       }
     } catch (e) { /* not signed in / auth unavailable — proceed anonymously */ }
 
-    const payload = { model: model || apiKeyManager.defaultModel, ...body };
+    // Model policy lives server-side (task → free-tier chain). Only pass a
+    // model when the caller explicitly chose a Google-servable one; Puter-style
+    // ids (claude-*, gpt-*) would 404 on the Gemini API.
+    const googleModel = model && /^(models\/)?(google\/)?(gemini-|gemma-)/i.test(model) ? model : undefined;
+    const payload = { ...(googleModel ? { model: googleModel } : {}), ...(task ? { task } : {}), ...body };
     let res;
     try {
       res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(payload) });
@@ -1102,12 +1106,12 @@ class GeminiService {
     return data;
   }
 
-  async _requestGoogleWithRotation(body, { context = 'Google API', maxAttempts = 4, model } = {}) {
+  async _requestGoogleWithRotation(body, { context = 'Google API', maxAttempts = 4, model, task } = {}) {
     // Primary transport: server-side Netlify proxy. Keys live in Netlify env
     // (GEMINI_API_KEY*), never in the client bundle.
     if (this._useProxyFirst()) {
       try {
-        return await this._requestViaProxy(body, model, context);
+        return await this._requestViaProxy(body, model, context, task);
       } catch (e) {
         if (e instanceof RateLimitError) throw e;
         const canDevFallback = process.env.NODE_ENV !== 'production' && apiKeyManager.getTotalKeys() > 0;
@@ -1217,7 +1221,8 @@ class GeminiService {
     const t1 = Date.now();
     const data = await this._requestGoogleWithRotation(body, {
       context: 'Google API',
-      maxAttempts: 4
+      maxAttempts: 4,
+      task: options.task
     });
     const candidate = data?.candidates?.[0];
     const finishReason = candidate?.finishReason;
@@ -1339,7 +1344,8 @@ class GeminiService {
     const t1 = Date.now();
     const data = await this._requestGoogleWithRotation(body, {
       context: 'Google image API',
-      maxAttempts: 4
+      maxAttempts: 4,
+      task: options.task || 'solver'
     });
     if (this.debug) console.debug('[AI] Google.generateWithImages success', { ms: Date.now() - t1 });
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
@@ -1502,7 +1508,8 @@ class GeminiService {
       console.log('[AI] Sending request to Google API...');
       const data = await this._requestGoogleWithRotation(normalized, {
         context: 'Google payload fallback',
-        maxAttempts: 4
+        maxAttempts: 4,
+        task: payload.usageCategory === 'practiceTest' ? 'practiceTest' : 'tutorChat'
       });
       console.log('[AI] Google.generateFromPayload success', { ms: Date.now() - t1 });
       const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
@@ -1581,7 +1588,14 @@ class GeminiService {
 
   // Optional warm-up to reduce first-call latency and cold starts
   async prewarm({ multimodal = false } = {}) {
+    // Puter probing only makes sense for users who actually connected Puter —
+    // for everyone else it's page-load 402/auth noise (the Gemini proxy needs
+    // no warmup). Puter stays as the opt-in premium path.
     try {
+      const connected =
+        (typeof window !== 'undefined' && window.puter && window.puter.authToken) ||
+        (typeof localStorage !== 'undefined' && localStorage.getItem('apex.puter.authenticated') === 'true');
+      if (!connected) return;
       await this.ensureWorkingModel({ multimodal, probeMs: 3500 });
     } catch (_) {
       // ignore; we'll fallback during actual calls
@@ -1605,11 +1619,11 @@ class GeminiService {
 Output ONLY a JSON array. Each object: {"question":"...","answer":"..."}. Use $LaTeX$ for math.
 [{"question":"...","answer":"..."}]`;
 
-    const response = await this.generateContent(prompt, { temperature: 0.7, maxTokens: Math.max(count * 150, 1500) });
+    const response = await this.generateContent(prompt, { temperature: 0.7, maxTokens: Math.max(count * 150, 1500), task: 'flashcardGen' });
 
     // Use robust JSON extraction
     const result = this._extractJSON(response, true);
-    
+
     if (result.success && Array.isArray(result.data)) {
       // Validate flashcard structure
       const validCards = result.data.filter(card => 
@@ -1662,8 +1676,8 @@ Output ONLY JSON:
 Output ONLY a JSON array. Each object: {"question":"...","choices":["A","B","C","D"],"correctAnswer":0,"explanations":["...","...","...","..."],"concept":"..."}
 correctAnswer is the index (0-3) of the correct choice. Exactly 4 choices and 4 explanations per question.`;
 
-    const response = await this.generateContent(prompt, { temperature: 0.6, maxTokens: Math.max(count * 300, 2000) });
-    
+    const response = await this.generateContent(prompt, { temperature: 0.6, maxTokens: Math.max(count * 300, 2000), task: 'diagnostic' });
+
     const result = this._extractJSON(response, true);
     
     if (result.success && Array.isArray(result.data)) {

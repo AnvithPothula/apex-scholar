@@ -25,7 +25,7 @@ class APIKeyManager {
     this.defaultModel = this._normalizeGoogleModel(
       process.env.REACT_APP_GEMINI_MODEL && process.env.REACT_APP_GEMINI_MODEL.trim() !== ''
         ? process.env.REACT_APP_GEMINI_MODEL.trim()
-        : 'gemini-2.5-flash'
+        : 'gemini-3.1-flash-lite' // 500 RPD/project free vs 2.5-flash's 20
     );
     this.failedKeys = new Set();
     this.keyRetryTimes = new Map(); // Track when keys can be retried
@@ -50,15 +50,19 @@ class APIKeyManager {
    * safe Gemini default so fallback requests still work.
    */
   _normalizeGoogleModel(modelName) {
-    const raw = (modelName || '').toString().trim().replace(/^models\//, '');
-    if (!raw) return 'gemini-2.5-flash';
-    if (!raw.toLowerCase().startsWith('gemini-')) return 'gemini-2.5-flash';
+    const raw = (modelName || '').toString().trim()
+      .replace(/^models\//, '')
+      .replace(/^google\//, ''); // HF-style ids (google/gemma-4-31b-it)
+    if (!raw) return 'gemini-3.1-flash-lite';
+    const lower = raw.toLowerCase();
+    if (!lower.startsWith('gemini-') && !lower.startsWith('gemma-')) return 'gemini-3.1-flash-lite';
     return raw;
   }
 
   _getApiVersionForModel(modelName) {
     const model = this._normalizeGoogleModel(modelName);
-    return model.startsWith('gemini-2.5') ? 'v1beta' : 'v1';
+    // 2.5-*, 3.x and Gemma models are served on v1beta.
+    return /^(gemini-(2\.5|3)|gemma-)/.test(model) ? 'v1beta' : 'v1';
   }
 
   /**

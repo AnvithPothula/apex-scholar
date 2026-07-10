@@ -17,7 +17,6 @@ import errorLogger from '../../utils/errorLogger';
 const AUTH_KEY  = 'apex.puter.authenticated';
 const SKIP_KEY  = 'apex.puter.skipped';
 const SKIP_TS   = 'apex.puter.skippedAt';
-const RE_PROMPT_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 /** Check every reasonable signal that the user has previously authenticated */
 function isPuterAuthenticated() {
@@ -37,13 +36,6 @@ function isPuterAuthenticated() {
   return false;
 }
 
-function wasRecentlySkipped() {
-  try {
-    if (localStorage.getItem(SKIP_KEY) !== 'true') return false;
-    const ts = parseInt(localStorage.getItem(SKIP_TS) || '0', 10);
-    return (Date.now() - ts) < RE_PROMPT_MS;
-  } catch (e) { errorLogger.debug('wasRecentlySkipped check failed', { error: e?.message }); return false; }
-}
 
 export default function PuterAuthPrompt() {
   const [visible, setVisible] = useState(false);
@@ -51,56 +43,11 @@ export default function PuterAuthPrompt() {
   const [errorMsg, setErrorMsg] = useState('');
   const visibleRef = useRef(false);
 
-  // Decide whether to show the prompt
-  useEffect(() => {
-    // Check at 4s, then poll every 2s up to 12s for the SDK to arrive.
-    // This handles both fast connections (~200ms) and very slow ones.
-    // On a blocked network, __puterBlocked is set within 0-10s by
-    // the loader in index.html (onerror, onload check, fetch probe, timeout).
-    let attempts = 0;
-    const maxAttempts = 5; // 4s + (5 * 2s) = 14s max wait
-
-    function tryShow() {
-      if (isPuterAuthenticated()) return true;   // already good, stop
-      if (wasRecentlySkipped()) return true;     // user said "skip", stop
-
-      // Check if the SDK is actually available (live check, no flag dependency)
-      const sdkAvailable = typeof window !== 'undefined'
-        && window.puter
-        && window.puter.ai
-        && typeof window.puter.ai.chat === 'function';
-
-      if (sdkAvailable) {
-        // SDK is loaded — show the auth prompt
-        visibleRef.current = true;
-        setVisible(true);
-        return true; // stop polling
-      }
-
-      // SDK not yet available — keep waiting
-      attempts++;
-
-      // After max attempts, show the prompt anyway so the user can try
-      if (attempts >= maxAttempts) {
-        visibleRef.current = true;
-        setVisible(true);
-        return true;
-      }
-      return false;
-    }
-
-    // First check at 4s
-    const timer = setTimeout(() => {
-      if (tryShow()) return;
-      // If inconclusive, poll every 2s for the SDK to arrive
-      const interval = setInterval(() => {
-        if (tryShow()) clearInterval(interval);
-      }, 2000);
-      // Safety: clear interval after maxAttempts * 2s even if tryShow didn't stop it
-      setTimeout(() => clearInterval(interval), maxAttempts * 2000 + 100);
-    }, 4000);
-    return () => clearTimeout(timer);
-  }, []);
+  // Puter is opt-in premium now: the prompt NEVER auto-shows. It only opens
+  // when the user explicitly clicks "Connect Puter" (the apex:requestPuterAuth
+  // event below, fired from ModelSelector). The default AI path is the Gemini
+  // proxy; Puter exists for power users who want unlimited premium models on
+  // their own account — and it's the freemium seam later.
 
   // Listen for manual re-open requests (e.g. from ModelSelector "Connect Puter" button)
   useEffect(() => {

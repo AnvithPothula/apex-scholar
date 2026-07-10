@@ -7,12 +7,20 @@ describe('APIKeyManager model normalization', () => {
     apiKeyManager.setDefaultModel(originalModel);
   });
 
-  it('falls back to Gemini model for non-Gemini model names', () => {
+  it('falls back to the free-tier workhorse for non-Google model names', () => {
     apiKeyManager.setDefaultModel('claude-sonnet-4');
 
     const url = apiKeyManager.getCurrentUrl();
 
-    expect(url).toContain('/models/gemini-2.5-flash:generateContent');
+    expect(url).toContain('/v1beta/models/gemini-3.1-flash-lite:generateContent');
+  });
+
+  it('accepts Gemma ids (including HF-style google/ prefix) on v1beta', () => {
+    apiKeyManager.setDefaultModel('google/gemma-4-31b-it');
+
+    const url = apiKeyManager.getCurrentUrl();
+
+    expect(url).toContain('/v1beta/models/gemma-4-31b-it:generateContent');
   });
 
   it('keeps explicit Gemini model and matching API version', () => {

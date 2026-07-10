@@ -14,43 +14,29 @@
 
 // ---------------------------------------------------------------------------
 // Key management (server-side only — never sent to the client)
+//
+// Prefer unprefixed GEMINI_API_KEY* (the correct server-side names). Fall back
+// to the REACT_APP_GEMINI_API_KEY* vars, which are already set in Netlify and
+// scoped to Functions — this keeps prod AI working today without a manual env
+// migration. Once the unprefixed vars are populated, the fallback is dead code
+// and can be removed.
 // ---------------------------------------------------------------------------
-const API_KEYS = [
-  process.env.GEMINI_API_KEY,
-  process.env.GEMINI_API_KEY_2,
-  process.env.GEMINI_API_KEY_3,
-  process.env.GEMINI_API_KEY_4,
-  process.env.GEMINI_API_KEY_5,
-  process.env.GEMINI_API_KEY_6,
-  process.env.GEMINI_API_KEY_7,
-  process.env.GEMINI_API_KEY_8,
-  process.env.GEMINI_API_KEY_9,
-  process.env.GEMINI_API_KEY_10,
-  process.env.GEMINI_API_KEY_11,
-].filter(Boolean);
+const key = (n) =>
+  process.env[`GEMINI_API_KEY${n}`] || process.env[`REACT_APP_GEMINI_API_KEY${n}`];
+const API_KEYS = [key(''), key('_2'), key('_3'), key('_4'), key('_5'), key('_6'),
+  key('_7'), key('_8'), key('_9'), key('_10'), key('_11')].filter(Boolean);
+
+if (API_KEYS.length && !process.env.GEMINI_API_KEY) {
+  console.warn('[ai-proxy] Using REACT_APP_GEMINI_API_KEY* fallback — set unprefixed GEMINI_API_KEY* and remove the REACT_APP_ copies.');
+}
 
 let currentKeyIndex = 0;
-const failedUntil = new Map(); // keyIndex -> timestamp
-
-function getNextAvailableKey() {
-  const now = Date.now();
-  for (let i = 0; i < API_KEYS.length; i++) {
-    const idx = (currentKeyIndex + i) % API_KEYS.length;
-    const until = failedUntil.get(idx);
-    if (!until || now >= until) {
-      currentKeyIndex = idx;
-      return API_KEYS[idx];
-    }
-  }
-  // All keys exhausted — try the least-recently-failed one
-  currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
-  return API_KEYS[currentKeyIndex];
-}
-
-function markKeyFailed(idx, retryAfterMs = 300_000) {
-  failedUntil.set(idx, Date.now() + retryAfterMs);
-  currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
-}
+// Per-(key,model) 429 cooldowns and per-model "not found" sidelining. Each key
+// is a separate GCP project, and Gemini free limits are per project per model —
+// so a 429 on (key3, gemma-4-31b-it) must not sideline key3 for other models.
+// In-memory per Lambda instance (best-effort until the Cloudflare router lands).
+const modelKeyCooldown = new Map(); // `${keyIdx}:${model}` -> retry timestamp
+const modelDeadUntil = new Map();   // model -> timestamp (404 / not served)
 
 const parseCsv = (value = '') =>
   value
@@ -346,7 +332,7 @@ exports.handler = async (event) => {
     };
   }
 
-  const { model = 'gemini-2.5-flash', contents, generationConfig, safetySettings } = payload;
+  const { contents, generationConfig, safetySettings } = payload;
   if (!Array.isArray(contents) || contents.length === 0) {
     return {
       statusCode: 400,
@@ -355,48 +341,87 @@ exports.handler = async (event) => {
     };
   }
 
-  const apiVersion = model.startsWith('gemini-2.5') ? 'v1beta' : 'v1';
-  const cleanModel = model.replace(/^models\//, '');
+  // ---- Task → model routing (free-tier RPD-aware; ids confirmed by user) ----
+  // Per project: gemma-4-* = 1500 RPD each (bulk); gemini-3.1-flash-lite = 500
+  // RPD (interactive workhorse); gemini-3.5/3-preview/2.5 flash = 20 RPD each
+  // (scarce "premium" reserve — FRQ grading only). Pro models are 0 RPD: never.
+  const MODEL_CHAINS = {
+    bulk:        ['gemma-4-26b-a4b-it', 'gemma-4-31b-it', 'gemini-3.1-flash-lite'],
+    interactive: ['gemini-3.1-flash-lite', 'gemma-4-31b-it', 'gemini-2.5-flash'],
+    premium:     ['gemini-3.5-flash', 'gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-3.1-flash-lite'],
+    // Gemma is text-only — anything carrying an image must stay on Gemini.
+    vision:      ['gemini-3.1-flash-lite', 'gemini-2.5-flash', 'gemini-3.5-flash'],
+  };
+  const TASK_TO_CHAIN = {
+    tutorChat: 'interactive', explain: 'interactive', lessonTeach: 'interactive',
+    solver: 'vision',
+    mcqGenerate: 'bulk', practiceTest: 'bulk', flashcardGen: 'bulk',
+    summarize: 'bulk', reviewCard: 'bulk', diagnostic: 'bulk',
+    frqGrade: 'premium',
+  };
+  const normModel = (m) => String(m || '').replace(/^models\//, '').replace(/^google\//, '');
+  const isGoogleModel = (m) => /^(gemini-|gemma-)/.test(m);
+  const versionFor = (m) => (/^(gemini-(2\.5|3)|gemma-)/.test(m) ? 'v1beta' : 'v1');
 
-  // Try up to 3 different keys on 429
-  for (let attempt = 0; attempt < Math.min(3, API_KEYS.length); attempt++) {
-    const key = getNextAvailableKey();
-    const keyIdx = currentKeyIndex;
-    const url = `https://generativelanguage.googleapis.com/${apiVersion}/models/${cleanModel}:generateContent?key=${key}`;
+  const task = typeof payload.task === 'string' ? payload.task : '';
+  const hasImage = contents.some(
+    (c) => Array.isArray(c && c.parts) && c.parts.some((p) => p && (p.inline_data || p.inlineData))
+  );
+  const chainName = hasImage ? 'vision' : (TASK_TO_CHAIN[task] || 'interactive');
+  let models = MODEL_CHAINS[chainName].slice();
+  // An explicit Google model from the client (or env default) goes first.
+  const requested = normModel(payload.model);
+  const envDefault = normModel(process.env.GEMINI_DEFAULT_MODEL);
+  const preferred = isGoogleModel(requested) ? requested : (isGoogleModel(envDefault) ? envDefault : null);
+  if (preferred) models = [preferred, ...models.filter((m) => m !== preferred)];
 
-    try {
-      const resp = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents, generationConfig, safetySettings }),
-      });
+  // Walk the chain: per (key, model) cooldown on 429, per-model dead-mark on
+  // "model not found", bounded total attempts to keep latency sane.
+  let attempts = 0;
+  let lastErr = 'Service temporarily unavailable';
+  for (const m of models) {
+    if ((modelDeadUntil.get(m) || 0) > Date.now()) continue;
+    for (let k = 0; k < API_KEYS.length && attempts < 6; k++) {
+      const keyIdx = (currentKeyIndex + k) % API_KEYS.length;
+      const cd = modelKeyCooldown.get(`${keyIdx}:${m}`) || 0;
+      if (cd > Date.now()) continue;
+      attempts++;
+      const url = `https://generativelanguage.googleapis.com/${versionFor(m)}/models/${m}:generateContent?key=${API_KEYS[keyIdx]}`;
+      try {
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents, generationConfig, safetySettings }),
+        });
 
-      if (resp.status === 429) {
-        const retryAfter = parseInt(resp.headers.get('retry-after') || '300', 10);
-        markKeyFailed(keyIdx, retryAfter * 1000);
-        continue;
-      }
+        if (resp.status === 429) {
+          const retryAfter = parseInt(resp.headers.get('retry-after') || '3600', 10);
+          modelKeyCooldown.set(`${keyIdx}:${m}`, Date.now() + retryAfter * 1000);
+          continue; // next key, same model
+        }
+        if (resp.status === 404) {
+          // Model id not served (or not on this API version) — sideline it.
+          modelDeadUntil.set(m, Date.now() + 6 * 60 * 60 * 1000);
+          console.warn(`[ai-proxy] model ${m} returned 404 — sidelined 6h`);
+          break; // next model
+        }
 
-      const data = await resp.text();
-      return {
-        statusCode: resp.status,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-        body: data,
-      };
-    } catch (err) {
-      markKeyFailed(keyIdx, 60_000);
-      if (attempt === Math.min(3, API_KEYS.length) - 1) {
+        const data = await resp.text();
+        if (resp.ok) currentKeyIndex = (keyIdx + 1) % API_KEYS.length; // spread load
+        console.log(`[ai-proxy] task=${task || 'default'} chain=${chainName} model=${m} key=${keyIdx + 1} status=${resp.status}`);
         return {
-          statusCode: 502,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ error: 'All API attempts failed', detail: err.message }),
+          statusCode: resp.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Apex-Model': m },
+          body: data,
         };
+      } catch (err) {
+        lastErr = err.message;
+        modelKeyCooldown.set(`${keyIdx}:${m}`, Date.now() + 60_000);
       }
     }
+    if (attempts >= 6) break;
   }
+  console.error(`[ai-proxy] exhausted task=${task} chain=${chainName} attempts=${attempts}: ${lastErr}`);
 
   return {
     statusCode: 503,
