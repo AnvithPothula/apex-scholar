@@ -1,0 +1,21 @@
+{
+  "name": "apex-ai-router",
+  "main": "src/index.js",
+  "compatibility_date": "2026-06-01",
+  "observability": { "enabled": true },
+  "account_id": "db38dfb9f1711b9c55f11ba61a8649c5",
+  // Custom domain in the apex-scholar.com zone (auto DNS + SSL). Separate
+  // subdomain, so it never touches the Netlify-hosted apex / www.
+  "routes": [
+    { "pattern": "ai.apex-scholar.com", "custom_domain": true }
+  ],
+  // KV id is filled by `wrangler kv namespace create CACHE` (or the Cloudflare
+  // connector). Vars set here; the 11 GEMINI_API_KEY* are secrets (see README).
+  "kv_namespaces": [
+    { "binding": "CACHE", "id": "45315ec082eb42409ba4555207490337" }
+  ],
+  "vars": {
+    "ALLOWED_ORIGINS": "https://apex-scholar.com,https://www.apex-scholar.com,http://localhost:3000",
+    "GEMINI_DEFAULT_MODEL": "gemini-3.1-flash-lite"
+  }
+}
