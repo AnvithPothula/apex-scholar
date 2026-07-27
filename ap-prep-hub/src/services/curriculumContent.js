@@ -28,12 +28,55 @@ const lessonRef = (topicId) => doc(db, 'curriculum', 'apush', 'lessons', topicId
 const unitRef = (n) => doc(db, 'curriculum', 'apush', 'units', String(n));
 const practiceRef = (n) => doc(db, 'curriculum', 'apush', 'practice', `unit-${n}`);
 
+// ---- Client read cache ---------------------------------------------------
+// Generated content is immutable until an admin regenerates it, so cache reads
+// in localStorage: re-opening a lesson then costs 0 Firestore reads (the free
+// tier is 50k reads/day, and every lesson view was a read). Misses and
+// not-yet-generated content are never cached, so "Generate" still appears.
+const CACHE_PREFIX = 'apex.curriculum.v1.';
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+function cacheGet(key) {
+  try {
+    const raw = localStorage.getItem(CACHE_PREFIX + key);
+    if (!raw) return undefined;
+    const { at, data } = JSON.parse(raw);
+    if (!at || Date.now() - at > CACHE_TTL_MS) return undefined;
+    return data;
+  } catch (e) { return undefined; }
+}
+
+function cachePut(key, data) {
+  // Drop Firestore Timestamps — they don't survive a JSON round-trip and no
+  // caller reads them.
+  try {
+    const { generatedAt, ...rest } = data || {};
+    localStorage.setItem(CACHE_PREFIX + key, JSON.stringify({ at: Date.now(), data: rest }));
+  } catch (e) { /* quota / private mode — caching is best-effort */ }
+}
+
+/** Drop cached content for a unit (called after an admin regenerates it). */
+export function clearUnitCache(unitNumber) {
+  try {
+    const prefix = `${CACHE_PREFIX}`;
+    for (const k of Object.keys(localStorage)) {
+      if (k.startsWith(prefix) && (k.includes(`unit.${unitNumber}`) || k.includes('lesson.'))) {
+        localStorage.removeItem(k);
+      }
+    }
+  } catch (e) { /* ignore */ }
+}
+
 // ---- Reads (no generation) ----------------------------------------------
 
 export async function getLesson(topicId) {
+  const hit = cacheGet(`lesson.${topicId}`);
+  if (hit !== undefined) return hit;
   try {
     const snap = await getDoc(lessonRef(topicId));
-    return snap.exists() ? snap.data() : null;
+    const data = snap.exists() ? snap.data() : null;
+    if (data) cachePut(`lesson.${topicId}`, data);
+    return data;
   } catch (e) {
     console.error('[curriculum] getLesson failed', e);
     return null;
@@ -41,9 +84,13 @@ export async function getLesson(topicId) {
 }
 
 export async function getUnitSummary(unitNumber) {
+  const hit = cacheGet(`unit.${unitNumber}.summary`);
+  if (hit !== undefined) return hit;
   try {
     const snap = await getDoc(unitRef(unitNumber));
-    return snap.exists() ? snap.data() : null;
+    const data = snap.exists() ? snap.data() : null;
+    if (data) cachePut(`unit.${unitNumber}.summary`, data);
+    return data;
   } catch (e) {
     console.error('[curriculum] getUnitSummary failed', e);
     return null;
@@ -51,9 +98,13 @@ export async function getUnitSummary(unitNumber) {
 }
 
 export async function getUnitPractice(unitNumber) {
+  const hit = cacheGet(`unit.${unitNumber}.practice`);
+  if (hit !== undefined) return hit.mcqs;
   try {
     const snap = await getDoc(practiceRef(unitNumber));
-    return snap.exists() ? snap.data().mcqs || [] : null;
+    const mcqs = snap.exists() ? snap.data().mcqs || [] : null;
+    if (mcqs) cachePut(`unit.${unitNumber}.practice`, { mcqs });
+    return mcqs;
   } catch (e) {
     console.error('[curriculum] getUnitPractice failed', e);
     return null;
@@ -106,6 +157,10 @@ export async function generateUnit(unitNumber, opts = {}) {
   const unit = getUnit(unitNumber);
   if (!unit) throw new Error(`Unknown unit ${unitNumber}`);
   const result = { lessons: 0, summary: false, practice: 0, errors: [] };
+
+  // Regenerating replaces the content — drop the client cache so the admin
+  // (and this browser) don't keep reading the old version.
+  clearUnitCache(unitNumber);
 
   // 1) Source text from the unit's PDFs.
   onProgress(`Reading noteguide for Unit ${unitNumber}…`);

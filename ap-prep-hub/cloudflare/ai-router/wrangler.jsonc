@@ -15,7 +15,6 @@
     { "binding": "CACHE", "id": "45315ec082eb42409ba4555207490337" }
   ],
   "vars": {
-    "ALLOWED_ORIGINS": "https://apex-scholar.com,https://www.apex-scholar.com,http://localhost:3000",
-    "GEMINI_DEFAULT_MODEL": "gemini-3.1-flash-lite"
+    "ALLOWED_ORIGINS": "https://apex-scholar.com,https://www.apex-scholar.com,http://localhost:3000"
   }
 }

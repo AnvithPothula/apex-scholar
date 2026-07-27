@@ -1073,10 +1073,15 @@ class GeminiService {
       }
     } catch (e) { /* not signed in / auth unavailable — proceed anonymously */ }
 
-    // Model policy lives server-side (task → free-tier chain). Only pass a
-    // model when the caller explicitly chose a Google-servable one; Puter-style
-    // ids (claude-*, gpt-*) would 404 on the Gemini API.
-    const googleModel = model && /^(models\/)?(google\/)?(gemini-|gemma-)/i.test(model) ? model : undefined;
+    // Model policy lives server-side (task → free-tier chain). Only forward a
+    // model the USER explicitly picked in the ModelSelector. The resolved
+    // fallback (env REACT_APP_GEMINI_MODEL / discovered Puter model) must NEVER
+    // be sent: the router prepends an explicit model to every chain, so an env
+    // default like gemini-2.5-flash would pin all traffic to one model's 20 RPD
+    // and silently defeat task routing. Puter-style ids (claude-*, gpt-*) are
+    // also dropped — they'd 404 on the Gemini API.
+    const picked = this._userModel;
+    const googleModel = picked && /^(models\/)?(google\/)?(gemini-|gemma-)/i.test(picked) ? picked : undefined;
     const payload = { ...(googleModel ? { model: googleModel } : {}), ...(task ? { task } : {}), ...body };
     let res;
     try {

@@ -17,7 +17,7 @@
 const CORS_METHODS = 'POST, OPTIONS';
 
 const MODEL_CHAINS = {
-  bulk:        ['gemma-4-26b-a4b-it', 'gemma-4-31b-it', 'gemini-3.1-flash-lite'],
+  bulk:        ['gemma-4-31b-it', 'gemma-4-26b-a4b-it', 'gemini-3.1-flash-lite'],
   interactive: ['gemini-3.1-flash-lite', 'gemma-4-31b-it', 'gemini-2.5-flash'],
   premium:     ['gemini-3.5-flash', 'gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-3.1-flash-lite'],
   vision:      ['gemini-3.1-flash-lite', 'gemini-2.5-flash', 'gemini-3.5-flash'],
@@ -69,6 +69,15 @@ export default {
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers });
     if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405, headers);
 
+    // Optional shared-token gate. CORS only stops browsers, so without this the
+    // Worker is an open proxy anyone can curl to drain your free quota. Gated on
+    // the APP_TOKEN secret — no-op until you set it (matches the Netlify proxy).
+    // ponytail: token is bundle-public (deters casual curl abuse, not a
+    // determined attacker); upgrade to Turnstile / per-user auth if abused.
+    if (env.APP_TOKEN && req.headers.get('x-app-token') !== env.APP_TOKEN) {
+      return json({ error: 'Unauthorized' }, 401, headers);
+    }
+
     let payload;
     try { payload = await req.json(); } catch { return json({ error: 'Invalid JSON' }, 400, headers); }
     const { contents, generationConfig, safetySettings, task = '' } = payload;
@@ -94,38 +103,43 @@ export default {
     // ---- Task -> model chain, with an explicit Google model jumping the queue ----
     const chainName = hasImage ? 'vision' : (TASK_TO_CHAIN[task] || 'interactive');
     let models = MODEL_CHAINS[chainName].slice();
-    const preferred = isGoogleModel(norm(payload.model)) ? norm(payload.model)
-      : (isGoogleModel(norm(env.GEMINI_DEFAULT_MODEL)) ? norm(env.GEMINI_DEFAULT_MODEL) : null);
+    // Only an *explicit* client-chosen Google model jumps the chain. (An env
+    // default must NOT — it would override task routing for every request.)
+    const preferred = isGoogleModel(norm(payload.model)) ? norm(payload.model) : null;
     if (preferred) models = [preferred, ...models.filter((m) => m !== preferred)];
 
-    let attempts = 0;
     let lastErr = 'Service temporarily unavailable';
+    // Random start spreads load across the ~10 key/projects (Worker isolates
+    // don't share a rotation counter). Every non-2xx (except a genuine 400)
+    // just tries the next key — a 403/404/429/5xx can be key-specific (a flaky
+    // project), so we never abandon a model on one bad key. flash-lite is the
+    // last entry in every chain, so the walk always reaches a working floor.
+    const start = Math.floor(Math.random() * API_KEYS.length);
+    const perModelKeys = Math.min(5, API_KEYS.length);
     for (const m of models) {
       const version = versionFor(m);
-      for (let k = 0; k < API_KEYS.length && attempts < 6; k++) {
-        attempts++;
-        const url = `https://generativelanguage.googleapis.com/${version}/models/${m}:generateContent?key=${API_KEYS[k]}`;
+      for (let i = 0; i < perModelKeys; i++) {
+        const key = API_KEYS[(start + i) % API_KEYS.length];
+        const url = `https://generativelanguage.googleapis.com/${version}/models/${m}:generateContent?key=${key}`;
         try {
           const resp = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ contents, generationConfig, safetySettings }),
           });
-          if (resp.status === 429) continue;      // next key, same model
-          if (resp.status === 404) break;         // wrong id for this version -> next model
-          const body = await resp.text();
-          if (resp.ok && cacheKey) {
-            await env.CACHE.put(cacheKey, body, { expirationTtl: 60 * 60 * 24 * 30 });
+          if (!resp.ok) {
+            if (resp.status === 400) {
+              return new Response(await resp.text(), { status: 400, headers: { ...headers, 'X-Apex-Model': m } });
+            }
+            continue; // 401/403/404/429/5xx -> next key
           }
-          return new Response(body, {
-            status: resp.status,
-            headers: { ...headers, 'X-Apex-Model': m, 'X-Apex-Cache': 'miss' },
-          });
+          const body = await resp.text();
+          if (cacheKey) await env.CACHE.put(cacheKey, body, { expirationTtl: 60 * 60 * 24 * 30 });
+          return new Response(body, { status: 200, headers: { ...headers, 'X-Apex-Model': m, 'X-Apex-Cache': 'miss' } });
         } catch (err) {
           lastErr = err.message;
         }
       }
-      if (attempts >= 6) break;
     }
     return json({ error: 'All API attempts failed', detail: lastErr }, 502, headers);
   },

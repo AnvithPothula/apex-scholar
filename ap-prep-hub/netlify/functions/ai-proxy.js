@@ -36,7 +36,6 @@ let currentKeyIndex = 0;
 // so a 429 on (key3, gemma-4-31b-it) must not sideline key3 for other models.
 // In-memory per Lambda instance (best-effort until the Cloudflare router lands).
 const modelKeyCooldown = new Map(); // `${keyIdx}:${model}` -> retry timestamp
-const modelDeadUntil = new Map();   // model -> timestamp (404 / not served)
 
 const parseCsv = (value = '') =>
   value
@@ -346,7 +345,7 @@ exports.handler = async (event) => {
   // RPD (interactive workhorse); gemini-3.5/3-preview/2.5 flash = 20 RPD each
   // (scarce "premium" reserve — FRQ grading only). Pro models are 0 RPD: never.
   const MODEL_CHAINS = {
-    bulk:        ['gemma-4-26b-a4b-it', 'gemma-4-31b-it', 'gemini-3.1-flash-lite'],
+    bulk:        ['gemma-4-31b-it', 'gemma-4-26b-a4b-it', 'gemini-3.1-flash-lite'],
     interactive: ['gemini-3.1-flash-lite', 'gemma-4-31b-it', 'gemini-2.5-flash'],
     premium:     ['gemini-3.5-flash', 'gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-3.1-flash-lite'],
     // Gemma is text-only — anything carrying an image must stay on Gemini.
@@ -369,23 +368,23 @@ exports.handler = async (event) => {
   );
   const chainName = hasImage ? 'vision' : (TASK_TO_CHAIN[task] || 'interactive');
   let models = MODEL_CHAINS[chainName].slice();
-  // An explicit Google model from the client (or env default) goes first.
+  // Only an *explicit* client-chosen Google model jumps the chain — never an
+  // env default, which would override task routing for every request.
   const requested = normModel(payload.model);
-  const envDefault = normModel(process.env.GEMINI_DEFAULT_MODEL);
-  const preferred = isGoogleModel(requested) ? requested : (isGoogleModel(envDefault) ? envDefault : null);
+  const preferred = isGoogleModel(requested) ? requested : null;
   if (preferred) models = [preferred, ...models.filter((m) => m !== preferred)];
 
   // Walk the chain: per (key, model) cooldown on 429, per-model dead-mark on
   // "model not found", bounded total attempts to keep latency sane.
-  let attempts = 0;
   let lastErr = 'Service temporarily unavailable';
+  // Up to 3 keys per model. Every non-2xx (except a genuine 400) tries the next
+  // key — a 403/404/429/5xx can be key-specific (a flaky project), so we never
+  // abandon a model on one bad key. flash-lite is the floor of every chain.
   for (const m of models) {
-    if ((modelDeadUntil.get(m) || 0) > Date.now()) continue;
-    for (let k = 0; k < API_KEYS.length && attempts < 6; k++) {
+    for (let tried = 0, k = 0; tried < 5 && k < API_KEYS.length; k++) {
       const keyIdx = (currentKeyIndex + k) % API_KEYS.length;
-      const cd = modelKeyCooldown.get(`${keyIdx}:${m}`) || 0;
-      if (cd > Date.now()) continue;
-      attempts++;
+      if ((modelKeyCooldown.get(`${keyIdx}:${m}`) || 0) > Date.now()) continue;
+      tried++;
       const url = `https://generativelanguage.googleapis.com/${versionFor(m)}/models/${m}:generateContent?key=${API_KEYS[keyIdx]}`;
       try {
         const resp = await fetch(url, {
@@ -393,33 +392,26 @@ exports.handler = async (event) => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ contents, generationConfig, safetySettings }),
         });
-
-        if (resp.status === 429) {
-          const retryAfter = parseInt(resp.headers.get('retry-after') || '3600', 10);
+        if (!resp.ok) {
+          if (resp.status === 400) {
+            return { statusCode: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Apex-Model': m }, body: await resp.text() };
+          }
+          const retryAfter = resp.status === 429 ? parseInt(resp.headers.get('retry-after') || '3600', 10) : 60;
           modelKeyCooldown.set(`${keyIdx}:${m}`, Date.now() + retryAfter * 1000);
-          continue; // next key, same model
+          continue; // next key
         }
-        if (resp.status === 404) {
-          // Model id not served (or not on this API version) — sideline it.
-          modelDeadUntil.set(m, Date.now() + 6 * 60 * 60 * 1000);
-          console.warn(`[ai-proxy] model ${m} returned 404 — sidelined 6h`);
-          break; // next model
-        }
-
-        const data = await resp.text();
-        if (resp.ok) currentKeyIndex = (keyIdx + 1) % API_KEYS.length; // spread load
-        console.log(`[ai-proxy] task=${task || 'default'} chain=${chainName} model=${m} key=${keyIdx + 1} status=${resp.status}`);
+        currentKeyIndex = (keyIdx + 1) % API_KEYS.length; // spread load
+        console.log(`[ai-proxy] task=${task || 'default'} chain=${chainName} model=${m} key=${keyIdx + 1} ok`);
         return {
-          statusCode: resp.status,
+          statusCode: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Apex-Model': m },
-          body: data,
+          body: await resp.text(),
         };
       } catch (err) {
         lastErr = err.message;
         modelKeyCooldown.set(`${keyIdx}:${m}`, Date.now() + 60_000);
       }
     }
-    if (attempts >= 6) break;
   }
   console.error(`[ai-proxy] exhausted task=${task} chain=${chainName} attempts=${attempts}: ${lastErr}`);
 
