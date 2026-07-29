@@ -8,6 +8,7 @@ import apiKeyManager from '../services/APIKeyManager';
 import apiManager from '../services/apiManager';
 import geminiService, { RateLimitError } from '../services/geminiService';
 import aiUsageLimiter from '../services/aiUsageLimiter';
+import srs from '../services/srs';
 import { getDefaultModel } from '../components/ui/ModelSelector';
 import { TEST_CONFIGURATIONS, DEFAULT_CONFIG } from '../constants/testConfigurations';
 import { parseAIResponse, fixLaTeXInQuestions, isQuestionDuplicate } from '../utils/testUtils';
@@ -90,6 +91,10 @@ const PracticeTests = () => {
   })), []);
 
   // Helper function for AP score conversion
+  // ⚠️ ONE curve for all 36 subjects. Real AP cut points vary by subject and are
+  // re-set every year, so this is a rough indicator only — never present it as a
+  // predicted College Board score (see ResultsPanel). Replacing this with
+  // per-subject cut points is tracked as A6 in the plan.
   const convertToAPScore = useCallback((percentage) => {
     if (percentage >= 75) return 5;
     if (percentage >= 50) return 4;
@@ -864,12 +869,22 @@ Format as JSON:
       // Save test to Firebase
       if (user) {
         try {
-          // Deep sanitize function to remove undefined values
+          // Deep sanitize function to remove undefined values.
+          // NOTE: serverTimestamp() returns a FieldValue sentinel — an object.
+          // Recursing into it rebuilt it as the plain map
+          // {_methodName: 'serverTimestamp'}, which Firestore then stored
+          // literally instead of resolving to a real server time. That silently
+          // broke orderBy('createdAt') (maps sort after timestamps) and every
+          // date derived from it. Sentinels are now passed through untouched.
+          const isFieldValue = (v) =>
+            v && typeof v === 'object' && typeof v._methodName === 'string';
+
           const deepSanitize = (obj) => {
             if (obj === null || obj === undefined) return null;
             if (typeof obj !== 'object') return obj;
+            if (isFieldValue(obj)) return obj;
             if (Array.isArray(obj)) return obj.map(deepSanitize);
-            
+
             const sanitized = {};
             Object.keys(obj).forEach(key => {
               const value = obj[key];
@@ -904,7 +919,10 @@ Format as JSON:
             results: results || {},
             createdAt: serverTimestamp(),
             timeSpent: getTimeSpent() || 0,
-            subsection: selectedSubSection || null
+            subsection: selectedSubSection || null,
+            // Recorded so the mastery model can report per-unit accuracy
+            // instead of only per-question-type.
+            selectedUnits: selectedUnits || []
           });
 
           // Check payload size — Firestore limit is 1MB
@@ -919,6 +937,28 @@ Format as JSON:
           }
           await addDoc(collection(db, 'practiceTests'), sanitizedData);
           console.log('Test saved to history successfully');
+
+          // Every miss becomes a spaced-repetition card, so a wrong answer
+          // comes back on a schedule instead of being forgotten.
+          try {
+            const qById = new Map((questions || []).map((q) => [q.id, q]));
+            const misses = (emergencyCleanedResults?.questionResults || [])
+              .filter((r) => !r.correct)
+              .map((r) => {
+                const q = qById.get(r.questionId) || {};
+                return {
+                  question: q.question || q.prompt || '',
+                  subject: selectedSubject,
+                  unit: (selectedUnits || []).length === 1 ? selectedUnits[0] : null,
+                  userAnswer: r.userAnswer,
+                  correctAnswer: r.correctAnswer,
+                  explanation: r.feedback || q.explanation
+                };
+              });
+            await srs.addMisses(user.uid, misses);
+          } catch (error) {
+            console.error('Error queueing missed questions for review:', error);
+          }
         } catch (error) {
           console.error('Error saving test results:', error, error?.code, error?.message);
         }
@@ -944,7 +984,7 @@ Format as JSON:
       setTestResults(cleaned);
       setCurrentView('results');
     }
-  }, [user, selectedSubject, selectedSection, selectedSubSection, questions, userAnswers, calculateResults, getTimeSpent, sanitizeResultsData, emergencyCleanResults]);
+  }, [user, selectedSubject, selectedSection, selectedSubSection, selectedUnits, questions, userAnswers, calculateResults, getTimeSpent, sanitizeResultsData, emergencyCleanResults]);
 
   const handleTimeUp = useCallback(() => {
     setTestStarted(false);
@@ -982,12 +1022,22 @@ Format as JSON:
     if (testStarted && user && Object.keys(userAnswers).length > 0) {
       const saveProgress = async () => {
         try {
-          // Deep sanitize function to remove undefined values
+          // Deep sanitize function to remove undefined values.
+          // NOTE: serverTimestamp() returns a FieldValue sentinel — an object.
+          // Recursing into it rebuilt it as the plain map
+          // {_methodName: 'serverTimestamp'}, which Firestore then stored
+          // literally instead of resolving to a real server time. That silently
+          // broke orderBy('createdAt') (maps sort after timestamps) and every
+          // date derived from it. Sentinels are now passed through untouched.
+          const isFieldValue = (v) =>
+            v && typeof v === 'object' && typeof v._methodName === 'string';
+
           const deepSanitize = (obj) => {
             if (obj === null || obj === undefined) return null;
             if (typeof obj !== 'object') return obj;
+            if (isFieldValue(obj)) return obj;
             if (Array.isArray(obj)) return obj.map(deepSanitize);
-            
+
             const sanitized = {};
             Object.keys(obj).forEach(key => {
               const value = obj[key];

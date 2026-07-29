@@ -6,6 +6,7 @@ import { collection, query, orderBy, getDocs, deleteDoc, doc } from 'firebase/fi
 import { seedAllPublicDecks } from '../utils/seedPublicDecks';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../contexts/ConfirmContext';
+import { Button } from './ui/UIComponents';
 
 // Admin UIDs that can access Developer Settings
 const ADMIN_UIDS = [
@@ -100,7 +101,7 @@ export default function DeveloperSettings({ onClose }) {
 
     return (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-            <div className="bg-base-850 rounded-sm p-6 max-w-2xl w-full max-h-[85vh] overflow-y-auto border border-border">
+            <div className="bg-base-850 rounded-lg p-6 max-w-2xl w-full max-h-[85vh] overflow-y-auto border border-border">
                 <div className="flex items-center justify-between mb-6">
                     <h2 className="text-xl font-bold text-content-primary flex items-center">
                         <Code2 className="w-5 h-5 mr-2 text-content-primary" strokeWidth={1.5} />
@@ -240,11 +241,13 @@ export default function DeveloperSettings({ onClose }) {
                     </button>
 
                     {expandedSection === 'puter' && (
-                        <div className="p-4 space-y-3">
-                            <p className="text-sm text-content-muted">
+                        <div className="p-4 space-y-3 border-t border-border">
+                            <p className="text-body-sm text-content-secondary">
                                 Clear Puter authentication tokens and cached data. The user will be prompted to re-authenticate on their next AI request.
                             </p>
-                            <button
+                            <Button
+                                variant="destructive"
+                                size="sm"
                                 onClick={() => {
                                     // Clear all Puter-related localStorage keys
                                     const keysToRemove = [];
@@ -259,45 +262,57 @@ export default function DeveloperSettings({ onClose }) {
                                     window.dispatchEvent(new CustomEvent('apex:puterAuthCleared'));
                                     toast.success(`Cleared ${keysToRemove.length} Puter auth key(s). Puter models are now disabled.`);
                                 }}
-                                className="px-4 py-2 bg-error-600 hover:bg-error-700 text-content-primary rounded-lg transition-colors text-sm font-medium flex items-center gap-2"
                             >
-                                <ShieldOff className="w-4 h-4" strokeWidth={1.5} />
+                                <ShieldOff className="w-4 h-4 mr-2" strokeWidth={1.5} />
                                 Clear Puter Authentication
-                            </button>
+                            </Button>
                         </div>
                     )}
+                </div>
 
-                    {/* Seed Public Flashcard Decks */}
-                    <div className="border-t border-gray-700 pt-4 mt-4">
-                        <h3 className="text-lg font-semibold text-gray-200 mb-3 flex items-center gap-2">
-                            <BookOpen className="w-5 h-5" strokeWidth={1.5} />
-                            Public Flashcard Decks
-                        </h3>
-                        <p className="text-sm text-gray-400 mb-3">
-                            Generate AI-powered flashcard decks for all major AP subjects. Each unit gets a 15-card deck published under "Apex Scholar".
-                        </p>
-                        <button
-                            onClick={handleSeedDecks}
-                            disabled={seedStatus === 'running'}
-                            className="px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-content-primary rounded-lg transition-colors text-sm font-medium flex items-center gap-2"
-                        >
-                            {seedStatus === 'running' ? (
-                                <><Loader2 className="w-4 h-4 animate-spin" strokeWidth={1.5} /> Generating…</>
-                            ) : (
-                                <><BookOpen className="w-4 h-4" strokeWidth={1.5} /> Seed All Decks</>
+                {/* Public Flashcard Decks — its own section. This used to be nested
+                    INSIDE the Puter card, so it rendered below a collapsed header
+                    inside the same border and looked like a layout bug. */}
+                <div className="border border-border-strong rounded-lg overflow-hidden mt-4">
+                    <button
+                        onClick={() => setExpandedSection(expandedSection === 'decks' ? '' : 'decks')}
+                        className="w-full flex items-center justify-between p-4 bg-base-800/50 hover:bg-base-800 transition-colors"
+                    >
+                        <div className="flex items-center gap-2">
+                            <BookOpen className="w-4 h-4 text-content-muted" strokeWidth={1.5} />
+                            <span className="font-medium text-content-primary">Public Flashcard Decks</span>
+                        </div>
+                        {expandedSection === 'decks' ? (
+                            <ChevronUp className="w-4 h-4 text-content-muted" strokeWidth={1.5} />
+                        ) : (
+                            <ChevronDown className="w-4 h-4 text-content-muted" strokeWidth={1.5} />
+                        )}
+                    </button>
+
+                    {expandedSection === 'decks' && (
+                        <div className="p-4 space-y-3 border-t border-border">
+                            <p className="text-body-sm text-content-secondary">
+                                Generate AI-powered flashcard decks for all major AP subjects. Each unit gets a 15-card deck published under &quot;Apex Scholar&quot;.
+                            </p>
+                            <Button variant="primary" size="sm" onClick={handleSeedDecks} disabled={seedStatus === 'running'}>
+                                {seedStatus === 'running' ? (
+                                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" strokeWidth={1.5} /> Generating…</>
+                                ) : (
+                                    <><BookOpen className="w-4 h-4 mr-2" strokeWidth={1.5} /> Seed All Decks</>
+                                )}
+                            </Button>
+                            {seedLog.length > 0 && (
+                                <div className="max-h-40 overflow-y-auto bg-base-900 border border-border rounded-lg p-3 text-xs font-mono text-content-muted space-y-0.5">
+                                    {seedLog.map((line, i) => <div key={i}>{line}</div>)}
+                                </div>
                             )}
-                        </button>
-                        {seedLog.length > 0 && (
-                            <div className="mt-3 max-h-40 overflow-y-auto bg-gray-900 rounded-lg p-3 text-xs font-mono text-gray-400 space-y-0.5">
-                                {seedLog.map((line, i) => <div key={i}>{line}</div>)}
-                            </div>
-                        )}
-                        {seedResult && (
-                            <div className="mt-2 text-sm text-gray-300">
-                                Done: {seedResult.created} created, {seedResult.failed} failed, {seedResult.skipped} skipped
-                            </div>
-                        )}
-                    </div>
+                            {seedResult && (
+                                <p className="text-body-sm text-content-secondary">
+                                    Done: {seedResult.created} created, {seedResult.failed} failed, {seedResult.skipped} skipped
+                                </p>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

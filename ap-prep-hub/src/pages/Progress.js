@@ -1,14 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Trophy, Star, Calendar, TrendingUp, Award, Target, BookOpen, Brain, Calculator, Zap, Clock, BarChart3, Medal, Crown, Flame, CheckCircle, AlertCircle, ChevronRight, Filter, Download } from 'lucide-react';
+import { Trophy, Star, TrendingUp, Award, Target, BookOpen, Zap, Clock, BarChart3, Medal, Crown, AlertCircle, ChevronRight, Download } from 'lucide-react';
 import { Card, Button, Badge, Progress } from '../components/ui/UIComponents';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { AP_SUBJECTS } from '../constants/subjects';
-import { cn } from '../utils/helpers';
+import { cn, createPageUrl } from '../utils/helpers';
 import achievementsService from '../services/achievementsService';
 import dataService from '../services/dataService';
 import geminiService from '../services/geminiService';
+import { masteryBySubject, weakestArea } from '../services/mastery';
+import srs, { dueCards } from '../services/srs';
 import StreakCalendar from '../components/ui/StreakCalendar';
 import ExamCountdown from '../components/ui/ExamCountdown';
 import { SUBJECT_KEY_TO_EXAM_NAME } from '../constants/apExamDates';
@@ -30,8 +31,18 @@ const formatLocalDateKey = (date) => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 };
 
-const processSubjectProgress = (progressData, studySessions) => {
+const processSubjectProgress = (progressData, studySessions, practiceTests = [], mySubjects = []) => {
   const subjectMap = new Map();
+
+  // Real strengths/weaknesses, measured from graded practice questions. Subjects
+  // with too little data get empty lists — the card then says "not enough data"
+  // rather than showing a guess.
+  const masteryMap = new Map(masteryBySubject(practiceTests).map((m) => [m.subject, m]));
+
+  // A subject the user has only practice-tested still deserves a card.
+  masteryMap.forEach((_, subject) => {
+    if (!subjectMap.has(subject)) subjectMap.set(subject, { name: subject, sessions: [] });
+  });
 
   studySessions.forEach(session => {
     if (!session.subject) return;
@@ -45,35 +56,100 @@ const processSubjectProgress = (progressData, studySessions) => {
     subjectMap.get(session.subject).sessions.push(session);
   });
 
-  return Array.from(subjectMap.values()).map((subject, index) => {
+  return Array.from(subjectMap.values()).map((subject) => {
     const allSessions = subject.sessions;
     const totalTime = subject.sessions.reduce((sum, s) => sum + (s.duration || 0), 0);
     const avgAccuracy = allSessions.length > 0
       ? allSessions.reduce((sum, s) => sum + (s.accuracy || 0), 0) / allSessions.length
       : 0;
 
-    const colors = [
-      'bg-content-primary',
-      'bg-success-500',
-      'bg-content-primary',
-      'bg-error-500',
-      'bg-warning-500'
-    ];
+    const m = masteryMap.get(subject.name);
+    const sessionQuestions = allSessions.reduce((sum, s) => sum + (s.questionsAnswered || 0), 0);
 
     return {
       name: subject.name,
-      progress: Math.min(100, Math.round((allSessions.length / 10) * 100)),
-      accuracy: Math.round(avgAccuracy),
+      // Graded practice questions beat self-reported session accuracy.
+      accuracy: m && m.questionsAnswered ? m.accuracy : Math.round(avgAccuracy),
       timeSpent: formatStudyTime(totalTime),
-      questionsAnswered: allSessions.reduce((sum, s) => sum + (s.questionsAnswered || 0), 0),
-      strongTopics: ['Advanced Concepts', 'Problem Solving'],
-      weakTopics: ['Basic Fundamentals', 'Time Management'],
-      lastStudied: allSessions.length > 0 ? 'Recently' : 'Never',
-      streak: Math.min(10, allSessions.length),
-      color: colors[index % colors.length]
+      questionsAnswered: sessionQuestions + (m ? m.questionsAnswered : 0),
+      strongTopics: m ? m.strongAreas.slice(0, 3).map((a) => a.label) : [],
+      weakTopics: m ? m.weakAreas.slice(0, 3).map((a) => a.label) : [],
+      masteryLevel: m ? m.level : 'insufficient',
+      lastStudied: allSessions.length > 0 || (m && m.attempts) ? 'Recently' : 'Never',
+      streak: Math.min(10, allSessions.length)
     };
-  }).slice(0, 5);
+  })
+    // Show only the subjects the user actually picked in Settings. If they
+    // haven't chosen any yet, fall back to everything rather than an empty page.
+    .filter((s) => (mySubjects.length ? mySubjects.includes(s.name) : true))
+    .slice(0, 5);
 };
+
+// Module level (takes uid explicitly) so it is stable across renders and can sit
+// in loadUserProgress's dependency list without re-triggering the load.
+const processAchievements = (achievements, uid) => {
+  const allAchievements = achievementsService.getAllAchievements();
+  const unlockedAchievements = achievements.unlockedAchievements || [];
+
+  // Used to render only the first 4 of ~26, so most achievements were invisible
+  // and the section looked broken. Show them all, earned first, then the ones
+  // closest to completion, with locked mysteries last.
+  const displayList = Object.values(allAchievements).map(raw => {
+    const isUnlocked = unlockedAchievements.includes(raw.id);
+    const achievement = achievementsService.presentAchievement(raw, isUnlocked);
+    const progress = achievementsService.getAchievementProgress(
+      uid,
+      raw.id,
+      achievements.activityCounters || {},
+      achievements.studyStreaks || {}
+    );
+
+    const current = progress ? progress.current : 0;
+    const target = progress ? progress.target : 100;
+    return {
+      id: raw.id,
+      title: achievement.title,
+      description: achievement.description,
+      icon: achievement.icon,
+      category: raw.category,
+      points: raw.points,
+      secret: !!achievement.secret,
+      earned: isUnlocked,
+      earnedDate: isUnlocked ? new Date().toLocaleDateString() : null,
+      // A secret achievement's progress is part of the surprise — hide it.
+      progress: achievement.secret ? 0 : current,
+      target: achievement.secret ? 1 : target,
+      _rank: isUnlocked ? 2 : achievement.secret ? 0 : 1,
+      _pct: target ? current / target : 0,
+    };
+  }).sort((a, b) => (b._rank - a._rank) || (b._pct - a._pct));
+
+  return {
+    unlocked: unlockedAchievements,
+    totalPoints: achievements.totalPoints || 0,
+    activityCounters: achievements.activityCounters || {},
+    studyStreaks: achievements.studyStreaks || {},
+    displayList
+  };
+};
+
+/**
+ * Shown instead of a bare section heading when a list is empty. Every user's
+ * first visit hits all of these, so a naked <h2> with nothing under it reads as
+ * a broken page.
+ */
+/** Where a recommendation card should take you when clicked. */
+const recTarget = (rec) => {
+  if (rec?.type === 'review') return createPageUrl('Review');
+  if (rec?.type === 'start') return createPageUrl('Practice');
+  return createPageUrl('PracticeTests');
+};
+
+const EmptySection = ({ children }) => (
+  <Card className="p-6">
+    <p className="text-body-sm text-content-secondary">{children}</p>
+  </Card>
+);
 
 const processWeeklyActivity = (studySessions) => {
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -105,21 +181,33 @@ const ProgressPage = () => {
   // eslint-disable-next-line no-unused-vars
   const [selectedMetric, setSelectedMetric] = useState('overall');
   const [progressData, setProgressData] = useState(null);
+  // eslint-disable-next-line no-unused-vars
   const [userAchievements, setUserAchievements] = useState(null);
   const [achievementsByCategory, setAchievementsByCategory] = useState({});
   const [isLoading, setIsLoading] = useState(true);
+  // eslint-disable-next-line no-unused-vars
   const [userStats, setUserStats] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [dueCount, setDueCount] = useState(0);
 
+  // The single worst evidenced area across every subject.
+  const focus = useMemo(
+    () => (progressData ? weakestArea(progressData.masteries || []) : null),
+    [progressData]
+  );
+
+  // The review queue drives the primary CTA, so it loads alongside the page.
   useEffect(() => {
-    if (user) {
-      loadUserProgress();
-    } else {
-      setIsLoading(false);
-    }
-  }, [user, loadUserProgress]);
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      const queue = await srs.getQueue(user.uid);
+      if (!cancelled) setDueCount(dueCards(queue, Date.now(), 999).length);
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
 
-  const generateRecommendations = useCallback(async (progressData, studySessions) => {
+  const generateRecommendations = useCallback(async (progressData, studySessions, masteries = []) => {
     if (!progressData || studySessions.length === 0) {
       return [
         {
@@ -133,18 +221,29 @@ const ProgressPage = () => {
     }
 
     try {
+      // Feed the model the student's REAL measured weak areas. This used to
+      // pass the literal strings ['Time Management', 'Consistency'] for every
+      // user, so the advice could not have been personal.
+      const measuredWeakAreas = masteries
+        .flatMap((m) => m.weakAreas.map((a) => `${m.subject}: ${a.label} (${a.accuracy}%)`))
+        .slice(0, 6);
+
       const analysis = await geminiService.analyzeStudentProgress(
         progressData.map(p => p.subject || 'Unknown'),
         studySessions,
-        ['Time Management', 'Consistency']
+        measuredWeakAreas.length ? measuredWeakAreas : ['No graded practice yet']
       );
 
-      return analysis.recommendations?.map((rec, index) => ({
-        type: index % 3 === 0 ? 'weakness' : index % 3 === 1 ? 'review' : 'strengthen',
-        subject: 'General',
+      // The weakest subject is the one these recommendations are really about;
+      // labelling by array index (as this did) was arbitrary.
+      const focusSubject = masteries.find((m) => m.weakAreas.length)?.subject || 'General';
+
+      return analysis.recommendations?.map((rec) => ({
+        type: measuredWeakAreas.length ? 'weakness' : 'review',
+        subject: focusSubject,
         topic: rec,
         action: rec,
-        priority: index < 2 ? 'high' : 'medium'
+        priority: measuredWeakAreas.length ? 'high' : 'medium'
       })) || [];
     } catch (error) {
       console.error('Error generating recommendations:', error);
@@ -164,8 +263,16 @@ const ProgressPage = () => {
     try {
       setIsLoading(true);
 
-      // Load achievements data
-      const achievements = await achievementsService.getUserAchievements(user.uid);
+      // Achievements are a side panel, not the point of this page. They used to
+      // be awaited bare, so one failed read (e.g. permission-denied) threw and
+      // dropped the WHOLE page to getDefaultProgressData() — every stat 0,
+      // indistinguishable from a real empty account. Degrade instead.
+      const achievements = await achievementsService
+        .getUserAchievements(user.uid)
+        .catch((e) => {
+          console.error('[progress] achievements unavailable', e);
+          return { unlockedAchievements: [], totalPoints: 0, activityCounters: {}, studyStreaks: {} };
+        });
       setUserAchievements(achievements);
 
       const categorized = achievementsService.getAchievementsByCategory();
@@ -176,14 +283,16 @@ const ProgressPage = () => {
         overallProgress,
         studySessions,
         flashcardDecks,
-        solverHistory,
-        stats
+        stats,
+        practiceTests,
+        mySubjects
       ] = await Promise.all([
         dataService.getUserProgress(user.uid),
         dataService.getUserStudySessions(user.uid, 30),
         dataService.getUserFlashcardDecks(user.uid),
-        dataService.getUserSolverHistory(user.uid),
-        dataService.getUserStats(user.uid)
+        dataService.getUserStats(user.uid),
+        dataService.getUserPracticeTests(user.uid),
+        dataService.getUserSubjects(user.uid)
       ]);
 
       // Build activity heatmap data for StreakCalendar
@@ -197,20 +306,22 @@ const ProgressPage = () => {
       });
 
       // Process and organize data
+      const masteries = masteryBySubject(practiceTests);
       const processedData = {
         overall: {
           studyStreak: achievements.studyStreaks?.current || 0,
           totalStudyTime: formatStudyTime(stats.totalStudyTime || 0),
-          questionsAnswered: calculateTotalQuestions(studySessions, flashcardDecks),
-          accuracy: calculateOverallAccuracy(studySessions, flashcardDecks),
+          questionsAnswered: calculateTotalQuestions(studySessions, flashcardDecks, masteries),
+          accuracy: calculateOverallAccuracy(studySessions, flashcardDecks, masteries),
           improvement: calculateImprovement(studySessions),
           rank: getRankInfo(achievements.totalPoints || 0).rank,
           totalPoints: achievements.totalPoints || 0
         },
-        subjects: processSubjectProgress(overallProgress, studySessions),
+        subjects: processSubjectProgress(overallProgress, studySessions, practiceTests, mySubjects),
+        masteries,
         weeklyActivity: processWeeklyActivity(studySessions),
-        achievements: processAchievements(achievements),
-        recommendations: await generateRecommendations(overallProgress, studySessions),
+        achievements: processAchievements(achievements, user.uid),
+        recommendations: await generateRecommendations(overallProgress, studySessions, masteries),
         activityMap,
       };
 
@@ -224,6 +335,14 @@ const ProgressPage = () => {
     }
   }, [user, generateRecommendations]);
 
+  useEffect(() => {
+    if (user) {
+      loadUserProgress();
+    } else {
+      setIsLoading(false);
+    }
+  }, [user, loadUserProgress]);
+
 
   const getRankInfo = (totalPoints) => {
     if (totalPoints >= 1000) return { rank: 'Master', icon: Crown, color: 'text-warning-400', bgColor: 'bg-warning-400/20' };
@@ -233,7 +352,9 @@ const ProgressPage = () => {
     return { rank: 'Beginner', icon: Star, color: 'text-content-muted', bgColor: 'bg-base-750/20' };
   };
 
-  const calculateTotalQuestions = (studySessions, flashcardDecks) => {
+  // Practice-test questions must be counted here too, or "At a Glance" reports
+  // 0 questions while the subject card right below it says 66.
+  const calculateTotalQuestions = (studySessions, flashcardDecks, masteries = []) => {
     const sessionQuestions = studySessions.reduce((total, session) => {
       return total + (session.questionsAnswered || session.cardsStudied || 0);
     }, 0);
@@ -242,18 +363,27 @@ const ProgressPage = () => {
       return total + (deck.totalCards || 0);
     }, 0);
 
-    return sessionQuestions + flashcardQuestions;
+    const gradedQuestions = masteries.reduce((total, m) => total + m.questionsAnswered, 0);
+
+    return sessionQuestions + flashcardQuestions + gradedQuestions;
   };
 
-  const calculateOverallAccuracy = (studySessions, flashcardDecks) => {
-    const allSessions = [...studySessions];
-    if (allSessions.length === 0) return 0;
+  // Graded practice questions are the only hard accuracy signal we have, so
+  // they win outright when present; self-reported session accuracy is a fallback.
+  const calculateOverallAccuracy = (studySessions, flashcardDecks, masteries = []) => {
+    const graded = masteries.reduce(
+      (acc, m) => {
+        acc.correct += Math.round((m.accuracy / 100) * m.questionsAnswered);
+        acc.total += m.questionsAnswered;
+        return acc;
+      },
+      { correct: 0, total: 0 }
+    );
+    if (graded.total) return Math.round((graded.correct / graded.total) * 100);
 
-    const totalAccuracy = allSessions.reduce((sum, session) => {
-      return sum + (session.accuracy || 0);
-    }, 0);
-
-    return Math.round(totalAccuracy / allSessions.length);
+    if (studySessions.length === 0) return 0;
+    const totalAccuracy = studySessions.reduce((sum, session) => sum + (session.accuracy || 0), 0);
+    return Math.round(totalAccuracy / studySessions.length);
   };
 
   const calculateImprovement = (studySessions) => {
@@ -267,41 +397,6 @@ const ProgressPage = () => {
 
     const improvement = recentAvg - olderAvg;
     return improvement > 0 ? `+${Math.round(improvement)}%` : `${Math.round(improvement)}%`;
-  };
-
-
-  const processAchievements = (achievements) => {
-    const allAchievements = achievementsService.getAllAchievements();
-    const unlockedAchievements = achievements.unlockedAchievements || [];
-
-    const achievementDisplayList = Object.values(allAchievements).slice(0, 4).map(achievement => {
-      const isUnlocked = unlockedAchievements.includes(achievement.id);
-      const progress = achievementsService.getAchievementProgress(
-        user?.uid,
-        achievement.id,
-        achievements.activityCounters || {},
-        achievements.studyStreaks || {}
-      );
-
-      return {
-        id: achievement.id,
-        title: achievement.title,
-        description: achievement.description,
-        icon: achievement.icon,
-        earned: isUnlocked,
-        earnedDate: isUnlocked ? new Date().toLocaleDateString() : null,
-        progress: progress ? progress.current : 0,
-        target: progress ? progress.target : 100
-      };
-    });
-
-    return {
-      unlocked: unlockedAchievements,
-      totalPoints: achievements.totalPoints || 0,
-      activityCounters: achievements.activityCounters || {},
-      studyStreaks: achievements.studyStreaks || {},
-      displayList: achievementDisplayList
-    };
   };
 
 
@@ -330,12 +425,13 @@ const ProgressPage = () => {
 
   // ─── Internal Components ──────────────────────────────────────────
 
-  const colorToVar = (bgClass) => ({
-    'bg-content-primary': 'var(--color-text-primary)',
-    'bg-success-500': 'var(--color-success-400)',
-    'bg-error-500':   'var(--color-error-400)',
-    'bg-warning-500': 'var(--color-warning-400)',
-  }[bgClass] || 'var(--color-text-primary)');
+  // Mastery ring colour: red/yellow/green is the whole point of the mastery
+  // map, so the ring shows the verdict, not a decorative per-index colour.
+  const levelToVar = (level) => ({
+    green: 'var(--color-success-400)',
+    yellow: 'var(--color-warning-400)',
+    red: 'var(--color-error-400)',
+  }[level] || 'var(--color-text-muted)');
 
   const BentoStatCard = ({ icon: Icon, label, value, change, color = "text-content-primary", iconBg = "bg-base-800" }) => (
     <Card className="p-5 flex flex-col justify-between">
@@ -550,8 +646,11 @@ const ProgressPage = () => {
               Your study analytics, achievements, and AI recommendations.
             </p>
           </div>
-          <div className="flex gap-3">
-            <Button variant="outline" className="hidden md:flex">
+          <div className="flex gap-3 print:hidden">
+            {/* Native print-to-PDF. A print stylesheet (index.css) strips the
+                chrome, so this is a real PDF report without shipping a PDF
+                library in the bundle. */}
+            <Button variant="outline" className="hidden md:flex" onClick={() => window.print()}>
               <Download className="w-4 h-4 mr-2" strokeWidth={1.5} />
               Export Report
             </Button>
@@ -701,6 +800,61 @@ const ProgressPage = () => {
 
             {activeTab === 'overview' && (
               <>
+                {/* ── Focus next: the one measured weak spot + the review queue ──
+                    Leads the page because it is the only part that tells the
+                    student what to actually DO next. */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mb-8"
+                >
+                  <Card className="p-6 border-border-strong/40">
+                    <div className="flex flex-col md:flex-row md:items-center gap-5 justify-between">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Target className="w-4 h-4 text-content-muted" strokeWidth={1.5} />
+                          <span className="text-caption text-content-muted uppercase tracking-wider">
+                            Focus next
+                          </span>
+                        </div>
+                        {focus ? (
+                          <>
+                            <p className="text-h3 font-display text-content-primary">
+                              {focus.label}
+                            </p>
+                            <p className="text-body-sm text-content-secondary mt-1">
+                              {focus.subject} — {focus.accuracy}% correct across {focus.count}{' '}
+                              {focus.count === 1 ? 'question' : 'questions'}.
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-h3 font-display text-content-primary">
+                              No weak spots measured yet
+                            </p>
+                            <p className="text-body-sm text-content-secondary mt-1">
+                              Take a practice test and this becomes the exact thing to fix first.
+                            </p>
+                          </>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-3 flex-shrink-0">
+                        {dueCount > 0 && (
+                          <Button variant="primary" onClick={() => navigate(createPageUrl('Review'))}>
+                            Review {dueCount} due {dueCount === 1 ? 'card' : 'cards'}
+                          </Button>
+                        )}
+                        <Button
+                          variant={dueCount > 0 ? 'outline' : 'primary'}
+                          onClick={() => navigate(createPageUrl('PracticeTests'))}
+                        >
+                          {focus ? 'Practice this' : 'Take a practice test'}
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                </motion.div>
+
                 {/* ── Bento Stat Grid ── */}
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
@@ -811,6 +965,12 @@ const ProgressPage = () => {
                   className="mb-8"
                 >
                   <h2 className="text-2xl font-bold text-content-primary mb-6">By Subject</h2>
+                  {progressData.subjects.length === 0 && (
+                    <EmptySection>
+                      No subjects yet. Take a practice test or start a study session and each subject
+                      shows up here with your measured accuracy and weak spots.
+                    </EmptySection>
+                  )}
                   <div className="space-y-4">
                     {progressData.subjects.map((subject, index) => (
                       <motion.div
@@ -824,14 +984,14 @@ const ProgressPage = () => {
                             {/* Circular Progress Ring */}
                             <div className="relative flex-shrink-0">
                               <CircularProgressRing
-                                percentage={subject.progress}
-                                color={colorToVar(subject.color)}
+                                percentage={subject.accuracy}
+                                color={levelToVar(subject.masteryLevel)}
                               />
                               <div className="absolute inset-0 flex items-center justify-center">
                                 <span className="text-body-sm font-semibold text-content-primary transform rotate-0"
                                   style={{ transform: 'rotate(90deg)' }}
                                 >
-                                  {subject.progress}%
+                                  {subject.masteryLevel === 'insufficient' ? '—' : `${subject.accuracy}%`}
                                 </span>
                               </div>
                             </div>
@@ -839,7 +999,11 @@ const ProgressPage = () => {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-start justify-between mb-1">
                                 <h3 className="text-h4 font-display text-content-primary">{subject.name}</h3>
-                                <Button size="sm" className="flex-shrink-0 ml-4">
+                                <Button
+                                  size="sm"
+                                  className="flex-shrink-0 ml-4 print:hidden"
+                                  onClick={() => navigate(createPageUrl('PracticeTests'))}
+                                >
                                   Continue
                                 </Button>
                               </div>
@@ -854,7 +1018,7 @@ const ProgressPage = () => {
                                 </span>
                               </div>
 
-                              {/* Organic tag cloud */}
+                              {/* Measured strengths and weaknesses (graded questions only) */}
                               <div className="flex flex-wrap gap-1.5">
                                 {subject.strongTopics.map((topic, idx) => (
                                   <Badge key={`s-${idx}`} variant="success" className="text-xs">
@@ -866,6 +1030,11 @@ const ProgressPage = () => {
                                     {topic}
                                   </Badge>
                                 ))}
+                                {subject.strongTopics.length === 0 && subject.weakTopics.length === 0 && (
+                                  <span className="text-caption text-content-muted">
+                                    Take a practice test to see your strengths and weak spots.
+                                  </span>
+                                )}
                               </div>
 
                               {/* Exam countdown */}
@@ -891,17 +1060,27 @@ const ProgressPage = () => {
                   className="mb-8"
                 >
                   <h2 className="text-2xl font-bold text-content-primary mb-6">Recent Achievements</h2>
+                  {progressData.achievements.displayList.length === 0 && (
+                    <EmptySection>
+                      No achievements unlocked yet. They start appearing once you study, practice, or
+                      build a streak.
+                    </EmptySection>
+                  )}
                   <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
                     {progressData.achievements.displayList.map((achievement) => (
-                      <Card key={achievement.id} className={`p-6 ${achievement.earned ? 'border-warning-500/50 bg-warning-500/10' : 'border-border'}`}>
+                      <Card key={achievement.id} className={`p-6 ${achievement.earned ? 'border-warning-500/50 bg-warning-500/10' : achievement.secret ? 'border-border border-dashed' : 'border-border'}`}>
                         <div className="text-center">
-                          <div className="text-4xl mb-3">{achievement.icon}</div>
+                          <div className={`text-4xl mb-3 ${achievement.secret ? 'opacity-50' : ''}`}>{achievement.icon}</div>
                           <h3 className="font-semibold text-content-primary mb-2">{achievement.title}</h3>
                           <p className="text-sm text-content-muted mb-3">{achievement.description}</p>
                           {achievement.earned ? (
                             <Badge variant="default" className="bg-warning-600">
                               Earned {achievement.earnedDate}
                             </Badge>
+                          ) : achievement.secret ? (
+                            // Progress on a mystery achievement would give the
+                            // trigger away, so show only that it exists.
+                            <Badge variant="secondary" className="text-xs">Hidden</Badge>
                           ) : (
                             <div className="space-y-2">
                               <div className="w-full bg-base-800 rounded-full h-2">
@@ -928,9 +1107,31 @@ const ProgressPage = () => {
                   transition={{ delay: 0.6 }}
                 >
                   <h2 className="text-2xl font-bold text-content-primary mb-6">Recommended Next</h2>
+                  {progressData.recommendations.length === 0 && (
+                    <EmptySection>
+                      Recommendations appear once there is graded work to learn from — they are built
+                      from your measured weak areas, not generic study tips.
+                    </EmptySection>
+                  )}
                   <div className="space-y-4">
                     {progressData.recommendations.map((rec, index) => (
-                      <Card key={index} className="p-6 hover:bg-base-850/50 cursor-pointer transition-all duration-200">
+                      // Was styled as clickable (cursor-pointer + hover) but had
+                      // no handler, so clicking did nothing. Now it goes where the
+                      // recommendation points, and is a real keyboard-reachable
+                      // button rather than a div that merely looks tappable.
+                      <Card
+                        key={index}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => navigate(recTarget(rec))}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            navigate(recTarget(rec));
+                          }
+                        }}
+                        className="p-6 hover:bg-base-850/50 cursor-pointer transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-content-muted"
+                      >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-4">
                             <div className={`p-3 rounded-lg ${

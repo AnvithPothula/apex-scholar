@@ -1,17 +1,25 @@
 // Routing/cache-key sanity check (no network). Run: node selfcheck.mjs
 import assert from 'node:assert';
+// Import the REAL routing tables. They used to be copy-pasted here, which meant
+// the check could pass while the deployed Worker routed somewhere else.
+import { MODEL_CHAINS, TASK_TO_CHAIN } from './src/index.js';
 
-const MODEL_CHAINS = {
-  bulk: ['gemma-4-31b-it', 'gemma-4-26b-a4b-it', 'gemini-3.1-flash-lite'],
-  interactive: ['gemini-3.1-flash-lite', 'gemma-4-31b-it', 'gemini-2.5-flash'],
-  premium: ['gemini-3.5-flash', 'gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-3.1-flash-lite'],
-  vision: ['gemini-3.1-flash-lite', 'gemini-2.5-flash', 'gemini-3.5-flash'],
-};
-const TASK_TO_CHAIN = { tutorChat: 'interactive', mcqGenerate: 'bulk', frqGrade: 'premium', solver: 'vision' };
 const versionFor = (m) => (/^(gemini-(2\.5|3)|gemma-)/.test(m) ? 'v1beta' : 'v1');
+
+// Every task must point at a chain that actually exists.
+for (const [task, chain] of Object.entries(TASK_TO_CHAIN)) {
+  assert.ok(MODEL_CHAINS[chain], `task "${task}" -> unknown chain "${chain}"`);
+}
 
 // task -> first model
 assert.equal(MODEL_CHAINS[TASK_TO_CHAIN.mcqGenerate][0], 'gemma-4-31b-it');
+// The verifier must not lead with the same model that generated the question,
+// otherwise the "second opinion" is the first opinion again.
+assert.notEqual(
+  MODEL_CHAINS[TASK_TO_CHAIN.verifyMcq][0],
+  MODEL_CHAINS[TASK_TO_CHAIN.mcqGenerate][0]
+);
+assert.equal(MODEL_CHAINS[TASK_TO_CHAIN.lessonTeach][0], 'gemma-4-31b-it');
 assert.equal(MODEL_CHAINS[TASK_TO_CHAIN.tutorChat][0], 'gemini-3.1-flash-lite');
 assert.equal(MODEL_CHAINS[TASK_TO_CHAIN.frqGrade][0], 'gemini-3.5-flash');
 // gemma + 3.x on v1beta, an old model on v1

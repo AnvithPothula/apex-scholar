@@ -16,17 +16,24 @@
 
 const CORS_METHODS = 'POST, OPTIONS';
 
-const MODEL_CHAINS = {
+export const MODEL_CHAINS = {
   bulk:        ['gemma-4-31b-it', 'gemma-4-26b-a4b-it', 'gemini-3.1-flash-lite'],
   interactive: ['gemini-3.1-flash-lite', 'gemma-4-31b-it', 'gemini-2.5-flash'],
   premium:     ['gemini-3.5-flash', 'gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-3.1-flash-lite'],
   vision:      ['gemini-3.1-flash-lite', 'gemini-2.5-flash', 'gemini-3.5-flash'],
+  // Second-opinion chain: deliberately leads with the model `bulk` does NOT, so
+  // a generated answer key is checked by a different architecture.
+  verify:      ['gemma-4-26b-a4b-it', 'gemini-3.1-flash-lite', 'gemma-4-31b-it'],
 };
-const TASK_TO_CHAIN = {
-  tutorChat: 'interactive', explain: 'interactive', lessonTeach: 'interactive',
+export const TASK_TO_CHAIN = {
+  tutorChat: 'interactive', explain: 'interactive',
   solver: 'vision',
+  // lessonTeach is batch content authoring, not chat: Gemma's unlimited TPM and
+  // 15k RPD suit it better than flash-lite's scarcer 500 RPD.
+  lessonTeach: 'bulk',
   mcqGenerate: 'bulk', practiceTest: 'bulk', flashcardGen: 'bulk',
   summarize: 'bulk', reviewCard: 'bulk', diagnostic: 'bulk',
+  verifyMcq: 'verify',
   frqGrade: 'premium',
 };
 
@@ -35,7 +42,11 @@ const isGoogleModel = (m) => /^(gemini-|gemma-)/.test(m);
 const versionFor = (m) => (/^(gemini-(2\.5|3)|gemma-)/.test(m) ? 'v1beta' : 'v1');
 
 function cors(origin, allowed) {
-  const allow = allowed.includes(origin) ? origin : (allowed[0] || '*');
+  // Never fall back to '*'. If ALLOWED_ORIGINS is empty or unset, echoing a
+  // wildcard would hand every site on the internet browser-level access to the
+  // proxy; denying is the safe default. An unmatched origin gets the first
+  // allowed origin, so the browser blocks it.
+  const allow = allowed.includes(origin) ? origin : (allowed[0] || 'null');
   return {
     'Access-Control-Allow-Origin': allow,
     'Access-Control-Allow-Methods': CORS_METHODS,

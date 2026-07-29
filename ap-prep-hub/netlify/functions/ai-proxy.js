@@ -350,12 +350,20 @@ exports.handler = async (event) => {
     premium:     ['gemini-3.5-flash', 'gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-3.1-flash-lite'],
     // Gemma is text-only — anything carrying an image must stay on Gemini.
     vision:      ['gemini-3.1-flash-lite', 'gemini-2.5-flash', 'gemini-3.5-flash'],
+    // Second-opinion chain: deliberately leads with the model `bulk` does NOT,
+    // so a generated answer key is checked by a different architecture. If this
+    // shared the generator's model it would just agree with itself.
+    verify:      ['gemma-4-26b-a4b-it', 'gemini-3.1-flash-lite', 'gemma-4-31b-it'],
   };
   const TASK_TO_CHAIN = {
-    tutorChat: 'interactive', explain: 'interactive', lessonTeach: 'interactive',
+    tutorChat: 'interactive', explain: 'interactive',
     solver: 'vision',
+    // lessonTeach is batch content authoring, not chat: it wants Gemma's
+    // unlimited TPM and 15k RPD, not flash-lite's scarcer 500 RPD.
+    lessonTeach: 'bulk',
     mcqGenerate: 'bulk', practiceTest: 'bulk', flashcardGen: 'bulk',
     summarize: 'bulk', reviewCard: 'bulk', diagnostic: 'bulk',
+    verifyMcq: 'verify',
     frqGrade: 'premium',
   };
   const normModel = (m) => String(m || '').replace(/^models\//, '').replace(/^google\//, '');

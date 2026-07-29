@@ -192,12 +192,23 @@ service cloud.firestore {
       allow delete: if ownsExisting();
     }
 
-    // User achievements at root level - accessible by owner
+    // User achievements at root level - accessible by owner.
+    // The doc id IS the uid here (achievementsService reads
+    // doc(db,'userAchievements',userId)), so ownership is checked against the
+    // id rather than resource.data.userId. That matters because resource.data
+    // is null for a doc that doesn't exist yet, which made a NEW user's very
+    // first read fail with permission-denied — and that error aborted the whole
+    // Progress page load, rendering every stat as 0.
+    // Two access patterns hit this collection, and the rule must allow both:
+    //   1. getDoc(userAchievements/{uid})            -> id branch (works when
+    //      the doc does not exist yet, which resource.data cannot)
+    //   2. query(where userId == uid, orderBy ...)   -> ownsExisting branch
+    // `||` short-circuits, so pattern 1 never touches the null resource.
     match /userAchievements/{achievementId} {
-      allow read: if ownsExisting();
+      allow read: if signedIn() && (request.auth.uid == achievementId || ownsExisting());
       allow create: if ownsIncoming();
-      allow update: if ownsExisting() && ownsIncoming();
-      allow delete: if ownsExisting();
+      allow update: if ownsIncoming();
+      allow delete: if signedIn() && (request.auth.uid == achievementId || ownsExisting());
     }
 
     // Public read-only data (for future use - e.g., shared study resources)

@@ -1,7 +1,9 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { RotateCw, Brain, CheckCircle, X, Target, TrendingUp, Trophy, FileQuestion, HelpCircle, Download } from 'lucide-react';
 import { Button, Card, Badge, Input } from '../ui/UIComponents';
+import { createPageUrl } from '../../utils/helpers';
 import AnimatedCounter from '../ui/AnimatedCounter';
 import MarkdownRenderer from '../MarkdownRenderer';
 import LaTeXRenderer from '../LaTeXRenderer';
@@ -28,6 +30,10 @@ const ResultsPanel = ({
   setTutorProcessing,
   askTutorAboutQuestion,
 }) => {
+  const navigate = useNavigate();
+  // Hooks must run before the early return, so compute this here.
+  const missedCount = (testResults?.questionResults || []).filter((r) => !r.correct).length;
+
   if (!testResults) return null;
 
   return (
@@ -52,6 +58,37 @@ const ResultsPanel = ({
           </p>
         </motion.div>
 
+        {/* Missed questions are already queued for spaced repetition by
+            PracticeTests. Offer the queue here — right after a test is the
+            moment of highest intent to fix what you got wrong. */}
+        {missedCount > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+            className="mb-6 md:mb-8"
+          >
+            <Card className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <p className="text-h4 font-display text-content-primary">
+                  {missedCount} {missedCount === 1 ? 'question' : 'questions'} added to your review queue
+                </p>
+                <p className="text-body-sm text-content-secondary mt-1">
+                  They come back on a spaced schedule until you get them right.
+                </p>
+              </div>
+              <Button
+                variant="primary"
+                className="flex-shrink-0"
+                onClick={() => navigate(createPageUrl('Review'))}
+              >
+                <RotateCw className="w-4 h-4 mr-2" strokeWidth={1.5} />
+                Review now
+              </Button>
+            </Card>
+          </motion.div>
+        )}
+
         {/* Score Overview */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6 md:mb-8">
           <motion.div
@@ -63,9 +100,13 @@ const ResultsPanel = ({
               <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-content-primary mb-1 md:mb-2">
                 <AnimatedCounter value={safeTestResults.apScore} duration={1000} />
               </div>
-              <p className="text-content-secondary mb-1">Predicted AP Score</p>
+              {/* "Predicted" overstated this badly: one hardcoded percentage
+                  curve is applied to all 36 subjects, and real College Board
+                  curves differ by subject and by year. It's a rough estimate
+                  from this test alone, so it now says so. */}
+              <p className="text-content-secondary mb-1">Estimated AP Score</p>
               <p className="text-sm text-content-muted">
-                {safeTestResults.apScore >= 4 ? 'Likely to Pass' : 'Needs Improvement'}
+                Rough estimate — not a College Board score
               </p>
             </Card>
           </motion.div>

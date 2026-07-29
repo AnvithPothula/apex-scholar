@@ -2,15 +2,37 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { initializeFirestore } from "firebase/firestore";
 
-// For signInWithRedirect to work on custom domains, authDomain MUST be the
-// current hostname at runtime (where Netlify proxies /__/* to firebaseapp.com).
-// This keeps auth cookies same-origin and avoids third-party cookie blocks.
-// On localhost, fall back to the default firebaseapp.com domain.
-const isLocalhost = typeof window !== 'undefined' && 
-  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-const authDomain = isLocalhost
-  ? 'ai-study-helper-f2f24.firebaseapp.com'
-  : window.location.host; // e.g. "www.apex-scholar.com"
+// For signInWithRedirect to work, authDomain MUST be the current host, with
+// /__/* proxied to firebaseapp.com, so the auth handler is same-origin — that
+// is what Safari ITP / third-party-cookie blocking requires.
+//   - production: Netlify proxies /__/* (public/_redirects)
+//   - localhost:  the CRA dev server proxies /__/* (src/setupProxy.js)
+//
+// CRITICAL: only use the runtime host when the page is served over HTTPS.
+// Firebase always builds the handler URL as `https://{authDomain}/__/auth/...`,
+// so pointing it at a plain-http dev server produces
+// https://localhost:3000/__/auth/handler -> "Safari can't establish a secure
+// connection". Over http we fall back to the firebaseapp.com domain, which
+// loads but is cross-origin (so Safari ITP can still null out
+// getRedirectResult on localhost — run `HTTPS=true npm start` to test the real
+// flow locally, or use a Netlify deploy preview).
+const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:';
+const authDomain = isSecure
+  ? window.location.host // e.g. "www.apex-scholar.com", or "localhost:3000" under HTTPS=true
+  : 'ai-study-helper-f2f24.firebaseapp.com';
+
+/**
+ * True when the Firebase auth handler is served from our own origin.
+ *
+ * This decides which sign-in flow is even usable:
+ *   same-origin  -> signInWithRedirect works (no third-party storage involved)
+ *   cross-origin -> Safari ITP blocks the storage redirect depends on, so
+ *                   getRedirectResult() resolves to null and the user is
+ *                   silently bounced back to the login page. Popup is the only
+ *                   flow that works there.
+ * Production is always same-origin; plain-http localhost never is.
+ */
+export const authIsSameOrigin = isSecure;
 
 // Validate required env vars at startup — no hardcoded fallbacks
 const requiredEnvVars = [

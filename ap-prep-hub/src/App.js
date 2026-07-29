@@ -9,7 +9,7 @@ import { Layout } from './components/Layout.jsx';
 import { LoginPage } from './components/auth/LoginPage';
 import { SchoologyCallback } from './components/auth/SchoologyCallback';
 import GuestGate from './components/GuestGate';
-import { Calendar, FileQuestion, Zap, Calculator, Settings as SettingsIcon, Activity, GraduationCap } from 'lucide-react';
+import { Calendar, FileQuestion, Zap, Calculator, Settings as SettingsIcon, Activity, GraduationCap, Brain, TrendingUp } from 'lucide-react';
 import ErrorBoundary from './components/ErrorBoundary';
 import PageSkeleton from './components/ui/PageSkeleton';
 import { ToastProvider } from './contexts/ToastContext';
@@ -33,6 +33,14 @@ const Diagnostics = lazy(() => import('./pages/Diagnostics'));
 // eslint-disable-next-line import/first
 const LearnHub = lazy(() => import('./pages/LearnHub'));
 // eslint-disable-next-line import/first
+const Review = lazy(() => import('./pages/Review'));
+// eslint-disable-next-line import/first
+const Practice = lazy(() => import('./pages/Practice'));
+// eslint-disable-next-line import/first
+const Legal = lazy(() => import('./pages/Legal'));
+// eslint-disable-next-line import/first
+const ProgressPage = lazy(() => import('./pages/Progress'));
+// eslint-disable-next-line import/first
 const NotFound = lazy(() => import('./pages/NotFound'));
 import { createPageUrl } from './utils/helpers';
 import { initializeBackgroundSync } from './services/backgroundSync';
@@ -47,6 +55,9 @@ const FEATURES = {
   settings:    { icon: SettingsIcon, title: 'Settings',          preview: '/guest-previews/settings.jpg',    blurb: 'Sign in for free to pick your AP subjects, customize your tutor, and manage your account.' },
   diagnostics: { icon: Activity,     title: 'Diagnostics',       preview: '/guest-previews/diagnostics.jpg', blurb: 'Sign in for free to run a diagnostic that pinpoints your strengths and weak spots per subject.' },
   learn:       { icon: GraduationCap, title: 'Learn',            blurb: 'Sign in for free to explore interactive timelines and study lessons for your AP subjects.' },
+  review:      { icon: Brain,        title: 'Review',            blurb: 'Sign in for free to turn every question you miss into a spaced-repetition card that comes back until it sticks.' },
+  practiceHub: { icon: FileQuestion, title: 'Practice',          blurb: 'Sign in for free to take AP practice tests, study flashcards, and review every question you have missed.' },
+  progress:    { icon: TrendingUp,   title: 'Progress',          blurb: 'Sign in for free to track your accuracy, streaks, and measured weak spots across every AP subject.' },
 };
 
 // Main App Component
@@ -115,6 +126,14 @@ function MainApp() {
           <Route path={createPageUrl("Diagnostics")} element={<GuestGate feature={FEATURES.diagnostics}><Diagnostics /></GuestGate>} />
           <Route path={createPageUrl("Diagnostics", ":subject")} element={<GuestGate feature={FEATURES.diagnostics}><Diagnostics /></GuestGate>} />
           <Route path={createPageUrl("Diagnostics", ":subject/start")} element={<GuestGate feature={FEATURES.diagnostics}><Diagnostics /></GuestGate>} />
+          {/* Legal pages are intentionally NOT behind GuestGate — they must be
+              readable (and crawlable) without an account, and linkable from
+              outside the app. */}
+          <Route path={createPageUrl("Privacy")} element={<Legal />} />
+          <Route path={createPageUrl("Terms")} element={<Legal />} />
+          <Route path={createPageUrl("Practice")} element={<GuestGate feature={FEATURES.practiceHub}><Practice /></GuestGate>} />
+          <Route path={createPageUrl("Review")} element={<GuestGate feature={FEATURES.review}><Review /></GuestGate>} />
+          <Route path={createPageUrl("Progress")} element={<GuestGate feature={FEATURES.progress}><ProgressPage /></GuestGate>} />
           {/* Learn is dev-only for now (LearnHub redirects non-admins). No
               GuestGate wrap — guests just get redirected too, no upsell for a
               feature users can't access yet. */}

@@ -16,7 +16,7 @@ import {
     reauthenticateWithCredential
 } from "firebase/auth";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
-import { auth, db } from '../config/firebase';
+import { auth, db, authIsSameOrigin } from '../config/firebase';
 import { getFirebaseErrorMessage } from '../utils/firebaseErrorMessages';
 import errorLogger from '../utils/errorLogger';
 import { isAdmin } from '../components/DeveloperSettings';
@@ -219,43 +219,70 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    /**
+     * Google sign-in — redirect where it works, popup where it cannot.
+     *
+     * Production serves the auth handler from our own origin (Netlify proxies
+     * /__/*), so redirect is used there: no popup, works with popups blocked,
+     * and it is what Firebase recommends under Safari ITP.
+     *
+     * On plain-http localhost the authDomain has to fall back to
+     * firebaseapp.com — Firebase builds the handler URL as https://{authDomain}
+     * and a http dev server cannot serve that. Cross-origin means Safari blocks
+     * the storage redirect needs, getRedirectResult() returns null, and the user
+     * is bounced straight back to login. Popup is the only flow that works
+     * there, so dev uses it. Run `HTTPS=true npm start` to exercise the real
+     * production redirect path locally.
+     *
+     * The popup path was removed because it was raced against an 8s timeout,
+     * which broke sign-in for anyone who read the account chooser slowly:
+     *   1. popup opens; user spends >8s picking an account
+     *   2. the race rejects with 'popup-timeout' even though the popup is fine
+     *   3. the catch fired signInWithRedirect, navigating the MAIN window away
+     *      and orphaning the still-open popup
+     *   4. the popup finished auth and postMessage'd to a window that no longer
+     *      existed -> it span forever
+     *   5. closing it left the user back on the login page, having to start over
+     * The second attempt "worked" only because Google had cached the session by
+     * then and the popup could return inside 8s.
+     *
+     * Redirect is also the flow Firebase recommends under Safari ITP, and it
+     * works with popups blocked entirely. The /__/* proxy in public/_redirects
+     * keeps the auth handler same-origin so cookies survive.
+     */
     const signInWithGoogle = async () => {
         try {
-            // Set local persistence for better compatibility
             await setPersistence(auth, browserLocalPersistence);
-            
+
             const provider = new GoogleAuthProvider();
-            provider.setCustomParameters({
-                prompt: 'select_account'
-            });
-            
-            // Try popup first with a timeout to detect hanging/blocked popups
-            try {
-                const result = await Promise.race([
-                    signInWithPopup(auth, provider),
-                    new Promise((_, reject) =>
-                        setTimeout(() => reject(new Error('popup-timeout')), 8000)
-                    )
-                ]);
-                return result;
-            } catch (popupError) {
-                // Popup failed for any reason — always fall back to redirect.
-                // Common causes: popup blocked, third-party cookies disabled,
-                // browser extensions interfering, cross-origin storage errors, etc.
-                console.log("🔄 Popup failed, falling back to redirect...", popupError.code || popupError.message);
-                try {
-                    // Set a flag so the page that loads after the redirect
-                    // knows to wait for the auth result before giving up.
-                    try { sessionStorage.setItem('apex.auth.pendingRedirect', 'true'); } catch (e) { errorLogger.debug('sessionStorage write failed', { error: e?.message }); }
-                    await signInWithRedirect(auth, provider);
-                    return null; // Page will redirect
-                } catch (redirectError) {
-                    // If redirect also fails, throw the original popup error
-                    console.error("❌ Redirect fallback also failed:", redirectError);
-                    throw popupError;
-                }
+            provider.setCustomParameters({ prompt: 'select_account' });
+
+            if (!authIsSameOrigin) {
+                // Dev / cross-origin authDomain: popup is the only flow that
+                // completes. NOTE: no timeout race around this — racing it
+                // against an 8s timer is exactly what broke sign-in before.
+                // Let the user take as long as they need to pick an account.
+                return await signInWithPopup(auth, provider);
             }
+
+            // Tells the next page load to wait for the auth result rather than
+            // flashing the login screen (read in the effect above).
+            try {
+                sessionStorage.setItem('apex.auth.pendingRedirect', 'true');
+            } catch (e) {
+                errorLogger.debug('sessionStorage write failed', { error: e?.message });
+            }
+
+            await signInWithRedirect(auth, provider);
+            return null; // The page navigates; getRedirectResult picks it up on return.
         } catch (error) {
+            // Never leave the pending flag set on failure, or the next load sits
+            // in a 15s "waiting for redirect" state for nothing.
+            try {
+                sessionStorage.removeItem('apex.auth.pendingRedirect');
+            } catch (e) {
+                errorLogger.debug('sessionStorage write failed', { error: e?.message });
+            }
             console.error("❌ Google signin error:", error);
             throw new Error(getFirebaseErrorMessage(error));
         }

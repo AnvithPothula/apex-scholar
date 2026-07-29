@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Brain, Target, TrendingUp, Clock, Play, ArrowRight, Search, CheckCircle, BarChart3, Users, Award, Zap, X, AlertCircle, Lightbulb } from 'lucide-react';
+import { Brain, Target, TrendingUp, Clock, Play, ArrowRight, Search, CheckCircle, BarChart3, Award, Zap, X, AlertCircle, Lightbulb } from 'lucide-react';
 import { Button, Card, Badge, Input } from '../components/ui/UIComponents';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -8,6 +8,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { AP_SUBJECTS } from '../constants/subjects';
 import geminiService, { RateLimitError } from '../services/geminiService';
 import dataService from '../services/dataService';
+import { levelFor } from '../services/mastery';
 
 // Subjects to exclude from diagnostics (no standard exam format or not suitable for practice tests)
 const EXCLUDED_SUBJECTS = [
@@ -153,13 +154,20 @@ const DiagnosticTypes = () => {
       const strengths = [];
       const weaknesses = [];
       
+      // Use the SAME thresholds and evidence bar as services/mastery.js, so a
+      // student isn't "strong" here and "yellow" on Progress for identical work.
+      // Previously this used 70/50 with NO minimum sample size, so a concept
+      // backed by a single question — the norm in a 15-question diagnostic —
+      // was confidently labelled a strength or a weakness.
       Object.entries(topicScores).forEach(([concept, score]) => {
         const percentage = (score.correct / score.total) * 100;
-        if (percentage >= 70) {
+        const level = levelFor(percentage, score.total);
+        if (level === 'green') {
           strengths.push(concept);
-        } else if (percentage < 50) {
+        } else if (level === 'red' || level === 'yellow') {
           weaknesses.push(concept);
         }
+        // 'insufficient' -> no claim either way.
       });
 
       const result = {
@@ -627,14 +635,24 @@ const DiagnosticTypes = () => {
               const [key, subject] = subjectEntry;
 
               return (
-                <Card key={key} className="p-4 hover:bg-base-850 transition-colors cursor-pointer group"
+                // Card renders a plain <div>, so a bare onClick was unreachable
+                // by keyboard and unannounced to screen readers.
+                <Card key={key} className="p-4 hover:bg-base-850 transition-colors cursor-pointer group focus:outline-none focus:ring-2 focus:ring-content-muted"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Start ${subject.name} diagnostic`}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleStartDiagnostic(key);
+                        }
+                      }}
                       onClick={() => handleStartDiagnostic(key)}>
                   <div className="flex items-center gap-2 mb-3">
                     <Badge variant="secondary" className="text-xs">Popular</Badge>
-                    <div className="flex items-center gap-1 text-content-muted text-xs">
-                      <Users className="w-3 h-3" />
-                      <span>1.2k+ taken</span>
-                    </div>
+                    {/* A hardcoded "1.2k+ taken" used to sit here, identical on
+                        every card regardless of reality. Invented engagement
+                        numbers are not worth the trust they cost. */}
                   </div>
                   <h3 className="font-semibold text-content-primary mb-2 group-hover:text-content-primary transition-colors">
                     {subject.name}
@@ -647,10 +665,16 @@ const DiagnosticTypes = () => {
                       <Clock className="w-4 h-4" />
                       <span>15-20 min</span>
                     </div>
-                    <Button size="sm">
+                    {/* Visual affordance only — the whole card is the button, so
+                        a real nested <Button> would be an invalid nested control
+                        and a second tab stop for the same action. */}
+                    <span
+                      aria-hidden="true"
+                      className="inline-flex items-center h-8 px-3 text-xs rounded-md bg-content-primary text-base-950 font-medium"
+                    >
                       <Play className="w-4 h-4 mr-1" />
                       Start
-                    </Button>
+                    </span>
                   </div>
                 </Card>
               );

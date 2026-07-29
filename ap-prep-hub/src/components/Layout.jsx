@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { overlayVariants, modalVariants } from '../utils/animations';
-import { Brain, Calendar, Settings, LogOut, Award, Shield, X, MessageSquare, Send, FileQuestion, Zap, Calculator, Star, Code2, Sun, Moon, Lock, LogIn, GraduationCap } from 'lucide-react';
+import { Brain, Calendar, Settings, LogOut, Award, Shield, X, MessageSquare, Send, FileQuestion, Calculator, Star, Code2, Sun, Moon, Lock, LogIn, GraduationCap, TrendingUp, FileText } from 'lucide-react';
 import { Button, Avatar, AvatarFallback, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from './ui/UIComponents';
 import { useAuth } from '../contexts/AuthContext';
 import { createPageUrl, cn } from '../utils/helpers';
@@ -19,12 +19,14 @@ export function Layout({ children }) {
     const navigate = useNavigate();
     const { user, isGuest, logout } = useAuth();
     const [showCreditsModal, setShowCreditsModal] = useState(false);
-    const [showPrivacyModal, setShowPrivacyModal] = useState(false);
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [showReviewModal, setShowReviewModal] = useState(false);
     const [showDevSettings, setShowDevSettings] = useState(false);
     const { toggleTheme, isDark } = useTheme();
     const isActiveTab = (pageName) => location.pathname.startsWith(createPageUrl(pageName));
+    // The Practice tab owns its three child destinations, so it stays lit while
+    // the user is inside any of them.
+    const isPracticeTab = ['Practice', 'PracticeTests', 'Flashcards', 'Review'].some(isActiveTab);
     const [scrolled, setScrolled] = useState(false);
     useEffect(() => {
         const onScroll = () => setScrolled(window.scrollY > 10);
@@ -71,30 +73,20 @@ export function Layout({ children }) {
                                 <Brain strokeWidth={1.5} size={14} className="sm:w-4 sm:h-4 flex-shrink-0" />
                                 <span className="hidden md:inline">Tutors</span>
                             </Link>
+                            {/* Tests + Cards + Review collapsed into one Practice
+                                entry — they are one job, and three tabs pushed the
+                                bar to 7 (HIG/Material cap at 5). */}
                             <Link
-                                to={createPageUrl("PracticeTests")}
-                                aria-label="Practice Tests"
-                                aria-current={isActiveTab("PracticeTests") ? "page" : undefined}
+                                to={createPageUrl("Practice")}
+                                aria-label="Practice"
+                                aria-current={isPracticeTab ? "page" : undefined}
                                 className={cn(
                                     "px-2 sm:px-2.5 md:px-3 lg:px-4 py-1.5 sm:py-2 flex items-center space-x-1 md:space-x-1.5 font-medium transition-all duration-200 text-xs sm:text-sm",
-                                    isActiveTab("PracticeTests") ? "text-content-primary border-b-2 border-content-primary" : "text-content-muted hover:text-content-primary"
+                                    isPracticeTab ? "text-content-primary border-b-2 border-content-primary" : "text-content-muted hover:text-content-primary"
                                 )}
                             >
                                 <FileQuestion strokeWidth={1.5} size={14} className="sm:w-4 sm:h-4 flex-shrink-0" />
-                                <span className="hidden md:inline">Tests</span>
-                                {isGuest && <Lock strokeWidth={1.5} size={11} className="ml-0.5 flex-shrink-0 opacity-50" />}
-                            </Link>
-                            <Link
-                                to={createPageUrl("Flashcards")}
-                                aria-label="Flashcards"
-                                aria-current={isActiveTab("Flashcards") ? "page" : undefined}
-                                className={cn(
-                                    "px-2 sm:px-2.5 md:px-3 lg:px-4 py-1.5 sm:py-2 flex items-center space-x-1 md:space-x-1.5 font-medium transition-all duration-200 text-xs sm:text-sm",
-                                    isActiveTab("Flashcards") ? "text-content-primary border-b-2 border-content-primary" : "text-content-muted hover:text-content-primary"
-                                )}
-                            >
-                                <Zap strokeWidth={1.5} size={14} className="sm:w-4 sm:h-4 flex-shrink-0" />
-                                <span className="hidden md:inline">Cards</span>
+                                <span className="hidden md:inline">Practice</span>
                                 {isGuest && <Lock strokeWidth={1.5} size={11} className="ml-0.5 flex-shrink-0 opacity-50" />}
                             </Link>
                             <Link
@@ -173,6 +165,9 @@ export function Layout({ children }) {
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-40 sm:w-48 bg-base-850 border-border">
+                                    <DropdownMenuItem onSelect={() => navigate(createPageUrl('Progress'))} className="flex items-center text-content-primary hover:bg-base-800 hover:text-content-primary">
+                                        <TrendingUp strokeWidth={1.5} size={14} className="mr-2"/>Progress
+                                    </DropdownMenuItem>
                                     <DropdownMenuItem onSelect={() => navigate(createPageUrl('Settings'))} className="flex items-center text-content-primary hover:bg-base-800 hover:text-content-primary">
                                         <Settings strokeWidth={1.5} size={14} className="mr-2"/>Settings
                                     </DropdownMenuItem>
@@ -182,8 +177,14 @@ export function Layout({ children }) {
                                     <DropdownMenuItem onSelect={() => setShowCreditsModal(true)} className="flex items-center text-content-primary hover:bg-base-800 hover:text-content-primary">
                                         <Award strokeWidth={1.5} size={14} className="mr-2"/>Credits
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onSelect={() => setShowPrivacyModal(true)} className="flex items-center text-content-primary hover:bg-base-800 hover:text-content-primary">
+                                    {/* Real pages in new tabs, so each has its own
+                                        shareable link and the user doesn't lose
+                                        their place in the app. */}
+                                    <DropdownMenuItem onSelect={() => window.open(createPageUrl('Privacy'), '_blank', 'noopener,noreferrer')} className="flex items-center text-content-primary hover:bg-base-800 hover:text-content-primary">
                                         <Shield strokeWidth={1.5} size={14} className="mr-2"/>Privacy Policy
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => window.open(createPageUrl('Terms'), '_blank', 'noopener,noreferrer')} className="flex items-center text-content-primary hover:bg-base-800 hover:text-content-primary">
+                                        <FileText strokeWidth={1.5} size={14} className="mr-2"/>Terms of Service
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onSelect={() => setShowReviewModal(true)} className="flex items-center text-content-primary hover:bg-base-800 hover:text-content-primary">
                                         <Star strokeWidth={1.5} size={14} className="mr-2"/>Rate Us
@@ -210,14 +211,16 @@ export function Layout({ children }) {
             <nav aria-label="Mobile navigation" className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-base-900/95 backdrop-blur-md border-t border-border">
                 <div className="flex items-stretch justify-around">
                     {[
+                        // 4 destinations. Apple's HIG collapses iPhone tab bars past
+                        // 5 and Material Design specifies 3-5, so Tests/Cards/Review
+                        // live under Practice and Settings stays in the avatar menu
+                        // (where it already was — it used to be duplicated here).
                         { page: 'AITutors', label: 'Tutors', Icon: Brain },
-                        { page: 'PracticeTests', label: 'Tests', Icon: FileQuestion, locked: true },
-                        { page: 'Flashcards', label: 'Cards', Icon: Zap, locked: true },
+                        { page: 'Practice', label: 'Practice', Icon: FileQuestion, locked: true },
                         { page: 'Solver', label: 'Solver', Icon: Calculator, locked: true },
                         { page: 'SmartScheduler', label: 'Schedule', Icon: Calendar, locked: true },
                         // Dev-only: Learn tab only appears in the mobile nav for admins.
                         ...(isAdmin(user?.uid) ? [{ page: 'Learn', label: 'Learn', Icon: GraduationCap }] : []),
-                        { page: 'Settings', label: 'Settings', Icon: Settings, locked: true },
                     ].map(({ page, label, Icon, locked }) => (
                         <Link
                             key={page}
@@ -281,113 +284,8 @@ export function Layout({ children }) {
             )}
             </AnimatePresence>
 
-            {/* Privacy Policy Modal */}
-            <AnimatePresence>
-            {showPrivacyModal && (
-                <motion.div variants={overlayVariants} initial="hidden" animate="visible" exit="exit" className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-                    <motion.div variants={modalVariants} initial="hidden" animate="visible" exit="exit" className="bg-base-850 rounded-md p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto border border-border shadow-floating">
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-base font-display font-semibold text-content-primary">
-                                Privacy Policy
-                            </h2>
-                            <button
-                                onClick={() => setShowPrivacyModal(false)}
-                                className="text-content-muted hover:text-content-primary transition-colors"
-                            >
-                                <X strokeWidth={1.5} className="w-5 h-5" />
-                            </button>
-                        </div>
-                        <div className="space-y-6 text-content-secondary">
-                            <div>
-                                <h3 className="text-sm font-semibold text-content-primary mb-2">Information We Collect</h3>
-                                <p className="text-sm leading-relaxed">
-                                    We collect information you provide directly to us when you create an account and use our services. This includes:
-                                </p>
-                                <ul className="text-sm space-y-1 mt-2">
-                                    <li>• <strong>Account information:</strong> Name and email address via Google Sign-In</li>
-                                    <li>• <strong>Study data:</strong> Subject selections, study preferences, blackout schedules, and academic progress</li>
-                                    <li>• <strong>Conversation history:</strong> Messages exchanged with AI tutors to maintain session context</li>
-                                    <li>• <strong>Test results:</strong> Practice test scores and performance analytics</li>
-                                    <li>• <strong>User-generated content:</strong> Flashcards, uploaded files, and feedback submissions</li>
-                                </ul>
-                            </div>
-                            
-                            <div>
-                                <h3 className="text-sm font-semibold text-content-primary mb-2">How We Use Your Information</h3>
-                                <ul className="text-sm space-y-1">
-                                    <li>• Provide and improve our AI tutoring, practice tests, and study tools</li>
-                                    <li>• Personalize your learning experience and generate study schedules</li>
-                                    <li>• Track your progress across subjects and exams</li>
-                                    <li>• Process AI requests through our AI service providers</li>
-                                    <li>• Ensure the security and reliability of our platform</li>
-                                </ul>
-                            </div>
-                            
-                            <div>
-                                <h3 className="text-sm font-semibold text-content-primary mb-2">Third-Party Services</h3>
-                                <p className="text-sm leading-relaxed mb-2">
-                                    Apex Scholar integrates with the following third-party services, each with their own privacy policies:
-                                </p>
-                                <ul className="text-sm space-y-1">
-                                    <li>• <strong>Firebase (Google):</strong> Authentication, database storage, and hosting</li>
-                                    <li>• <strong>Puter.js:</strong> Free AI model access (Claude, GPT-4, Gemini) — messages are processed through Puter's servers</li>
-                                    <li>• <strong>Google Gemini API:</strong> Fallback AI service for generating tutoring responses</li>
-                                    <li>• <strong>Netlify:</strong> Website hosting and serverless functions</li>
-                                </ul>
-                                <p className="text-sm leading-relaxed mt-2">
-                                    We encourage you to review their respective privacy practices.
-                                </p>
-                            </div>
-                            
-                            <div>
-                                <h3 className="text-sm font-semibold text-content-primary mb-2">Data Security</h3>
-                                <p className="text-sm leading-relaxed">
-                                    We implement appropriate technical measures to protect your personal information, including encrypted connections (HTTPS), Firebase security rules, and API key rotation. Your data is stored securely in Google Cloud infrastructure via Firebase.
-                                </p>
-                            </div>
-                            
-                            <div>
-                                <h3 className="text-sm font-semibold text-content-primary mb-2">Data Retention</h3>
-                                <p className="text-sm leading-relaxed">
-                                    Your data is retained for as long as your account is active. Conversation histories and study data persist to support your ongoing learning. You may request deletion of your data at any time.
-                                </p>
-                            </div>
-                            
-                            <div>
-                                <h3 className="text-sm font-semibold text-content-primary mb-2">Your Rights</h3>
-                                <ul className="text-sm space-y-1">
-                                    <li>• Access and review your personal information</li>
-                                    <li>• Correct inaccurate data through Settings</li>
-                                    <li>• Request deletion of your account and all associated data</li>
-                                    <li>• Export your study data and progress</li>
-                                    <li>• Disconnect third-party services (Puter, Schoology)</li>
-                                </ul>
-                            </div>
-                            
-                            <div>
-                                <h3 className="text-sm font-semibold text-content-primary mb-2">Children's Privacy</h3>
-                                <p className="text-sm leading-relaxed">
-                                    Apex Scholar is designed for high school students preparing for AP exams. We do not knowingly collect personal information from children under 13 without parental consent.
-                                </p>
-                            </div>
-                            
-                            <div>
-                                <h3 className="text-sm font-semibold text-content-primary mb-2">Contact Us</h3>
-                                <p className="text-sm leading-relaxed">
-                                    If you have any questions about this Privacy Policy or wish to exercise your data rights, please contact us through the Feedback button in the menu.
-                                </p>
-                            </div>
-                            
-                            <div className="pt-4 border-t border-border-strong">
-                                <p className="text-xs text-content-muted">
-                                    Last updated: 2/22/26
-                                </p>
-                            </div>
-                        </div>
-                    </motion.div>
-                </motion.div>
-            )}
-            </AnimatePresence>
+            {/* The Privacy Policy modal that lived here is gone — it is now a
+                real page at /privacy (see pages/Legal.jsx), alongside /terms. */}
 
             {/* Review Modal */}
             {showReviewModal && (

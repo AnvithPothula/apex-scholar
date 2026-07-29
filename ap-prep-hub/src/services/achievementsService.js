@@ -1,4 +1,4 @@
-import { doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, increment } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
 class AchievementsService {
@@ -178,8 +178,115 @@ class AchievementsService {
         category: 'Special',
         points: 40,
         requirement: { type: 'weekend_study', target: 'both_days' }
+      },
+
+      // ---- Review / spaced repetition -----------------------------------
+      FIRST_REVIEW: {
+        id: 'first_review',
+        title: 'Second Look',
+        description: 'Review a question you got wrong',
+        icon: '🔁',
+        category: 'Review',
+        points: 15,
+        requirement: { type: 'count', target: 1, activity: 'review_card' }
+      },
+      REVIEW_50: {
+        id: 'review_50',
+        title: 'Spaced Out',
+        description: 'Review 50 cards',
+        icon: '🗓️',
+        category: 'Review',
+        points: 75,
+        requirement: { type: 'count', target: 50, activity: 'review_card' }
+      },
+      QUEUE_ZERO: {
+        id: 'queue_zero',
+        title: 'Inbox Zero',
+        description: 'Clear your entire review queue',
+        icon: '🧹',
+        category: 'Review',
+        points: 60,
+        requirement: { type: 'count', target: 1, activity: 'queue_cleared' }
+      },
+
+      // ---- Mystery achievements -----------------------------------------
+      // `secret: true` hides the title and description until unlocked, so the
+      // list shows a locked "???" card instead. They're the fun ones to find.
+      COMEBACK_KID: {
+        id: 'comeback_kid',
+        title: 'Comeback Kid',
+        description: 'Finally get a question right after missing it three times',
+        icon: '🪃',
+        category: 'Mystery',
+        points: 100,
+        secret: true,
+        hint: 'Persistence pays off eventually.',
+        requirement: { type: 'count', target: 1, activity: 'comeback' }
+      },
+      FLAWLESS: {
+        id: 'flawless',
+        title: 'Flawless',
+        description: 'Score 100% on a full-length practice test',
+        icon: '💎',
+        category: 'Mystery',
+        points: 250,
+        secret: true,
+        hint: 'Leave nothing on the table.',
+        requirement: { type: 'score', target: 100, activity: 'practice_test_score' }
+      },
+      MIDNIGHT_OIL: {
+        id: 'midnight_oil',
+        title: 'Burning the Midnight Oil',
+        description: 'Study between 2am and 4am',
+        icon: '🕯️',
+        category: 'Mystery',
+        points: 50,
+        secret: true,
+        hint: 'Some hours are lonelier than others.',
+        requirement: { type: 'time_based', target: 'small_hours', activity: 'study_session' }
+      },
+      EXAM_EVE: {
+        id: 'exam_eve',
+        title: 'Eleventh Hour',
+        description: 'Study the day before one of your AP exams',
+        icon: '⏳',
+        category: 'Mystery',
+        points: 80,
+        secret: true,
+        hint: 'Timing is everything.',
+        requirement: { type: 'exam_eve', target: 1 }
+      },
+      POLYGLOT: {
+        id: 'polyglot',
+        title: 'Renaissance Student',
+        description: 'Study five different subjects in a single day',
+        icon: '🎭',
+        category: 'Mystery',
+        points: 120,
+        secret: true,
+        hint: 'Variety is the spice of study.',
+        requirement: { type: 'unique_count', target: 5, activity: 'subjects_in_day' }
       }
     };
+  }
+
+  /**
+   * Public shape of an achievement for display. Secret achievements stay masked
+   * until earned — that is the whole point of them — but still show their
+   * category and a teasing hint so the list doesn't read as broken.
+   */
+  presentAchievement(achievement, earned) {
+    if (achievement.secret && !earned) {
+      return {
+        ...achievement,
+        title: '???',
+        description: achievement.hint || 'Keep studying to uncover this one.',
+        icon: '❔',
+        locked: true,
+        secret: true,
+      };
+    }
+    return { ...achievement, locked: !earned };
   }
 
   // Get user's achievements and progress
@@ -268,6 +375,10 @@ class AchievementsService {
           // Convert Set back to Array for Firestore
           activityCounters.study_subjects = Array.from(activityCounters.study_subjects);
           break;
+
+        default:
+          // Unknown activity type — nothing to count.
+          break;
       }
       
       updates.activityCounters = activityCounters;
@@ -335,7 +446,7 @@ class AchievementsService {
     const unlockedIds = userAchievements.unlockedAchievements || [];
     const newAchievements = [];
     
-    for (const [key, achievement] of Object.entries(this.achievements)) {
+    for (const achievement of Object.values(this.achievements)) {
       if (unlockedIds.includes(achievement.id)) {
         continue; // Already unlocked
       }
@@ -392,6 +503,10 @@ class AchievementsService {
           if (req.target === 'perfect_deck_completion' && activityData.perfectScore) {
             shouldUnlock = true;
           }
+          break;
+
+        default:
+          // Unknown requirement type — never auto-unlock.
           break;
       }
       

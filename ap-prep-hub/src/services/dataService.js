@@ -286,6 +286,35 @@ class DataService {
     }
   }
 
+  /** The AP subjects the user picked in Settings (users/{uid}.subjects). */
+  async getUserSubjects(userId) {
+    try {
+      const snap = await getDoc(doc(this.db, 'users', userId));
+      const subjects = snap.exists() ? snap.data().subjects : null;
+      return Array.isArray(subjects) ? subjects : [];
+    } catch (error) {
+      console.error('Error fetching user subjects:', error);
+      return [];
+    }
+  }
+
+  /** Completed practice tests, newest first — the input to the mastery model. */
+  async getUserPracticeTests(userId, limitCount = 50) {
+    try {
+      const q = query(
+        collection(this.db, 'practiceTests'),
+        where('userId', '==', userId),
+        orderBy('createdAt', 'desc'),
+        firestoreLimit(limitCount)
+      );
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (error) {
+      console.error('Error fetching practice tests:', error);
+      return [];
+    }
+  }
+
   // Solver History Management
   async saveSolverHistory(userId, problemData) {
     try {
@@ -330,15 +359,19 @@ class DataService {
     }
   }
 
+  /**
+   * Unlocked achievement ids for a user.
+   *
+   * This used to query `where userId == uid, orderBy earnedAt desc`, but
+   * achievementsService stores a SINGLE doc at userAchievements/{uid} with an
+   * `unlockedAchievements` array and no `earnedAt` field — so the orderBy
+   * excluded the only doc that exists and this always returned []. Read the doc
+   * that is actually written.
+   */
   async getUserAchievements(userId) {
     try {
-      const q = query(
-        collection(this.db, 'userAchievements'),
-        where('userId', '==', userId),
-        orderBy('earnedAt', 'desc')
-      );
-      const snapshot = await getDocs(q);
-      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const snap = await getDoc(doc(this.db, 'userAchievements', userId));
+      return snap.exists() ? (snap.data().unlockedAchievements || []) : [];
     } catch (error) {
       console.error('Error fetching achievements:', error);
       return [];

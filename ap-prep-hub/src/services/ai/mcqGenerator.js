@@ -103,11 +103,85 @@ ${sourceText}`;
  * Generate a batch of MCQs from source text. Returns a normalized MCQ array
  * (possibly empty if generation/parse fails).
  */
-export async function generateMcqs({ subjectName, sourceText, count = 10, instruction = '', maxOutputTokens = 8000 }) {
+export async function generateMcqs({
+  subjectName,
+  sourceText,
+  count = 10,
+  instruction = '',
+  maxOutputTokens = 8000,
+  verify = true,
+}) {
   const prompt = buildBatchMcqPrompt({ subjectName, sourceText, count, instruction });
   const resp = await geminiService.generateContent(prompt, { temperature: 0.4, maxOutputTokens, task: 'mcqGenerate' });
-  return parseMcqArray(String(resp || ''));
+  const mcqs = parseMcqArray(String(resp || ''));
+  if (!verify || !mcqs.length) return mcqs;
+  return verifyMcqs({ subjectName, mcqs });
 }
 
-const mcqGenerator = { coerceMcq, parseSingleMcq, parseMcqArray, buildBatchMcqPrompt, generateMcqs };
+/**
+ * Second-opinion pass: a DIFFERENT model re-answers each question blind and we
+ * keep only the ones it agrees on.
+ *
+ * A wrong answer key is the worst failure this app can have — it teaches the
+ * student the wrong thing and they trust it. Generation runs on the `bulk`
+ * chain (Gemma 31B) and this check runs on `verifyMcq` (Gemma 26B, a different
+ * architecture), so an idiosyncratic mistake by one model doesn't survive.
+ *
+ * Cheap by design: both Gemma models are 1,500 requests/day/project (~15k/day
+ * across the 10 projects), and this is one extra call per BATCH, not per
+ * question. Fails open — if the check itself errors we return the unverified
+ * batch rather than blocking content.
+ */
+export async function verifyMcqs({ subjectName, mcqs }) {
+  try {
+    const roster = mcqs
+      .map((m, i) => `${i}. ${m.question}\n${m.choices.map((c, j) => `   ${j}) ${c}`).join('\n')}`)
+      .join('\n\n');
+
+    const prompt = `You are an expert ${subjectName} exam grader. Answer each multiple-choice question below independently and correctly. Do NOT be influenced by question order or answer position.
+
+RESPOND WITH ONLY A JSON ARRAY of objects, one per question, in the same order:
+[{"i": 0, "answer": 2, "confident": true}]
+- "i" is the question number shown.
+- "answer" is the 0-based index of the choice YOU believe is correct.
+- "confident" is false if the question is ambiguous, has no correct choice, or has more than one.
+No prose, no markdown, no code fences.
+
+QUESTIONS:
+${roster}`;
+
+    const resp = await geminiService.generateContent(prompt, {
+      temperature: 0,
+      maxOutputTokens: 2000,
+      task: 'verifyMcq',
+    });
+
+    const verdicts = parser.parse(String(resp || ''), true);
+    if (!verdicts.success || !Array.isArray(verdicts.data)) return mcqs;
+
+    const byIndex = new Map(
+      verdicts.data
+        .filter((v) => v && Number.isInteger(Number(v.i)))
+        .map((v) => [Number(v.i), v])
+    );
+
+    const kept = mcqs.filter((m, i) => {
+      const v = byIndex.get(i);
+      // No verdict for this question — keep it; the checker simply didn't cover it.
+      if (!v) return true;
+      if (v.confident === false) return false;
+      return Number(v.answer) === m.correctIndex;
+    });
+
+    // If the checker rejected nearly everything it is more likely the checker
+    // misbehaved than that every question is wrong. Trust the batch instead.
+    if (kept.length < mcqs.length * 0.34) return mcqs;
+    return kept;
+  } catch (e) {
+    console.error('[mcq] verification failed, using unverified batch', e);
+    return mcqs;
+  }
+}
+
+const mcqGenerator = { coerceMcq, parseSingleMcq, parseMcqArray, buildBatchMcqPrompt, generateMcqs, verifyMcqs };
 export default mcqGenerator;

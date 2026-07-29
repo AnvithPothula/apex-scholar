@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["start"],
       "port": 3000
+    },
+    {
+      "name": "prod-build",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["-y", "serve", "-s", "build", "-l", "4173"],
+      "port": 4173
     }
   ]
 }

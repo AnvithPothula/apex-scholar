@@ -7,8 +7,17 @@ import {
 } from '../../constants/apExamDates';
 import AnimatedCounter from './AnimatedCounter';
 
+const FINAL_WEEK_DAYS = 7;
+const FINAL_WEEK_MS = FINAL_WEEK_DAYS * 24 * 60 * 60 * 1000;
+
+const formatExamDate = (d) =>
+  d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+
 /**
  * ExamCountdown — displays a live countdown to the next AP exam for a given subject.
+ *
+ * Always states what it is counting down to; a bare number stack is unreadable
+ * out of context. Shows days only until the final week, then adds hrs/min.
  *
  * Props:
  *   subjectKey  — curriculum subject key (e.g. "calculusAB")
@@ -16,6 +25,7 @@ import AnimatedCounter from './AnimatedCounter';
  */
 export default function ExamCountdown({ subjectKey, className = '' }) {
   const [timeLeft, setTimeLeft] = useState(null); // { days, hours, minutes } | 'passed' | null
+  const [exam, setExam] = useState(null); // { name, when } — what we're counting DOWN TO
 
   useEffect(() => {
     if (!subjectKey) return;
@@ -34,6 +44,8 @@ export default function ExamCountdown({ subjectKey, className = '' }) {
     if (meridiem === 'PM' && hours !== 12) hours += 12;
     if (meridiem === 'AM' && hours === 12) hours = 0;
     const examDateTime = new Date(year, month - 1, day, hours, minutes, 0, 0);
+
+    setExam({ name: examName, when: examDateTime });
 
     const compute = () => {
       const now = new Date();
@@ -54,7 +66,11 @@ export default function ExamCountdown({ subjectKey, className = '' }) {
     };
 
     compute();
-    const id = setInterval(compute, 60_000);
+    // Ticking every minute only earns its keep in the final week. Months out,
+    // the minutes column isn't even rendered, so a per-minute re-render is pure
+    // waste — back off to hourly.
+    const isFinalWeek = examDateTime - new Date() <= FINAL_WEEK_MS;
+    const id = setInterval(compute, isFinalWeek ? 60_000 : 60 * 60_000);
     return () => clearInterval(id);
   }, [subjectKey]);
 
@@ -75,16 +91,23 @@ export default function ExamCountdown({ subjectKey, className = '' }) {
           className="h-2 w-2 rounded-full"
           style={{ backgroundColor: colors.accent }}
         />
-        <span className="text-label text-content-muted">Exam Complete</span>
+        <span className="text-label text-content-muted">
+          {exam ? `${exam.name} exam complete` : 'Exam complete'}
+        </span>
       </motion.div>
     );
   }
 
-  const segments = [
-    { value: timeLeft.days, label: 'days' },
-    { value: timeLeft.hours, label: 'hrs' },
-    { value: timeLeft.minutes, label: 'min' },
-  ];
+  // Hours and minutes are meaningless detail when the exam is months away —
+  // they only start mattering in the last week.
+  const segments =
+    timeLeft.days > FINAL_WEEK_DAYS
+      ? [{ value: timeLeft.days, label: 'days' }]
+      : [
+          { value: timeLeft.days, label: 'days' },
+          { value: timeLeft.hours, label: 'hrs' },
+          { value: timeLeft.minutes, label: 'min' },
+        ];
 
   return (
     <motion.div
@@ -99,6 +122,15 @@ export default function ExamCountdown({ subjectKey, className = '' }) {
         className="mb-3 h-0.5 w-10 rounded-full"
         style={{ backgroundColor: colors.accent }}
       />
+
+      {/* Say what the number IS. Without this the card is just a bare
+          "279 DAYS | 13 HRS | 42 MIN" with no stated referent. */}
+      {exam && (
+        <p className="text-caption text-content-muted mb-2">
+          Until the {exam.name} exam
+          <span className="text-content-disabled"> · {formatExamDate(exam.when)}</span>
+        </p>
+      )}
 
       <div className="flex items-end gap-0">
         {segments.map(({ value, label }, i) => (

@@ -440,3 +440,46 @@ body {
 .animate-check-pop {
   animation: check-pop 0.3s ease-out forwards;
 }
+
+/* ── Print / Export Report ──────────────────────────────────────────────
+   The Progress page's "Export Report" is a native window.print(), so the
+   printed sheet needs light colours and no app chrome. This is what makes a
+   PDF export possible without bundling a PDF library. */
+@media print {
+  /* Force a light, ink-friendly canvas regardless of the active theme. */
+  :root,
+  :root[data-theme="dark"],
+  :root[data-theme="light"] {
+    --color-base-950: #ffffff;
+    --color-base-900: #ffffff;
+    --color-base-850: #ffffff;
+    --color-base-800: #f4f4f5;
+    --color-base-750: #e4e4e7;
+    --color-text-primary: #18181b;
+    --color-text-secondary: #3f3f46;
+    --color-text-muted: #52525b;
+  }
+
+  /* App chrome has no meaning on paper. */
+  header,
+  nav,
+  footer,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  body {
+    background: #fff !important;
+  }
+
+  /* Keep each subject card intact across page breaks. */
+  .rounded-lg,
+  .rounded-xl {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  @page {
+    margin: 14mm;
+  }
+}

@@ -2853,7 +2853,10 @@ class IntelligentScheduler {
         // Check if task is past deadline and not completed
         const now = new Date();
         if (sanitizedTask.deadline < now && !sanitizedTask.is_completed) {
-          console.warn("⚠️ Task is past deadline:", task.name, sanitizedTask.deadline);
+          // An overdue task is an ordinary state, not a fault — the scheduler
+          // handles it below. This used to console.warn on EVERY overdue task,
+          // and warn is NOT suppressed in production (only log/debug/info are),
+          // so it spammed real users' consoles on every schedule build.
           // Don't skip overdue tasks, let the system handle them
         }
 

@@ -240,7 +240,18 @@ Write a concise study note (~150 words) as flowing prose — no headers, no bull
                       const cat = catById[e.cat];
                       const isSel = selected === e;
                       return (
-                        <div key={j} onClick={() => handleSelect(e)} title={cat.label} style={{
+                        <div key={j}
+                          onClick={() => handleSelect(e)}
+                          // Was click-only, so keyboard users could not open an event.
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(ev) => {
+                            if (ev.key === 'Enter' || ev.key === ' ') {
+                              ev.preventDefault();
+                              handleSelect(e);
+                            }
+                          }}
+                          title={cat.label} style={{
                           background: isSel ? cat.ac : cat.bg,
                           color: isSel ? '#fff' : cat.tx,
                           border: `0.5px solid ${cat.ac}`,
