@@ -30,7 +30,7 @@ let _fb = null;
 async function getFirebase() {
   if (!_fb) {
     const [{ db }, fs] = await Promise.all([
-      import('../config/firebase'),
+      import('../config/firestore'),
       import('firebase/firestore'),
     ]);
     _fb = { db, doc: fs.doc, getDoc: fs.getDoc, runTransaction: fs.runTransaction, serverTimestamp: fs.serverTimestamp };

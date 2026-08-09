@@ -6,6 +6,7 @@ import { Button, Input } from '../ui/UIComponents';
 import { useAuth } from '../../contexts/AuthContext';
 import GoogleIcon from '../ui/GoogleIcon';
 import ApexScholarLogo from '../ui/ApexScholarLogo';
+import { stashPendingConsent } from '../../constants/consent';
 
 export function LoginPage() {
     const navigate = useNavigate();
@@ -16,6 +17,10 @@ export function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [fullName, setFullName] = useState('');
+    // Both unticked by default. A pre-ticked box is not consent, and terms
+    // acceptance in particular has to be an affirmative act.
+    const [emailOptIn, setEmailOptIn] = useState(false);
+    const [acceptedTerms, setAcceptedTerms] = useState(false);
     const [error, setError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -60,7 +65,12 @@ export function LoginPage() {
                     setIsLoading(false);
                     return;
                 }
-                await signUpWithEmail(email, password, fullName);
+                if (!acceptedTerms) {
+                    setError("Please accept the Terms of Service and Privacy Policy to create an account.");
+                    setIsLoading(false);
+                    return;
+                }
+                await signUpWithEmail(email, password, fullName, emailOptIn);
             } else {
                 await signInWithEmail(email, password);
             }
@@ -89,6 +99,17 @@ export function LoginPage() {
     };
 
     const handleGoogleSignIn = async () => {
+        // Terms have to be accepted before an account can exist, and with Google
+        // we can't tell new from returning until after auth — so the box is
+        // required here too. For a returning user that's one extra click.
+        if (isSignUp && !acceptedTerms) {
+            setError("Please accept the Terms of Service and Privacy Policy to continue.");
+            return;
+        }
+        // Production Google sign-in is a redirect: the page navigates away and
+        // reloads, so these choices can't be passed as arguments. AuthContext
+        // reads them back when it creates the user document.
+        stashPendingConsent({ acceptedTerms: acceptedTerms || !isSignUp, emailOptIn });
         setIsLoading(true);
         try {
             await signInWithGoogle();
@@ -212,6 +233,48 @@ export function LoginPage() {
                             )}
                         </div>
 
+                        {/* Sign-up consent. Both unticked by default: a pre-checked
+                            box is not consent, and most users here are minors.
+                            Terms are required; email is optional. */}
+                        {isSignUp && (
+                            <div className="space-y-2.5">
+                                <label className="flex items-start gap-2.5 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={acceptedTerms}
+                                        onChange={(e) => setAcceptedTerms(e.target.checked)}
+                                        disabled={isLoading}
+                                        className="h-4 w-4 mt-0.5 text-content-primary bg-base-800 border-border-strong rounded focus:ring-content-muted"
+                                    />
+                                    <span className="text-xs text-content-secondary leading-relaxed">
+                                        I agree to the{' '}
+                                        <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary-400 underline">
+                                            Terms of Service
+                                        </a>{' '}
+                                        and{' '}
+                                        <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary-400 underline">
+                                            Privacy Policy
+                                        </a>. <span className="text-content-muted">(required)</span>
+                                    </span>
+                                </label>
+                                <label className="flex items-start gap-2.5 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={emailOptIn}
+                                        onChange={(e) => setEmailOptIn(e.target.checked)}
+                                        disabled={isLoading}
+                                        className="h-4 w-4 mt-0.5 text-content-primary bg-base-800 border-border-strong rounded focus:ring-content-muted"
+                                    />
+                                    <span className="text-xs text-content-secondary leading-relaxed">
+                                        Email me occasional study reminders and updates.{' '}
+                                        <span className="text-content-muted">
+                                            Optional — change it any time in Settings.
+                                        </span>
+                                    </span>
+                                </label>
+                            </div>
+                        )}
+
                         {successMessage && (
                             <div className="p-3 bg-success-900 border border-success-500/30 rounded-md">
                                 <p className="text-sm text-success-400">{successMessage}</p>
@@ -247,7 +310,7 @@ export function LoginPage() {
                         variant="outline"
                         className="w-full h-10"
                         onClick={handleGoogleSignIn}
-                        disabled={isLoading}
+                        disabled={isLoading || (isSignUp && !acceptedTerms)}
                     >
                         <GoogleIcon className="w-4 h-4 mr-2" />
                         Continue with Google

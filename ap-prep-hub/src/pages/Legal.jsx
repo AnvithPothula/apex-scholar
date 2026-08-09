@@ -12,6 +12,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Shield, FileText } from 'lucide-react';
 import { createPageUrl } from '../utils/helpers';
+import { CONTACT_EMAIL } from '../constants/contact';
 
 const LAST_UPDATED = 'July 28, 2026';
 
@@ -65,10 +66,44 @@ function PrivacyPolicy() {
             <><strong>Firebase (Google):</strong> authentication and database storage</>,
             <><strong>Google Gemini API:</strong> AI service for generating tutoring responses, practice questions, and grading</>,
             <><strong>Puter.js:</strong> optional, opt-in access to additional AI models — only used if you connect it</>,
-            <><strong>Netlify and Cloudflare:</strong> website hosting and serverless functions</>,
+            <><strong>Netlify and Cloudflare:</strong> website hosting, serverless functions, and email routing</>,
+            <><strong>Google Analytics 4:</strong> anonymised usage measurement — see below</>,
+            <><strong>SMTP2GO:</strong> delivery of emails, only if you opt in to receiving them</>,
           ]}
         />
         <p>We encourage you to review their respective privacy practices.</p>
+      </Section>
+
+      <Section title="Analytics">
+        <p>
+          We use Google Analytics 4 to understand which parts of Apex Scholar are actually used, so we know what to
+          improve. It records page views and general usage patterns. Because our users are mostly students under 18,
+          we have deliberately restricted it:
+        </p>
+        <Bullets
+          items={[
+            'IP addresses are anonymised',
+            'Google Signals is disabled, so no demographic profiling and no advertising audiences',
+            'Ad personalisation is disabled — your activity is never used to target ads',
+            'Data is retained for 14 months, then deleted automatically',
+            <>We honour your browser's <strong>Do Not Track</strong> setting: with it enabled, no analytics load at all</>,
+          ]}
+        />
+        <p>
+          We never send your name, email address, chat messages, practice answers, or scores to Google Analytics.
+        </p>
+      </Section>
+
+      <Section title="Email">
+        <p>
+          We only send marketing or study-reminder emails if you explicitly opt in — at sign-up, or from the Email
+          section of Settings. The box is never ticked for you, and we do not sell, rent, or share your address.
+        </p>
+        <p>
+          Every such email includes a one-click unsubscribe link that works without signing in, and you can turn
+          emails off at any time in Settings. Account and security messages (for example a password reset) are sent
+          regardless, because they concern your account rather than marketing.
+        </p>
       </Section>
 
       <Section title="Data Security">
@@ -94,6 +129,7 @@ function PrivacyPolicy() {
             'Request deletion of your account and all associated data',
             'Export your study data and progress',
             'Disconnect third-party services (Puter, Schoology)',
+            'Opt out of emails at any time, from Settings or any unsubscribe link',
           ]}
         />
       </Section>
@@ -107,8 +143,9 @@ function PrivacyPolicy() {
 
       <Section title="Contact Us">
         <p>
-          If you have any questions about this Privacy Policy or wish to exercise your data rights, please contact us
-          through the Feedback option in the account menu.
+          If you have any questions about this Privacy Policy or wish to exercise your data rights, email{' '}
+          <a href={`mailto:${CONTACT_EMAIL}`} className="text-primary-400 underline">{CONTACT_EMAIL}</a>{' '}
+          or use the Feedback option in the account menu.
         </p>
       </Section>
     </>
@@ -118,6 +155,12 @@ function PrivacyPolicy() {
 function TermsOfService() {
   return (
     <>
+      <Section title="Contact">
+        <p>
+          Questions about these terms? Email{' '}
+          <a href={`mailto:${CONTACT_EMAIL}`} className="text-primary-400 underline">{CONTACT_EMAIL}</a>.
+        </p>
+      </Section>
       <Section title="Agreement">
         <p>
           By using Apex Scholar you agree to these terms. If you do not agree, please do not use the service. We may

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Star, X, Send } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { db } from '../config/firebase';
+import { db } from '../config/firestore';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 export default function ReviewModal({ onClose }) {

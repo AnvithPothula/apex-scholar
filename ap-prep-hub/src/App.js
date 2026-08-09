@@ -1,15 +1,19 @@
 /* eslint-disable import/first */
 import React, { useEffect, Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
 import AnimatedOutlet from './components/ui/AnimatedOutlet';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Layout } from './components/Layout.jsx';
 import { LoginPage } from './components/auth/LoginPage';
-import { SchoologyCallback } from './components/auth/SchoologyCallback';
+// Lazy: this OAuth-callback route statically pulls schoologyAPI -> Firestore,
+// which put the whole SDK in the initial bundle for a page almost nobody hits.
+const SchoologyCallback = lazy(() =>
+  import('./components/auth/SchoologyCallback').then((m) => ({ default: m.SchoologyCallback }))
+);
 import GuestGate from './components/GuestGate';
-import { Calendar, FileQuestion, Zap, Calculator, Settings as SettingsIcon, Activity, GraduationCap, Brain, TrendingUp } from 'lucide-react';
+import { Calendar, FileQuestion, Zap, Calculator, Settings as SettingsIcon, Activity, GraduationCap, Brain, TrendingUp, Users } from 'lucide-react';
 import ErrorBoundary from './components/ErrorBoundary';
 import PageSkeleton from './components/ui/PageSkeleton';
 import { ToastProvider } from './contexts/ToastContext';
@@ -41,9 +45,12 @@ const Legal = lazy(() => import('./pages/Legal'));
 // eslint-disable-next-line import/first
 const ProgressPage = lazy(() => import('./pages/Progress'));
 // eslint-disable-next-line import/first
+const Classes = lazy(() => import('./pages/Classes'));
+// eslint-disable-next-line import/first
 const NotFound = lazy(() => import('./pages/NotFound'));
 import { createPageUrl } from './utils/helpers';
 import { initializeBackgroundSync } from './services/backgroundSync';
+import { initAnalytics, trackPageView } from './utils/analytics';
 
 // Per-feature copy shown to guests on the sign-in upsell (GuestGate).
 // AI Tutors is intentionally absent — it's open to guests.
@@ -58,6 +65,7 @@ const FEATURES = {
   review:      { icon: Brain,        title: 'Review',            blurb: 'Sign in for free to turn every question you miss into a spaced-repetition card that comes back until it sticks.' },
   practiceHub: { icon: FileQuestion, title: 'Practice',          blurb: 'Sign in for free to take AP practice tests, study flashcards, and review every question you have missed.' },
   progress:    { icon: TrendingUp,   title: 'Progress',          blurb: 'Sign in for free to track your accuracy, streaks, and measured weak spots across every AP subject.' },
+  classes:     { icon: Users,        title: 'Classes',           blurb: 'Sign in for free to join your class or club with a link and compare progress on a shared leaderboard.' },
 };
 
 // Main App Component
@@ -65,6 +73,9 @@ function App() {
   // Initialize background sync when app starts
   useEffect(() => {
     initializeBackgroundSync();
+    // No-op unless REACT_APP_GA_MEASUREMENT_ID is set, so dev and previews
+    // never send events.
+    initAnalytics();
   }, []);
 
   return (
@@ -75,9 +86,10 @@ function App() {
       <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/schoology-callback" element={<SchoologyCallback />} />
+          <Route path="/schoology-callback" element={<Suspense fallback={<PageSkeleton />}><SchoologyCallback /></Suspense>} />
           <Route path="/*" element={<ProtectedRoute><MainApp /></ProtectedRoute>} />
         </Routes>
+        <AnalyticsRouteTracker />
         <ToastContainer />
         <AiDowngradeNotice />
       </Router>
@@ -102,6 +114,27 @@ function App() {
  * with `to="/ai-tutors"` and splat="AP%20Statistics" → Navigate to
  * `/ai-tutors/AP%20Statistics`.
  */
+/**
+ * /join/:code → /classes/:code. The short link is what teachers actually share,
+ * but the class page is where the join happens, so this is a pure redirect.
+ */
+function JoinRedirect() {
+  const { code } = useParams();
+  return <Navigate to={`${createPageUrl('Classes')}/${code || ''}`} replace />;
+}
+
+/**
+ * SPA route changes aren't page loads, so GA never sees them without this.
+ * Lives inside the Router so it can use useLocation.
+ */
+function AnalyticsRouteTracker() {
+  const location = useLocation();
+  useEffect(() => {
+    trackPageView(location.pathname);
+  }, [location.pathname]);
+  return null;
+}
+
 function LegacyRedirect({ to }) {
   const params = useParams();
   const splat = params['*'] || '';
@@ -134,6 +167,11 @@ function MainApp() {
           <Route path={createPageUrl("Practice")} element={<GuestGate feature={FEATURES.practiceHub}><Practice /></GuestGate>} />
           <Route path={createPageUrl("Review")} element={<GuestGate feature={FEATURES.review}><Review /></GuestGate>} />
           <Route path={createPageUrl("Progress")} element={<GuestGate feature={FEATURES.progress}><ProgressPage /></GuestGate>} />
+          <Route path={createPageUrl("Classes")} element={<GuestGate feature={FEATURES.classes}><Classes /></GuestGate>} />
+          <Route path={createPageUrl("Classes", ":code")} element={<GuestGate feature={FEATURES.classes}><Classes /></GuestGate>} />
+          {/* Short share link. Kept separate from /classes/:code so the thing a
+              teacher pastes into a slide reads as an invitation, not a page. */}
+          <Route path="/join/:code" element={<JoinRedirect />} />
           {/* Learn is dev-only for now (LearnHub redirects non-admins). No
               GuestGate wrap — guests just get redirected too, no upsell for a
               feature users can't access yet. */}

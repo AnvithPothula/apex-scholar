@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db } from '../config/firestore';
 import { useAuth, AVATAR_GRADIENTS } from '../contexts/AuthContext';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { auth } from '../config/firebase';
@@ -65,6 +65,9 @@ const Settings = () => {
 
   const [userSubjects, setUserSubjects] = useState([]);
   const [displayName, setDisplayName] = useState('');
+  // Email consent. Defaults to false and is never inferred from anything else:
+  // consent has to be an explicit act, and most of these users are minors.
+  const [emailOptIn, setEmailOptIn] = useState(false);
   const [showGradientPicker, setShowGradientPicker] = useState(false);
   const gradientPickerRef = useRef(null);
   const [studyPreferences, setStudyPreferences] = useState(getDefaultStudyPreferences());
@@ -111,6 +114,12 @@ const Settings = () => {
         const defaultPrefs = getDefaultStudyPreferences();
         setUserSubjects(data.subjects || []);
         setDisplayName(data.displayName || data.fullName || '');
+        // `!== false`, not `=== true`: accounts created before the sign-up
+        // checkbox existed have no field at all and are treated as subscribed,
+        // matching what email-broadcast actually sends to. If this read
+        // `=== true` the toggle would show "off" for a user who is in fact
+        // receiving mail — the toggle must never lie about that.
+        setEmailOptIn(data.emailOptIn !== false);
         // Merge user data with defaults to ensure all fields have values
         const mergedPrefs = { ...defaultPrefs, ...data.studyPreferences };
         setStudyPreferences(mergedPrefs);
@@ -216,6 +225,10 @@ const Settings = () => {
           useHeaders: aiPersonalization.useHeaders !== false,
           customInstructions: (aiPersonalization.customInstructions || '').substring(0, 500)
         },
+        emailOptIn: emailOptIn === true,
+        // Stamped so there is a record of when consent was given, which is what
+        // an unsubscribe complaint would need to be answered honestly.
+        ...(emailOptIn ? { emailOptInAt: new Date().toISOString() } : {}),
         settingsLastUpdated: new Date().toISOString()
       }, { merge: true });
 
@@ -230,7 +243,7 @@ const Settings = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [user?.uid, studyPreferences, blackoutDates, userSubjects, aiPersonalization]);
+  }, [user?.uid, studyPreferences, blackoutDates, userSubjects, aiPersonalization, emailOptIn]);
 
   // Auto-save when settings change (debounced)
   useEffect(() => {
@@ -524,6 +537,39 @@ const Settings = () => {
           </Card>
 
           <AiUsageCard />
+
+          {/* Email preferences — the in-app equivalent of the unsubscribe link.
+              A student who wants out must be able to get out from here without
+              hunting for an old email. */}
+          <Card id="settings-email" className="bg-base-850 border-border md:col-span-2 scroll-mt-32 lg:scroll-mt-20">
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="text-content-primary text-lg sm:text-xl">Email</CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 sm:p-6 pt-0">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={emailOptIn}
+                  onChange={(e) => setEmailOptIn(e.target.checked)}
+                  className="h-4 w-4 mt-0.5 text-content-primary bg-base-800 border-border-strong rounded focus:ring-content-muted"
+                />
+                <span>
+                  <span className="block text-sm text-content-primary">
+                    Send me occasional Apex Scholar emails
+                  </span>
+                  <span className="block text-xs text-content-muted mt-0.5">
+                    Exam-season study reminders, new subjects, and feature announcements. A few
+                    per year at most — never sold or shared. Untick this any time to stop them;
+                    it does the same thing as the unsubscribe link in an email.
+                  </span>
+                </span>
+              </label>
+              <p className="text-xs text-content-muted mt-3">
+                Account and security messages (like a password reset) are always sent, because
+                they are about your account rather than marketing.
+              </p>
+            </CardContent>
+          </Card>
 
           <Card id="settings-subjects" className="bg-base-850 border-border md:col-span-2 scroll-mt-32 lg:scroll-mt-20">
             <CardHeader className="p-4 sm:p-6">

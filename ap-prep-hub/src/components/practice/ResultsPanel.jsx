@@ -1,13 +1,14 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { RotateCw, Brain, CheckCircle, X, Target, TrendingUp, Trophy, FileQuestion, HelpCircle, Download } from 'lucide-react';
+import { RotateCw, Brain, CheckCircle, X, Target, TrendingUp, Trophy, FileQuestion, HelpCircle, Download, Sparkles } from 'lucide-react';
 import { Button, Card, Badge, Input } from '../ui/UIComponents';
 import { createPageUrl } from '../../utils/helpers';
 import AnimatedCounter from '../ui/AnimatedCounter';
 import MarkdownRenderer from '../MarkdownRenderer';
 import LaTeXRenderer from '../LaTeXRenderer';
 import { buildRubricItems, attachScoresToRubric } from '../../utils/testUtils';
+import { buildWhyWrongPrompt, missFromResult } from '../../utils/whyWrong';
 import { staggerContainer, staggerItem, shakeWrong, popCorrect } from '../../utils/animations';
 
 const ResultsPanel = ({
@@ -33,6 +34,23 @@ const ResultsPanel = ({
   const navigate = useNavigate();
   // Hooks must run before the early return, so compute this here.
   const missedCount = (testResults?.questionResults || []).filter((r) => !r.correct).length;
+
+  // Answer in place, reusing the same inline tutor as "Ask Tutor About This
+  // Question". This used to navigate to the chat, which threw the student out
+  // of their results to read one explanation — and landed them in the chat's
+  // own delivery bug (A30).
+  //
+  // The visible prompt is the short label; the model receives the full
+  // question/answer/stimulus context. Putting a 400-character prompt into a
+  // single-line input would be unreadable and un-editable.
+  const askWhyWrong = (question, result) => {
+    const prompt = buildWhyWrongPrompt(missFromResult(question, result, selectedSubject));
+    if (!prompt) return;
+    setTutorResponse('');
+    setTutorQuestion('Why was I wrong?');
+    setAskingTutor(question.id);
+    askTutorAboutQuestion(question.id, prompt);
+  };
 
   if (!testResults) return null;
 
@@ -472,15 +490,27 @@ const ResultsPanel = ({
                               )}
                             </div>
                           ) : (
-                            <Button
-                              variant="ghost"
-                              onClick={() => { setTutorResponse(''); setTutorQuestion(''); setAskingTutor(question.id); }}
-                              size="sm"
-                              className="text-content-secondary hover:text-content-primary"
-                            >
-                              <HelpCircle strokeWidth={1.5} className="w-4 h-4 mr-2" />
-                              Ask Tutor About This Question
-                            </Button>
+                            <div className="flex flex-wrap gap-2">
+                              {!isCorrect && (
+                                <Button
+                                  variant="outline"
+                                  onClick={() => askWhyWrong(question, result)}
+                                  size="sm"
+                                >
+                                  <Sparkles strokeWidth={1.5} className="w-4 h-4 mr-2" />
+                                  Why was I wrong?
+                                </Button>
+                              )}
+                              <Button
+                                variant="ghost"
+                                onClick={() => { setTutorResponse(''); setTutorQuestion(''); setAskingTutor(question.id); }}
+                                size="sm"
+                                className="text-content-secondary hover:text-content-primary"
+                              >
+                                <HelpCircle strokeWidth={1.5} className="w-4 h-4 mr-2" />
+                                Ask Tutor About This Question
+                              </Button>
+                            </div>
                           )}
                         </div>
                       </div>

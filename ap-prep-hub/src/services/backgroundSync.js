@@ -3,10 +3,25 @@
  * Manages automatic background synchronization of assignments
  */
 
-import assignmentSync from './assignmentSync';
-import schoologyAPI from './schoologyAPI';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../config/firebase';
+
+// Loaded on demand, not at module scope. App.js imports this file eagerly, and
+// both of these statically pull config/firestore -> the whole Firestore SDK into
+// the initial bundle. Nothing here runs before auth resolves, so a dynamic
+// import costs nothing and keeps ~35 KB gzipped off the critical path.
+let _mods = null;
+async function syncMods() {
+  if (!_mods) {
+    const [a, s] = await Promise.all([
+      import('./assignmentSync'),
+      import('./schoologyAPI'),
+    ]);
+    _mods = { assignmentSync: a.default, schoologyAPI: s.default };
+  }
+  return _mods;
+}
+
 
 class BackgroundSyncManager {
   constructor() {
@@ -53,6 +68,7 @@ class BackgroundSyncManager {
       console.log(`🔄 Starting background sync for user: ${userId}`);
 
       // Check if user has Schoology connected
+      const { schoologyAPI, assignmentSync } = await syncMods();
       const isConnected = await schoologyAPI.isConnected(userId);
       if (!isConnected) {
         console.log(`❌ User ${userId} does not have Schoology connected`);
@@ -89,6 +105,7 @@ class BackgroundSyncManager {
     }
 
     try {
+      const { assignmentSync } = await syncMods();
       const syncStatus = await assignmentSync.getSyncStatus(userId);
 
       // If never synced or last sync was more than 4 hours ago
@@ -101,7 +118,8 @@ class BackgroundSyncManager {
         const syncPromise = new Promise((resolve) => {
           setTimeout(async () => {
             try {
-              await assignmentSync.manualSync(userId, { daysBack: 3 });
+              const { assignmentSync: as } = await syncMods();
+              await as.manualSync(userId, { daysBack: 3 });
               console.log(`✅ Initial sync completed for user: ${userId}`);
             } catch (error) {
               console.error(`❌ Initial sync failed for user ${userId}:`, error);
@@ -127,7 +145,8 @@ class BackgroundSyncManager {
     console.log(`⏹️ Stopping background sync for user: ${userId}`);
     
     this.activeUsers.delete(userId);
-    assignmentSync.stopAutoSync(userId);
+    // If the module was never loaded, no sync was ever started -> nothing to stop.
+    _mods?.assignmentSync.stopAutoSync(userId);
   }
 
   /**
@@ -137,7 +156,7 @@ class BackgroundSyncManager {
     console.log('⏹️ Stopping all background sync processes');
     
     for (const userId of this.activeUsers) {
-      assignmentSync.stopAutoSync(userId);
+      _mods?.assignmentSync.stopAutoSync(userId);
     }
     
     this.activeUsers.clear();
@@ -170,6 +189,7 @@ class BackgroundSyncManager {
     
     for (const userId of this.activeUsers) {
       try {
+        const { assignmentSync } = await syncMods();
         const result = await assignmentSync.manualSync(userId);
         results.push({ userId, ...result });
       } catch (error) {
@@ -187,8 +207,9 @@ class BackgroundSyncManager {
   updateSyncInterval(userId, intervalMinutes) {
     if (this.activeUsers.has(userId)) {
       console.log(`⚙️ Updating sync interval for user ${userId} to ${intervalMinutes} minutes`);
-      assignmentSync.stopAutoSync(userId);
-      assignmentSync.startAutoSync(userId, intervalMinutes);
+      // Only reachable once sync is active, so _mods is already resolved.
+      _mods?.assignmentSync.stopAutoSync(userId);
+      _mods?.assignmentSync.startAutoSync(userId, intervalMinutes);
     }
   }
 

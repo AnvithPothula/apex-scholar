@@ -9,6 +9,7 @@ import { useToast } from '../contexts/ToastContext';
 import { AP_SUBJECTS } from '../constants/subjects';
 import geminiService, { RateLimitError } from '../services/geminiService';
 import dataService from '../services/dataService';
+import { recordSolve } from '../services/activityTracker';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import ModelSelector, { getDefaultModel, saveSelectedModel } from '../components/ui/ModelSelector';
 import 'katex/dist/katex.min.css';
@@ -293,6 +294,11 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
       }).catch(saveError => {
         console.warn('Could not save to history (will retry later):', saveError.message);
       });
+
+      // Solving counts toward achievements. The solver saved its history but
+      // never touched the activity counters, so the "Problem Solver" style
+      // achievements could never unlock no matter how much a student used it.
+      recordSolve(user.uid);
 
     } catch (error) {
       console.error('Error analyzing problem:', error);

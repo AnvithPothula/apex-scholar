@@ -22,8 +22,9 @@ import {
 import { motion } from 'framer-motion';
 import { getUpcomingExamsSync } from '../../constants/apExamDates';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../../config/firebase';
+import { db } from '../../config/firestore';
 import { useAuth } from '../../contexts/AuthContext';
+import { examTopRem } from '../../utils/examTime';
 
 const getDifficultyColor = (difficulty) => {
     switch (difficulty) {
@@ -259,12 +260,16 @@ export default function CalendarGrid({
                       />
                   ))}
 
-                  {/* AP Exam indicator at exam time */}
-                  {exam && (
+                  {/* AP Exam indicator at exam time.
+                      examTopRem returns null for a missing or unparseable time
+                      rather than throwing — `exam.time.split(...)` used to crash
+                      the whole calendar if `time` was absent, and silently
+                      dropped AM/PM so an 8 PM exam drew at 8 AM. */}
+                  {exam && examTopRem(exam.time, 4) !== null && (
                     <div
                       style={{
                         position: 'absolute',
-                        top: `${(parseInt(exam.time.split(':')[0]) * 4)}rem`,
+                        top: `${examTopRem(exam.time, 4)}rem`,
                         height: '3rem',
                         left: '0.25rem',
                         right: '0.25rem',

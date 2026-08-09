@@ -5,7 +5,7 @@ import { Calendar, Clock, BookOpen, Target, X, Globe } from 'lucide-react';
 import { Card, CardContent, Badge } from '../ui/UIComponents';
 import { getUpcomingExamsSync } from '../../constants/apExamDates';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '../../config/firebase';
+import { db } from '../../config/firestore';
 import { useAuth } from '../../contexts/AuthContext';
 import { format } from 'date-fns';
 import { getTimezoneDisplayString } from '../../utils/timezone';

@@ -88,15 +88,23 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    // A blank or non-numeric field made parseInt return NaN, which Firestore
+    // stores as-is and the scheduler then divides by — producing NaN durations
+    // that silently drop the task out of every generated plan. Fall back to a
+    // usable default instead.
+    const minutes = Number.parseInt(formData.estimated_time, 10);
+    const estimatedMinutes = Number.isFinite(minutes) && minutes > 0 ? minutes : 30;
+    const pages = Number.parseInt(formData.pages, 10);
+
     const taskData = {
       ...formData,
       deadline: new Date(formData.deadline),
-      estimated_time: parseInt(formData.estimated_time),
+      estimated_time: estimatedMinutes,
       // Fix: Add required fields for scheduler
-      timeRequired: parseInt(formData.estimated_time) / 60, // Convert minutes to hours
+      timeRequired: estimatedMinutes / 60, // Convert minutes to hours
       timeSpent: task?.timeSpent || 0, // Preserve existing progress on edit
       priority: formData.priority || 'medium',
-      pages: parseInt(formData.pages) || 0
+      pages: Number.isFinite(pages) && pages > 0 ? pages : 0
     };
     onSave(taskData);
   };
@@ -184,8 +192,14 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
                 onChange={(e) => setFormData({
                   ...formData, 
                   [formData.type === 'reading' ? 'pages' : 'estimated_time']: e.target.value,
-                  // Auto-calculate time for reading (2 min per page)
-                  ...(formData.type === 'reading' ? { estimated_time: parseInt(e.target.value) * 2 } : {})
+                  // Auto-calculate time for reading (2 min per page). Clearing
+                  // the field made this NaN, which then rendered as "NaN" in
+                  // the input the user was still typing in.
+                  ...(formData.type === 'reading'
+                    ? { estimated_time: Number.isFinite(Number.parseInt(e.target.value, 10))
+                        ? Number.parseInt(e.target.value, 10) * 2
+                        : '' }
+                    : {})
                 })} 
                 min="1" 
                 step={formData.type === 'reading' ? '1' : '5'}

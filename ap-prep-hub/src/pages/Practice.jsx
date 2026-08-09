@@ -14,7 +14,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { FileQuestion, Zap, RotateCcw, ChevronRight, Target } from 'lucide-react';
+import { FileQuestion, Zap, RotateCcw, ChevronRight, Target, Users } from 'lucide-react';
 import { Card, Badge } from '../components/ui/UIComponents';
 import { useAuth } from '../contexts/AuthContext';
 import { createPageUrl } from '../utils/helpers';
@@ -70,6 +70,14 @@ export default function Practice() {
       body: 'Build a deck, study it, or grab a public one.',
       to: createPageUrl('Flashcards'),
       meta: deckCount ? `${deckCount} ${deckCount === 1 ? 'deck' : 'decks'}` : null,
+    },
+    {
+      key: 'classes',
+      icon: Users,
+      title: 'Classes',
+      body: 'Join your class or club with a link and compare progress on a shared leaderboard.',
+      to: createPageUrl('Classes'),
+      meta: null,
     },
   ];
 

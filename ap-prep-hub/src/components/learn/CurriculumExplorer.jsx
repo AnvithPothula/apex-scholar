@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { GraduationCap, PlayCircle, Loader2, Sparkles, CheckCircle, Circle } from 'lucide-react';
 import { Button } from '../ui/UIComponents';
 import { useAuth } from '../../contexts/AuthContext';
-import { isAdmin } from '../DeveloperSettings';
+import { isAdmin } from '../../constants/admins';
 import LessonView from './LessonView';
 import UnitReview from './UnitReview';
 import { getUnitPractice, unitHasContent, generateUnit } from '../../services/curriculumContent';

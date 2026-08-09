@@ -15,7 +15,7 @@
  */
 
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db } from '../config/firestore';
 import geminiService from './geminiService';
 import { extractPdfTextFromUrl } from './pdfUtils';
 import { generateMcqs } from './ai/mcqGenerator';

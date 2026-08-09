@@ -1,15 +1,19 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { db } from '../config/firebase';
-import { collection, addDoc, serverTimestamp, query, where, orderBy, onSnapshot, doc, setDoc } from 'firebase/firestore';
+import { db } from '../config/firestore';
+import { collection, addDoc, serverTimestamp, query, where, orderBy, onSnapshot, doc, setDoc, getDoc, deleteDoc } from 'firebase/firestore';
 import { AP_SUBJECTS } from '../constants/subjects';
 import apiKeyManager from '../services/APIKeyManager';
 import apiManager from '../services/apiManager';
 import geminiService, { RateLimitError } from '../services/geminiService';
 import aiUsageLimiter from '../services/aiUsageLimiter';
 import srs from '../services/srs';
+import { recordTestForClasses } from '../services/classes';
+import { recordPracticeTest } from '../services/activityTracker';
+import { wasSkipped, missFromResult, optionText } from '../utils/whyWrong';
 import { getDefaultModel } from '../components/ui/ModelSelector';
+import { Button } from '../components/ui/UIComponents';
 import { TEST_CONFIGURATIONS, DEFAULT_CONFIG } from '../constants/testConfigurations';
 import { parseAIResponse, fixLaTeXInQuestions, isQuestionDuplicate } from '../utils/testUtils';
 import useMobile from '../hooks/useMobile';
@@ -39,6 +43,10 @@ const PracticeTests = () => {
   const [userAnswers, setUserAnswers] = useState({});
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [testStarted, setTestStarted] = useState(false);
+  // An unfinished test found in Firestore on load. Auto-save wrote these docs
+  // for months but nothing ever read one back, so "Auto-save progress" saved
+  // work the student could never return to.
+  const [resumable, setResumable] = useState(null);
   const [testPaused, setTestPaused] = useState(false);
   const [testResults, setTestResults] = useState(null);
   const [testHistory, setTestHistory] = useState([]);
@@ -928,11 +936,23 @@ Format as JSON:
           // Check payload size — Firestore limit is 1MB
           const payloadStr = JSON.stringify(sanitizedData);
           if (payloadStr.length > 900000) {
-            // Trim question data to fit
+            // Trim question data to fit.
+            //
+            // Two bugs used to live here. (1) options were rewritten as
+            // {text, correct} objects while every reader treats them as
+            // strings, so a trimmed test rendered "[object Object]" choices.
+            // (2) `stimulus` was dropped entirely, so a trimmed test kept
+            // questions that say "described in the stimulus" with no stimulus
+            // left to read. Both preserved now; the stimulus is truncated
+            // rather than deleted.
             sanitizedData.questions = sanitizedData.questions.map(q => ({
-              id: q.id, type: q.type, question: (q.question || '').substring(0, 500),
-              options: (q.options || []).map(o => ({ text: (o.text || '').substring(0, 200), correct: o.correct })),
-              correctAnswer: q.correctAnswer
+              id: q.id,
+              type: q.type,
+              question: (q.question || '').substring(0, 500),
+              options: (q.options || []).map(o => optionText(o).substring(0, 200)),
+              correctAnswer: q.correctAnswer,
+              stimulus: (q.stimulus || '').substring(0, 1500),
+              explanation: (q.explanation || '').substring(0, 400),
             }));
           }
           await addDoc(collection(db, 'practiceTests'), sanitizedData);
@@ -946,18 +966,73 @@ Format as JSON:
               .filter((r) => !r.correct)
               .map((r) => {
                 const q = qById.get(r.questionId) || {};
+                // missFromResult resolves MCQ option *indices* into "C) text".
+                // Passing r.userAnswer straight through used to store a bare
+                // number, so Review rendered "You answered 2" and the tutor
+                // handoff asked about answer "1". Options are carried too, so
+                // Review can show the question as a question.
+                const normalized = missFromResult(q, r, selectedSubject);
+                const rawCorrect = r.correctAnswer !== undefined && r.correctAnswer !== null
+                  ? r.correctAnswer
+                  : q.correctAnswer;
                 return {
-                  question: q.question || q.prompt || '',
-                  subject: selectedSubject,
+                  ...normalized,
                   unit: (selectedUnits || []).length === 1 ? selectedUnits[0] : null,
-                  userAnswer: r.userAnswer,
-                  correctAnswer: r.correctAnswer,
-                  explanation: r.feedback || q.explanation
+                  options: Array.isArray(q.options) ? q.options.map(optionText) : null,
+                  correctIndex: Number.isInteger(rawCorrect) ? rawCorrect : null,
+                  stimulus: q.stimulus || '',
+                  explanation: r.feedback || q.explanation || normalized.explanation,
                 };
               });
             await srs.addMisses(user.uid, misses);
           } catch (error) {
             console.error('Error queueing missed questions for review:', error);
+          }
+
+          // Roll this test into the leaderboard of every class the student is
+          // in. Counts only questions actually attempted — skipping is not the
+          // same as answering wrong (A18) — and never blocks the results screen.
+          try {
+            const attempted = (emergencyCleanedResults?.questionResults || [])
+              .filter((r) => !wasSkipped(r.userAnswer));
+            if (attempted.length) {
+              await recordTestForClasses(user.uid, {
+                questionsAnswered: attempted.length,
+                correctAnswers: attempted.filter((r) => r.correct).length,
+                // Classes scoped to specific subjects only count matching tests.
+                subject: selectedSubject,
+              });
+            }
+          } catch (error) {
+            console.error('Error updating class leaderboards:', error);
+          }
+
+          // Streak, weekly chart and achievements all read from these. Nothing
+          // recorded a practice test before, which is why the streak sat at 0
+          // no matter how much work the student actually did.
+          try {
+            const attemptedForStreak = (emergencyCleanedResults?.questionResults || [])
+              .filter((r) => !wasSkipped(r.userAnswer));
+            await recordPracticeTest(user.uid, {
+              subject: selectedSubject,
+              questionsAnswered: attemptedForStreak.length,
+              correctAnswers: attemptedForStreak.filter((r) => r.correct).length,
+              durationMinutes: Math.round((getTimeSpent() || 0) / 60),
+              scorePercent: emergencyCleanedResults?.percentage ?? null,
+            });
+          } catch (error) {
+            console.error('Error recording activity:', error);
+          }
+
+          // The test is finished, so the in-progress doc is stale. Leaving it
+          // would offer a resume into a test the student already submitted.
+          // Inlined rather than calling clearSavedProgress(), which is defined
+          // further down and would be a use-before-define in the dep array.
+          try {
+            setResumable(null);
+            await deleteDoc(doc(db, 'testProgress', `${user.uid}_inprogress`));
+          } catch (error) {
+            console.error('Error clearing saved progress after submit:', error);
           }
         } catch (error) {
           console.error('Error saving test results:', error, error?.code, error?.message);
@@ -1017,9 +1092,69 @@ Format as JSON:
     }
   }, [timeRemaining, testStarted, testPaused, handleTimeUp]);
 
-  // Auto-save functionality
+  // Look for an unfinished test once, on load. This is the missing half of
+  // auto-save: the write existed, the read never did.
   useEffect(() => {
-    if (testStarted && user && Object.keys(userAnswers).length > 0) {
+    if (!user || testStarted) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, 'testProgress', `${user.uid}_inprogress`));
+        if (cancelled || !snap.exists()) return;
+        const data = snap.data();
+        // Only offer a resume we can actually honour: without the question set
+        // there is nothing to restore, and offering it would be a lie.
+        if (!Array.isArray(data.questions) || data.questions.length === 0) return;
+        setResumable({ ...data, questionCount: data.questions.length });
+      } catch (e) {
+        // Resuming is optional, so a failed lookup must never look like a
+        // breakage. permission-denied here just means the updated testProgress
+        // rule isn't deployed yet; anything else is worth seeing.
+        if (e?.code === 'permission-denied') {
+          console.debug('[practice] no resumable test readable (rules not deployed?)');
+        } else {
+          console.error('Error checking for saved progress:', e);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user, testStarted]);
+
+  const clearSavedProgress = useCallback(async () => {
+    setResumable(null);
+    if (!user) return;
+    try {
+      await deleteDoc(doc(db, 'testProgress', `${user.uid}_inprogress`));
+    } catch (e) {
+      console.error('Error clearing saved progress:', e);
+    }
+  }, [user]);
+
+  const resumeSavedTest = useCallback(() => {
+    if (!resumable) return;
+    setSelectedSubject(resumable.subject || '');
+    setSelectedSection(resumable.section || '');
+    setQuestions(resumable.questions || []);
+    setUserAnswers(resumable.userAnswers || {});
+    setCurrentQuestionIndex(resumable.currentQuestionIndex || 0);
+    setTimeRemaining(resumable.timeRemaining || 0);
+    setResumable(null);
+    setTestStarted(true);
+    setCurrentView('test');
+  }, [resumable]);
+
+  // Auto-save functionality.
+  //
+  // ⚠️ The "Auto-save progress" toggle previously did nothing here: this effect
+  // ignored autoSyncEnabled, so progress was written every 30s even with the
+  // box unchecked. Gated now, so "off" means off.
+  //
+  // ⚠️ Known gap: nothing in the app ever READS testProgress back, so there is
+  // still no resume. The doc also stores only userAnswers/index/timeRemaining —
+  // not the questions — so a resume feature needs the question set persisted
+  // too. Tracked in the plan; do not describe this as "resume" until it is.
+  useEffect(() => {
+    if (autoSyncEnabled && testStarted && user && Object.keys(userAnswers).length > 0) {
       const saveProgress = async () => {
         try {
           // Deep sanitize function to remove undefined values.
@@ -1071,7 +1206,7 @@ Format as JSON:
       const saveInterval = setInterval(saveProgress, 30000); // Save every 30 seconds
       return () => clearInterval(saveInterval);
     }
-  }, [testStarted, user, selectedSubject, selectedSection, questions, userAnswers, currentQuestionIndex, timeRemaining]);
+  }, [autoSyncEnabled, testStarted, user, selectedSubject, selectedSection, questions, userAnswers, currentQuestionIndex, timeRemaining]);
 
   // Load test history from Firebase
   useEffect(() => {
@@ -3524,6 +3659,31 @@ Provide a clear, educational response that helps the student understand why ${co
 
   if (currentView === 'setup') {
     return (
+      <>
+      {/* Resume prompt — the payoff of auto-save. Rendered above the setup
+          panel rather than inside it so SetupPanel keeps one job. */}
+      {resumable && (
+        <div className="bg-base-950 pt-4 sm:pt-6 px-3 sm:px-4 md:px-6">
+          <div className="max-w-6xl mx-auto">
+            <div className="p-4 rounded-lg border border-warning-500/40 bg-warning-900/20 flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="flex-1">
+                <p className="text-body text-content-primary">
+                  You have an unfinished {resumable.subject || 'practice'} test.
+                </p>
+                <p className="text-body-sm text-content-secondary">
+                  {Object.keys(resumable.userAnswers || {}).length} of {resumable.questionCount} answered
+                  {resumable.timeRemaining > 0
+                    && ` · ${Math.floor(resumable.timeRemaining / 60)} min left`}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="primary" size="sm" onClick={resumeSavedTest}>Resume</Button>
+                <Button variant="ghost" size="sm" onClick={clearSavedProgress}>Discard</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <SetupPanel
         selectedSubject={selectedSubject}
         setSelectedSubject={setSelectedSubject}
@@ -3558,6 +3718,7 @@ Provide a clear, educational response that helps the student understand why ${co
         subjectOptions={subjectOptions}
         getCanonicalSubjectName={getCanonicalSubjectName}
       />
+      </>
     );
   }
 

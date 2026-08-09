@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { deleteDoc, doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
-import { db } from '../config/firebase';
+import { db } from '../config/firestore';
 import { useToast } from '../contexts/ToastContext';
 
 // Gate debug logging behind development mode

@@ -1,6 +1,5 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { initializeFirestore } from "firebase/firestore";
 
 // For signInWithRedirect to work, authDomain MUST be the current host, with
 // /__/* proxied to firebaseapp.com, so the auth handler is same-origin — that
@@ -68,7 +67,7 @@ if (process.env.NODE_ENV === 'development') {
   console.log("🔥 Firebase authDomain:", firebaseConfig.authDomain);
 }
 
-let app, auth, db;
+let app, auth;
 
 try {
   // Initialize Firebase
@@ -81,13 +80,6 @@ try {
   auth = getAuth(app);
   if (process.env.NODE_ENV === 'development') {
     console.log("✅ Firebase Auth initialized successfully");
-  }
-
-  db = initializeFirestore(app, {
-    experimentalAutoDetectLongPolling: true,  // Helps Safari / restricted networks
-  });
-  if (process.env.NODE_ENV === 'development') {
-    console.log("✅ Firestore initialized successfully");
   }
 
 } catch (error) {
@@ -105,6 +97,9 @@ try {
   // or implement a fallback mechanism
 }
 
-// Export with error handling
-export { auth, db };
+// Firestore is intentionally NOT initialized here. Importing it at module
+// scope pulled the whole @firebase/firestore SDK into the eager bundle, even
+// though nothing needs a database read to paint the first screen. It now lives
+// in ./firestore, which is loaded on demand.
+export { app, auth };
 export default app;

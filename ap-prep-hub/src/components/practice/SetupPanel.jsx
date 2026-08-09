@@ -124,7 +124,7 @@ const SetupPanel = ({
                           }}
                           className={`p-4 rounded-lg border cursor-pointer transition-all ${
                             selectedSection === section.id
-                              ? 'border-content-muted bg-base-800'
+                              ? 'border-success-500 bg-success-900'
                               : 'border-border-strong hover:border-border-strong bg-base-800'
                           }`}
                         >
@@ -168,7 +168,7 @@ const SetupPanel = ({
                               onClick={() => setSelectedSubSection(subSection.id)}
                               className={`p-4 rounded-lg border cursor-pointer transition-all ${
                                 selectedSubSection === subSection.id
-                                  ? 'border-content-muted bg-base-800'
+                                  ? 'border-success-500 bg-success-900'
                                   : 'border-border-strong hover:border-border-strong bg-base-800'
                               }`}
                             >
@@ -226,7 +226,7 @@ const SetupPanel = ({
                           }}
                           className={`p-3 rounded-lg border cursor-pointer transition-all ${
                             selectedUnits.includes(unit.name)
-                              ? 'border-content-muted bg-base-800'
+                              ? 'border-success-500 bg-success-900'
                               : 'border-border-strong hover:border-border-strong bg-base-800'
                           }`}
                         >
@@ -294,7 +294,7 @@ const SetupPanel = ({
                         onClick={() => setUseDefaultTime(false)}
                         className={`p-3 rounded-lg border cursor-pointer transition-all ${
                           !useDefaultTime
-                            ? 'border-content-muted bg-base-800'
+                            ? 'border-success-500 bg-success-900'
                             : 'border-border-strong hover:border-border-strong bg-base-800'
                         }`}
                       >
@@ -303,8 +303,18 @@ const SetupPanel = ({
                           <Input
                             type="number"
                             placeholder="Minutes"
+                            min="1"
+                            max="300"
                             value={customTime}
-                            onChange={(e) => setCustomTime(e.target.value)}
+                            onChange={(e) => {
+                              setCustomTime(e.target.value);
+                              // Typing a number IS choosing custom — same fix as
+                              // Custom Count. Requiring a separate click meant
+                              // students set a value and silently got the
+                              // official time anyway.
+                              if (e.target.value) setUseDefaultTime(false);
+                            }}
+                            onFocus={() => setUseDefaultTime(false)}
                             className="w-24 text-right"
                             onClick={(e) => e.stopPropagation()}
                           />
@@ -351,7 +361,7 @@ const SetupPanel = ({
                         onClick={() => setUseDefaultQuestionCount(false)}
                         className={`p-3 rounded-lg border cursor-pointer transition-all ${
                           !useDefaultQuestionCount
-                            ? 'border-content-muted bg-base-800'
+                            ? 'border-success-500 bg-success-900'
                             : 'border-border-strong hover:border-border-strong bg-base-800'
                         }`}
                       >
@@ -363,7 +373,14 @@ const SetupPanel = ({
                             min="1"
                             max="100"
                             value={customQuestionCount}
-                            onChange={(e) => setCustomQuestionCount(e.target.value)}
+                            onChange={(e) => {
+                              setCustomQuestionCount(e.target.value);
+                              // Typing a number IS choosing custom. Making the
+                              // user also click the card meant they'd set a
+                              // count and still get the official one.
+                              if (e.target.value) setUseDefaultQuestionCount(false);
+                            }}
+                            onFocus={() => setUseDefaultQuestionCount(false)}
                             className="w-24 text-right"
                             onClick={(e) => e.stopPropagation()}
                           />
@@ -402,6 +419,15 @@ const SetupPanel = ({
                       <Play strokeWidth={1.5} className="w-6 h-6" />
                       Generate & Start Test
                       {(() => {
+                        // Must mirror the custom-count override applied at
+                        // generation time. Reading only the section config made
+                        // the button promise "80 questions" while the test
+                        // actually generated the custom number.
+                        const custom = parseInt(customQuestionCount, 10);
+                        if (!useDefaultQuestionCount && Number.isFinite(custom) && custom > 0) {
+                          return ` (${custom} question${custom === 1 ? '' : 's'})`;
+                        }
+
                         const sectionConfig = currentConfig.sections.find(s => s.id === selectedSection);
                         let questionsCount = sectionConfig?.questions || 0;
 

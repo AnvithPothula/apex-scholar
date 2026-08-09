@@ -12,7 +12,7 @@
  */
 
 import { doc, getDoc, setDoc, updateDoc, deleteField, serverTimestamp } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db } from '../config/firestore';
 
 const progressRef = (uid) => doc(db, 'users', uid, 'curriculumProgress', 'apush');
 

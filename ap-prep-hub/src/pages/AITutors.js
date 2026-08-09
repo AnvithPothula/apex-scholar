@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   Send,
   Bot,
@@ -64,7 +64,7 @@ import {
   getDoc,
   getDocs
 } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db } from '../config/firestore';
 import {
   isGuestConversationId,
   subjectFromGuestId,
@@ -87,6 +87,7 @@ import errorLogger from '../utils/errorLogger';
 const AITutors = () => {
   const { subject: urlSubject } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, loading, isGuest } = useAuth();
   const { toast } = useToast();
   const confirm = useConfirm();
@@ -112,6 +113,9 @@ const AITutors = () => {
   const [guestRemaining, setGuestRemaining] = useState(GUEST_MESSAGE_LIMIT);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  // Bumping this re-attaches the messages listener after Firestore kills it (A30).
+  const [messagesEpoch, setMessagesEpoch] = useState(0);
+  const messagesRetryRef = useRef(0);
   // Removed diagnostics UI and state
 
   // Warm up AI service (Puter model probe) to reduce first-call latency
@@ -131,6 +135,32 @@ const AITutors = () => {
     if (isGuest) setGuestRemaining(guestMessagesRemaining());
   }, [isGuest]);
 
+  // One-shot prefill from a "Why was I wrong?" handoff (Review or test results).
+  // Deliberately fills the composer instead of auto-sending: the student may want
+  // to edit it, and auto-sending would spend an AI call they never asked for.
+  //
+  // Two steps on purpose. Setting currentMessage here does NOT work: the
+  // URL-subject effect below calls handleSubjectSelect, which does
+  // setCurrentMessage('') *after* an await, so it reliably clobbers anything set
+  // during mount. So park it in a ref and apply it once a conversation exists —
+  // which is also when the composer is mounted and can take focus.
+  const pendingPrefillRef = useRef(null);
+  useEffect(() => {
+    const prefill = location.state?.prefill;
+    if (!prefill) return;
+    pendingPrefillRef.current = prefill;
+    // Drop it from history so Back or a refresh doesn't refill the box.
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location, navigate]);
+
+  useEffect(() => {
+    if (!pendingPrefillRef.current || !activeConversationId) return;
+    const prefill = pendingPrefillRef.current;
+    pendingPrefillRef.current = null;
+    setCurrentMessage(prefill);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }, [activeConversationId]);
+
   // Load subject suggestions when selectedSubject changes
   useEffect(() => {
     let cancelled = false;
@@ -144,7 +174,8 @@ const AITutors = () => {
   }, [selectedSubject]);
 
   // Load messages for a specific conversation
-  const loadConversationMessages = useCallback(async (conversationId) => {
+  const loadConversationMessages = useCallback(async (conversationId, onDetach) => {
+    // `onDetach` lets the caller re-attach: see the messages effect below.
     // Guest thread — read straight from localStorage, no Firestore listener.
     if (isGuestConversationId(conversationId)) {
       setMessages(getGuestMessages(subjectFromGuestId(conversationId)));
@@ -165,11 +196,17 @@ const AITutors = () => {
         console.log('Messages loaded for conversation', conversationId, ':', messagesList.length, 'messages');
         setMessages(messagesList);
       }, (error) => {
+        // A28/A30: Firestore TERMINATES a listener that errors. Previously this
+        // branch only logged, so a transient permission-denied during an auth
+        // token refresh killed the message stream for the rest of the session:
+        // messages kept saving to Firestore and nothing ever rendered them.
+        // The reply was there; the UI simply stopped listening. Recover.
         if (error.code === 'permission-denied') {
-          errorLogger.debug('Messages listener detached (auth transition)', { error: error.message });
+          errorLogger.debug('Messages listener detached (auth transition) — retrying', { error: error.message });
         } else {
           console.error('Error in messages listener:', error);
         }
+        if (typeof onDetach === 'function') onDetach(error);
       });
 
       return unsubscribe;
@@ -441,14 +478,30 @@ const AITutors = () => {
     };
   }, [user, selectedSubject, loadConversations, initGuestConversation]);
 
-  // Load messages when active conversation changes
+  // Load messages when active conversation changes.
+  //
+  // `messagesEpoch` exists purely so a dead listener can be revived: Firestore
+  // terminates a listener that errors, and activeConversationId does not change
+  // when that happens, so without this the effect would never re-run and the
+  // chat would silently stop updating for the rest of the session (A30).
   useEffect(() => {
     let unsubscribe = null;
     let cancelled = false;
-    
+
     if (activeConversationId) {
       console.log('Loading messages for conversation:', activeConversationId);
-      loadConversationMessages(activeConversationId).then(unsub => {
+      const handleDetach = () => {
+        // Bounded: an auth transition resolves in well under a second, so a
+        // handful of tries is recovery. More than that is a real permission
+        // problem and retrying forever would just spin.
+        if (cancelled || messagesRetryRef.current >= 4) return;
+        messagesRetryRef.current += 1;
+        setTimeout(() => {
+          if (!cancelled) setMessagesEpoch((e) => e + 1);
+        }, 600 * messagesRetryRef.current);
+      };
+
+      loadConversationMessages(activeConversationId, handleDetach).then(unsub => {
         if (cancelled) {
           // Effect already cleaned up — tear down the new listener immediately
           if (unsub) unsub();
@@ -460,7 +513,7 @@ const AITutors = () => {
       // Clear messages when no conversation is active
       setMessages([]);
     }
-    
+
     // Cleanup function
     return () => {
       cancelled = true;
@@ -468,7 +521,13 @@ const AITutors = () => {
         unsubscribe();
       }
     };
-  }, [activeConversationId, loadConversationMessages]);
+  }, [activeConversationId, loadConversationMessages, messagesEpoch]);
+
+  // A successful switch to another conversation is a fresh start for the
+  // retry budget, so one bad conversation can't exhaust it for the session.
+  useEffect(() => {
+    messagesRetryRef.current = 0;
+  }, [activeConversationId]);
 
   // Keyboard-first shortcuts
   useEffect(() => {

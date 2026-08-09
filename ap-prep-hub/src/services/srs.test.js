@@ -1,6 +1,6 @@
 // These tests cover the pure scheduling logic only, so stub the Firestore
 // layer — importing the real firebase app blows up under jsdom (no TextEncoder).
-jest.mock('../config/firebase', () => ({ db: {} }));
+jest.mock('../config/firestore', () => ({ db: {} }));
 jest.mock('firebase/firestore', () => ({
   doc: jest.fn(),
   getDoc: jest.fn(),

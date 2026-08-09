@@ -12,7 +12,7 @@
  */
 
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db } from '../config/firestore';
 
 const MAX_CARDS = 300;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -62,15 +62,34 @@ export function review(card = {}, quality = GRADE.good, now = Date.now()) {
   };
 }
 
-/** Build a review card from a question the user missed. */
-export function cardFromMiss({ question, subject, unit, userAnswer, correctAnswer, explanation }, now = Date.now()) {
+/**
+ * Build a review card from a question the user missed.
+ *
+ * `options` and `correctIndex` matter: without them a review card can only show
+ * whatever the caller passed as an answer, which for MCQs used to be the raw
+ * option *index* — so the card literally read "You answered 2". Storing the
+ * choices lets Review re-present the question as a question instead of as an
+ * answer key. Both are optional so free-response cards still work.
+ */
+export function cardFromMiss(
+  { question, subject, unit, userAnswer, correctAnswer, explanation, options, correctIndex, stimulus },
+  now = Date.now()
+) {
   const text = String(question || '').trim();
   if (!text) return null;
+  const choices = Array.isArray(options)
+    ? options.slice(0, 8).map((o) => String(o == null ? '' : o).slice(0, 300))
+    : null;
   return {
     id: cardId(subject, text),
     subject: subject || '',
     unit: unit || null,
     question: text.slice(0, 1000),
+    // A question that says "described in the stimulus" is unanswerable without
+    // it — the review card has to carry the source, not just the prompt.
+    stimulus: String(stimulus || '').slice(0, 1500),
+    options: choices,
+    correctIndex: Number.isInteger(correctIndex) ? correctIndex : null,
     userAnswer: userAnswer == null ? '' : String(userAnswer).slice(0, 500),
     correctAnswer: correctAnswer == null ? '' : String(correctAnswer).slice(0, 500),
     explanation: String(explanation || '').slice(0, 1500),

@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { Play, Pause, RotateCw, Flag, X, CheckCircle, Clock, ArrowLeft, Settings, ArrowRight } from 'lucide-react';
 import { Button, Card, Badge } from '../ui/UIComponents';
 import LaTeXRenderer from '../LaTeXRenderer';
+import SourcePane, { hasSourceMaterial } from './SourcePane';
+import useSplitPane from '../../hooks/useSplitPane';
 import { useConfirm } from '../../contexts/ConfirmContext';
 
 const formatTimeFromSeconds = (seconds) => {
@@ -39,6 +41,17 @@ const TestPanel = ({
 }) => {
   const confirm = useConfirm();
   const currentQuestion = questions[currentQuestionIndex];
+  // Only split the layout when there's actually something to put in the left
+  // pane; a lone question beside an empty column looks broken.
+  const splitLayout = hasSourceMaterial(currentQuestion);
+  // Hooks must run unconditionally, so this is called whether or not the layout
+  // actually splits; the returned props are simply unused when it doesn't.
+  const {
+    pct: splitPct,
+    dragging: splitDragging,
+    containerRef: splitContainerRef,
+    dividerProps,
+  } = useSplitPane('apex_test_split_pct', 50);
 
   // Show error if no questions are available
   if (!questions || questions.length === 0) {
@@ -171,7 +184,7 @@ const TestPanel = ({
 
       {/* Test Header */}
       <div className="bg-base-850 border-b border-border sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4">
+        <div className={`${splitLayout ? 'max-w-[1600px]' : 'max-w-6xl'} mx-auto px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4`}>
           <div className="flex items-center justify-between mb-2 sm:mb-3 gap-2">
             <div className="flex items-center gap-2 sm:gap-4 min-w-0">
               <h1 className="text-sm sm:text-lg md:text-xl font-bold text-content-primary truncate">
@@ -231,7 +244,10 @@ const TestPanel = ({
       </div>
 
       {/* Test Content */}
-      <div className={`max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-8 ${isMobile ? 'min-h-screen' : ''}`}>
+      {/* A stimulus question needs real width for two panes — max-w-4xl left the
+          source cramped into ~380px per side. Single-column questions keep the
+          narrower measure, because long lines of prose are harder to read. */}
+      <div className={`${splitLayout ? 'max-w-[1600px]' : 'max-w-4xl'} mx-auto px-4 sm:px-6 py-4 sm:py-8 ${isMobile ? 'min-h-screen' : ''}`}>
         {testPaused ? (
           <motion.div
             initial={{ opacity: 0 }}
@@ -257,6 +273,57 @@ const TestPanel = ({
             transition={{ duration: 0.3 }}
           >
             <Card className="p-8">
+              {/*
+                Two-pane split matching the real digital AP exam: source
+                material left, question + answers right, each scrolling
+                independently so the source never leaves the screen while you
+                read the options.
+
+                Only splits when there IS source material — otherwise a plain
+                question would sit beside an empty pane. Stacks below lg,
+                because a split pane at 375px is unusable; on mobile the source
+                simply comes first, which is the reading order anyway.
+              */}
+              <div
+                ref={splitLayout ? splitContainerRef : undefined}
+                className={splitLayout ? 'lg:flex lg:items-stretch' : ''}
+              >
+                {splitLayout && (
+                  <div
+                    className="mb-8 lg:mb-0 lg:max-h-[calc(100vh-9rem)] lg:overflow-y-auto lg:pr-2"
+                    style={isMobile ? undefined : { flexBasis: `${splitPct}%`, flexGrow: 0, flexShrink: 0 }}
+                  >
+                    <SourcePane
+                      currentQuestion={currentQuestion}
+                      selectedDBQDocument={selectedDBQDocument}
+                      setSelectedDBQDocument={setSelectedDBQDocument}
+                    />
+                  </div>
+                )}
+
+                {/* Drag handle. Hidden below lg, where the panes are stacked and
+                    a horizontal divider would mean nothing. Double-click or
+                    Enter resets to 50/50. */}
+                {splitLayout && (
+                  <div
+                    {...dividerProps}
+                    title="Drag to resize · double-click to reset"
+                    className={`hidden lg:flex shrink-0 w-3 mx-1 cursor-col-resize items-center justify-center group focus:outline-none focus-visible:ring-2 focus-visible:ring-content-primary rounded ${
+                      splitDragging ? 'bg-base-750' : ''
+                    }`}
+                  >
+                    <div
+                      className={`h-16 w-1 rounded-full transition-colors ${
+                        splitDragging ? 'bg-content-primary' : 'bg-border-strong group-hover:bg-content-muted'
+                      }`}
+                    />
+                  </div>
+                )}
+
+                {/* Question + answers column */}
+                <div
+                  className={splitLayout ? 'lg:flex-1 lg:min-w-0 lg:max-h-[calc(100vh-9rem)] lg:overflow-y-auto lg:pr-1' : ''}
+                >
               {/* Question */}
               <div className="mb-8">
                 <div className="flex items-start gap-4 mb-6">
@@ -293,62 +360,6 @@ const TestPanel = ({
                       <LaTeXRenderer content={currentQuestion?.question || ''} />
                     </div>
 
-                    {/* Display sources for Synthesis questions */}
-                    {currentQuestion?.sources && currentQuestion.sources.length > 0 && (
-                      <div className="mt-6 p-6 bg-base-800 rounded-lg">
-                        <h4 className="font-medium text-content-secondary mb-4 text-xl">Sources:</h4>
-                        <div className="space-y-6">
-                          {currentQuestion.sources.map((source, index) => (
-                            <div key={index} className="border-l-4 border-success-500 pl-4">
-                              <div className="mb-2">
-                                <span className="font-bold text-success-400">Source {String.fromCharCode(65 + index)}</span>
-                                {source.title && (
-                                  <div className="text-sm text-content-secondary mt-1 font-medium">
-                                    {source.title}
-                                  </div>
-                                )}
-                                {source.source && (
-                                  <div className="text-sm text-content-muted mt-1">
-                                    Source: {source.source}
-                                  </div>
-                                )}
-                                {source.type && (
-                                  <div className="text-sm text-content-muted">
-                                    Type: {source.type}
-                                  </div>
-                                )}
-                              </div>
-                              <div className="text-content-secondary leading-relaxed bg-base-850/50 p-4 rounded">
-                                {source.content || source.description}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Display passage for rhetorical analysis, poetry, or prose questions */}
-                    {currentQuestion?.passage && (
-                      <div className="mt-6 p-6 bg-base-800 rounded-lg">
-                        <h4 className="font-medium text-content-secondary mb-4 text-xl">
-                          {currentQuestion.type === 'poetry-analysis' ? 'Poem:' :
-                           currentQuestion.type === 'prose-analysis' ? 'Passage:' :
-                           currentQuestion.type === 'rhetorical-analysis' ? 'Text:' :
-                           'Reading:'}
-                        </h4>
-                        {currentQuestion.passageInfo && (
-                          <div className="mb-4 text-sm text-content-muted">
-                            {currentQuestion.passageInfo}
-                          </div>
-                        )}
-                        <div className="text-content-secondary leading-relaxed bg-base-850/50 p-4 rounded font-serif">
-                          <pre className="whitespace-pre-wrap font-serif">
-                            {currentQuestion.passage}
-                          </pre>
-                        </div>
-                      </div>
-                    )}
-
                     {/* Display work list for open questions */}
                     {currentQuestion?.worksList && currentQuestion.worksList.length > 0 && (
                       <div className="mt-6 p-6 bg-base-800 rounded-lg">
@@ -365,99 +376,6 @@ const TestPanel = ({
                         </div>
                       </div>
                     )}
-
-                    {/* Display documents - Different UI for DBQ vs other question types */}
-                    {currentQuestion?.documents && currentQuestion.documents.length > 0 && (
-                      <div className="mt-6">
-                        {currentQuestion.type === 'dbq' ? (
-                          // DBQ: Show document buttons and selected document
-                          <div className="space-y-4">
-                            <div className="p-4 bg-base-800 rounded-lg">
-                              <h4 className="font-medium text-content-secondary mb-4 text-lg">Historical Documents:</h4>
-                              <div className="flex flex-wrap gap-3 mb-4">
-                                {currentQuestion.documents.map((doc, index) => (
-                                  <button
-                                    key={index}
-                                    onClick={() => setSelectedDBQDocument(selectedDBQDocument === index ? null : index)}
-                                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                                      selectedDBQDocument === index
-                                        ? 'bg-content-primary text-base-950 ring-2 ring-content-primary'
-                                        : 'bg-base-800 text-content-secondary hover:bg-base-750 border border-border-strong'
-                                    }`}
-                                  >
-                                    Document {String.fromCharCode(65 + index)}
-                                  </button>
-                                ))}
-                              </div>
-
-                              {selectedDBQDocument !== null && (
-                                <div className="border-l-4 border-content-muted pl-4 bg-base-850/50 p-4 rounded">
-                                  <div className="mb-3">
-                                    <span className="font-bold text-content-primary">
-                                      Document {String.fromCharCode(65 + selectedDBQDocument)}
-                                    </span>
-                                    {currentQuestion.documents[selectedDBQDocument].source && (
-                                      <div className="text-sm text-content-muted mt-1">
-                                        Source: {currentQuestion.documents[selectedDBQDocument].source}
-                                      </div>
-                                    )}
-                                    {currentQuestion.documents[selectedDBQDocument].date && (
-                                      <div className="text-sm text-content-muted">
-                                        Date: {currentQuestion.documents[selectedDBQDocument].date}
-                                      </div>
-                                    )}
-                                  </div>
-                                  <div className="text-content-secondary italic leading-relaxed">
-                                    "{currentQuestion.documents[selectedDBQDocument].content}"
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        ) : (
-                          // Non-DBQ: Show documents/stimulus in separate box under question
-                          <div className="p-6 bg-base-800 rounded-lg">
-                            <h4 className="font-medium text-content-secondary mb-4 text-lg">Supporting Documents:</h4>
-                            <div className="space-y-4">
-                              {currentQuestion.documents.map((doc, index) => (
-                                <div key={index} className="border-l-4 border-success-500 pl-4 bg-base-850/50 p-4 rounded">
-                                  {doc.source && (
-                                    <div className="text-sm text-content-muted mb-2">
-                                      Source: {doc.source}
-                                      {doc.date && `, ${doc.date}`}
-                                    </div>
-                                  )}
-                                  <div className="text-content-secondary leading-relaxed">
-                                    {doc.content}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Display SAQ stimulus separately if not in documents array */}
-                    {currentQuestion?.stimulus && !currentQuestion?.documents && (() => {
-                      const stim = String(currentQuestion.stimulus || '');
-                      const sourceMatch = stim.match(/^\s*Source:\s*(.+?)\s*(?:\n|$)/i);
-                      const sourceLine = sourceMatch ? sourceMatch[1].trim() : null;
-                      const content = sourceMatch ? stim.replace(sourceMatch[0], '').trim() : stim;
-                      return (
-                        <div className="mt-6 p-6 bg-base-800 rounded-lg">
-                          <h4 className="font-medium text-content-secondary mb-4 text-lg">Stimulus:</h4>
-                          {sourceLine && (
-                            <div className="text-sm text-content-muted mb-2">Source: {sourceLine}</div>
-                          )}
-                          <div className="border-l-4 border-success-500 pl-4 bg-base-850/50 p-4 rounded">
-                            <div className="text-content-secondary leading-relaxed italic">
-                              {content}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })()}
 
                     {/* Display LEQ prompt options */}
                     {currentQuestion?.promptOptions && currentQuestion.promptOptions.length > 0 && (
@@ -589,6 +507,8 @@ const TestPanel = ({
                   </div>
                 )}
               </div>
+                </div>{/* /question+answers column */}
+              </div>{/* /two-pane grid */}
 
               {/* Navigation */}
               <div className="pt-6 border-t border-border">

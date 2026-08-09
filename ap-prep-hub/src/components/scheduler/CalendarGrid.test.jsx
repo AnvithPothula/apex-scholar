@@ -7,7 +7,7 @@ jest.mock('../../contexts/AuthContext', () => ({
   useAuth: () => ({ user: null })
 }));
 
-jest.mock('../../config/firebase', () => ({
+jest.mock('../../config/firestore', () => ({
   db: {}
 }));
 

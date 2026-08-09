@@ -6,7 +6,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
 import { useConfirm } from "../contexts/ConfirmContext";
 import errorLogger from "../utils/errorLogger";
-import { db } from "../config/firebase";
+import { db } from "../config/firestore";
 import { TaskCard } from "../components/scheduler/TaskCard.jsx";
 import { TaskModal } from "../components/scheduler/TaskModal.jsx";
 import APExamDashboard from "../components/scheduler/APExamDashboard.jsx";

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, Play, Trash2, Clock, BookOpen, CheckCircle, X, Edit3, Save, ChevronDown, Globe, Lock, Copy, Users, User } from 'lucide-react';
+import { Plus, Search, Play, Trash2, Clock, BookOpen, CheckCircle, X, Edit3, Save, ChevronDown, Globe, Lock, Copy, Users, User, Upload } from 'lucide-react';
+import QuizletImport from '../components/flashcards/QuizletImport';
+import { recordFlashcardStudy } from '../services/activityTracker';
 import { Button, Card, Input } from '../components/ui/UIComponents';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -73,6 +75,8 @@ const FlashcardsPage = () => {
   const confirm = useConfirm();
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showQuizletImport, setShowQuizletImport] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [showManualCreate, setShowManualCreate] = useState(false);
   const [editingDeck, setEditingDeck] = useState(null);
   const [editingCard, setEditingCard] = useState(null);
@@ -118,6 +122,46 @@ const FlashcardsPage = () => {
   useEffect(() => {
     loadUserFlashcards();
   }, [loadUserFlashcards]);
+
+  /**
+   * Save a pasted Quizlet export as a deck.
+   *
+   * Imported decks are private by default: the student didn't necessarily write
+   * this content, and publishing someone else's set by default would be both
+   * rude and a copyright problem.
+   */
+  const handleQuizletImport = async ({ title, cards }) => {
+    if (!user || !cards?.length) return;
+    setIsImporting(true);
+    try {
+      // The parser emits {front, back}; decks store {question, answer}.
+      const deckCards = cards.map((c) => ({ question: c.front, answer: c.back }));
+      const newCollection = {
+        title,
+        subject: '',
+        topic: title,
+        cards: deckCards,
+        cardCount: deckCards.length,
+        difficulty: 'Medium',
+        description: `Imported from Quizlet · ${deckCards.length} cards`,
+        progress: 0,
+        isPublic: false,
+        creatorName: user.displayName || 'Anonymous',
+      };
+      const deckId = await dataService.saveFlashcardDeck(user.uid, newCollection);
+      setUserCollections((prev) => [
+        { ...newCollection, id: deckId, lastStudied: 'Never', createdAt: new Date() },
+        ...prev,
+      ]);
+      setShowQuizletImport(false);
+      toast.success(`Imported ${deckCards.length} cards.`);
+    } catch (error) {
+      console.error('Error importing Quizlet deck:', error);
+      toast.error("Couldn't import that deck. Please try again.");
+    } finally {
+      setIsImporting(false);
+    }
+  };
 
   const handleCreateCollection = async () => {
     if (!createSubject || !createTopic || !user) return;
@@ -257,6 +301,13 @@ const FlashcardsPage = () => {
           ? { ...deck, progress: newProgress, lastStudied: 'Just now' }
           : deck
       ));
+
+      // Streak + achievements. Previously only *creating* a deck recorded a
+      // study session, so actually studying one counted for nothing.
+      await recordFlashcardStudy(user.uid, {
+        subject: studyingDeck?.subject || '',
+        cardsStudied: studyingDeck?.cards?.length || 0,
+      });
 
       toast.success(`Study session complete! Accuracy: ${accuracy}%`);
     } catch (error) {
@@ -704,8 +755,24 @@ const FlashcardsPage = () => {
                 <Plus className="w-4 h-4 mr-1 sm:mr-2" strokeWidth={1.5} />
                 <span className="hidden sm:inline">Create with AI</span>
               </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowQuizletImport(true)}
+                className="flex-1 sm:flex-none text-sm"
+              >
+                <Upload className="w-4 h-4 mr-1 sm:mr-2" strokeWidth={1.5} />
+                <span className="hidden sm:inline">Import from Quizlet</span>
+              </Button>
             </div>
           </div>
+
+          {showQuizletImport && (
+            <QuizletImport
+              onClose={() => setShowQuizletImport(false)}
+              onImport={handleQuizletImport}
+              isSaving={isImporting}
+            />
+          )}
 
           {/* Create Form */}
           {showCreateForm && (

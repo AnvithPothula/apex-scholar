@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, ArrowLeft, X, Brain, FileQuestion, Zap, Calculator, Calendar, Settings, Sparkles } from 'lucide-react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db } from '../config/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import errorLogger from '../utils/errorLogger';
 import { easeOutExpo } from '../utils/animations';

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { overlayVariants, modalVariants } from '../utils/animations';
@@ -9,10 +9,14 @@ import { createPageUrl, cn } from '../utils/helpers';
 import ApexScholarLogo from './ui/ApexScholarLogo';
 import CommandPalette, { CommandPaletteTrigger } from './ui/CommandPalette';
 import PuterAuthPrompt from './auth/PuterAuthPrompt';
-import OnboardingWalkthrough from './OnboardingWalkthrough';
-import ReviewModal from './ReviewModal';
-import DeveloperSettings, { isAdmin } from './DeveloperSettings';
+import { isAdmin } from '../constants/admins';
 import { useTheme } from '../contexts/ThemeContext';
+
+// Modals, not first paint. Each of these pulled firebase/firestore into the
+// eager bundle just by being imported at module scope.
+const OnboardingWalkthrough = lazy(() => import('./OnboardingWalkthrough'));
+const ReviewModal = lazy(() => import('./ReviewModal'));
+const DeveloperSettings = lazy(() => import('./DeveloperSettings'));
 
 export function Layout({ children }) {
     const location = useLocation();
@@ -287,14 +291,18 @@ export function Layout({ children }) {
             {/* The Privacy Policy modal that lived here is gone — it is now a
                 real page at /privacy (see pages/Legal.jsx), alongside /terms. */}
 
-            {/* Review Modal */}
+            {/* Review Modal — lazy, so null fallback (nothing should flash) */}
             {showReviewModal && (
-                <ReviewModal onClose={() => setShowReviewModal(false)} />
+                <Suspense fallback={null}>
+                    <ReviewModal onClose={() => setShowReviewModal(false)} />
+                </Suspense>
             )}
 
             {/* Developer Settings Modal */}
             {showDevSettings && (
-                <DeveloperSettings onClose={() => setShowDevSettings(false)} />
+                <Suspense fallback={null}>
+                    <DeveloperSettings onClose={() => setShowDevSettings(false)} />
+                </Suspense>
             )}
 
             {/* Puter AI auth prompt — shown once after login if not yet connected */}
@@ -302,7 +310,11 @@ export function Layout({ children }) {
 
             {/* Onboarding walkthrough — signed-in users only (it writes
                 completion state to Firestore and tours member-only pages) */}
-            {user && <OnboardingWalkthrough />}
+            {user && (
+                <Suspense fallback={null}>
+                    <OnboardingWalkthrough />
+                </Suspense>
+            )}
 
             {/* Global command palette (Cmd+K) */}
             <CommandPalette />

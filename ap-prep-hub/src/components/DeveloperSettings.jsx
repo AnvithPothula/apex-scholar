@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Star, X, Code2, Trash2, ChevronDown, ChevronUp, Users, ShieldOff, BookOpen, Loader2 } from 'lucide-react';
-import { db } from '../config/firebase';
+import { Star, X, Code2, Trash2, ChevronDown, ChevronUp, Users, ShieldOff, BookOpen, Loader2, BarChart3, Mail } from 'lucide-react';
+import EmailBroadcast from './admin/EmailBroadcast';
+import { db } from '../config/firestore';
 import { getAuth } from 'firebase/auth';
 import { collection, query, orderBy, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { seedAllPublicDecks } from '../utils/seedPublicDecks';
@@ -8,21 +9,79 @@ import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { Button } from './ui/UIComponents';
 
-// Admin UIDs that can access Developer Settings
-const ADMIN_UIDS = [
-    'b0eUycwZDHcmrkoeSEiD69QSbK32',
-    'A0yRGP86ZTahByzS0ALYeKAXOn52',
-];
+// isAdmin now lives in constants/admins.js (no imports), so Layout/AuthContext
+// can check admin status without dragging this whole panel — and firestore —
+// into the eager bundle. Re-exported here for backwards compatibility.
+export { isAdmin } from '../constants/admins';
 
-export function isAdmin(uid) {
-    return ADMIN_UIDS.includes(uid);
-}
+// Shape mirrors the admin-stats function response.
+const STAT_GROUPS = [
+    { key: 'accounts', label: 'Accounts', items: [
+        { key: 'auth', label: 'Sign-ups (Auth)' },
+        { key: 'userDocs', label: 'User profiles' },
+        { key: 'activeLast30Days', label: 'Active (30d)' },
+    ] },
+    { key: 'practice', label: 'Practice', items: [
+        { key: 'testsTaken', label: 'Tests completed' },
+        { key: 'testsInProgress', label: 'Tests in progress' },
+    ] },
+    { key: 'classes', label: 'Classes', items: [
+        { key: 'total', label: 'Classes' },
+        { key: 'memberships', label: 'Memberships' },
+    ] },
+    { key: 'content', label: 'Content', items: [
+        { key: 'conversations', label: 'Tutor chats' },
+        { key: 'flashcardDecks', label: 'Flashcard decks' },
+        { key: 'diagnosticResults', label: 'Diagnostics' },
+        { key: 'solverHistory', label: 'Solver runs' },
+        { key: 'studySessions', label: 'Study sessions' },
+    ] },
+    { key: 'feedback', label: 'Feedback', items: [
+        { key: 'reviews', label: 'Reviews' },
+    ] },
+];
 
 export default function DeveloperSettings({ onClose }) {
     const { toast } = useToast();
     const confirm = useConfirm();
     const [reviews, setReviews] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [siteStats, setSiteStats] = useState(null);
+    const [statsLoading, setStatsLoading] = useState(false);
+    const [statsError, setStatsError] = useState('');
+
+    // Fetched lazily on first expand — it's a handful of Firestore aggregation
+    // reads plus a listUsers walk, so there's no reason to pay for it on open.
+    const loadSiteStats = useCallback(async () => {
+        setStatsLoading(true);
+        setStatsError('');
+        try {
+            const current = getAuth().currentUser;
+            if (!current) throw new Error('Not signed in.');
+            const token = await current.getIdToken();
+            const res = await fetch('/.netlify/functions/admin-stats', {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            // The CRA dev server answers unknown paths with index.html and a
+            // 200, so `res.ok` is true and parsing it as JSON throws a cryptic
+            // browser error ("The string did not match the expected pattern").
+            // Check the content type instead of trusting the status.
+            const contentType = res.headers.get('content-type') || '';
+            if (!contentType.includes('application/json')) {
+                throw new Error(
+                    'Stats function not reachable — Netlify Functions do not run under `npm start`. ' +
+                    'Use `netlify dev`, or view this on the deployed site.'
+                );
+            }
+            const body = await res.json();
+            if (!res.ok) throw new Error(body.error || `Stats request failed (${res.status}).`);
+            setSiteStats(body);
+        } catch (err) {
+            setStatsError(err.message || 'Could not load stats.');
+        } finally {
+            setStatsLoading(false);
+        }
+    }, []);
     const [expandedSection, setExpandedSection] = useState('reviews');
     const [stats, setStats] = useState({ total: 0, average: 0, distribution: [0, 0, 0, 0, 0] });
     const [seedStatus, setSeedStatus] = useState(null); // null | 'running' | 'done'
@@ -113,6 +172,100 @@ export default function DeveloperSettings({ onClose }) {
                     >
                         <X className="w-5 h-5" strokeWidth={1.5} />
                     </button>
+                </div>
+
+                {/* App-wide stats — server-side, because Firestore rules
+                    correctly prevent any client from counting other users' data. */}
+                <div className="border border-border-strong rounded-lg overflow-hidden mb-3">
+                    <button
+                        onClick={() => {
+                            const next = expandedSection === 'stats' ? '' : 'stats';
+                            setExpandedSection(next);
+                            if (next === 'stats' && !siteStats && !statsLoading) loadSiteStats();
+                        }}
+                        className="w-full flex items-center justify-between p-4 bg-base-800/50 hover:bg-base-800 transition-colors"
+                    >
+                        <div className="flex items-center gap-2">
+                            <BarChart3 className="w-4 h-4 text-primary-400" strokeWidth={1.5} />
+                            <span className="font-medium text-content-primary">Site Statistics</span>
+                        </div>
+                        {expandedSection === 'stats'
+                            ? <ChevronUp className="w-4 h-4 text-content-muted" strokeWidth={1.5} />
+                            : <ChevronDown className="w-4 h-4 text-content-muted" strokeWidth={1.5} />}
+                    </button>
+                    {expandedSection === 'stats' && (
+                        <div className="p-4 border-t border-border-strong">
+                            {statsLoading && (
+                                <div className="flex items-center gap-2 text-content-secondary text-sm">
+                                    <Loader2 className="w-4 h-4 animate-spin" strokeWidth={1.5} /> Counting…
+                                </div>
+                            )}
+                            {statsError && (
+                                <div className="text-sm text-error-400">
+                                    <p className="mb-1">{statsError}</p>
+                                    <p className="text-content-muted text-xs">
+                                        Needs the <code>admin-stats</code> function deployed with
+                                        FIREBASE_PROJECT_ID / CLIENT_EMAIL / PRIVATE_KEY set in Netlify.
+                                    </p>
+                                </div>
+                            )}
+                            {siteStats && (
+                                <div className="space-y-4">
+                                    {STAT_GROUPS.map((group) => (
+                                        <div key={group.key}>
+                                            <p className="text-xs uppercase tracking-wide text-content-muted mb-2">{group.label}</p>
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                                {group.items.map((item) => {
+                                                    const value = siteStats[group.key]?.[item.key];
+                                                    return (
+                                                        <div key={item.key} className="bg-base-800 border border-border rounded-md p-3">
+                                                            <p className="text-lg font-semibold text-content-primary">
+                                                                {/* null means the count failed — say so
+                                                                    rather than showing a confident 0. */}
+                                                                {value === null || value === undefined
+                                                                    ? <span className="text-content-muted text-sm">n/a</span>
+                                                                    : value.toLocaleString()}
+                                                            </p>
+                                                            <p className="text-xs text-content-secondary">{item.label}</p>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    ))}
+                                    <div className="flex items-center justify-between pt-1">
+                                        <p className="text-xs text-content-muted">
+                                            As of {new Date(siteStats.generatedAt).toLocaleString()}
+                                        </p>
+                                        <Button variant="ghost" size="sm" onClick={loadSiteStats} disabled={statsLoading}>
+                                            Refresh
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                {/* Email broadcast */}
+                <div className="border border-border-strong rounded-lg overflow-hidden mb-3">
+                    <button
+                        onClick={() => setExpandedSection(expandedSection === 'email' ? '' : 'email')}
+                        className="w-full flex items-center justify-between p-4 bg-base-800/50 hover:bg-base-800 transition-colors"
+                    >
+                        <div className="flex items-center gap-2">
+                            <Mail className="w-4 h-4 text-info-400" strokeWidth={1.5} />
+                            <span className="font-medium text-content-primary">Email Broadcast</span>
+                        </div>
+                        {expandedSection === 'email'
+                            ? <ChevronUp className="w-4 h-4 text-content-muted" strokeWidth={1.5} />
+                            : <ChevronDown className="w-4 h-4 text-content-muted" strokeWidth={1.5} />}
+                    </button>
+                    {expandedSection === 'email' && (
+                        <div className="p-4 border-t border-border-strong">
+                            <EmailBroadcast />
+                        </div>
+                    )}
                 </div>
 
                 {/* Reviews Section */}

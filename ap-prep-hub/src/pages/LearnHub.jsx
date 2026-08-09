@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { GraduationCap, Clock, ArrowLeft, ArrowRight } from 'lucide-react';
 import { Card } from '../components/ui/UIComponents';
 import { useAuth } from '../contexts/AuthContext';
-import { isAdmin } from '../components/DeveloperSettings';
+import { isAdmin } from '../constants/admins';
 import TimelineExplorer from '../components/learn/TimelineExplorer';
 import CurriculumExplorer from '../components/learn/CurriculumExplorer';
 import { TIMELINE_CATALOG, getTimeline } from '../data/timelines';

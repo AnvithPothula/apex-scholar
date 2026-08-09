@@ -4,7 +4,7 @@
  */
 
 import { collection, doc, addDoc, getDocs, query, where, serverTimestamp, getDoc, setDoc, updateDoc } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db } from '../config/firestore';
 import { schoologyAPI } from './schoologyAPI';
 
 class AssignmentSyncService {

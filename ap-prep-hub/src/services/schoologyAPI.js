@@ -17,7 +17,8 @@
  */
 
 import { doc, setDoc, getDoc, updateDoc, deleteField } from 'firebase/firestore';
-import { db, auth } from '../config/firebase';
+import { auth } from '../config/firebase';
+import { db } from '../config/firestore';
 import schoologyCalendar from './schoologyCalendar';
 
 const PROXY_URL = '/.netlify/functions/schoology-oauth';

@@ -18,7 +18,7 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == request.resource.data.userId;
     }
     // Single source of truth for admin. Mirrors ADMIN_UIDS in
-    // src/components/DeveloperSettings.jsx and also honors /admins/{uid} docs.
+    // src/constants/admins.js and also honors /admins/{uid} docs.
     function isAdmin() {
       return signedIn() && (
         request.auth.uid in ['b0eUycwZDHcmrkoeSEiD69QSbK32', 'A0yRGP86ZTahByzS0ALYeKAXOn52'] ||
@@ -50,6 +50,12 @@ service cloud.firestore {
 
       // User's progress data
       match /progress/{progressId} {
+        allow read, write: if signedIn() && request.auth.uid == userId;
+      }
+
+      // Pointers to the classes this user has joined. Keeps "my classes" a
+      // user-scoped read instead of a collection-group query across /classes.
+      match /classes/{classId} {
         allow read, write: if signedIn() && request.auth.uid == userId;
       }
 
@@ -169,11 +175,22 @@ service cloud.firestore {
     }
 
     // Test progress at root level - accessible by owner
+    // The in-progress doc has a DERIVED id ({uid}_inprogress) and is fetched by
+    // id to offer a resume. `ownsExisting()` alone fails for a doc that does
+    // not exist yet, because `resource.data` is null — the identical trap that
+    // made every new user's first userAchievements read permission-denied.
+    // Here it meant a permission error on every Practice Tests load for anyone
+    // without an unfinished test, i.e. almost everyone.
+    // The id branch is checked first and `||` short-circuits, so the null
+    // resource is never touched on that path.
     match /testProgress/{progressId} {
-      allow read: if ownsExisting();
+      function ownsById() {
+        return signedIn() && progressId == request.auth.uid + '_inprogress';
+      }
+      allow read: if ownsById() || ownsExisting();
       allow create: if ownsIncoming();
-      allow update: if ownsExisting() && ownsIncoming();
-      allow delete: if ownsExisting();
+      allow update: if ownsIncoming() && (ownsById() || ownsExisting());
+      allow delete: if ownsById() || ownsExisting();
     }
 
     // Study sessions at root level - accessible by owner
@@ -227,6 +244,64 @@ service cloud.firestore {
     match /admins/{adminId} {
       allow read: if signedIn() && request.auth.uid == adminId;
       allow write: if false;
+    }
+
+    // ---- Classes / clubs (join links) ----------------------------------
+    // This is the ONLY collection where users read data belonging to other
+    // users, so the boundaries are deliberately tight.
+    //
+    // The document id IS the join code, which is why `get` is open to any
+    // signed-in caller: holding the id is what proves you were given the link.
+    // `list` is denied for exactly the same reason — otherwise anyone could
+    // enumerate every class name in the app instead of needing a link.
+    match /classes/{classId} {
+      // A class may have several owners (co-teachers). ownerIds is the
+      // authority; ownerId is kept only as "who created it" for display.
+      function isOwner() {
+        return signedIn() && request.auth.uid in resource.data.ownerIds;
+      }
+      function isMember() {
+        return signedIn() &&
+          exists(/databases/$(database)/documents/classes/$(classId)/members/$(request.auth.uid));
+      }
+      // A member's ONLY legitimate write is bumping the roster counter when
+      // they join or leave. Without this clamp, "members may update" meant any
+      // student could rename the class or rewrite `subjects` — silently
+      // changing what counts on the leaderboard for everyone.
+      function memberCountOnly() {
+        return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberCount']);
+      }
+
+      allow get: if signedIn();
+      // Owners may query their own classes; nobody may list the collection.
+      allow list: if isOwner();
+      // A class is always created with exactly its creator as sole owner;
+      // co-owners are promoted afterwards, by an existing owner.
+      allow create: if signedIn()
+                    && request.auth.uid in request.resource.data.ownerIds
+                    && request.resource.data.ownerIds.size() == 1;
+      allow update: if isOwner()
+                    || (isMember() && memberCountOnly());
+      allow delete: if isOwner();
+
+      match /members/{memberId} {
+        // The roster is the leaderboard, so members see each other. Only
+        // members — a link-holder who hasn't joined sees the class, not the kids.
+        allow read: if signedIn() && (
+          request.auth.uid == memberId ||
+          exists(/databases/$(database)/documents/classes/$(classId)/members/$(request.auth.uid))
+        );
+        // You may only ever write your OWN row. This is what stops a student
+        // editing a classmate's score, and stops userId being spoofed.
+        allow create, update: if signedIn()
+                              && request.auth.uid == memberId
+                              && request.resource.data.userId == request.auth.uid;
+        // Students can leave; any owner can remove anyone.
+        allow delete: if signedIn() && (
+          request.auth.uid == memberId ||
+          request.auth.uid in get(/databases/$(database)/documents/classes/$(classId)).data.ownerIds
+        );
+      }
     }
 
     // Deny all other access by default

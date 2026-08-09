@@ -8,6 +8,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { AP_SUBJECTS } from '../constants/subjects';
 import geminiService, { RateLimitError } from '../services/geminiService';
 import dataService from '../services/dataService';
+import { recordPracticeTest } from '../services/activityTracker';
 import { levelFor } from '../services/mastery';
 
 // Subjects to exclude from diagnostics (no standard exam format or not suitable for practice tests)
@@ -190,6 +191,15 @@ const DiagnosticTypes = () => {
         ...result,
         questions: questions.length,
         completedAt: new Date()
+      });
+
+      // A diagnostic is a real study session — it should advance the streak and
+      // the weekly chart like any other graded work. It recorded neither before.
+      await recordPracticeTest(user.uid, {
+        subject: takingDiagnostic.name || takingDiagnostic.key || '',
+        questionsAnswered: questions.length,
+        correctAnswers: Math.round(((result?.score || 0) / 100) * questions.length),
+        scorePercent: result?.score ?? null,
       });
 
       // (No local history state — diagnostic results are persisted to

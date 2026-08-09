@@ -34,7 +34,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { getAvailableSubjects, getSubjectName } from '../../constants/comprehensiveCurriculum';
 import { getSubjectColor } from '../../constants/subjectColors';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../../config/firebase';
+import { db } from '../../config/firestore';
 
 const SubjectSelector = ({ subjects, selectedSubject, onSelectSubject }) => {
   const navigate = useNavigate();

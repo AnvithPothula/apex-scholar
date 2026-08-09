@@ -15,12 +15,16 @@ import {
     EmailAuthProvider,
     reauthenticateWithCredential
 } from "firebase/auth";
-import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
-import { auth, db, authIsSameOrigin } from '../config/firebase';
+import { auth, authIsSameOrigin } from '../config/firebase';
+// Firestore is loaded on demand — a static import here would drag the whole
+// SDK into the eager bundle, and nothing on this path needs the DB until
+// after auth resolves or the user acts.
+import { loadFirestore } from '../config/firestoreLazy';
 import { getFirebaseErrorMessage } from '../utils/firebaseErrorMessages';
 import errorLogger from '../utils/errorLogger';
-import { isAdmin } from '../components/DeveloperSettings';
+import { isAdmin } from '../constants/admins';
 import aiUsageLimiter from '../services/aiUsageLimiter';
+import { readPendingConsent, clearPendingConsent } from '../constants/consent';
 
 const AVATAR_GRADIENTS = [
   'linear-gradient(135deg, #14b8a6, #2dd4bf)',  // Teal
@@ -140,6 +144,7 @@ export const AuthProvider = ({ children }) => {
                 const fetchUserData = async () => {
                     try {
 
+                        const { db, doc, getDoc, setDoc, updateDoc } = await loadFirestore();
                         const userDocRef = doc(db, "users", firebaseUser.uid);
                         const userDocSnap = await getDoc(userDocRef);
                         
@@ -158,6 +163,11 @@ export const AuthProvider = ({ children }) => {
                             }
                         } else {
                             const gradient = generateAvatarGradient();
+                            // Google sign-in lands here: the account is brand new and this
+                            // is the only place its document gets written. The consent
+                            // choices were made on the login screen before a redirect that
+                            // reloaded the page, so they come back out of localStorage.
+                            const consent = readPendingConsent();
                             // Create user document asynchronously
                             await setDoc(userDocRef, {
                                 fullName: displayName,
@@ -165,10 +175,16 @@ export const AuthProvider = ({ children }) => {
                                 chatbotContext: 'I am a visual learner and prefer examples.',
                                 theme: 'light',
                                 avatarGradient: gradient,
+                                emailOptIn: consent?.emailOptIn === true,
+                                ...(consent?.emailOptIn ? { emailOptInAt: consent.at || new Date().toISOString() } : {}),
+                                ...(consent?.acceptedTerms ? { termsAcceptedAt: consent.at || new Date().toISOString() } : {}),
                             });
                             setUser(prev => ({ ...prev, avatarGradient: gradient }));
 
                         }
+                        // Consumed either way — a stale stash must not leak into
+                        // the next account created on this device.
+                        clearPendingConsent();
                     } catch (error) {
                         console.error("❌ Error fetching/creating user data:", error);
                         setConnectionError(getFirebaseErrorMessage(error));
@@ -208,6 +224,7 @@ export const AuthProvider = ({ children }) => {
         if (user) {
             try {
 
+                const { db, doc, updateDoc } = await loadFirestore();
                 const userRef = doc(db, "users", user.uid);
                 await updateDoc(userRef, data);
                 setUser(prev => ({...prev, ...data}));
@@ -288,11 +305,12 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    const signUpWithEmail = async (email, password, fullName) => {
+    const signUpWithEmail = async (email, password, fullName, emailOptIn = false) => {
         try {
 
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const gradient = generateAvatarGradient();
+            const { db, doc, setDoc } = await loadFirestore();
             await setDoc(doc(db, "users", userCredential.user.uid), {
                 fullName,
                 email,
@@ -300,6 +318,13 @@ export const AuthProvider = ({ children }) => {
                 chatbotContext: 'I am a visual learner and prefer examples.',
                 theme: 'light',
                 avatarGradient: gradient,
+                // Defaults to false and only ever set by an explicitly ticked
+                // box. A pre-checked or implied opt-in is not consent, and this
+                // audience is largely minors.
+                emailOptIn: emailOptIn === true,
+                ...(emailOptIn === true ? { emailOptInAt: new Date().toISOString() } : {}),
+                // Recorded so we can show when this account accepted the terms.
+                termsAcceptedAt: new Date().toISOString(),
             });
 
             return userCredential;
@@ -354,6 +379,7 @@ export const AuthProvider = ({ children }) => {
             await reauthenticate(currentPassword);
             await firebaseUpdateEmail(auth.currentUser, newEmail);
             // Update Firestore user doc too
+            const { db, doc, updateDoc } = await loadFirestore();
             const userRef = doc(db, "users", auth.currentUser.uid);
             await updateDoc(userRef, { email: newEmail });
             setUser(prev => ({ ...prev, email: newEmail }));
