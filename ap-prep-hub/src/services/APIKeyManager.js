@@ -5,20 +5,34 @@
 
 class APIKeyManager {
   constructor() {
-    // Load all available API keys from environment variables
-    this.apiKeys = [
-      process.env.REACT_APP_GEMINI_API_KEY,
-      process.env.REACT_APP_GEMINI_API_KEY_2,
-      process.env.REACT_APP_GEMINI_API_KEY_3,
-      process.env.REACT_APP_GEMINI_API_KEY_4,
-      process.env.REACT_APP_GEMINI_API_KEY_5,
-      process.env.REACT_APP_GEMINI_API_KEY_6,
-      process.env.REACT_APP_GEMINI_API_KEY_7,
-      process.env.REACT_APP_GEMINI_API_KEY_8,
-      process.env.REACT_APP_GEMINI_API_KEY_9,
-      process.env.REACT_APP_GEMINI_API_KEY_10,
-      process.env.REACT_APP_GEMINI_API_KEY_11
-    ].filter(key => key && key.trim() !== ''); // Filter out undefined/empty keys
+    // Direct client-side keys are DEVELOPMENT ONLY.
+    //
+    // `REACT_APP_*` values are inlined into the JavaScript bundle at build time,
+    // so shipping these to production published all 11 Gemini keys to anyone who
+    // opened devtools — and they are billable keys on 11 GCP projects. In
+    // production every AI call goes through the token-gated proxy
+    // (ai-proxy / the Cloudflare router), which holds the keys server-side.
+    //
+    // Gating on NODE_ENV stops production from *using* them; deleting the
+    // REACT_APP_GEMINI_API_KEY* vars in Netlify is what stops them being
+    // *embedded* at all (CRA inlines the literal regardless of this check).
+    // Both are required — see the plan's Phase 0 migration note.
+    const devKeys = process.env.NODE_ENV === 'development'
+      ? [
+          process.env.REACT_APP_GEMINI_API_KEY,
+          process.env.REACT_APP_GEMINI_API_KEY_2,
+          process.env.REACT_APP_GEMINI_API_KEY_3,
+          process.env.REACT_APP_GEMINI_API_KEY_4,
+          process.env.REACT_APP_GEMINI_API_KEY_5,
+          process.env.REACT_APP_GEMINI_API_KEY_6,
+          process.env.REACT_APP_GEMINI_API_KEY_7,
+          process.env.REACT_APP_GEMINI_API_KEY_8,
+          process.env.REACT_APP_GEMINI_API_KEY_9,
+          process.env.REACT_APP_GEMINI_API_KEY_10,
+          process.env.REACT_APP_GEMINI_API_KEY_11
+        ]
+      : [];
+    this.apiKeys = devKeys.filter(key => key && key.trim() !== ''); // Filter out undefined/empty keys
 
     this.currentKeyIndex = 0;
     // Default model can be overridden via env or at runtime
