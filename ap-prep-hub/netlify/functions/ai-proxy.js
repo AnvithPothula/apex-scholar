@@ -21,10 +21,29 @@
 // migration. Once the unprefixed vars are populated, the fallback is dead code
 // and can be removed.
 // ---------------------------------------------------------------------------
+// PREFERRED: one comma-separated GEMINI_API_KEYS variable.
+//
+// Netlify injects every env var into every function and AWS Lambda caps the
+// total at 4KB. Eleven separately-named keys spend ~220 bytes on variable NAMES
+// alone (`GEMINI_API_KEY_10` etc.) before a single key value; one variable
+// spends 15. On the Netlify free tier there is no per-variable scoping, so
+// trimming the payload is the only lever available.
+const keysFromList = (process.env.GEMINI_API_KEYS || '')
+  .split(',')
+  .map((k) => k.trim())
+  .filter(Boolean);
+
+// Legacy: individually-numbered vars. REACT_APP_* is the oldest form and is
+// also PUBLIC (CRA inlines it into the browser bundle), so it is a transitional
+// fallback only — see the plan's A36.
 const key = (n) =>
   process.env[`GEMINI_API_KEY${n}`] || process.env[`REACT_APP_GEMINI_API_KEY${n}`];
-const API_KEYS = [key(''), key('_2'), key('_3'), key('_4'), key('_5'), key('_6'),
+const numberedKeys = [key(''), key('_2'), key('_3'), key('_4'), key('_5'), key('_6'),
   key('_7'), key('_8'), key('_9'), key('_10'), key('_11')].filter(Boolean);
+
+// De-duplicate so a key present in both forms during a migration isn't rotated
+// through twice (which would halve the effective per-project quota spread).
+const API_KEYS = Array.from(new Set([...keysFromList, ...numberedKeys]));
 
 if (API_KEYS.length && !process.env.GEMINI_API_KEY) {
   console.warn('[ai-proxy] Using REACT_APP_GEMINI_API_KEY* fallback — set unprefixed GEMINI_API_KEY* and remove the REACT_APP_ copies.');
