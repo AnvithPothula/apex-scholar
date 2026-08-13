@@ -18,14 +18,7 @@ const humanGeography = {
     {
       name: "Unit 1: Thinking Geographically",
       weight: "8-10%",
-      topics: [
-        "Introduction to maps",
-        "Geographic data",
-        "The power of geographic data",
-        "Spatial concepts",
-        "Human-environment interaction",
-        "Scales of analysis"
-      ],
+      topics: ["Introduction to Maps", "Geographic Data", "The Power of Geographic Data", "Human\u2013Environmental Interaction", "Scale Analysis", "Regional Analysis"],
       keyConcepts: [
         "Types of maps and projections",
         "Geographic Information Systems (GIS)",
@@ -45,20 +38,7 @@ const humanGeography = {
     {
       name: "Unit 2: Population and Migration Patterns and Processes",
       weight: "12-17%",
-      topics: [
-        "Population distribution",
-        "Consequences of population distribution",
-        "Population composition",
-        "Population dynamics",
-        "The demographic transition model",
-        "Malthusian theory",
-        "Population policies",
-        "Women and demographic change",
-        "Aging populations",
-        "Causes of migration",
-        "Forced and voluntary migration",
-        "Effects of migration"
-      ],
+      topics: ["Population Distribution", "Consequences of Population Distribution", "Population Composition", "The Demographic Transition Model", "Malthusian Theory", "Population Policies", "Women and Demographic Change", "Aging Populations", "Spatial Relationships", "Forced and Voluntary Migration", "Spatial Relationships"],
       keyConcepts: [
         "Population density and distribution patterns",
         "Demographic transition model",
@@ -79,20 +59,7 @@ const humanGeography = {
     {
       name: "Unit 3: Cultural Patterns and Processes",
       weight: "12-17%",
-      topics: [
-        "Introduction to culture",
-        "Cultural landscapes",
-        "Cultural patterns",
-        "Types of diffusion",
-        "Historical causes of diffusion",
-        "Contemporary causes of diffusion",
-        "Religion and culture",
-        "Religion and the landscape",
-        "Ethnicity and culture",
-        "Cultural boundaries",
-        "Language",
-        "Language families"
-      ],
+      topics: ["Introduction to Culture", "Cultural Landscapes", "Cultural Patterns", "Concepts and Processes", "Historical Causes of Diffusion", "Contemporary Causes of Diffusion", "Diffusion of Religion and Language", "Spatial Relationships"],
       keyConcepts: [
         "Cultural traits, complexes, and regions",
         "Cultural diffusion: relocation, expansion, hierarchical, contagious",
@@ -113,17 +80,7 @@ const humanGeography = {
     {
       name: "Unit 4: Political Patterns and Processes",
       weight: "12-17%",
-      topics: [
-        "Defining political geography",
-        "Types of political entities",
-        "The modern state concept",
-        "Challenges to sovereignty",
-        "Devolution",
-        "Electoral geography",
-        "Internal boundaries",
-        "The function of internal boundaries",
-        "Military and economic alliances"
-      ],
+      topics: ["Introduction to Political Geography", "Political Power and Territoriality", "Defining Political Boundaries", "The Function of Political Boundaries", "Internal Boundaries", "Forms of Governance", "Defining Devolutionary Factors", "Challenges to Sovereignty", "Consequences of Centrifugal and Centripetal Forces"],
       keyConcepts: [
         "State, nation, nation-state concepts",
         "Sovereignty and territorial integrity",
@@ -144,20 +101,7 @@ const humanGeography = {
     {
       name: "Unit 5: Agriculture and Rural Land-Use Patterns and Processes",
       weight: "12-17%",
-      topics: [
-        "Introduction to agriculture",
-        "Settlement patterns and survey methods",
-        "Agricultural origins and diffusions",
-        "The Second Agricultural Revolution",
-        "The Green Revolution",
-        "Agricultural production regions",
-        "Spatial organization of agriculture",
-        "Von Thünen model",
-        "The global system of agriculture",
-        "Consequences of agricultural practices",
-        "Challenges of contemporary agriculture",
-        "Women in agriculture"
-      ],
+      topics: ["Introduction to Agriculture", "Settlement Patterns and Survey Methods", "Agricultural Origins and Diffusions", "The Second Agricultural Revolution", "The Green Revolution", "Agricultural Production Regions", "Spatial Organization of Agriculture", "Von Th\u00fcnen Model", "The Global System of Agriculture", "Consequences of Agricultural Practices", "Challenges of Contemporary Agriculture", "Women in Agriculture"],
       keyConcepts: [
         "First, Second, and Third Agricultural Revolutions",
         "Subsistence vs. commercial agriculture",
@@ -178,20 +122,7 @@ const humanGeography = {
     {
       name: "Unit 6: Cities and Urban Land-Use Patterns and Processes",
       weight: "12-17%",
-      topics: [
-        "The origin and influence of cities",
-        "Cities across the world",
-        "Cities and globalization",
-        "The size and distribution of cities",
-        "Gravity model",
-        "Christaller's central place theory",
-        "Urban hierarchy",
-        "Primate cities",
-        "Internal structure of cities",
-        "Urban planning",
-        "Challenges of urban changes",
-        "Challenges of urban sustainability"
-      ],
+      topics: ["The Origin and Influences of Urbanization", "Cities Across the World", "Cities and Globalization", "The Size and Distribution of Cities", "The Internal Structure of Cities", "Density and Land Use", "Infrastructure", "Urban Sustainability", "Urban Data", "Challenges of Urban Changes", "Challenges of Urban Sustainability"],
       keyConcepts: [
         "Urban hearths and early cities",
         "Central place theory and urban hierarchy",
@@ -212,16 +143,7 @@ const humanGeography = {
     {
       name: "Unit 7: Industrial and Economic Development Patterns and Processes",
       weight: "12-17%",
-      topics: [
-        "The Industrial Revolution",
-        "Economic sectors and patterns",
-        "Measures of development",
-        "Theories of development",
-        "Trade and the world economy",
-        "Changing global economy",
-        "Sustainable development",
-        "Women and economic development"
-      ],
+      topics: ["The Industrial Revolution", "Economic Sectors", "Measures of Development", "Women", "Theories of Development", "Changes as a Result of the World Economy", "Sustainable"],
       keyConcepts: [
         "Primary, secondary, tertiary, quaternary economic sectors",
         "Development indicators: GDP, HDI, GII",

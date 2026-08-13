@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Star, X, Code2, Trash2, ChevronDown, ChevronUp, Users, ShieldOff, BookOpen, Loader2, BarChart3, Mail } from 'lucide-react';
+import { Star, X, Code2, Trash2, ChevronDown, ChevronUp, Users, ShieldOff, Loader2, BarChart3, Mail, Activity } from 'lucide-react';
 import EmailBroadcast from './admin/EmailBroadcast';
+import { HEALTH_PROBES, interpretProbe } from './admin/healthProbes';
 import { db } from '../config/firestore';
 import { getAuth } from 'firebase/auth';
 import { collection, query, orderBy, getDocs, deleteDoc, doc } from 'firebase/firestore';
-import { seedAllPublicDecks } from '../utils/seedPublicDecks';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { Button } from './ui/UIComponents';
@@ -82,28 +82,41 @@ export default function DeveloperSettings({ onClose }) {
             setStatsLoading(false);
         }
     }, []);
+    const [health, setHealth] = useState(null);
+    const [healthLoading, setHealthLoading] = useState(false);
+
+    const runHealthChecks = useCallback(async () => {
+        setHealthLoading(true);
+        try {
+            const current = getAuth().currentUser;
+            const token = current ? await current.getIdToken() : null;
+            const results = await Promise.all(HEALTH_PROBES.map(async (probe) => {
+                try {
+                    const res = await fetch(`/.netlify/functions/${probe.key}`, {
+                        method: probe.method,
+                        headers: {
+                            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                            ...(probe.body ? { 'Content-Type': 'application/json' } : {}),
+                        },
+                        ...(probe.body ? { body: probe.body } : {}),
+                    });
+                    const contentType = res.headers.get('content-type') || '';
+                    const payload = contentType.includes('application/json')
+                        ? await res.json().catch(() => null)
+                        : null;
+                    return { ...probe, ...interpretProbe({ status: res.status, contentType, payload }, probe.healthy) };
+                } catch (err) {
+                    return { ...probe, ok: false, detail: err.message || 'Request failed' };
+                }
+            }));
+            setHealth({ results, checkedAt: Date.now() });
+        } finally {
+            setHealthLoading(false);
+        }
+    }, []);
+
     const [expandedSection, setExpandedSection] = useState('reviews');
     const [stats, setStats] = useState({ total: 0, average: 0, distribution: [0, 0, 0, 0, 0] });
-    const [seedStatus, setSeedStatus] = useState(null); // null | 'running' | 'done'
-    const [seedLog, setSeedLog] = useState([]);
-    const [seedResult, setSeedResult] = useState(null);
-
-    const handleSeedDecks = useCallback(async () => {
-        if (seedStatus === 'running') return;
-        setSeedStatus('running');
-        setSeedLog([]);
-        setSeedResult(null);
-
-        const uid = getAuth().currentUser?.uid;
-        if (!uid) { setSeedStatus(null); toast.error('Not logged in'); return; }
-
-        const result = await seedAllPublicDecks(uid, (message, current, total) => {
-            setSeedLog(prev => [...prev.slice(-50), `[${current}/${total}] ${message}`]);
-        });
-
-        setSeedResult(result);
-        setSeedStatus('done');
-    }, [seedStatus, toast]);
 
     useEffect(() => {
         fetchReviews();
@@ -172,6 +185,70 @@ export default function DeveloperSettings({ onClose }) {
                     >
                         <X className="w-5 h-5" strokeWidth={1.5} />
                     </button>
+                </div>
+
+                {/* System health — the three env groups that have actually
+                    broken in production, each reporting its real error rather
+                    than a generic "something went wrong". */}
+                <div className="border border-border-strong rounded-lg overflow-hidden mb-3">
+                    <button
+                        onClick={() => {
+                            const next = expandedSection === 'health' ? '' : 'health';
+                            setExpandedSection(next);
+                            if (next === 'health' && !health && !healthLoading) runHealthChecks();
+                        }}
+                        className="w-full flex items-center justify-between p-4 bg-base-800/50 hover:bg-base-800 transition-colors"
+                    >
+                        <div className="flex items-center gap-2">
+                            <Activity className="w-4 h-4 text-primary-400" strokeWidth={1.5} />
+                            <span className="font-medium text-content-primary">System Health</span>
+                            {health && (
+                                <span className={`text-xs ${health.results.every(r => r.ok) ? 'text-success-400' : 'text-error-400'}`}>
+                                    {health.results.filter(r => r.ok).length}/{health.results.length} OK
+                                </span>
+                            )}
+                        </div>
+                        {expandedSection === 'health'
+                            ? <ChevronUp className="w-4 h-4 text-content-muted" strokeWidth={1.5} />
+                            : <ChevronDown className="w-4 h-4 text-content-muted" strokeWidth={1.5} />}
+                    </button>
+                    {expandedSection === 'health' && (
+                        <div className="p-4 border-t border-border-strong">
+                            {healthLoading && (
+                                <div className="flex items-center gap-2 text-content-secondary text-sm">
+                                    <Loader2 className="w-4 h-4 animate-spin" strokeWidth={1.5} /> Pinging…
+                                </div>
+                            )}
+                            {health && (
+                                <div className="space-y-2">
+                                    {health.results.map((r) => (
+                                        <div key={r.key} className="bg-base-800 border border-border rounded-md p-3">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <span className="text-sm font-medium text-content-primary">{r.label}</span>
+                                                <span className={`text-xs font-medium ${r.ok ? 'text-success-400' : 'text-error-400'}`}>
+                                                    {r.ok ? 'OK' : 'FAIL'}
+                                                </span>
+                                            </div>
+                                            <p className={`text-xs mt-1 ${r.ok ? 'text-content-muted' : 'text-error-400'}`}>{r.detail}</p>
+                                            {!r.ok && (
+                                                <p className="text-xs text-content-muted mt-1">
+                                                    Needs <code>{r.hint}</code>
+                                                </p>
+                                            )}
+                                        </div>
+                                    ))}
+                                    <div className="flex items-center justify-between pt-1">
+                                        <p className="text-xs text-content-muted">
+                                            Checked {new Date(health.checkedAt).toLocaleTimeString()} · nothing is sent or charged
+                                        </p>
+                                        <Button variant="ghost" size="sm" onClick={runHealthChecks} disabled={healthLoading}>
+                                            Re-check
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {/* App-wide stats — server-side, because Firestore rules
@@ -423,50 +500,7 @@ export default function DeveloperSettings({ onClose }) {
                     )}
                 </div>
 
-                {/* Public Flashcard Decks — its own section. This used to be nested
-                    INSIDE the Puter card, so it rendered below a collapsed header
-                    inside the same border and looked like a layout bug. */}
-                <div className="border border-border-strong rounded-lg overflow-hidden mt-4">
-                    <button
-                        onClick={() => setExpandedSection(expandedSection === 'decks' ? '' : 'decks')}
-                        className="w-full flex items-center justify-between p-4 bg-base-800/50 hover:bg-base-800 transition-colors"
-                    >
-                        <div className="flex items-center gap-2">
-                            <BookOpen className="w-4 h-4 text-content-muted" strokeWidth={1.5} />
-                            <span className="font-medium text-content-primary">Public Flashcard Decks</span>
-                        </div>
-                        {expandedSection === 'decks' ? (
-                            <ChevronUp className="w-4 h-4 text-content-muted" strokeWidth={1.5} />
-                        ) : (
-                            <ChevronDown className="w-4 h-4 text-content-muted" strokeWidth={1.5} />
-                        )}
-                    </button>
-
-                    {expandedSection === 'decks' && (
-                        <div className="p-4 space-y-3 border-t border-border">
-                            <p className="text-body-sm text-content-secondary">
-                                Generate AI-powered flashcard decks for all major AP subjects. Each unit gets a 15-card deck published under &quot;Apex Scholar&quot;.
-                            </p>
-                            <Button variant="primary" size="sm" onClick={handleSeedDecks} disabled={seedStatus === 'running'}>
-                                {seedStatus === 'running' ? (
-                                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" strokeWidth={1.5} /> Generating…</>
-                                ) : (
-                                    <><BookOpen className="w-4 h-4 mr-2" strokeWidth={1.5} /> Seed All Decks</>
-                                )}
-                            </Button>
-                            {seedLog.length > 0 && (
-                                <div className="max-h-40 overflow-y-auto bg-base-900 border border-border rounded-lg p-3 text-xs font-mono text-content-muted space-y-0.5">
-                                    {seedLog.map((line, i) => <div key={i}>{line}</div>)}
-                                </div>
-                            )}
-                            {seedResult && (
-                                <p className="text-body-sm text-content-secondary">
-                                    Done: {seedResult.created} created, {seedResult.failed} failed, {seedResult.skipped} skipped
-                                </p>
-                            )}
-                        </div>
-                    )}
-                </div>
+                
             </div>
         </div>
     );

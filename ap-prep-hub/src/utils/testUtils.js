@@ -53,6 +53,21 @@ export const sortQuestionsForProperOrder = (questions, section) => {
   });
 };
 
+
+// LaTeX commands the AI routinely emits without their leading backslash.
+// Split into plain words and function-call forms because the latter must keep
+// the "(" that identifies them.
+const WORD_COMMANDS = [
+  'pi', 'theta', 'alpha', 'beta', 'gamma', 'delta', 'lambda', 'mu', 'sigma',
+  'omega', 'infty', 'cdot', 'times', 'div', 'pm', 'leq', 'geq', 'neq',
+  'rightarrow', 'leftarrow', 'partial', 'nabla',
+];
+const FUNCTION_COMMANDS = ['sin', 'cos', 'tan', 'ln', 'log'];
+
+// `(\\\\?)` captures an already-present backslash so escaped input is left alone.
+const WORD_COMMAND_RE = new RegExp(`(\\\\?)\\b(${WORD_COMMANDS.join('|')})\\b`, 'g');
+const FUNCTION_CALL_RE = new RegExp(`(\\\\?)\\b(${FUNCTION_COMMANDS.join('|')})\\(`, 'g');
+
 // Helper function to fix LaTeX in text
 // Only applies Greek-letter / symbol replacements INSIDE $...$ delimiters
 // to avoid corrupting plain English like "alpha particles" or "beta decay"
@@ -78,6 +93,20 @@ export const fixLaTeXInText = (text) => {
     .replace(/f+\\(frac|sqrt|sin|cos|tan|lim|int|sum)/g, '\\$1')
     .replace(/\\\\\\\\/g, '\\\\')
     .replace(/\\\\\\/g, '\\\\')
+    // Collapse a DOUBLED backslash that introduces a command.
+    //
+    // The AI returns JSON, so every LaTeX command arrives escaped ("\\mu"), and
+    // the JSON repair pipeline can leave that doubling in place. KaTeX reads
+    // `\\` as a line break, so `\\mu mol` rendered as a break followed by the
+    // literal text "mumol" — a generated AP Biology question showed Vmax in
+    // "mumol/min" instead of \u00b5mol/min.
+    //
+    // The list of stutter fixes above only covers hand-picked commands and had
+    // no entry for \\mu. This is the general rule: a real `\\` line break is
+    // followed by whitespace or the end of a line, never by a letter, so a
+    // doubled backslash immediately before a letter is always an over-escaped
+    // command.
+    .replace(/\\\\(?=[a-zA-Z])/g, '\\')
     .replace(/\\l\\l\\lim/g, '\\lim')
     .replace(/\\l\\lim/g, '\\lim')
     .replace(/\\s\\s\\sin/g, '\\sin')
@@ -96,38 +125,21 @@ export const fixLaTeXInText = (text) => {
   result = parts.map(part => {
     // Only process segments that are inside $...$ or $$...$$
     if (part.startsWith('$') && part.endsWith('$')) {
+      // Bare-word LaTeX rescue: turn `pi` into `\\pi` inside math, so AI output
+      // that forgot the backslash still renders.
+      //
+      // This MUST NOT fire on text that is already escaped. The old version was
+      // a ladder of `.replace(/\\bmu\\b/g, '\\\\mu')` calls, and `\\b` matches
+      // between `\\` and `mu` — so a correct `\\mu` became `\\\\mu`, which KaTeX
+      // reads as a line break followed by the literal text "mu". A generated AP
+      // Biology question rendered Vmax in "mumol/min" instead of \u00b5mol/min, and
+      // every Greek letter in the list had the same defect.
+      //
+      // The optional leading `(\\\\?)` captures an existing backslash; when one is
+      // present the match is returned untouched.
       return part
-        .replace(/\bsin\(/g, '\\sin(')
-        .replace(/\bcos\(/g, '\\cos(')
-        .replace(/\btan\(/g, '\\tan(')
-        .replace(/\bln\(/g, '\\ln(')
-        .replace(/\blog\(/g, '\\log(')
-        .replace(/\blim_/g, '\\lim_')
-        .replace(/\bint\s/g, '\\int ')
-        .replace(/\bsum_/g, '\\sum_')
-        .replace(/\bsqrt\{/g, '\\sqrt{')
-        .replace(/\bpi\b/g, '\\pi')
-        .replace(/\btheta\b/g, '\\theta')
-        .replace(/\balpha\b/g, '\\alpha')
-        .replace(/\bbeta\b/g, '\\beta')
-        .replace(/\bgamma\b/g, '\\gamma')
-        .replace(/\bdelta\b/g, '\\delta')
-        .replace(/\blambda\b/g, '\\lambda')
-        .replace(/\bmu\b/g, '\\mu')
-        .replace(/\bsigma\b/g, '\\sigma')
-        .replace(/\bomega\b/g, '\\omega')
-        .replace(/\binfty\b/g, '\\infty')
-        .replace(/\bcdot\b/g, '\\cdot')
-        .replace(/\btimes\b/g, '\\times')
-        .replace(/\bdiv\b/g, '\\div')
-        .replace(/\bpm\b/g, '\\pm')
-        .replace(/\bleq\b/g, '\\leq')
-        .replace(/\bgeq\b/g, '\\geq')
-        .replace(/\bneq\b/g, '\\neq')
-        .replace(/\brightarrow\b/g, '\\rightarrow')
-        .replace(/\bleftarrow\b/g, '\\leftarrow')
-        .replace(/\bpartial\b/g, '\\partial')
-        .replace(/\bnabla\b/g, '\\nabla');
+        .replace(WORD_COMMAND_RE, (m, bs, word) => (bs ? m : '\\' + word))
+        .replace(FUNCTION_CALL_RE, (m, bs, word) => (bs ? m : '\\' + word + '('));
     }
     return part;
   }).join('');

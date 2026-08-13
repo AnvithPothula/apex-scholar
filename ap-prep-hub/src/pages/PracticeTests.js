@@ -1143,18 +1143,30 @@ Format as JSON:
     setCurrentView('test');
   }, [resumable]);
 
+  // Latest test state, for the auto-save interval below to read without being
+  // in its dependency array.
+  const autoSaveState = useRef({});
+  autoSaveState.current = {
+    selectedSubject, selectedSection, questions, userAnswers,
+    currentQuestionIndex, timeRemaining,
+  };
+
   // Auto-save functionality.
   //
   // ⚠️ The "Auto-save progress" toggle previously did nothing here: this effect
   // ignored autoSyncEnabled, so progress was written every 30s even with the
   // box unchecked. Gated now, so "off" means off.
   //
-  // ⚠️ Known gap: nothing in the app ever READS testProgress back, so there is
-  // still no resume. The doc also stores only userAnswers/index/timeRemaining —
-  // not the questions — so a resume feature needs the question set persisted
-  // too. Tracked in the plan; do not describe this as "resume" until it is.
+  // ⚠️ The interval used to depend on `timeRemaining`, which ticks once a
+  // SECOND. React tore the effect down and recreated it on every tick, so the
+  // 30-second interval was cleared ~29 times before it could ever fire — auto
+  // -save never wrote a single document, and the resume prompt below (which
+  // needs one) could therefore never appear. A student who reloaded mid-exam
+  // silently lost the whole attempt. The interval now depends only on things
+  // that actually change when saving should start or stop, and reads live
+  // state through a ref.
   useEffect(() => {
-    if (autoSyncEnabled && testStarted && user && Object.keys(userAnswers).length > 0) {
+    if (autoSyncEnabled && testStarted && user) {
       const saveProgress = async () => {
         try {
           // Deep sanitize function to remove undefined values.
@@ -1183,15 +1195,21 @@ Format as JSON:
             return sanitized;
           };
 
+          const live = autoSaveState.current;
+          // Nothing worth restoring yet — do not leave an empty doc that the
+          // resume check would have to reject on every load.
+          if (!Array.isArray(live.questions) || live.questions.length === 0) return;
+          if (Object.keys(live.userAnswers || {}).length === 0) return;
+
           const progressData = deepSanitize({
             userId: user.uid,
-            subject: selectedSubject || '',
-            section: selectedSection || '',
+            subject: live.selectedSubject || '',
+            section: live.selectedSection || '',
             // Difficulty removed from schema
-            questions: questions || [],
-            userAnswers: userAnswers || {},
-            currentQuestionIndex: currentQuestionIndex || 0,
-            timeRemaining: timeRemaining || 0,
+            questions: live.questions || [],
+            userAnswers: live.userAnswers || {},
+            currentQuestionIndex: live.currentQuestionIndex || 0,
+            timeRemaining: live.timeRemaining || 0,
             lastSaved: serverTimestamp()
           });
 
@@ -1206,7 +1224,7 @@ Format as JSON:
       const saveInterval = setInterval(saveProgress, 30000); // Save every 30 seconds
       return () => clearInterval(saveInterval);
     }
-  }, [autoSyncEnabled, testStarted, user, selectedSubject, selectedSection, questions, userAnswers, currentQuestionIndex, timeRemaining]);
+  }, [autoSyncEnabled, testStarted, user]);
 
   // Load test history from Firebase
   useEffect(() => {
@@ -1256,71 +1274,16 @@ Format as JSON:
     localStorage.setItem('aptest_autosync', JSON.stringify(autoSyncEnabled));
   }, [autoSyncEnabled]);
 
-  // Update Firebase auto-sync setting when changed
-  useEffect(() => {
-    if (user && autoSyncEnabled !== undefined) {
-      const updateAutoSyncInFirebase = async () => {
-        try {
-          const userTokensRef = doc(db, 'users', user.uid, 'integrations', 'schoology');
-          await setDoc(userTokensRef, { 
-            autoSync: autoSyncEnabled,
-            lastUpdated: serverTimestamp()
-          }, { merge: true });
-          console.log(`✅ Auto-sync disabled state saved to Firebase for user ${user.uid}`);
-        } catch (error) {
-          console.error('Failed to update Firebase autoSync setting:', error);
-        }
-      };
-      
-      // Only update if the value has actually changed to avoid unnecessary saves
-      const timeoutId = setTimeout(updateAutoSyncInFirebase, 500);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [autoSyncEnabled, user]);
-
-  // Drawing canvas removed: no auto-enable
-  
-  // Auto-save user settings
-  useEffect(() => {
-    if (autoSyncEnabled && user && selectedSubject) {
-      const settingsToSave = {
-        selectedSubject,
-        selectedUnits,
-        useDefaultTime,
-        customTime,
-        timestamp: Date.now()
-      };
-      
-      // Debounce the save operation
-      const timeoutId = setTimeout(() => {
-        localStorage.setItem(`aptest_settings_${user.uid}`, JSON.stringify(settingsToSave));
-      }, 1000);
-      
-      return () => clearTimeout(timeoutId);
-    }
-  }, [selectedSubject, selectedUnits, useDefaultTime, customTime, autoSyncEnabled, user]);
-
-  // Load saved settings on component mount
-  useEffect(() => {
-    if (autoSyncEnabled && user) {
-      try {
-        const saved = localStorage.getItem(`aptest_settings_${user.uid}`);
-        if (saved) {
-          const settings = JSON.parse(saved);
-          // Only auto-load if the settings are recent (within 24 hours)
-          if (Date.now() - (settings.timestamp || 0) < 24 * 60 * 60 * 1000) {
-            setSelectedSubject(settings.selectedSubject || '');
-            // Difficulty setting removed
-            setSelectedUnits(settings.selectedUnits || []);
-            setUseDefaultTime(settings.useDefaultTime ?? true);
-            setCustomTime(settings.customTime || '');
-          }
-        }
-      } catch (error) {
-        console.error('Error loading saved settings:', error);
-      }
-    }
-  }, [user, autoSyncEnabled]);
+  // NOTE: this used to mirror `autoSyncEnabled` into
+  // users/{uid}/integrations/schoology as `autoSync` — which is SCHOOLOGY's
+  // assignment-sync flag, a completely unrelated feature. Turning off
+  // "auto-save practice test progress" therefore silently switched off
+  // Schoology assignment syncing, and Schoology's own toggle would clobber this
+  // one back. Two features, one field.
+  //
+  // The write was also read-only-never: this component initialises
+  // autoSyncEnabled from localStorage (see above) and never reads Firestore, so
+  // deleting the write loses nothing and stops the collision.
 
   const handleStartTest = async () => {
     if (!selectedSubject || !selectedSection) {

@@ -4,6 +4,7 @@ import { Plus, Search, Play, Trash2, Clock, BookOpen, CheckCircle, X, Edit3, Sav
 import QuizletImport from '../components/flashcards/QuizletImport';
 import { recordFlashcardStudy } from '../services/activityTracker';
 import { Button, Card, Input } from '../components/ui/UIComponents';
+import ProgressIndicator from '../components/ui/ProgressIndicator';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { AP_SUBJECTS } from '../constants/subjects';
@@ -858,6 +859,13 @@ const FlashcardsPage = () => {
                       </>
                     )}
                   </Button>
+                  {isGenerating && (
+                    <ProgressIndicator
+                      label="Writing your deck"
+                      hint="Larger decks take proportionally longer."
+                      className="mt-4"
+                    />
+                  )}
                   <Button
                     variant="outline"
                     onClick={() => setShowCreateForm(false)}

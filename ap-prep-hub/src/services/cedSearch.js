@@ -6,6 +6,8 @@ import { extractCitationsFromPdfUrl } from './pdfUtils';
 const SUBJECT_TO_PDF = {
   // Sciences
   'AP Biology': 'ap-biology-course-and-exam-description.pdf',
+  'AP Business with Personal Finance': 'ap-business-personal-finance-course-and-exam-description.pdf',
+  'AP Cybersecurity': 'ap-cybersecurity-course-and-exam-description.pdf',
   'AP Chemistry': 'ap-chemistry-course-and-exam-description.pdf',
   'AP Environmental Science': 'ap-environmental-science-course-and-exam-description.pdf',
   'AP Physics 1': 'ap-physics-1-course-and-exam-description.pdf',

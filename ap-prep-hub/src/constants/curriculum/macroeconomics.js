@@ -19,13 +19,7 @@ const macroeconomics = {
     {
       name: "Unit 1: Basic Economic Concepts",
       weight: "5-10%",
-      topics: [
-        "Scarcity and opportunity cost",
-        "Production possibilities curve",
-        "Comparative advantage and specialization",
-        "Economic systems",
-        "Property rights and the role of incentives"
-      ],
+      topics: ["The suggested skill offers a possible skill to pair with the topic", "Scarcity", "Comparative Advantage and Gains from Trade", "Graphing and Visuals", "Supply", "Market Equilibrium, Disequilibrium, and Changes in Equilibrium"],
       keyConcepts: [
         "Scarcity and trade-offs",
         "Opportunity cost and marginal analysis",
@@ -45,15 +39,7 @@ const macroeconomics = {
     {
       name: "Unit 2: Economic Indicators and the Business Cycle",
       weight: "12-17%",
-      topics: [
-        "The circular flow and GDP",
-        "Limitations of GDP",
-        "Unemployment",
-        "Price indices and inflation",
-        "Costs of inflation",
-        "Real vs. nominal values",
-        "Business cycles"
-      ],
+      topics: ["The Circular Flow and GDP", "Limitations of GDP", "Unemployment", "Price Indices and Inflation", "Costs of Inflation", "Real v. Nominal GDP", "Business Cycles"],
       keyConcepts: [
         "Circular flow model",
         "Gross Domestic Product (GDP) calculation methods",
@@ -74,15 +60,7 @@ const macroeconomics = {
     {
       name: "Unit 3: National Income and Price Determination",
       weight: "17-27%",
-      topics: [
-        "Aggregate demand",
-        "Multipliers",
-        "Short-run aggregate supply",
-        "Long-run aggregate supply",
-        "Equilibrium in the aggregate demand-aggregate supply model",
-        "Changes in the aggregate demand-aggregate supply model",
-        "Phillips curve"
-      ],
+      topics: ["Aggregate Demand (AD)", "Manipulation", "Short-Run Aggregate Supply (SRAS)", "Long-Run Aggregate Supply (LRAS)", "Equilibrium in the Aggregate Demand\u2013 Aggregate Supply (AD\u2013AS) Model", "Changes in the AD\u2013AS Model in the Short Run", "Long-Run Self-Adjustment", "Interpretation", "Automatic Stabilizers"],
       keyConcepts: [
         "Components of aggregate demand: C + I + G + (X-M)",
         "Spending multiplier and tax multiplier",
@@ -103,14 +81,7 @@ const macroeconomics = {
     {
       name: "Unit 4: Financial Sector",
       weight: "18-23%",
-      topics: [
-        "Financial assets",
-        "Definition, measurement, and functions of money",
-        "Banking and the expansion of the money supply",
-        "Monetary policy",
-        "The loanable funds market",
-        "Interest rates and related policies"
-      ],
+      topics: ["Financial Assets", "Nominal v. Real Interest Rates", "Banking and the Expansion of the Money Supply", "The Money Market", "Monetary Policy", "The Loanable Funds Market"],
       keyConcepts: [
         "Functions of money: medium of exchange, unit of account, store of value",
         "Money supply: M1, M2",
@@ -130,14 +101,7 @@ const macroeconomics = {
     {
       name: "Unit 5: Long-Run Consequences of Stabilization Policies",
       weight: "20-30%",
-      topics: [
-        "Fiscal policy",
-        "Automatic stabilizers",
-        "Crowding out",
-        "Deficits and the national debt",
-        "Economic growth",
-        "Public policy and economic growth"
-      ],
+      topics: ["Fiscal and Monetary Policy Actions in the Short Run", "Graphing and Visuals", "Money Growth and Inflation", "Government Deficits and the National Debt", "Crowding Out", "Economic Growth", "Public Policy and Economic Growth"],
       keyConcepts: [
         "Expansionary and contractionary fiscal policy",
         "Automatic stabilizers: unemployment insurance, progressive taxes",
@@ -158,14 +122,7 @@ const macroeconomics = {
     {
       name: "Unit 6: Open Economy—International Trade and Finance",
       weight: "10-13%",
-      topics: [
-        "Balance of payments accounts",
-        "Exchange rates",
-        "The foreign exchange market",
-        "Effect of changes in policies and economic conditions on the foreign exchange market",
-        "Changes in the foreign exchange market and net exports",
-        "Real interest rates and international capital flows"
-      ],
+      topics: ["Balance of Payments Accounts", "Exchange Rates", "The Foreign Exchange Market", "Changes in the Foreign Exchange Market and Net Exports", "Real Interest Rates and International Capital Flows"],
       keyConcepts: [
         "Current account and capital account",
         "Trade balance and balance of payments",

@@ -19,13 +19,7 @@ const microeconomics = {
     {
       name: "Unit 1: Basic Economic Concepts",
       weight: "12-15%",
-      topics: [
-        "Scarcity, opportunity cost, and marginal analysis",
-        "Production possibilities curve",
-        "Comparative advantage and gains from trade",
-        "Supply and demand",
-        "Market equilibrium, disequilibrium, and changes in equilibrium"
-      ],
+      topics: ["Comparative Advantage and Trade", "Scarcity", "Resource Allocation and Economic Systems", "Production Possibilities Curve", "Cost-Benefit Analysis", "Marginal Analysis and Consumer Choice"],
       keyConcepts: [
         "Scarcity and trade-offs",
         "Opportunity cost and marginal analysis",
@@ -46,13 +40,7 @@ const microeconomics = {
     {
       name: "Unit 2: Supply and Demand",
       weight: "20-25%",
-      topics: [
-        "Price elasticity of demand",
-        "Price elasticity of supply",
-        "Other elasticities",
-        "Consumer choice and utility maximization",
-        "Indifference curves and budget lines"
-      ],
+      topics: ["Demand", "Supply", "Manipulation", "Price Elasticity of Supply", "Other Elasticities", "Market Equilibrium and Consumer and Producer Surplus", "Market Disequilibrium and Changes in Equilibrium", "The Effects of Government Intervention in Markets", "International Trade and Public Policy"],
       keyConcepts: [
         "Price elasticity of demand and determinants",
         "Income elasticity and cross-price elasticity",
@@ -73,15 +61,7 @@ const microeconomics = {
     {
       name: "Unit 3: Production, Cost, and the Perfect Competition Model",
       weight: "22-25%",
-      topics: [
-        "The production function",
-        "Short-run production and costs",
-        "Long-run production and costs",
-        "Types of profit and profit maximization",
-        "Perfect competition",
-        "Short-run decisions in perfect competition",
-        "Long-run decisions in perfect competition"
-      ],
+      topics: ["The Production Function", "Short-Run Production Costs", "Long-Run Production Costs", "Types of Profit", "Profit Maximization", "Perfect Competition"],
       keyConcepts: [
         "Production function and diminishing marginal returns",
         "Fixed vs. variable costs in short run",
@@ -103,13 +83,7 @@ const microeconomics = {
     {
       name: "Unit 4: Imperfect Competition",
       weight: "15-22%",
-      topics: [
-        "Introduction to imperfectly competitive markets",
-        "Monopoly",
-        "Price discrimination",
-        "Monopolistic competition",
-        "Oligopoly and game theory"
-      ],
+      topics: ["Introduction to Imperfectly Competitive Markets", "Graphing and Visuals", "Price Discrimination", "Monopolistic Competition", "Oligopoly and Game Theory"],
       keyConcepts: [
         "Market power and barriers to entry",
         "Monopoly profit maximization and deadweight loss",
@@ -131,12 +105,7 @@ const microeconomics = {
     {
       name: "Unit 5: Factor Markets",
       weight: "10-18%",
-      topics: [
-        "Introduction to factor markets",
-        "Changes in factor demand and factor supply",
-        "Profit-maximizing behavior in perfectly competitive factor markets",
-        "Monopsonistic markets"
-      ],
+      topics: ["Introduction to Factor Markets", "Changes in Factor Demand and Factor Supply", "Profit-Maximizing Behavior in Perfectly Competitive Factor Markets", "Monopsonistic Markets"],
       keyConcepts: [
         "Derived demand for factors of production",
         "Marginal revenue product (MRP) and hiring decisions",
@@ -157,12 +126,7 @@ const microeconomics = {
     {
       name: "Unit 6: Market Failure and the Role of Government",
       weight: "12-18%",
-      topics: [
-        "Socially efficient and inefficient market outcomes",
-        "Externalities",
-        "Public and private goods",
-        "Effects of government intervention in markets"
-      ],
+      topics: ["Socially Efficient and Inefficient Market Outcomes", "Externalities", "Public and Private Goods", "The Effects of Government Intervention in Different Market Structures", "Inequality"],
       keyConcepts: [
         "Allocative efficiency and deadweight loss",
         "Positive and negative externalities",

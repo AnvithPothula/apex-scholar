@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { staggerContainer, staggerItem } from '../../utils/animations';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '../../utils/helpers';
 import {
@@ -165,10 +164,25 @@ const SubjectSelector = ({ subjects, selectedSubject, onSelectSubject }) => {
 
               <motion.div
                 className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-5"
-                variants={staggerContainer()}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true }}
+                // NO entrance animation on this grid, deliberately.
+                //
+                // It used to be `variants={staggerContainer()} initial="hidden"
+                // whileInView="visible" viewport={{ once: true }}`. `once: true`
+                // fires the hidden -> visible transition a single time, so cards
+                // mounted later — after clearing a search — stayed at the
+                // "hidden" variant (opacity 0) forever. They still occupied
+                // their grid cells, so subjects vanished and left gaps behind.
+                //
+                // Switching to `animate` fixed that case, but the deeper problem
+                // is that the subject list is the entry point to the whole app
+                // and it was rendering at opacity 0 until JavaScript animated it
+                // up. Anything that stops the animation loop — a backgrounded
+                // tab (requestAnimationFrame is throttled and Framer never
+                // leaves `initial`), a Framer error, an aggressive power saver —
+                // leaves a student staring at an empty page.
+                //
+                // A decorative stagger is not worth that. The cards render
+                // visible; `layout` still animates re-flow when filtering.
               >
                 <AnimatePresence>
                   {filteredUserSubjects.map((subject, index) => (
@@ -200,10 +214,25 @@ const SubjectSelector = ({ subjects, selectedSubject, onSelectSubject }) => {
 
               <motion.div
                 className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-5"
-                variants={staggerContainer()}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true }}
+                // NO entrance animation on this grid, deliberately.
+                //
+                // It used to be `variants={staggerContainer()} initial="hidden"
+                // whileInView="visible" viewport={{ once: true }}`. `once: true`
+                // fires the hidden -> visible transition a single time, so cards
+                // mounted later — after clearing a search — stayed at the
+                // "hidden" variant (opacity 0) forever. They still occupied
+                // their grid cells, so subjects vanished and left gaps behind.
+                //
+                // Switching to `animate` fixed that case, but the deeper problem
+                // is that the subject list is the entry point to the whole app
+                // and it was rendering at opacity 0 until JavaScript animated it
+                // up. Anything that stops the animation loop — a backgrounded
+                // tab (requestAnimationFrame is throttled and Framer never
+                // leaves `initial`), a Framer error, an aggressive power saver —
+                // leaves a student staring at an empty page.
+                //
+                // A decorative stagger is not worth that. The cards render
+                // visible; `layout` still animates re-flow when filtering.
               >
                 <AnimatePresence>
                   {filteredOtherSubjects.map((subject, index) => (
@@ -233,7 +262,6 @@ const SubjectCard = React.forwardRef(({ subject, index, hoveredSubject, setHover
     ref={ref}
     key={subject.id}
     layout
-    variants={staggerItem}
     exit={{ opacity: 0, y: -15 }}
     onHoverStart={() => setHoveredSubject(subject.id)}
     onHoverEnd={() => setHoveredSubject(null)}

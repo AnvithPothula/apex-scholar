@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { RotateCw, Brain, CheckCircle, X, Target, TrendingUp, Trophy, FileQuestion, HelpCircle, Download, Sparkles } from 'lucide-react';
 import { Button, Card, Badge, Input } from '../ui/UIComponents';
 import { createPageUrl } from '../../utils/helpers';
+import { slugFor, getScoreModel } from '../../constants/apScoreModels';
 import AnimatedCounter from '../ui/AnimatedCounter';
 import MarkdownRenderer from '../MarkdownRenderer';
 import LaTeXRenderer from '../LaTeXRenderer';
@@ -126,6 +127,36 @@ const ResultsPanel = ({
               <p className="text-sm text-content-muted">
                 Rough estimate — not a College Board score
               </p>
+              {/* Deep-links to this subject's real curve so a student can drag
+                  the sliders and see exactly how far they were from the next
+                  score, instead of only seeing one number. */}
+              <button
+                type="button"
+                onClick={() => {
+                  // Carry the result across. The button used to open an EMPTY
+                  // calculator, throwing away the score the student had just
+                  // earned — the whole point is to drag the sliders and see how
+                  // far off the next band they were.
+                  //
+                  // A practice test is rarely full length (this one can be 3
+                  // questions against a 60-question section), so the raw count
+                  // cannot transfer directly. Scale by the same percentage this
+                  // page already used to state the estimated score, and tell the
+                  // calculator it came from a test so it can say so.
+                  const model = getScoreModel(selectedSubject);
+                  const pct = Math.max(0, Math.min(100, Number(safeTestResults.percentage) || 0)) / 100;
+                  const params = new URLSearchParams({ from: 'test' });
+                  if (model && !model.generic) {
+                    model.sections
+                      .filter((sec) => selectedSection === 'full' || sec.id === selectedSection)
+                      .forEach((sec) => params.set(sec.id, String(Math.round(pct * sec.maxRaw))));
+                  }
+                  navigate(`${createPageUrl('ApScoreCalculator')}/${slugFor(selectedSubject)}?${params}`);
+                }}
+                className="mt-2 text-sm text-primary-400 hover:underline"
+              >
+                See the curve →
+              </button>
             </Card>
           </motion.div>
 

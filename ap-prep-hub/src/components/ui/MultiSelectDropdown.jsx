@@ -99,7 +99,9 @@ export default function MultiSelectDropdown({ options = [], selected = [], onCha
             <button
               type="button"
               key={selected[i]}
-              className="inline-flex items-center gap-1 px-2 py-0.5 bg-base-800 border border-border-strong/30 rounded-md text-xs text-content-muted cursor-pointer"
+              // min-h-[24px] meets the WCAG 2.5.8 target minimum; py-0.5 alone left these
+              // chips 22px tall, which is a fiddly tap target on a phone.
+              className="inline-flex items-center gap-1 px-2 py-0.5 min-h-[24px] bg-base-800 border border-border-strong/30 rounded-md text-xs text-content-muted cursor-pointer"
               onClick={(e) => remove(selected[i], e)}
               aria-label={`Remove ${label}`}
             >

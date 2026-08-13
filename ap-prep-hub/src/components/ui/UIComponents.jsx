@@ -44,15 +44,48 @@ export const Button = forwardRef(({
 Button.displayName = "Button";
 
 // Card Component
+/**
+ * Button semantics for a Card that has an onClick.
+ *
+ * A clickable Card is a button rendered as a div: without a role and tabIndex
+ * it never enters the accessibility tree or the tab order. The AP subject
+ * picker shipped that way and was unusable by keyboard. Computed here, in one
+ * place, because ~18 files render clickable Cards with the identical hole.
+ *
+ * Pass an explicit `role` to opt out (e.g. a Card already inside a real button).
+ * Exported for tests — this project has no component-rendering harness.
+ */
+export function cardA11yProps({ onClick, role, tabIndex, onKeyDown } = {}) {
+  if (typeof onClick !== 'function' || role !== undefined) return null;
+  return {
+    role: 'button',
+    tabIndex: tabIndex ?? 0,
+    onKeyDown: (e) => {
+      onKeyDown?.(e);
+      if (e.defaultPrevented) return;
+      // Space scrolls the page by default; Enter and Space must activate.
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onClick(e);
+      }
+    },
+  };
+}
+
 export const Card = forwardRef(({ className, children, glow, ...props }, ref) => {
+  const a11yProps = cardA11yProps(props);
+  const clickable = a11yProps !== null;
+
   return (
     <div
       ref={ref}
       className={cn(
         "rounded-md border border-border bg-base-850 transition-colors duration-150",
+        clickable && "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400",
         className
       )}
       {...props}
+      {...a11yProps}
     >
       {children}
     </div>

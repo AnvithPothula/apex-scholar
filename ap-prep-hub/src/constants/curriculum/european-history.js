@@ -22,13 +22,7 @@ const europeanHistory = {
     {
       name: "Unit 1: Renaissance and Exploration (c. 1450-1648)",
       weight: "7-9%",
-      topics: [
-        "Contextualizing the Renaissance",
-        "The Renaissance",
-        "The Age of Exploration and its Impact",
-        "The Commercial Revolution",
-        "Causation in the Renaissance and Age of Exploration"
-      ],
+      topics: ["Italian Renaissance", "Northern Renaissance", "Developments and Processes", "New Monarchies", "Rivals on the World Stage", "The Slave Trade"],
       keyConcepts: [
         "Renaissance humanism and individualism",
         "Artistic and intellectual achievements",
@@ -48,13 +42,7 @@ const europeanHistory = {
     {
       name: "Unit 2: Age of Reformation (c. 1450-1648)",
       weight: "10-15%",
-      topics: [
-        "Contextualizing the Age of Reformation",
-        "The Protestant Reformation",
-        "The Catholic Reformation",
-        "Religious Wars",
-        "Causation in the Age of Reformation"
-      ],
+      topics: ["Luther and the Protestant Reformation", "Protestant Reform Continues", "Wars of Religion", "The Catholic Reformation", "16th-Century Society and Politics", "Art of the 16th Century: Mannerism and Baroque Art"],
       keyConcepts: [
         "Lutheran, Calvinist, and Anglican reforms",
         "Catholic Counter-Reformation",
@@ -74,14 +62,7 @@ const europeanHistory = {
     {
       name: "Unit 3: Absolutism and Constitutionalism (c. 1648-1815)",
       weight: "15-17%",
-      topics: [
-        "Contextualizing State Building from 1648-1815",
-        "Louis XIV and Absolutism",
-        "English Civil War and Glorious Revolution",
-        "The Enlightenment",
-        "18th-Century States",
-        "Causation in the Age of Absolutism and Constitutionalism"
-      ],
+      topics: ["The English Civil War and the Glorious Revolution", "Making Connections", "Economic Development and Mercantilism", "The Dutch Golden Age", "Absolutist Approaches to Power"],
       keyConcepts: [
         "Absolute monarchy and divine right",
         "Constitutional monarchy and parliamentary government",
@@ -101,13 +82,7 @@ const europeanHistory = {
     {
       name: "Unit 4: Scientific, Philosophical, and Political Developments (c. 1648-1815)",
       weight: "10-15%",
-      topics: [
-        "The Scientific Revolution",
-        "The Enlightenment",
-        "Society and the Enlightenment",
-        "18th-Century Society and Demographics",
-        "Continuity and Change from 1648-1815"
-      ],
+      topics: ["Contextualizing the Scientific Revolution and the Enlightenment", "The Scientific Revolution", "The Enlightenment", "18th-Century Society and Demographics", "18th-Century Culture and Arts", "Enlightened and Other Approaches to Power"],
       keyConcepts: [
         "Scientific method and empirical observation",
         "Natural law and rational inquiry",
@@ -127,12 +102,7 @@ const europeanHistory = {
     {
       name: "Unit 5: Conflict, Crisis, and Reaction in the Late 18th Century (c. 1648-1815)",
       weight: "15-17%",
-      topics: [
-        "The French Revolution",
-        "The Napoleonic Era",
-        "The Congress of Vienna",
-        "Causation in the Age of Revolutions"
-      ],
+      topics: ["The Rise of Global Markets", "Britain\u2019s Ascendency", "The French Revolution", "The French Revolution\u2019s Effects", "Napoleon\u2019s Rise, Dominance, and Defeat", "The Congress of Vienna", "Romanticism"],
       keyConcepts: [
         "Causes of the French Revolution",
         "Phases of the Revolution",
@@ -152,14 +122,7 @@ const europeanHistory = {
     {
       name: "Unit 6: Industrialization and its Effects (c. 1815-1914)",
       weight: "15-17%",
-      topics: [
-        "Contextualizing Industrialization",
-        "The Industrial Revolution",
-        "Industrialization: Government's Role",
-        "Economic Development and the Standard of Living",
-        "Society and Economic Development",
-        "Causation in the Industrial Age"
-      ],
+      topics: ["The Spread of Industry Throughout Europe", "Second Wave Industrialization and Its Effects", "Social Effects of Industrialization", "The Concert of Europe and European Conservatism", "Reactions and Revolutions", "Ideologies of Change and Reform Movements", "19th-Century Social Reform", "Institutional Responses and Reform", "Causation in the Age of Industrialization"],
       keyConcepts: [
         "Factory system and mass production",
         "Transportation revolution",
@@ -179,13 +142,7 @@ const europeanHistory = {
     {
       name: "Unit 7: 19th-Century Perspectives and Political Developments (c. 1815-1914)",
       weight: "15-17%",
-      topics: [
-        "Contextualizing 19th-Century Politics and Society",
-        "Ideologies of the 19th Century",
-        "Nation Building",
-        "The New Imperialism",
-        "Causation in 19th-Century Developments"
-      ],
+      topics: ["Contextualizing 19th-Century Perspectives and Political Developments", "Nationalism", "National Unification and Diplomatic Tensions", "Darwinism, Social Darwinism", "The Age of Progress and Modernity", "Imperialism\u2019s Global Effects", "19th-Century Culture and Arts", "Causation in 19th-Century Perspectives and Political Developments"],
       keyConcepts: [
         "Nationalism and nation-state formation",
         "Liberalism and constitutional government",
@@ -205,13 +162,7 @@ const europeanHistory = {
     {
       name: "Unit 8: 20th-Century Global Conflicts (c. 1914-1945)",
       weight: "15-17%",
-      topics: [
-        "World War I",
-        "Stresses in the European Order",
-        "The Interwar Years",
-        "World War II",
-        "Causation in the Period of the World Wars"
-      ],
+      topics: ["World War I", "The Russian Revolution and Its Effects", "Versailles Conference and Peace Settlement", "Global Economic Crisis", "Fascism and Totalitarianism", "Europe During the Interwar Period", "World War II", "The Holocaust", "20th-Century Cultural, Intellectual, and Artistic Developments"],
       keyConcepts: [
         "Causes and conduct of World War I",
         "Russian Revolution and Soviet Union",
@@ -231,14 +182,7 @@ const europeanHistory = {
     {
       name: "Unit 9: Cold War and Contemporary Europe (c. 1945-present)",
       weight: "10-15%",
-      topics: [
-        "Rebuilding Europe",
-        "The Cold War",
-        "Politics in the 20th Century",
-        "20th-Century Society",
-        "Economics and Society",
-        "Causation in the Contemporary Period"
-      ],
+      topics: ["Contextualizing Cold War and Contemporary Europe", "Rebuilding Europe", "The Cold War", "Developments and Processes", "Postwar Nationalism, Ethnic Conflict, and Atrocities", "Contemporary Western Democracies", "The Fall of Communism", "20th-Century Feminism", "Decolonization", "The European Union", "Migration and Immigration", "Technology", "Globalization", "20th- and 21st-Century Culture, Arts, and Demographic Trends"],
       keyConcepts: [
         "Division of Europe and Cold War",
         "European integration and unification",

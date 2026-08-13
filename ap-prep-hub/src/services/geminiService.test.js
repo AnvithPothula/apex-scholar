@@ -1,4 +1,4 @@
-import geminiService from './geminiService';
+import geminiService, { modelFromGoogleUrl } from './geminiService';
 
 describe('GeminiService payload normalization', () => {
   it('removes transport-only fields before Google fallback', () => {
@@ -96,5 +96,44 @@ describe('GeminiService Google error classification', () => {
 
     expect(classification.isRateLimit).toBe(false);
     expect(classification.shouldRetry).toBe(false);
+  });
+});
+
+describe('GeminiService resolved-model tracking', () => {
+  it('reports what actually answered, not what was requested', () => {
+    // The picker's value is a *request*. Puter falls through to Google and the
+    // proxy substitutes models on 429, so anything user-facing must read the
+    // resolved model or it will confidently display the wrong one.
+    geminiService.setUserModel('claude-sonnet-4');
+    geminiService._noteResolvedModel('Google', 'gemini-2.5-flash-lite');
+
+    expect(geminiService.getUserModel()).toBe('claude-sonnet-4');
+    expect(geminiService.getLastResolvedModel()).toEqual({
+      provider: 'Google',
+      model: 'gemini-2.5-flash-lite'
+    });
+  });
+
+  it('records a null model rather than inventing one', () => {
+    // An older proxy without the X-Apex-Model header yields null. Callers must
+    // get null (and render nothing) instead of a fabricated name.
+    geminiService._noteResolvedModel('Google', null);
+    expect(geminiService.getLastResolvedModel().model).toBeNull();
+  });
+});
+
+describe('modelFromGoogleUrl', () => {
+  it('reads the real model out of a generateContent URL', () => {
+    // The direct-key path has no other record of which model it hit, and
+    // this.modelName defaults to a Puter id ('claude-sonnet-4') — using that
+    // labelled Gemini answers as Claude in the tutor UI.
+    expect(modelFromGoogleUrl(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=abc'
+    )).toBe('gemini-2.5-flash');
+  });
+
+  it('returns null rather than guessing when there is no model segment', () => {
+    expect(modelFromGoogleUrl('https://example.com/nope')).toBeNull();
+    expect(modelFromGoogleUrl(null)).toBeNull();
   });
 });

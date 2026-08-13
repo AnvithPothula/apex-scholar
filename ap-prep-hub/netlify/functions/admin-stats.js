@@ -14,6 +14,8 @@
  */
 
 const ADMIN_UIDS = ['b0eUycwZDHcmrkoeSEiD69QSbK32', 'A0yRGP86ZTahByzS0ALYeKAXOn52'];
+const { getAdminApp } = require('../lib/firebaseAdmin');
+
 
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
   .split(',')
@@ -30,39 +32,6 @@ function cors(origin) {
   };
 }
 
-let _adminApp = null;
-let _adminTried = false;
-
-function loadServiceAccount() {
-  const projectId = process.env.FIREBASE_PROJECT_ID;
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  const privateKey = process.env.FIREBASE_PRIVATE_KEY;
-  if (projectId && clientEmail && privateKey) {
-    return { projectId, clientEmail, privateKey: privateKey.replace(/\\n/g, '\n') };
-  }
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
-  if (raw) return JSON.parse(raw);
-  return null;
-}
-
-function getAdminApp() {
-  if (_adminTried) return _adminApp;
-  _adminTried = true;
-  try {
-    const creds = loadServiceAccount();
-    if (!creds) return null;
-    const admin = require('firebase-admin');
-    _adminApp = (admin.apps && admin.apps.length)
-      ? admin.app()
-      : admin.initializeApp({ credential: admin.credential.cert(creds) });
-    _adminApp.__admin = admin;
-    return _adminApp;
-  } catch (err) {
-    console.error('[admin-stats] firebase-admin init failed:', err.message);
-    _adminApp = null;
-    return null;
-  }
-}
 
 async function verifyAdminUid(event, app) {
   const h = event.headers || {};
@@ -109,13 +78,11 @@ exports.handler = async (event) => {
     return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) };
   }
 
-  const app = getAdminApp();
+  // Surfaces the ACTUAL reason (missing var vs unparseable key vs bundle
+  // problem) instead of one catch-all message that sent debugging the wrong way.
+  const { app, error: adminError } = getAdminApp();
   if (!app) {
-    return {
-      statusCode: 503,
-      headers,
-      body: JSON.stringify({ error: 'Server is missing Firebase admin credentials.' }),
-    };
+    return { statusCode: 503, headers, body: JSON.stringify({ error: adminError }) };
   }
 
   const uid = await verifyAdminUid(event, app);

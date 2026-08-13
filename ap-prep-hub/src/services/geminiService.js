@@ -1,4 +1,5 @@
 import apiKeyManager from './APIKeyManager';
+import { chainFor } from '../constants/modelChains';
 import errorLogger from '../utils/errorLogger';
 import JSONParser from './ai/jsonParser';
 import aiUsageLimiter from './aiUsageLimiter';
@@ -19,6 +20,16 @@ const withTimeout = (promise, ms, errMsg = 'Timed out') => {
     new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(errMsg)), ms); })
   ]);
 };
+
+/**
+ * Pull the model name out of a Google generateContent URL.
+ * The URL is the only place the direct-key path records which model it hit.
+ * Exported for tests.
+ */
+export function modelFromGoogleUrl(url) {
+  const m = /\/models\/([^:?/]+)/.exec(String(url || ''));
+  return m ? m[1] : null;
+}
 
 /**
  * Extract text from a Puter AI response.
@@ -166,6 +177,11 @@ class GeminiService {
     // User-selected model (from ModelSelector UI) — takes priority over everything
     this._userModel = null;
     try { this._userModel = localStorage.getItem('apex.ai.userModel') || null; } catch (e) { errorLogger.debug('localStorage read failed (userModel)', { error: e?.message }); }
+    // What actually answered the most recent request. The user's dropdown pick
+    // is only a *request*: Puter can fall through to Google, and the server-side
+    // chain can substitute a different Gemini model on 429. Callers that display
+    // a model name must read this, never `_userModel`.
+    this._lastResolvedModel = null;
     this._lastPuterFailureAt = 0; // for backoff on repeated failures
     this._rateLimitUntil = 0; // Timestamp until which we should not make requests
     this._puterAuthBroken = false; // Track if Puter auth is in a broken/stuck state
@@ -814,6 +830,19 @@ class GeminiService {
     return this._userModel;
   }
 
+  /** Record what actually served a request. Provider is 'Puter' or 'Google'. */
+  _noteResolvedModel(provider, model) {
+    this._lastResolvedModel = { provider, model: model || null };
+  }
+
+  /**
+   * What actually answered the last request — `{ provider, model }`, or null
+   * before any request. Use this (not getUserModel) for anything user-facing.
+   */
+  getLastResolvedModel() {
+    return this._lastResolvedModel;
+  }
+
   /** Resolve effective model: user choice > working model > env default */
   _resolveModel(optionsModel) {
     return optionsModel || this._userModel || this._workingModel || this.modelName;
@@ -942,7 +971,10 @@ class GeminiService {
       const resp = await withTimeout(puter.ai.chat(prompt, puterOpts), options.timeoutMs || 45000, 'Puter request timed out');
       if (this.debug) console.debug('[AI] Puter.generateContent success', { model, ms: Date.now() - t0, respType: typeof resp });
       const text = extractPuterText(resp);
-      if (text) return text;
+      if (text) {
+        this._noteResolvedModel('Puter', model || this._workingModel);
+        return text;
+      }
       throw new Error('Unexpected response from Puter.ai.chat');
     } catch (e) {
       // Check if Puter returned a rate limit error
@@ -968,7 +1000,10 @@ class GeminiService {
           const resp = await withTimeout(puter.ai.chat(prompt, { model: retryModel || undefined, stream: false }), 30000, 'Puter retry timed out');
           if (this.debug) console.debug('[AI] Puter.generateContent retry success', { model: retryModel, ms: Date.now() - tR });
           const retryText = extractPuterText(resp);
-          if (retryText) return retryText;
+          if (retryText) {
+            this._noteResolvedModel('Puter', retryModel);
+            return retryText;
+          }
         }
       } catch (er) {
         const formattedRetry = this._formatErrorForLog(er);
@@ -989,13 +1024,20 @@ class GeminiService {
       text.includes('quota') ||
       text.includes('rate limit') ||
       text.includes('resource exhausted');
+    // A 5xx (503 UNAVAILABLE) is Google's capacity for the MODEL, shared by
+    // every key in the account — verified directly: on one key in one second
+    // gemini-3.1-flash-lite returned 503 while five other models returned 200.
+    // Treating it as a key fault sidelined healthy keys 30s at a time, so four
+    // retries could disable a third of the pool over an upstream hiccup that
+    // had nothing to do with the keys.
+    const isModelOutage = status >= 500;
     const shouldRetry =
       isRateLimit ||
+      isModelOutage ||
       status === 403 ||
       status === 408 ||
-      status === 409 ||
-      status >= 500;
-    return { isRateLimit, shouldRetry };
+      status === 409;
+    return { isRateLimit, isModelOutage, shouldRetry };
   }
 
   _isNetworkFetchError(error) {
@@ -1108,6 +1150,10 @@ class GeminiService {
       const detail = (data && (data.error || data.message)) || `status ${res.status}`;
       throw new Error(`${context}: proxy error (${detail})`);
     }
+    // The proxy walks a fallback chain, so the model that answered is often not
+    // the one asked for. It reports the winner in X-Apex-Model (exposed via
+    // Access-Control-Expose-Headers); null if an older proxy is deployed.
+    this._noteResolvedModel('Google', res.headers.get('X-Apex-Model'));
     return data;
   }
 
@@ -1130,13 +1176,18 @@ class GeminiService {
       throw new Error('No Google API keys configured.');
     }
 
-    const attempts = Math.max(1, Math.min(maxAttempts, totalKeys));
+    // Attempts must cover the model chain too, not just the key ring: a model
+    // outage consumes an attempt without ever touching a second key.
+    const chain = chainFor(task, model, JSON.stringify(body || '').length);
+    const attempts = Math.max(1, Math.min(maxAttempts, totalKeys) + chain.length - 1);
     let lastError = null;
     let onlyRateLimitFailures = true;
+    let modelIndex = 0;
 
     for (let attempt = 0; attempt < attempts; attempt++) {
       const keyNumber = apiKeyManager.getCurrentKeyIndex() + 1;
-      const url = apiKeyManager.getCurrentUrl();
+      const currentModel = chain[modelIndex];
+      const url = apiKeyManager.getGenerateContentUrl(currentModel);
 
       try {
         const res = await fetch(url, {
@@ -1146,11 +1197,15 @@ class GeminiService {
         });
 
         if (res.ok) {
+          // Read the model out of the URL that actually succeeded. `this.modelName`
+          // is NOT usable here: it defaults to 'claude-sonnet-4' (a Puter id), so
+          // using it labelled Gemini answers as Claude.
+          this._noteResolvedModel('Google', currentModel || modelFromGoogleUrl(url));
           return await res.json();
         }
 
         const text = await res.text().catch(() => '');
-        const { isRateLimit, shouldRetry } = this._classifyGoogleError(res.status, text);
+        const { isRateLimit, isModelOutage, shouldRetry } = this._classifyGoogleError(res.status, text);
 
         if (!isRateLimit) {
           onlyRateLimitFailures = false;
@@ -1163,6 +1218,17 @@ class GeminiService {
         }
 
         lastError = formattedError;
+        if (isModelOutage) {
+          // Don't blame the key, and don't hammer the same overloaded model on
+          // another key — every key sees the same 503. Move down the chain.
+          if (modelIndex + 1 >= chain.length) throw formattedError;
+          modelIndex += 1;
+          onlyRateLimitFailures = false;
+          if (this.debug) {
+            console.debug(`[AI] ${context}: ${res.status} on ${currentModel}; falling back to ${chain[modelIndex]}`);
+          }
+          continue;
+        }
         apiKeyManager.markCurrentKeyFailed(isRateLimit ? 90 : 30);
 
         if (this.debug) {
@@ -1677,7 +1743,14 @@ Output ONLY JSON:
   }
 
   async generateDiagnosticQuestions(subject, topic, difficulty = 'medium', count = 10) {
+    // Concept spread is load-bearing, not cosmetic. Left unconstrained the model
+    // gives every question its own concept, so a 15-question diagnostic produces
+    // fifteen 1-of-1 topics — never enough evidence to call anything a strength
+    // or a weakness, which is exactly what made the results panel say nothing.
+    const conceptCount = Math.max(2, Math.round(count / 3));
     const prompt = `Generate ${count} ${difficulty} MCQs for ${subject} — ${topic}.
+Cover exactly ${conceptCount} distinct concepts, with ${Math.round(count / conceptCount)} questions per concept, spread across the major units of the course.
+Every question for the same concept must use the IDENTICAL "concept" string.
 Output ONLY a JSON array. Each object: {"question":"...","choices":["A","B","C","D"],"correctAnswer":0,"explanations":["...","...","...","..."],"concept":"..."}
 correctAnswer is the index (0-3) of the correct choice. Exactly 4 choices and 4 explanations per question.`;
 

@@ -5,8 +5,6 @@ import {
     signInWithPopup,
     signInWithRedirect,
     getRedirectResult,
-    browserLocalPersistence,
-    setPersistence,
     createUserWithEmailAndPassword,
     signInWithEmailAndPassword,
     sendPasswordResetEmail,
@@ -22,7 +20,7 @@ import { auth, authIsSameOrigin } from '../config/firebase';
 import { loadFirestore } from '../config/firestoreLazy';
 import { getFirebaseErrorMessage } from '../utils/firebaseErrorMessages';
 import errorLogger from '../utils/errorLogger';
-import { isAdmin } from '../constants/admins';
+import { hasUnlimitedUsage } from '../constants/unlimitedUsers';
 import aiUsageLimiter from '../services/aiUsageLimiter';
 import { readPendingConsent, clearPendingConsent } from '../constants/consent';
 
@@ -269,8 +267,13 @@ export const AuthProvider = ({ children }) => {
      */
     const signInWithGoogle = async () => {
         try {
-            await setPersistence(auth, browserLocalPersistence);
-
+            // NOTHING may be awaited before signInWithPopup below.
+            //
+            // Persistence is now set once at auth init (config/firebase.js).
+            // It used to be awaited here, and that single await ended the
+            // browser's user-activation window, so Safari blocked the popup and
+            // Firebase reported `auth/popup-blocked` even though the user had
+            // just clicked. Popups must be opened synchronously in the gesture.
             const provider = new GoogleAuthProvider();
             provider.setCustomParameters({ prompt: 'select_account' });
 
@@ -393,7 +396,9 @@ export const AuthProvider = ({ children }) => {
     // signed-in users, localStorage for guests) and let admins/devs bypass it.
     useEffect(() => {
         aiUsageLimiter.setUser(user?.uid || null);
-        aiUsageLimiter.setBypass(isAdmin(user?.uid));
+        // Usage exemption is NOT admin. hasUnlimitedUsage covers admins plus
+        // testers who should never hit a cap but must not gain admin rights.
+        aiUsageLimiter.setBypass(hasUnlimitedUsage(user?.uid));
     }, [user]);
 
     // A "guest" is someone who finished auth init with no signed-in user and

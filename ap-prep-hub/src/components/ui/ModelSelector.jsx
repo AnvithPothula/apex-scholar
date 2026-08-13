@@ -28,13 +28,17 @@ const GEMINI_ONLY = [
  * Props:
  *   value    — currently selected model value (string)
  *   onChange — (modelValue: string) => void
- *   compact  — if true, shows icon-only on mobile (default false)
+ *   compact  — if true, shows icon-only below the lg breakpoint (default false)
  *   className — extra container classes
  */
 export default function ModelSelector({ value, onChange, compact = false, className = '', dropUp = false }) {
   const [open, setOpen] = useState(false);
   const [hasPuter, setHasPuter] = useState(false);
   const ref = useRef(null);
+
+  // Latest value/onChange without restarting the poll below on every render.
+  const latest = useRef({ value, onChange });
+  latest.current = { value, onChange };
 
   // Detect Puter availability (poll briefly on mount)
   // IMPORTANT: Only use geminiService.getPuter() which checks AUTHENTICATION,
@@ -43,7 +47,19 @@ export default function ModelSelector({ value, onChange, compact = false, classN
     let cancelled = false;
     const check = () => {
       const puter = geminiService.getPuter();
-      if (puter) { if (!cancelled) setHasPuter(true); return true; }
+      if (puter) {
+        if (!cancelled) {
+          setHasPuter(true);
+          // getDefaultModel() ran before the Puter token finished restoring from
+          // localStorage, so it fell back to Gemini. The poll finding Puter used
+          // to flip `hasPuter` only — leaving the picker showing "Gemini Flash"
+          // while requests were actually served by claude-sonnet-4. Correct the
+          // displayed value too, same as the auth-complete path does.
+          const { value: v, onChange: cb } = latest.current;
+          if (v === 'gemini-2.0-flash' && cb) cb('claude-sonnet-4');
+        }
+        return true;
+      }
       return false;
     };
     if (check()) return;
@@ -109,7 +125,10 @@ export default function ModelSelector({ value, onChange, compact = false, classN
         aria-expanded={open}
       >
         <Cpu className="w-3.5 h-3.5 text-content-muted flex-shrink-0" strokeWidth={1.5} />
-        <span className={compact ? 'hidden sm:inline' : ''}>{selected.label}</span>
+        {/* lg, not sm. The only compact caller (AI Tutors) gains a 320px inline
+            sidebar at md, so a label that reappeared at sm left the composer
+            118px wide on iPad portrait. Wait for the width to actually exist. */}
+        <span className={compact ? 'hidden lg:inline' : ''}>{selected.label}</span>
         <ChevronDown className={`w-3 h-3 text-content-muted transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth={1.5} />
       </button>
 
@@ -175,6 +194,17 @@ export default function ModelSelector({ value, onChange, compact = false, classN
       )}
     </div>
   );
+}
+
+/**
+ * Pretty name for a model id. Falls back to the raw id, because the id that
+ * actually served a request is often one the picker never lists (the proxy's
+ * fallback chain) — and showing the true id beats showing a wrong friendly name.
+ */
+export function getModelLabel(value) {
+  if (!value) return null;
+  const known = [...PUTER_MODELS, ...GEMINI_ONLY].find(m => m.value === value);
+  return known ? known.label : String(value).replace(/^(models\/|google\/)/, '');
 }
 
 /** Utility: get default model value */

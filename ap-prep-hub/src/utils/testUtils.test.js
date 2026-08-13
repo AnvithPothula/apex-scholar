@@ -257,3 +257,54 @@ describe('isQuestionDuplicate', () => {
     expect(isQuestionDuplicate(newQ, [])).toBe(false);
   });
 });
+
+describe('fixLaTeXInText — over-escaped commands', () => {
+  it('collapses a doubled backslash before a command name', () => {
+    // A generated AP Biology question arrived as "100 \\mu mol/min". KaTeX
+    // reads \\ as a line break, so it rendered the literal text "mumol/min"
+    // instead of µmol/min.
+    expect(fixLaTeXInText('$100 \\\\mu mol/min$')).toContain('\\mu');
+    expect(fixLaTeXInText('$100 \\\\mu mol/min$')).not.toContain('\\\\mu');
+  });
+
+  it('handles commands the hand-written stutter list never covered', () => {
+    ['\\\\Omega', '\\\\lambda', '\\\\text', '\\\\rightarrow'].forEach((doubled) => {
+      const out = fixLaTeXInText(`$${doubled}$`);
+      expect(out).not.toContain(doubled);
+      expect(out).toContain(doubled.slice(1));
+    });
+  });
+
+  it('leaves a real line break alone', () => {
+    // `\\` followed by whitespace/end is an intentional row break in an
+    // aligned environment, not a mangled command.
+    expect(fixLaTeXInText('$a = b \\\\ c = d$')).toContain('\\\\ ');
+  });
+});
+
+describe('fixLaTeXInText — bare-word rescue must not re-escape', () => {
+  it('adds a backslash to a bare command word inside math', () => {
+    expect(fixLaTeXInText('$100 mu mol$')).toContain('\\mu');
+  });
+
+  it('leaves an already-escaped command alone', () => {
+    // ROOT CAUSE of the "mumol/min" bug: the old code ran
+    // .replace(/\bmu\b/g, '\\mu') and \b matches between "\" and "mu", so a
+    // correct \mu became \\mu — a KaTeX line break followed by literal "mu".
+    const out = fixLaTeXInText('$100 \\mu mol/min$');
+    expect(out).toContain('\\mu');
+    expect(out).not.toContain('\\\\mu');
+  });
+
+  it('does not re-escape any of the Greek letters it rescues', () => {
+    ['pi', 'theta', 'alpha', 'beta', 'lambda', 'sigma', 'omega'].forEach((w) => {
+      const out = fixLaTeXInText(`$\\${w}$`);
+      expect(out).not.toContain(`\\\\${w}`);
+    });
+  });
+
+  it('still rescues bare function calls without doubling escaped ones', () => {
+    expect(fixLaTeXInText('$sin(x)$')).toContain('\\sin(');
+    expect(fixLaTeXInText('$\\sin(x)$')).not.toContain('\\\\sin(');
+  });
+});

@@ -16,15 +16,63 @@
 
 const CORS_METHODS = 'POST, OPTIONS';
 
+// Free-tier requests-per-day PER PROJECT, measured from AI Studio's rate-limit
+// page (not guessed). This is the only number that matters for chain order:
+//
+//   gemma-4-*            14,400 RPD   30 RPM    16K TPM
+//   gemini-3.x-flash-lite   500 RPD   15 RPM   250K TPM
+//   every *-flash model      20 RPD    5 RPM   250K TPM   <-- 28x scarcer than Gemma
+//
+// Across ~11 projects that is ~158k/day on Gemma, ~11k/day on flash-lite, and
+// ~220/day on any -flash model. `interactive` used to END on gemini-2.5-flash,
+// so the busiest task in the app floored on the scarcest pool in the account.
+// Every chain now ends on a deep pool.
 export const MODEL_CHAINS = {
-  bulk:        ['gemma-4-31b-it', 'gemma-4-26b-a4b-it', 'gemini-3.1-flash-lite'],
-  interactive: ['gemini-3.1-flash-lite', 'gemma-4-31b-it', 'gemini-2.5-flash'],
-  premium:     ['gemini-3.5-flash', 'gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-3.1-flash-lite'],
-  vision:      ['gemini-3.1-flash-lite', 'gemini-2.5-flash', 'gemini-3.5-flash'],
+  bulk:        ['gemma-4-31b-it', 'gemma-4-26b-a4b-it', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite'],
+  interactive: ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
+  premium:     ['gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3-flash-preview', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite'],
+  // Gemma has no image input, so vision cannot borrow the deep pool at all.
+  vision:      ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-2.5-flash', 'gemini-3.5-flash'],
   // Second-opinion chain: deliberately leads with the model `bulk` does NOT, so
   // a generated answer key is checked by a different architecture.
-  verify:      ['gemma-4-26b-a4b-it', 'gemini-3.1-flash-lite', 'gemma-4-31b-it'],
+  verify:      ['gemma-4-26b-a4b-it', 'gemma-4-31b-it', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite'],
 };
+
+// Gemma's TPM ceiling is 16K against flash-lite's 250K. A prompt over roughly
+// that size is a guaranteed 429 on Gemma, so trying it just burns a round trip.
+const GEMMA_MAX_CHARS = 48_000; // ~12k tokens, leaving headroom for the reply
+const isGemma = (m) => m.startsWith('gemma-');
+
+/** true when this status means the MODEL is out, not this particular key. */
+export const isModelScoped = (status) => status >= 500;
+
+// Quota is per MODEL per PROJECT, so a key that has burned its 500 flash-lite
+// requests still has all 14,400 of its Gemma budget. Remembering which (key,
+// model) pairs are spent is what lets the router keep draining a key's other
+// models instead of re-testing the dead one on every request.
+//
+// Module scope, so it lives as long as the isolate. Isolates don't share it —
+// that is fine, each one converges within a few requests, and it costs no KV
+// round trip on the hot path.
+// ponytail: per-isolate memory; move to KV if the miss rate ever shows up in
+// the logs as repeated 429s on the same pair.
+const pairCooldown = new Map(); // `${keyIndex}:${model}` -> epoch ms
+const PAIR_COOLDOWN_MAX = 4096;
+
+export function pairIsCooling(map, keyIdx, model, now) {
+  return (map.get(`${keyIdx}:${model}`) || 0) > now;
+}
+
+export function coolPair(map, keyIdx, model, now, retryAfterSeconds) {
+  // An RPM 429 clears in a minute; an RPD one lasts until midnight Pacific.
+  // Google only tells us via retry-after, so trust it when present and use a
+  // short default otherwise — a still-dead pair simply re-cools on next touch.
+  const secs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+    ? Math.min(retryAfterSeconds, 6 * 3600)
+    : 60;
+  if (map.size > PAIR_COOLDOWN_MAX) map.clear();
+  map.set(`${keyIdx}:${model}`, now + secs * 1000);
+}
 export const TASK_TO_CHAIN = {
   tutorChat: 'interactive', explain: 'interactive',
   solver: 'vision',
@@ -50,7 +98,18 @@ function cors(origin, allowed) {
   return {
     'Access-Control-Allow-Origin': allow,
     'Access-Control-Allow-Methods': CORS_METHODS,
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    // X-App-Token is NOT optional here. The worker gates every request on that
+    // header (see the APP_TOKEN check below), but it was never listed as an
+    // allowed request header — so as soon as APP_TOKEN was set, the browser
+    // failed the preflight and blocked EVERY AI call from the deployed site:
+    // "Request header field X-App-Token is not allowed by
+    // Access-Control-Allow-Headers". The security check made the service
+    // unreachable. The Netlify proxy has always allowed it; this copy drifted.
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-App-Token',
+    // The worker names the model that actually answered in X-Apex-Model, and a
+    // cross-origin response hides non-safelisted headers unless they are
+    // exposed — without this the tutor's model attribution reads null in prod.
+    'Access-Control-Expose-Headers': 'X-Apex-Model, X-Apex-Cache',
     'Vary': 'Origin',
     'Content-Type': 'application/json',
   };
@@ -127,10 +186,23 @@ export default {
     // last entry in every chain, so the walk always reaches a working floor.
     const start = Math.floor(Math.random() * API_KEYS.length);
     const perModelKeys = Math.min(5, API_KEYS.length);
+    // Drop models that cannot serve this request at all rather than discovering
+    // it one failed round trip at a time.
+    const payloadChars = JSON.stringify(contents).length;
+    const usable = models.filter((m) => !(isGemma(m) && payloadChars > GEMMA_MAX_CHARS));
+    if (usable.length) models = usable;
+
+    const now = Date.now();
     for (const m of models) {
       const version = versionFor(m);
-      for (let i = 0; i < perModelKeys; i++) {
-        const key = API_KEYS[(start + i) % API_KEYS.length];
+      // Walk the whole ring, but only SPEND an attempt on a pair that isn't
+      // already known to be out of quota. Skipping is free; a doomed request is
+      // a round trip plus load on a service that just told us to back off.
+      for (let i = 0, spent = 0; i < API_KEYS.length && spent < perModelKeys; i++) {
+        const keyIdx = (start + i) % API_KEYS.length;
+        if (pairIsCooling(pairCooldown, keyIdx, m, now)) continue;
+        spent++;
+        const key = API_KEYS[keyIdx];
         const url = `https://generativelanguage.googleapis.com/${version}/models/${m}:generateContent?key=${key}`;
         try {
           const resp = await fetch(url, {
@@ -142,7 +214,23 @@ export default {
             if (resp.status === 400) {
               return new Response(await resp.text(), { status: 400, headers: { ...headers, 'X-Apex-Model': m } });
             }
-            continue; // 401/403/404/429/5xx -> next key
+            // A 5xx (503 UNAVAILABLE) means Google's capacity for THIS MODEL is
+            // gone — every key sees it simultaneously. Verified directly: on one
+            // key in one second, gemini-3.1-flash-lite returned 503 while five
+            // other models returned 200. Walking the key ring here would fire
+            // `perModelKeys` guaranteed-doomed requests into an already
+            // overloaded model, which is exactly the wrong thing to do when
+            // every other user is doing it too. Abandon the model instead.
+            lastErr = `${m}: HTTP ${resp.status}`;
+            if (isModelScoped(resp.status)) break;
+            if (resp.status === 429) {
+              // This project is out of quota for THIS model only. Remember it so
+              // the next request spends its attempts on models this key can
+              // still serve, and drop straight to the next key here.
+              coolPair(pairCooldown, keyIdx, m, Date.now(),
+                parseInt(resp.headers.get('retry-after') || '', 10));
+            }
+            continue; // 401/403/404/429 are key-scoped -> next key
           }
           const body = await resp.text();
           if (cacheKey) await env.CACHE.put(cacheKey, body, { expirationTtl: 60 * 60 * 24 * 30 });

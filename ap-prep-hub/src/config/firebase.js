@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { getAuth, setPersistence, browserLocalPersistence } from "firebase/auth";
 
 // For signInWithRedirect to work, authDomain MUST be the current host, with
 // /__/* proxied to firebaseapp.com, so the auth handler is same-origin — that
@@ -78,6 +78,23 @@ try {
 
   // Initialize Firebase services with error handling
   auth = getAuth(app);
+
+  // Set persistence ONCE, here, and deliberately without awaiting.
+  //
+  // It used to be awaited inside signInWithGoogle, immediately before
+  // signInWithPopup. That await yields to the microtask queue, which ends the
+  // browser's user-activation window — so Safari blocked the popup and Firebase
+  // reported `auth/popup-blocked`, even though the user had just clicked.
+  // A popup must be opened synchronously within the gesture.
+  //
+  // browserLocalPersistence is already the web default, so this is belt-and-
+  // braces rather than load-bearing; failing it must not block sign-in.
+  setPersistence(auth, browserLocalPersistence).catch((e) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Auth persistence could not be set (non-fatal):', e?.message);
+    }
+  });
+
   if (process.env.NODE_ENV === 'development') {
     console.log("✅ Firebase Auth initialized successfully");
   }

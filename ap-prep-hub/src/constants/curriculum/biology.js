@@ -19,12 +19,7 @@ const biology = {
     {
       name: "Unit 1: Chemistry of Life",
       weight: "8-11%",
-      topics: [
-        "Structure of water and hydrogen bonding",
-        "Elements of life",
-        "Introduction to biological macromolecules",
-        "Properties of biological macromolecules"
-      ],
+      topics: ["Structure of Water and Hydrogen Bonding", "Elements of Life", "Introduction to Macromolecules", "Carbohydrates", "Lipids", "Nucleic Acids", "Proteins"],
       keyConcepts: [
         "Water's polarity and hydrogen bonding properties",
         "Carbon as the backbone of organic molecules",
@@ -40,17 +35,9 @@ const biology = {
       ]
     },
     {
-      name: "Unit 2: Cell Structure and Function",
+      name: "Unit 2: Cells",
       weight: "10-13%",
-      topics: [
-        "Cell structures and subcellular components",
-        "Cell size and scale",
-        "Compartmentalization",
-        "Cell surface area-to-volume ratio",
-        "Plasma membranes",
-        "Membrane permeability",
-        "Tonicity and osmoregulation"
-      ],
+      topics: ["Cell Size", "Plasma Membrane", "Membrane Permeability", "Membrane Transport", "Facilitated Diffusion", "Tonicity and Osmoregulation", "Mechanisms of Transport", "Cell Compartmentalization", "Origins of Cell Compartmentalization"],
       keyConcepts: [
         "Prokaryotic vs eukaryotic cell organization",
         "Organelle structure and function",
@@ -68,14 +55,7 @@ const biology = {
     {
       name: "Unit 3: Cellular Energetics",
       weight: "12-16%",
-      topics: [
-        "Enzyme structure and catalysis",
-        "Environmental impacts on enzyme function",
-        "Cellular energy",
-        "Photosynthesis",
-        "Cellular respiration",
-        "Molecular diversity and cellular response to environmental changes"
-      ],
+      topics: ["Enzymes", "Environmental Impacts on Enzyme Function", "Cellular Respiration"],
       keyConcepts: [
         "ATP as the universal energy currency",
         "Enzyme kinetics and regulation",
@@ -94,15 +74,7 @@ const biology = {
     {
       name: "Unit 4: Cell Communication and Cell Cycle",
       weight: "10-15%",
-      topics: [
-        "Cell communication",
-        "Introduction to signal transduction",
-        "Signal transduction pathways",
-        "Cellular responses",
-        "Feedback",
-        "Cell cycle",
-        "Regulation of cell cycle"
-      ],
+      topics: ["Cell Communication", "Signal Transduction Pathways", "Feedback", "Representing and Describing Data", "Regulation of Cell Cycle"],
       keyConcepts: [
         "Reception, transduction, and response in signaling",
         "Second messenger systems",
@@ -121,12 +93,7 @@ const biology = {
     {
       name: "Unit 5: Heredity",
       weight: "8-11%",
-      topics: [
-        "Meiosis",
-        "Mating systems and sexual selection",
-        "Mendelian genetics",
-        "Non-Mendelian genetics"
-      ],
+      topics: ["Meiosis", "Meiosis and Genetic Diversity", "Mendelian Genetics", "Statistical Tests and Data Analysis", "Environmental Effects on Phenotype"],
       keyConcepts: [
         "Sexual reproduction and genetic diversity",
         "Independent assortment and crossing over",
@@ -144,15 +111,7 @@ const biology = {
     {
       name: "Unit 6: Gene Expression and Regulation",
       weight: "12-16%",
-      topics: [
-        "DNA and RNA structure",
-        "Replication",
-        "Transcription",
-        "Translation",
-        "Regulation of gene expression",
-        "Gene expression and cell specialization",
-        "Mutations"
-      ],
+      topics: ["DNA and RNA Structure", "DNA Replication", "Transcription and RNA Processing", "Translation", "Regulation of Gene Expression", "Gene Expression and Cell Specialization", "Visual Representations", "Biotechnology"],
       keyConcepts: [
         "Central dogma of molecular biology",
         "DNA replication mechanisms",
@@ -172,14 +131,7 @@ const biology = {
     {
       name: "Unit 7: Natural Selection",
       weight: "13-20%",
-      topics: [
-        "Introduction to natural selection",
-        "Natural selection",
-        "Artificial selection",
-        "Population genetics",
-        "Hardy-Weinberg equilibrium",
-        "Evidence of evolution"
-      ],
+      topics: ["Introduction to Natural Selection", "Natural Selection", "Artificial Selection", "Population Genetics", "Hardy\u2013Weinberg Equilibrium", "Evidence of Evolution", "Common Ancestry", "Continuing Evolution", "Phylogeny", "Speciation", "Variations in Populations", "Origins of Life on Earth"],
       keyConcepts: [
         "Mechanisms of evolutionary change",
         "Genetic drift and gene flow",
@@ -198,13 +150,7 @@ const biology = {
     {
       name: "Unit 8: Ecology",
       weight: "10-15%",
-      topics: [
-        "Responses to the environment",
-        "Energy flow through ecosystems",
-        "Population ecology",
-        "Community ecology",
-        "Biodiversity"
-      ],
+      topics: ["Responses to the Environment", "Energy Flow Through Ecosystems", "Population Ecology", "Effect of Density on Populations", "Community Ecology", "Biodiversity", "Disruptions in Ecosystems"],
       keyConcepts: [
         "Behavioral and physiological responses",
         "Trophic levels and energy transfer",

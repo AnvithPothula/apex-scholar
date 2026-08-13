@@ -1,9 +1,11 @@
 import React, { memo, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 import { preprocessContent } from '../utils/latexPreprocess';
+import InlineScoreCalculator from './tutors/InlineScoreCalculator';
 
 // Re-export so existing imports keep working without churn.
 export { preprocessContent };
@@ -59,9 +61,17 @@ const mdComponents = {
       {children}
     </blockquote>
   ),
-  code: ({ inline, children }) => {
+  code: ({ inline, className, children }) => {
     if (inline) {
       return <code className="bg-base-800 px-1 py-0.5 rounded-sm text-sm font-mono text-content-muted">{children}</code>;
+    }
+    // A ```apex-score fence is a live widget, not source code. It renders the
+    // same model the standalone calculator uses, pre-filled with whatever the
+    // tutor worked out, so the student can drag the sliders instead of
+    // re-reading arithmetic. Malformed specs render nothing (see parseScoreSpec)
+    // rather than a confidently wrong score.
+    if (/language-apex-score/.test(className || '')) {
+      return <InlineScoreCalculator spec={String(children)} />;
     }
     return (
       <pre className="bg-base-900 p-3 rounded-sm overflow-x-auto my-2 border border-border">
@@ -69,11 +79,31 @@ const mdComponents = {
       </pre>
     );
   },
-  a: ({ children, href }) => (
-    <a href={href} className="text-content-muted hover:text-content-primary underline" target="_blank" rel="noopener noreferrer">
-      {children}
-    </a>
-  ),
+  // react-markdown wraps fenced blocks in <pre>, and the `code` override above
+  // already emits its own <pre>. Passing through avoids nesting one inside the
+  // other (invalid — <pre> takes phrasing content) and lets the widget escape
+  // the monospace/overflow styling entirely.
+  pre: ({ children }) => <>{children}</>,
+  // Internal links must stay in the app. The tutor is told to link to Apex
+  // Scholar pages ("take a [practice test](/practice-tests)"), and sending
+  // those through target="_blank" would spawn a second copy of the SPA in a new
+  // tab — losing the conversation and reloading the whole bundle. Only external
+  // hrefs get the new-tab + noopener treatment.
+  a: ({ children, href }) => {
+    const isInternal = typeof href === 'string' && href.startsWith('/');
+    if (isInternal) {
+      return (
+        <Link to={href} className="text-primary-400 hover:text-primary-500 underline underline-offset-2">
+          {children}
+        </Link>
+      );
+    }
+    return (
+      <a href={href} className="text-content-muted hover:text-content-primary underline" target="_blank" rel="noopener noreferrer">
+        {children}
+      </a>
+    );
+  },
   // Table styling
   table: ({ children }) => (
     <div className="overflow-x-auto my-3 rounded-lg border border-border">

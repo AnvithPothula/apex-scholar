@@ -23,14 +23,7 @@ const worldHistory = {
     {
       name: "Unit 1: The Global Tapestry, c. 1200 to c. 1450",
       weight: "8-10%",
-      topics: [
-        "Developments in East Asia",
-        "Developments in Dar al-Islam",
-        "Developments in South and Southeast Asia",
-        "State building in the Americas",
-        "State building in Africa",
-        "Developments in Europe"
-      ],
+      topics: ["Developments in East Asia from c. 1200 to c. 1450", "Developments in South and Southeast Asia from c. 1200 to c. 1450", "State Building in the Americas", "State Building in Africa", "Developments and Processes"],
       keyConcepts: [
         "Song Dynasty innovations and Neo-Confucianism",
         "Islamic Golden Age and scholarly achievements",
@@ -52,13 +45,7 @@ const worldHistory = {
     {
       name: "Unit 2: Networks of Exchange, c. 1200 to c. 1450",
       weight: "8-10%",
-      topics: [
-        "Silk Roads",
-        "Indian Ocean trading network",
-        "Trans-Saharan trade routes",
-        "Cultural and technological transfers",
-        "Environmental consequences of trade"
-      ],
+      topics: ["The Silk Roads", "The Mongol Empire and the Making of the Modern World", "Making Connections", "Developments and Processes", "Cultural Consequences of Connectivity", "Environmental Consequences of Connectivity"],
       keyConcepts: [
         "Silk Road revival and decline",
         "Monsoon winds and Indian Ocean maritime trade",
@@ -79,12 +66,7 @@ const worldHistory = {
     {
       name: "Unit 3: Land-Based Empires, c. 1450 to c. 1750",
       weight: "12-15%",
-      topics: [
-        "Empires expand and maintain power",
-        "Imperial administration",
-        "Belief systems and governance",
-        "Economic strategies of empires"
-      ],
+      topics: ["Empires Expand", "Empires: Administration", "Empires: Belief Systems"],
       keyConcepts: [
         "Ottoman, Safavid, and Mughal empires",
         "Qing Dynasty expansion",
@@ -106,13 +88,7 @@ const worldHistory = {
     {
       name: "Unit 4: Transoceanic Interconnections, c. 1450 to c. 1750",
       weight: "12-15%",
-      topics: [
-        "Technological innovations in sea-based travel",
-        "Exploration and conquest",
-        "Columbian Exchange",
-        "Maritime empires",
-        "Economic and labor systems"
-      ],
+      topics: ["Technological Innovations from 1450 to 1750", "Making Connections", "Sourcing and Situation", "Internal and External Challenges to State Power from 1450 to 1750", "Changing Social Hierarchies from 1450 to 1750"],
       keyConcepts: [
         "Caravel, compass, and navigational improvements",
         "Portuguese and Spanish exploration",
@@ -134,12 +110,7 @@ const worldHistory = {
     {
       name: "Unit 5: Revolutions, c. 1750 to c. 1900",
       weight: "12-15%",
-      topics: [
-        "Enlightenment ideals and political revolutions",
-        "Industrial Revolution",
-        "Nationalism and nation-state formation",
-        "Reform and revolution"
-      ],
+      topics: ["The Enlightenment", "Nationalism and Revolutions in the Period from 1750 to 1900", "Industrial Revolution Begins", "Industrialization Spreads in the Period from 1750 to 1900", "Technology of the Industrial Age", "Industrialization: Government\u2019s Role from 1750 to 1900", "Economic Developments and Innovations in the Industrial Age", "Reactions to the Industrial Economy from 1750 to 1900", "Society and the Industrial Age"],
       keyConcepts: [
         "American, French, and Haitian revolutions",
         "Latin American independence movements",
@@ -162,12 +133,7 @@ const worldHistory = {
     {
       name: "Unit 6: Consequences of Industrialization, c. 1750 to c. 1900",
       weight: "12-15%",
-      topics: [
-        "Rationales for imperialism",
-        "State expansion and resistance",
-        "Global migration patterns",
-        "Social and cultural changes"
-      ],
+      topics: ["Rationales for Imperialism from 1750 to 1900", "State Expansion from 1750 to 1900", "Indigenous Responses to State Expansion from 1750 to 1900", "Sourcing and Situation", "Economic Imperialism from 1750 to 1900", "Causes of Migration in an Interconnected World", "Effects of Migration"],
       keyConcepts: [
         "New imperialism and scramble for Africa",
         "Economic and cultural justifications for empire",
@@ -189,13 +155,7 @@ const worldHistory = {
     {
       name: "Unit 7: Global Conflict, c. 1900 to the present",
       weight: "8-10%",
-      topics: [
-        "World War I and its consequences",
-        "Global economic crisis",
-        "World War II",
-        "Mass atrocities and genocide",
-        "Cold War"
-      ],
+      topics: ["Shifting Power After 1900", "Causes of World War I", "Conducting World War I", "Economy in the Interwar Period", "Unresolved Tensions After World War I", "Causes of World War II", "Conducting World War II", "Mass Atrocities After 1900", "Causation in Global Conflict"],
       keyConcepts: [
         "Causes and conduct of World War I",
         "Russian Revolution and establishment of USSR",
@@ -218,12 +178,7 @@ const worldHistory = {
     {
       name: "Unit 8: Cold War and Decolonization, c. 1900 to the present",
       weight: "8-10%",
-      topics: [
-        "Setting the stage for the Cold War",
-        "The Cold War",
-        "Decolonization after 1900",
-        "Newly independent states"
-      ],
+      topics: ["Setting the Stage for the Cold War and Decolonization", "The Cold War", "Effects of the Cold War", "Spread of Communism After 1900", "Decolonization After 1900", "Newly Independent States", "Sourcing and Situation", "End of the Cold War"],
       keyConcepts: [
         "Origins of Cold War rivalry",
         "Marshall Plan and NATO vs. Warsaw Pact",
@@ -245,13 +200,7 @@ const worldHistory = {
     {
       name: "Unit 9: Globalization, c. 1900 to the present",
       weight: "8-10%",
-      topics: [
-        "Advances in technology and communication",
-        "Disease and human health",
-        "Economic liberalization",
-        "Social and cultural changes",
-        "Institutions of globalization"
-      ],
+      topics: ["Advances in Technology and Exchange After 1900", "Technological Advances and Limitations After 1900: Disease", "Technological Advances: Debates About the Environment After 1900", "Economics in the Global Age", "Calls for Reform and Responses After 1900", "Globalized Culture After 1900", "Institutions Developing in a Globalized World", "Continuity and Change in a Globalized World"],
       keyConcepts: [
         "Green Revolution and population growth",
         "Medical advances and pandemic diseases",

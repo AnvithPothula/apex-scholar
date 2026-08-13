@@ -19,15 +19,7 @@ const environmentalScience = {
     {
       name: "Unit 1: The Living World: Ecosystems",
       weight: "6-8%",
-      topics: [
-        "Introduction to ecosystems",
-        "Terrestrial biomes",
-        "Aquatic biomes",
-        "The carbon cycle",
-        "The nitrogen cycle",
-        "The phosphorus cycle",
-        "The hydrologic (water) cycle"
-      ],
+      topics: ["The Carbon Cycle", "The Nitrogen Cycle", "The Phosphorus Cycle", "The Hydrologic (Water) Cycle", "Food Chains and Food Webs"],
       keyConcepts: [
         "Ecosystem structure and function",
         "Biotic and abiotic factors",
@@ -48,13 +40,7 @@ const environmentalScience = {
     {
       name: "Unit 2: The Living World: Biodiversity",
       weight: "6-8%",
-      topics: [
-        "Introduction to biodiversity",
-        "Ecosystem services",
-        "Island biogeography",
-        "Ecological tolerance",
-        "Natural disruptions to ecosystems"
-      ],
+      topics: ["Introduction to Biodiversity", "Text Analysis", "Natural Disruptions to Ecosystems", "Adaptations", "Ecological Succession"],
       keyConcepts: [
         "Levels of biodiversity: genetic, species, ecosystem",
         "Ecosystem services: provisioning, regulating, cultural, supporting",
@@ -74,17 +60,7 @@ const environmentalScience = {
     {
       name: "Unit 3: Populations",
       weight: "10-15%",
-      topics: [
-        "Generalist and specialist species",
-        "K-selected and r-selected species",
-        "Survivorship curves",
-        "Carrying capacity",
-        "Population growth and resource availability",
-        "Age structure diagrams",
-        "Total fertility rate",
-        "Human population dynamics",
-        "Demographic transition"
-      ],
+      topics: ["Survivorship Curves", "Carrying Capacity", "Population Growth and Resource Availability", "Age Structure Diagrams", "Total Fertility Rate", "Human Population Dynamics", "Demographic Transition"],
       keyConcepts: [
         "Population growth models: exponential and logistic",
         "Reproductive strategies and life history patterns",
@@ -105,15 +81,7 @@ const environmentalScience = {
     {
       name: "Unit 4: Earth Systems and Resources",
       weight: "10-15%",
-      topics: [
-        "Plate tectonics",
-        "Soil formation and erosion",
-        "Soil composition and properties",
-        "Earth's atmosphere",
-        "Global wind patterns",
-        "Watersheds",
-        "Solar radiation and Earth's seasons"
-      ],
+      topics: ["Plate Tectonics", "Soil Formation and Erosion", "Soil Composition and Properties", "Earth\u2019s Atmosphere", "Global Wind Patterns", "Watersheds", "Solar Radiation and Earth\u2019s Seasons", "Earth\u2019s Geography and Climate", "El Ni\u00f1o and La Ni\u00f1a"],
       keyConcepts: [
         "Earth's internal structure and plate movements",
         "Soil horizons and formation processes",
@@ -134,19 +102,7 @@ const environmentalScience = {
     {
       name: "Unit 5: Land and Water Use",
       weight: "10-15%",
-      topics: [
-        "The tragedy of the commons",
-        "Clearcutting",
-        "The green revolution",
-        "Impacts of agricultural practices",
-        "Controlling pests",
-        "Meat production methods",
-        "Impacts of overfishing",
-        "Impacts of mining",
-        "Impacts of urbanization",
-        "Ecological footprints",
-        "Introduction to sustainability"
-      ],
+      topics: ["The Tragedy of the Commons", "Clearcutting", "Text Analysis", "Impact of Agricultural Practices", "Environmental Solutions", "Pest Control Methods", "Environmental Solutions", "Impacts of Urbanization", "Introduction to Sustainability", "Methods to Reduce Urban Runoff", "Integrated Pest Management", "Sustainable Agriculture", "Aquaculture", "Sustainable Forestry"],
       keyConcepts: [
         "Common pool resources and management challenges",
         "Forest management practices and impacts",
@@ -168,19 +124,7 @@ const environmentalScience = {
     {
       name: "Unit 6: Energy Resources and Consumption",
       weight: "10-15%",
-      topics: [
-        "Renewable and nonrenewable resources",
-        "Global energy consumption",
-        "Fossil fuels",
-        "Nuclear power",
-        "Energy from biomass",
-        "Solar energy",
-        "Hydroelectric power",
-        "Geothermal energy",
-        "Hydrogen fuel cells",
-        "Wind energy",
-        "Energy conservation"
-      ],
+      topics: ["Renewable and Nonrenewable Resources", "Global Energy Consumption", "Fuel Types and Uses", "Distribution of Natural Energy Resources", "Fossil Fuels", "Visual Representations", "Energy from Biomass", "Solar Energy", "Hydroelectric Power", "Geothermal Energy", "Wind Energy", "Energy Conservation"],
       keyConcepts: [
         "Energy types and sources",
         "Fossil fuel formation and extraction",
@@ -202,16 +146,7 @@ const environmentalScience = {
     {
       name: "Unit 7: Atmospheric Pollution",
       weight: "7-10%",
-      topics: [
-        "Introduction to air pollution",
-        "Photochemical smog",
-        "Thermal inversion",
-        "Atmospheric CO2 and particulates",
-        "Indoor air pollutants",
-        "Reduction of air pollutants",
-        "Acid rain",
-        "Noise pollution"
-      ],
+      topics: ["Visual Representations", "Atmospheric CO2 and Particulates", "Reduction of Air Pollutants", "Acid Rain", "Text Analysis"],
       keyConcepts: [
         "Primary and secondary air pollutants",
         "Smog formation and health impacts",
@@ -232,19 +167,7 @@ const environmentalScience = {
     {
       name: "Unit 8: Aquatic and Terrestrial Pollution",
       weight: "7-10%",
-      topics: [
-        "Sources of pollution",
-        "Human impacts on ecosystems",
-        "Endocrine disruptors",
-        "Human impacts on wetlands and mangroves",
-        "Eutrophication",
-        "Thermal pollution",
-        "Persistent organic pollutants (POPs)",
-        "Bioaccumulation and biomagnification",
-        "Solid waste disposal",
-        "Waste reduction methods",
-        "Sewage treatment"
-      ],
+      topics: ["Sources of Pollution", "Human Impacts on Ecosystems", "Endocrine Disruptors", "Human Impacts on Wetlands and Mangroves", "Eutrophication", "Persistent Organic Pollutants (POPs)", "Bioaccumulation and Biomagnification", "Solid Waste Disposal", "Waste Reduction Methods", "Sewage Treatment", "Lethal Dose 50% (LD50)", "Dose Response Curve", "Pollution and Human Health", "Pathogens and Infectious Diseases"],
       keyConcepts: [
         "Point and nonpoint source pollution",
         "Chemical pollution and toxicology",
@@ -266,16 +189,7 @@ const environmentalScience = {
     {
       name: "Unit 9: Global Change",
       weight: "15-20%",
-      topics: [
-        "Stratospheric ozone depletion",
-        "The greenhouse effect",
-        "Increases in greenhouse gases",
-        "Global climate change",
-        "Ocean warming and ocean acidification",
-        "Invasive species",
-        "Endangered species",
-        "Human impacts on biodiversity"
-      ],
+      topics: ["Reducing Ozone Depletion", "The Greenhouse Effect", "Increases in the Greenhouse Gases", "Global Climate Change", "Ocean Warming", "Ocean Acidification", "Invasive Species", "Endangered Species", "Human Impacts on Biodiversity"],
       keyConcepts: [
         "Ozone depletion causes and consequences",
         "Greenhouse effect and enhanced greenhouse effect",

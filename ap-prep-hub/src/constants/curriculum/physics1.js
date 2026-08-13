@@ -5,8 +5,8 @@ const physics1 = {
   examFormat: {
     duration: "3 hours",
     sections: [
-      { name: "Multiple Choice", questions: 50, time: "90 minutes", weight: "50%" },
-      { name: "Free Response", questions: 5, time: "90 minutes", weight: "50%" }
+      { name: "Multiple Choice", questions: 42, time: "85 minutes", weight: "50%" },
+      { name: "Free Response", questions: 4, time: "95 minutes", weight: "50%" }
     ]
   },
   bigIdeas: [
@@ -18,262 +18,21 @@ const physics1 = {
     "Waves can transfer energy and momentum from one location to another without the permanent transfer of mass.",
     "The mathematics of probability can be used to describe the behavior of complex systems."
   ],
+  // REVISED framework (CED, fall 2024 onward). The old ten-unit list this
+  // replaced still contained Electric Charge and Electric Force, DC Circuits and
+  // Mechanical Waves and Sound — all REMOVED from AP Physics 1. Students were
+  // being pointed at three units of material that is no longer on the exam,
+  // while Fluids and the rotational-energy unit were missing entirely.
+  // Weightings are the CED's published ranges.
   units: [
-    {
-      name: "Unit 1: Kinematics",
-      weight: "10-16%",
-      topics: [
-        "Position, velocity, and acceleration",
-        "Representations of motion",
-        "Motion in one dimension",
-        "Motion in two dimensions"
-      ],
-      keyConcepts: [
-        "Position, displacement, velocity, and acceleration",
-        "Kinematic equations for constant acceleration",
-        "Graphical analysis of motion",
-        "Vector components and projectile motion",
-        "Relative motion",
-        "Free fall and vertical motion"
-      ],
-      essentialKnowledge: [
-        "Motion can be described using position, velocity, and acceleration",
-        "Graphs provide useful representations of motion",
-        "Kinematic equations apply to constant acceleration",
-        "Projectile motion combines horizontal and vertical components",
-        "Vectors are essential for describing motion in multiple dimensions"
-      ]
-    },
-    {
-      name: "Unit 2: Dynamics",
-      weight: "12-18%",
-      topics: [
-        "Newton's first law and equilibrium",
-        "Newton's second law",
-        "Newton's third law",
-        "Free body diagrams",
-        "Applications of Newton's laws"
-      ],
-      keyConcepts: [
-        "Newton's three laws of motion",
-        "Free body diagrams and force analysis",
-        "Net force and acceleration relationship",
-        "Action-reaction pairs",
-        "Static and kinetic friction",
-        "Normal force and weight",
-        "Tension and contact forces"
-      ],
-      essentialKnowledge: [
-        "Forces cause changes in motion according to Newton's laws",
-        "Free body diagrams help analyze force situations",
-        "Net force determines acceleration direction and magnitude",
-        "Forces always occur in action-reaction pairs",
-        "Friction opposes relative motion between surfaces"
-      ]
-    },
-    {
-      name: "Unit 3: Circular Motion and Gravitation",
-      weight: "6-14%",
-      topics: [
-        "Uniform circular motion",
-        "Centripetal acceleration and force",
-        "Newton's law of universal gravitation",
-        "Gravitational field and acceleration"
-      ],
-      keyConcepts: [
-        "Centripetal acceleration and force",
-        "Period, frequency, and angular velocity",
-        "Universal gravitation law",
-        "Gravitational field strength",
-        "Orbital motion principles",
-        "Apparent weight and weightlessness"
-      ],
-      essentialKnowledge: [
-        "Circular motion requires centripetal force toward the center",
-        "Gravitational force follows an inverse square law",
-        "Gravitational field describes gravitational interactions",
-        "Orbital motion results from gravitational centripetal force",
-        "Apparent weight depends on reference frame"
-      ]
-    },
-    {
-      name: "Unit 4: Energy",
-      weight: "16-24%",
-      topics: [
-        "Work and kinetic energy",
-        "Potential energy",
-        "Conservation of energy",
-        "Power",
-        "Conservative and non-conservative forces"
-      ],
-      keyConcepts: [
-        "Work-energy theorem",
-        "Kinetic energy and its relationship to speed",
-        "Gravitational and elastic potential energy",
-        "Conservation of mechanical energy",
-        "Power as rate of energy transfer",
-        "Energy dissipation by friction",
-        "Energy bar charts and representations"
-      ],
-      essentialKnowledge: [
-        "Work changes the kinetic energy of objects",
-        "Potential energy is stored energy due to position or configuration",
-        "Total mechanical energy is conserved in absence of friction",
-        "Power measures the rate of energy transfer",
-        "Non-conservative forces dissipate mechanical energy"
-      ]
-    },
-    {
-      name: "Unit 5: Momentum",
-      weight: "10-16%",
-      topics: [
-        "Momentum and impulse",
-        "Conservation of momentum",
-        "Collisions",
-        "Center of mass"
-      ],
-      keyConcepts: [
-        "Momentum as mass times velocity",
-        "Impulse-momentum theorem",
-        "Conservation of momentum in isolated systems",
-        "Elastic and inelastic collisions",
-        "Center of mass motion",
-        "Explosion and separation problems"
-      ],
-      essentialKnowledge: [
-        "Momentum is conserved in isolated systems",
-        "Impulse equals change in momentum",
-        "Collisions can be analyzed using conservation laws",
-        "Center of mass moves as if all mass were concentrated there",
-        "Internal forces don't change total momentum"
-      ]
-    },
-    {
-      name: "Unit 6: Simple Harmonic Motion",
-      weight: "2-8%",
-      topics: [
-        "Simple harmonic motion",
-        "Energy in simple harmonic motion",
-        "Mass-spring systems",
-        "Pendulum motion"
-      ],
-      keyConcepts: [
-        "Restoring force proportional to displacement",
-        "Period and frequency of oscillation",
-        "Energy transformations in SHM",
-        "Simple pendulum and mass-spring systems",
-        "Amplitude, period, and frequency relationships"
-      ],
-      essentialKnowledge: [
-        "Simple harmonic motion occurs when restoring force is proportional to displacement",
-        "Energy oscillates between kinetic and potential forms",
-        "Period depends on system properties, not amplitude",
-        "Both pendulums and springs can exhibit SHM",
-        "SHM can be described mathematically using sine and cosine functions"
-      ]
-    },
-    {
-      name: "Unit 7: Torque and Rotational Motion",
-      weight: "10-16%",
-      topics: [
-        "Rotational kinematics",
-        "Torque",
-        "Rotational dynamics",
-        "Angular momentum",
-        "Rotational energy"
-      ],
-      keyConcepts: [
-        "Angular position, velocity, and acceleration",
-        "Torque as rotational force",
-        "Moment of inertia",
-        "Newton's second law for rotation",
-        "Angular momentum and its conservation",
-        "Rotational kinetic energy",
-        "Rolling motion"
-      ],
-      essentialKnowledge: [
-        "Rotational motion has analogies to linear motion",
-        "Torque causes angular acceleration",
-        "Moment of inertia depends on mass distribution",
-        "Angular momentum is conserved in isolated systems",
-        "Rolling combines translational and rotational motion"
-      ]
-    },
-    {
-      name: "Unit 8: Electric Charge and Electric Force",
-      weight: "4-8%",
-      topics: [
-        "Electric charge",
-        "Coulomb's law",
-        "Electric field",
-        "Electric field due to point charges"
-      ],
-      keyConcepts: [
-        "Conservation of electric charge",
-        "Coulomb's law for electric force",
-        "Electric field as force per unit charge",
-        "Superposition of electric fields",
-        "Electric field lines and representations"
-      ],
-      essentialKnowledge: [
-        "Electric charge is conserved and quantized",
-        "Electric force follows an inverse square law",
-        "Electric field describes the influence of charges on space",
-        "Multiple charges create fields that superpose",
-        "Field lines provide visual representations of electric fields"
-      ]
-    },
-    {
-      name: "Unit 9: DC Circuits",
-      weight: "6-10%",
-      topics: [
-        "Electric current",
-        "Resistance and Ohm's law",
-        "Series and parallel circuits",
-        "Circuit analysis"
-      ],
-      keyConcepts: [
-        "Current as flow of charge",
-        "Voltage, current, and resistance relationships",
-        "Ohm's law applications",
-        "Series and parallel circuit rules",
-        "Power in electric circuits",
-        "Kirchhoff's rules for circuit analysis"
-      ],
-      essentialKnowledge: [
-        "Current flows from high to low electric potential",
-        "Resistance opposes current flow",
-        "Series circuits have same current; parallel circuits have same voltage",
-        "Power dissipation depends on voltage and current",
-        "Kirchhoff's rules enable analysis of complex circuits"
-      ]
-    },
-    {
-      name: "Unit 10: Mechanical Waves and Sound",
-      weight: "12-16%",
-      topics: [
-        "Wave properties",
-        "Wave equations",
-        "Sound waves",
-        "Interference and superposition",
-        "Standing waves"
-      ],
-      keyConcepts: [
-        "Wave speed, frequency, and wavelength relationship",
-        "Transverse and longitudinal waves",
-        "Wave interference and superposition",
-        "Standing wave patterns and resonance",
-        "Sound as pressure waves",
-        "Doppler effect basics"
-      ],
-      essentialKnowledge: [
-        "Waves transfer energy without transferring matter",
-        "Wave speed depends on medium properties",
-        "Interference can be constructive or destructive",
-        "Standing waves form from interference of traveling waves",
-        "Sound waves are longitudinal pressure waves"
-      ]
-    }
+    { name: "Unit 1: Kinematics", weight: "10-15%", topics: ["Scalars and Vectors in One Dimension", "Displacement, Velocity, and Acceleration", "Representing Motion", "Reference Frames and Relative Motion", "1.B"] },
+    { name: "Unit 2: Force and Translational Dynamics", weight: "18-23%", topics: ["Systems and Center of Mass", "Forces and Free-Body Diagrams", "Newton\u2019s Third Law", "Newton\u2019s First Law", "Newton\u2019s Second Law", "Gravitational Force", "1.C", "Spring Forces", "Circular Motion"] },
+    { name: "Unit 3: Work, Energy, and Power", weight: "18-23%", topics: ["Translational Kinetic Energy", "Work", "1.C", "1.B"] },
+    { name: "Unit 4: Linear Momentum", weight: "10-15%", topics: ["Linear Momentum", "1.B", "1.B"] },
+    { name: "Unit 5: Torque and Rotational Dynamics", weight: "10-15%", topics: ["Rotational Kinematics", "Connecting Linear and Rotational Motion", "Torque", "1.B", "Rotational Equilibrium and Newton\u2019s First Law in Rotational Form", "Newton\u2019s Second Law in Rotational Form"] },
+    { name: "Unit 6: Energy and Momentum of Rotating Systems", weight: "5-8%", topics: ["Rotational Kinetic Energy", "Torque and Work", "1.B", "Conservation of Angular Momentum", "Rolling", "Motion of Orbiting Satellites"] },
+    { name: "Unit 7: Oscillations", weight: "5-8%", topics: ["Defining Simple Harmonic Motion (SHM)", "1.B", "Representing and Analyzing SHM", "Energy of Simple Harmonic Oscillators"] },
+    { name: "Unit 8: Fluids", weight: "10-15%", topics: ["Internal Structure and Density", "1.C", "Fluids and Newton\u2019s Laws", "1.B"] }
   ],
   keySkills: [
     "Visual Representation: Create and analyze graphs, diagrams, and models",

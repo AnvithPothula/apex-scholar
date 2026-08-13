@@ -3,7 +3,7 @@
 // (or could produce). If KaTeX breaks again on one of these patterns, a
 // failing test should pin down which preprocessor stage regressed.
 
-import { preprocessContent } from './latexPreprocess';
+import { preprocessContent, repairInlineTables } from './latexPreprocess';
 
 describe('preprocessContent — LaTeX failure modes', () => {
   describe('bare LaTeX without delimiters', () => {
@@ -166,5 +166,32 @@ describe('preprocessContent — LaTeX failure modes', () => {
       const twice = preprocessContent(once);
       expect(twice).toBe(once);
     });
+  });
+});
+
+describe('repairInlineTables', () => {
+  it('splits a table the AI emitted on one line', () => {
+    // Seen live: an AP Spanish answer rendered "| :--- |" as literal text.
+    const out = repairInlineTables('| Score | Composite | | :--- | :--- | | 5 | 70-100% |');
+    const lines = out.split('\n');
+    expect(lines.length).toBe(3);
+    expect(lines[0]).toBe('| Score | Composite |');
+    expect(lines[1]).toBe('| :--- | :--- |');
+    expect(lines[2]).toBe('| 5 | 70-100% |');
+  });
+
+  it('leaves a correctly formatted table untouched', () => {
+    const good = '| A | B |\n| :--- | :--- |\n| 1 | 2 |';
+    expect(repairInlineTables(good)).toBe(good);
+  });
+
+  it('ignores prose containing a pipe', () => {
+    expect(repairInlineTables('use a | b in regex')).toBe('use a | b in regex');
+    expect(repairInlineTables('no pipes here')).toBe('no pipes here');
+  });
+
+  it('is safe on non-strings', () => {
+    expect(repairInlineTables(null)).toBe(null);
+    expect(repairInlineTables(undefined)).toBe(undefined);
   });
 });

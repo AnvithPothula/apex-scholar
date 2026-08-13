@@ -123,40 +123,17 @@ async function callSchoology(method, url, params, tokenSecret = '', body = null)
 // action requires a verified Firebase ID token; the access/request token
 // secrets never travel through the browser.
 
-let _adminApp = null;
-let _adminTried = false;
-// Prefer the 3 split vars (small — keeps total function env under AWS Lambda's
-// 4KB limit); fall back to the full FIREBASE_SERVICE_ACCOUNT JSON.
-function loadServiceAccount() {
-  const projectId = process.env.FIREBASE_PROJECT_ID;
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  const privateKey = process.env.FIREBASE_PRIVATE_KEY;
-  if (projectId && clientEmail && privateKey) {
-    return { projectId, clientEmail, privateKey: privateKey.replace(/\\n/g, '\n') };
-  }
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
-  if (raw) return JSON.parse(raw);
-  return null;
-}
-
-function getAdminApp() {
-  if (_adminTried) return _adminApp;
-  _adminTried = true;
-  try {
-    const creds = loadServiceAccount();
-    if (!creds) return null;
-    const admin = require('firebase-admin');
-    _adminApp = (admin.apps && admin.apps.length)
-      ? admin.app()
-      : admin.initializeApp({ credential: admin.credential.cert(creds) });
-    _adminApp.__admin = admin;
-    return _adminApp;
-  } catch (err) {
-    console.error('[schoology-oauth] firebase-admin init failed:', err.message);
-    _adminApp = null;
-    return null;
-  }
-}
+// Admin bootstrap comes from ../lib/firebaseAdmin, shared with admin-stats and
+// the email functions.
+//
+// This file used to carry its own copy, and that copy had the A37 bug the
+// shared one was written to kill: it only replaced escaped \n, so a key with
+// surrounding quotes, CRLF line endings, or a missing trailing newline made
+// admin.credential.cert() throw, the catch swallowed it, and the caller
+// reported "FIREBASE_SERVICE_ACCOUNT missing" — which is simply untrue when the
+// variable is present but mangled. The shared helper repairs those cases and
+// names the real defect when it cannot.
+const { getAdminApp } = require('../lib/firebaseAdmin');
 
 async function verifyUid(event, app) {
   const h = event.headers || {};
@@ -217,12 +194,15 @@ exports.handler = async (event) => {
 
   // Require a verified Firebase user for every action. Tokens are stored and
   // signed server-side, keyed by this uid — they never go through the browser.
-  const adminApp = getAdminApp();
+  const { app: adminApp, error: adminError } = getAdminApp();
   if (!adminApp) {
+    // Surface the actual reason (missing vars vs. unparseable key vs. missing
+    // bundle) instead of one catch-all message that sends people hunting for
+    // an environment variable that is already set.
     return {
       statusCode: 503,
       headers,
-      body: JSON.stringify({ error: 'Server auth not configured (FIREBASE_SERVICE_ACCOUNT missing).' }),
+      body: JSON.stringify({ error: adminError || 'Server auth not configured.' }),
     };
   }
   const uid = await verifyUid(event, adminApp);

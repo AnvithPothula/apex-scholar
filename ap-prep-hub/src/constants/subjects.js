@@ -1,6 +1,8 @@
 export const AP_SUBJECTS = {
     "AP Art History": { name: "AP Art History", description: "Explore art across cultures and time periods.", icon: "🎨" },
     "AP Biology": { name: "AP Biology", description: "Dive into the science of living organisms.", icon: "🔬" },
+    "AP Business with Personal Finance": { name: "AP Business with Personal Finance", description: "Business, entrepreneurship, and managing your own money.", icon: "💼" },
+    "AP Cybersecurity": { name: "AP Cybersecurity", description: "Find vulnerabilities, stop attacks, secure systems.", icon: "🔐" },
     "AP Calculus AB": { name: "AP Calculus AB", description: "Master derivatives, integrals, and limits.", icon: "∫" },
     "AP Calculus BC": { name: "AP Calculus BC", description: "Advanced topics in calculus.", icon: "∬" },
     "AP Chemistry": { name: "AP Chemistry", description: "Understand the composition of matter.", icon: "🧪" },

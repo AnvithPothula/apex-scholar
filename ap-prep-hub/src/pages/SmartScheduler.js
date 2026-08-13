@@ -553,7 +553,7 @@ export default function SmartScheduler() {
   }
 
   return (
-    <div className="h-[calc(100vh-3.5rem)] sm:h-[calc(100vh-4rem)] flex flex-col md:flex-row bg-base-950">
+    <div className="h-below-header flex flex-col md:flex-row bg-base-950">
       {/* Mobile/Tablet optimized sidebar */}
       <div className="w-full md:w-72 lg:w-80 border-r border-border flex flex-col bg-base-850 order-2 md:order-1 max-h-[40vh] md:max-h-none">
         <div className="p-4 sm:p-6 border-b border-border bg-base-850">

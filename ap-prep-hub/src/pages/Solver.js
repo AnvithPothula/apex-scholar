@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Camera, Brain, ChevronRight, CheckCircle, Clock } from 'lucide-react';
-import { Button, Card, Badge, Textarea } from '../components/ui/UIComponents';
+import { Button, Card, Badge, Textarea, cardA11yProps } from '../components/ui/UIComponents';
+import ProgressIndicator from '../components/ui/ProgressIndicator';
 import CustomDropdown from '../components/ui/CustomDropdown';
 import errorLogger from '../utils/errorLogger';
 import { useAuth } from '../contexts/AuthContext';
@@ -427,8 +428,13 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
         <div className="space-y-4 mb-6">
           {/* Image Upload */}
           <div>
+            {/* The file input is display:none, so this div was the only way to
+                start an upload — and as a bare onClick div it was unreachable
+                by keyboard, meaning keyboard users could not upload at all. */}
             <div
-              className="border-2 border-dashed border-border-strong rounded-lg p-6 text-center cursor-pointer hover:border-content-muted transition-colors"
+              className="border-2 border-dashed border-border-strong rounded-lg p-6 text-center cursor-pointer hover:border-content-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
+              aria-label={selectedImage ? 'Change the uploaded problem image' : 'Upload a photo of your problem'}
+              {...cardA11yProps({ onClick: triggerImageUpload })}
               onClick={triggerImageUpload}
             >
               {selectedImage ? (
@@ -441,6 +447,7 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
                   <div className="flex items-center justify-center gap-4">
                     <p className="text-sm text-content-muted">Click to change image</p>
                     <button
+                      onKeyDown={(e) => e.stopPropagation()}
                       onClick={(e) => {
                         e.stopPropagation();
                         setSelectedImage(null);
@@ -512,6 +519,16 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
               </>
             )}
           </Button>
+
+          {/* Solving a photo problem is a multimodal AI call and routinely takes
+              20s+. Without elapsed time a spinner reads as a hang. */}
+          {isAnalyzing && (
+            <ProgressIndicator
+              label="Working through your problem"
+              hint="Photos take longer than typed questions."
+              className="mt-4"
+            />
+          )}
         </div>
 
         {/* Solution Display */}

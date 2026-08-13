@@ -3,6 +3,45 @@
 // PracticeTests.js should import TEST_CONFIGURATIONS and DEFAULT_CONFIG from this file
 
 export const TEST_CONFIGURATIONS = {
+  // Section timings/counts from the 2026 CED: 60 MCQ in 70 min (60%), the
+  // Business Canvas Project validation question in 25 min (15%), and three
+  // free-response questions in 65 min (25%).
+  //
+  // Only Units 1-4 are listed: the CED states Unit 5 "is not assessed on the AP
+  // Exam", so offering it as a practice-test filter would generate questions
+  // that cannot appear.
+  'AP Business with Personal Finance': {
+    sections: [
+      { id: 'mcq', name: 'Multiple Choice', time: 70, questions: 60, description: 'Business concepts and personal finance' },
+      { id: 'frq', name: 'Free Response', time: 65, questions: 3, description: 'Personal finance and business strategy' },
+      { id: 'full', name: 'Full Practice Test', time: 135, questions: 63, description: 'Complete AP Business with Personal Finance simulation' }
+    ],
+    units: [
+      { id: 'unit1', name: 'Unit 1: Businesses, Competition, and New Ideas', description: 'Markets, competitive advantage, PESTEL, ethics, supply chains' },
+      { id: 'unit2', name: 'Unit 2: Marketing', description: 'Consumer behavior, market research, product, price, place, promotion' },
+      { id: 'unit3', name: 'Unit 3: Saving, Borrowing, Business Finance and Accounting', description: 'Credit and debt, income statement, balance sheet, cash flow' },
+      { id: 'unit4', name: 'Unit 4: Management and Strategy', description: 'Leadership, KPIs, decision making, Porter\'s Five Forces, SWOT' }
+    ]
+  },
+
+  // 60 MCQ (70%) and a single Device Security Analysis free-response (30%),
+  // per the AP Central exam page. Unit weightings are not published for this
+  // course, so the unit filter simply lists all five.
+  'AP Cybersecurity': {
+    sections: [
+      { id: 'mcq', name: 'Multiple Choice', time: 80, questions: 60, description: 'Scenario-based threat analysis' },
+      { id: 'frq', name: 'Free Response', time: 40, questions: 1, description: 'Device Security Analysis' },
+      { id: 'full', name: 'Full Practice Test', time: 120, questions: 61, description: 'Complete AP Cybersecurity simulation' }
+    ],
+    units: [
+      { id: 'unit1', name: 'Unit 1: Introduction to Security', description: 'Social engineering, public networks, AI in attack and defense' },
+      { id: 'unit2', name: 'Unit 2: Securing Spaces', description: 'Cyber foundations, physical vulnerabilities and controls' },
+      { id: 'unit3', name: 'Unit 3: Securing Networks', description: 'Segmentation, firewalls, wireless security, detection' },
+      { id: 'unit4', name: 'Unit 4: Securing Devices', description: 'Device vulnerabilities, authentication, detection' },
+      { id: 'unit5', name: 'Unit 5: Securing Applications and Data', description: 'Access controls, cryptography, application security' }
+    ]
+  },
+
   'AP Biology': {
     sections: [
       { id: 'mcq', name: 'Multiple Choice', time: 90, questions: 60, description: 'Cellular processes, genetics, evolution, ecology' },
@@ -164,22 +203,26 @@ export const TEST_CONFIGURATIONS = {
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
+  // Revised framework: 42 MCQ / 85 min and 4 FRQ / 95 min, eight units. The old
+  // entry generated tests from ten units that included Electric Charge, DC
+  // Circuits and Waves — content removed from AP Physics 1, so those questions
+  // could never appear on the real exam.
   'AP Physics 1': {
     sections: [
-      { id: 'mcq', name: 'Multiple Choice', time: 90, questions: 50, description: 'Conceptual understanding and problem solving' },
-      { id: 'frq', name: 'Free Response', time: 90, questions: 5, description: 'Experimental Design, Quantitative/Qualitative, Short Answer' },
-      { id: 'full', name: 'Full Practice Test', time: 180, questions: 55, description: 'Complete AP Physics 1 exam simulation' }
+      { id: 'mcq', name: 'Multiple Choice', time: 85, questions: 42, description: 'Conceptual understanding and problem solving' },
+      { id: 'frq', name: 'Free Response', time: 95, questions: 4, description: 'Mathematical routines, representations, experimental design, qualitative/quantitative translation' },
+      { id: 'full', name: 'Full Practice Test', time: 180, questions: 46, description: 'Complete AP Physics 1 exam simulation' }
     ],
     units: [
-      { id: 'unit1', name: 'Unit 1: Kinematics', topics: ['Motion in one dimension', 'Motion in two dimensions', 'Acceleration', 'Projectile motion'] },
-      { id: 'unit2', name: 'Unit 2: Dynamics', topics: ['Newton\'s laws', 'Free body diagrams', 'Forces', 'Friction'] },
-      { id: 'unit3', name: 'Unit 3: Circular Motion and Gravitation', topics: ['Centripetal acceleration', 'Universal gravitation', 'Orbital motion'] },
-      { id: 'unit4', name: 'Unit 4: Energy', topics: ['Work', 'Kinetic energy', 'Potential energy', 'Conservation of energy'] },
-      { id: 'unit5', name: 'Unit 5: Momentum', topics: ['Impulse and momentum', 'Conservation of momentum', 'Collisions'] },
-      { id: 'unit6', name: 'Unit 6: Simple Harmonic Motion', topics: ['Springs', 'Pendulums', 'Wave properties'] },
-      { id: 'unit7', name: 'Unit 7: Torque and Rotational Motion', topics: ['Torque', 'Angular velocity', 'Rotational inertia'] }
-    ],
-    difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
+      { id: 'unit1', name: 'Unit 1: Kinematics', description: 'Position, velocity, acceleration, projectile motion' },
+      { id: 'unit2', name: 'Unit 2: Force and Translational Dynamics', description: "Newton's laws, friction, circular motion, gravitation" },
+      { id: 'unit3', name: 'Unit 3: Work, Energy, and Power', description: 'Work-energy theorem, conservation of energy, power' },
+      { id: 'unit4', name: 'Unit 4: Linear Momentum', description: 'Impulse, conservation of momentum, collisions' },
+      { id: 'unit5', name: 'Unit 5: Torque and Rotational Dynamics', description: 'Rotational kinematics, torque, rotational inertia' },
+      { id: 'unit6', name: 'Unit 6: Energy and Momentum of Rotating Systems', description: 'Rotational kinetic energy, angular momentum' },
+      { id: 'unit7', name: 'Unit 7: Oscillations', description: 'Simple harmonic motion, springs, pendulums' },
+      { id: 'unit8', name: 'Unit 8: Fluids', description: 'Density, pressure, buoyancy, Bernoulli' }
+    ]
   },
   'AP Physics 2': {
     sections: [
@@ -215,23 +258,19 @@ export const TEST_CONFIGURATIONS = {
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
   'AP Statistics': {
+    // 2026-27 revision: 42 MCQ, four 10-point FRQs, five consolidated units.
     sections: [
-      { id: 'mcq', name: 'Multiple Choice', time: 90, questions: 40, description: 'Statistical concepts and analysis' },
-      { id: 'frq', name: 'Free Response', time: 90, questions: 5, description: '1 collecting data + 1 exploring data + 1 probability/sampling + 1 inference + 1 combining skills' },
-      { id: 'full', name: 'Full Practice Test', time: 180, questions: 45, description: 'Complete AP Statistics exam simulation' }
+      { id: 'mcq', name: 'Multiple Choice', time: 90, questions: 42, description: 'Data analysis, probability, and inference' },
+      { id: 'frq', name: 'Free Response', time: 90, questions: 4, description: 'Four 10-point questions' },
+      { id: 'full', name: 'Full Practice Test', time: 180, questions: 46, description: 'Complete AP Statistics exam simulation' }
     ],
     units: [
-      { id: 'unit1', name: 'Unit 1: Exploring One-Variable Data', topics: ['Analyzing categorical data', 'Analyzing quantitative data', 'Comparing distributions'] },
-      { id: 'unit2', name: 'Unit 2: Exploring Two-Variable Data', topics: ['Scatterplots', 'Correlation', 'Least-squares regression', 'Residuals'] },
-      { id: 'unit3', name: 'Unit 3: Collecting Data', topics: ['Planning studies', 'Sampling', 'Experiments', 'Observational studies'] },
-      { id: 'unit4', name: 'Unit 4: Probability, Random Variables, and Probability Distributions', topics: ['Probability', 'Conditional probability', 'Random variables', 'Probability distributions'] },
-      { id: 'unit5', name: 'Unit 5: Sampling Distributions', topics: ['Sampling distribution of sample proportion', 'Sampling distribution of sample mean', 'Central Limit Theorem'] },
-      { id: 'unit6', name: 'Unit 6: Inference for Categorical Data: Proportions', topics: ['Confidence intervals', 'Significance tests', 'Chi-square tests'] },
-      { id: 'unit7', name: 'Unit 7: Inference for Quantitative Data: Means', topics: ['t-procedures', 'Comparing two means', 'Paired data'] },
-      { id: 'unit8', name: 'Unit 8: Inference for Categorical Data: Chi-Square', topics: ['Chi-square goodness of fit', 'Chi-square test of independence'] },
-      { id: 'unit9', name: 'Unit 9: Inference for Quantitative Data: Slopes', topics: ['Inference for slope of regression line', 'Transformations'] }
-    ],
-    difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
+      { id: 'unit1', name: 'Unit 1: Exploring One-Variable Data and Collecting Data', topics: ['Categorical and quantitative data', 'Comparing distributions', 'Sampling and experiments', 'Bias and scope of inference'] },
+      { id: 'unit2', name: 'Unit 2: Probability, Random Variables, and Probability Distributions', topics: ['Probability rules', 'Random variables', 'Binomial and geometric', 'Sampling distributions', 'Central Limit Theorem'] },
+      { id: 'unit3', name: 'Unit 3: Inference for Categorical Data: Proportions', topics: ['Confidence intervals', 'Significance tests', 'Comparing proportions', 'Chi-square tests'] },
+      { id: 'unit4', name: 'Unit 4: Inference for Quantitative Data: Means', topics: ['t-procedures', 'Paired data', 'Comparing two means'] },
+      { id: 'unit5', name: 'Unit 5: Regression Analysis', topics: ['Correlation', 'Least-squares regression', 'Residuals', 'Inference for slope'] }
+    ]
   },
   'AP U.S. History': {
     sections: [

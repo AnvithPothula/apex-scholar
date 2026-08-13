@@ -207,6 +207,8 @@ const TestPanel = ({
                 variant="ghost"
                 onClick={() => setTestPaused(!testPaused)}
                 className="text-content-secondary"
+                aria-label={testPaused ? 'Resume test' : 'Pause test'}
+                title={testPaused ? 'Resume test' : 'Pause test'}
               >
                 {testPaused ? <Play strokeWidth={1.5} className="w-5 h-5" /> : <Pause strokeWidth={1.5} className="w-5 h-5" />}
               </Button>
@@ -419,7 +421,12 @@ const TestPanel = ({
                 {/* MCQ Options */}
                 {currentQuestion?.type === 'mcq' && currentQuestion?.options && (
                   <div className={`space-y-3 ${isMobile ? 'space-y-2' : ''}`}>
-                    <h3 className={`text-lg font-medium text-content-primary mb-4 ${isMobile ? 'text-base mb-3' : ''}`}>Choose the best answer:</h3>
+                    <h3 id="answer-choices-label" className={`text-lg font-medium text-content-primary mb-4 ${isMobile ? 'text-base mb-3' : ''}`}>Choose the best answer:</h3>
+                    {/* Pick-one semantics. Without role=radio/aria-checked the
+                        selected answer was signalled ONLY by a border colour and
+                        a check icon, so a screen-reader user could not tell
+                        which option they had chosen — or review it later. */}
+                    <div role="radiogroup" aria-labelledby="answer-choices-label" className="contents">
                     {currentQuestion.options.map((option, index) => {
                       const isSelected = userAnswers[currentQuestion.id] === index;
 
@@ -429,7 +436,10 @@ const TestPanel = ({
                           whileHover={{ scale: isMobile ? 1 : 1.01 }}
                           whileTap={{ scale: 0.99 }}
                           onClick={() => handleAnswerSelect(currentQuestion.id, index)}
-                          className={`w-full text-left ${isMobile ? 'p-3' : 'p-4'} rounded-lg border-2 transition-all ${
+                          role="radio"
+                          aria-checked={isSelected}
+                          aria-label={`Answer ${String.fromCharCode(65 + index)}`}
+                          className={`w-full text-left ${isMobile ? 'p-3' : 'p-4'} rounded-lg border-2 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 ${
                             isSelected
                               ? 'border-content-muted bg-base-800 text-content-primary'
                               : 'border-border-strong bg-base-800 text-content-secondary hover:border-border-strong hover:bg-base-800'
@@ -457,6 +467,7 @@ const TestPanel = ({
                         </motion.button>
                       );
                     })}
+                    </div>
                   </div>
                 )}
 

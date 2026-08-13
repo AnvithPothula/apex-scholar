@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Play, Brain, Clock, Settings, Zap, Target, TrendingUp, Award, MessageSquare } from 'lucide-react';
-import { Button, Card, Input } from '../ui/UIComponents';
+import { Button, Card, Input, cardA11yProps } from '../ui/UIComponents';
 import CustomDropdown from '../ui/CustomDropdown';
 import ModelSelector, { saveSelectedModel } from '../ui/ModelSelector';
 import { TEST_CONFIGURATIONS, DEFAULT_CONFIG } from '../../constants/testConfigurations';
@@ -42,6 +42,18 @@ const SetupPanel = ({
 }) => {
   const canonicalSubject = getCanonicalSubjectName(selectedSubject);
   const currentConfig = TEST_CONFIGURATIONS[canonicalSubject] || DEFAULT_CONFIG;
+
+  // Recent-test rows are clickable divs, so they need button semantics or they
+  // are invisible to keyboard and screen-reader users. Hoisted out of the JSX
+  // so the click and the keyboard path run the exact same code.
+  const openHistoricTest = (test) => {
+    setTestResults(emergencyCleanResults(sanitizeResultsData(test.results)));
+    setQuestions(test.questions || []);
+    setUserAnswers(test.userAnswers || {});
+    setSelectedSubjectParent(test.subject);
+    setSelectedSectionParent(test.section);
+    setCurrentView('results');
+  };
 
   return (
     <div className="min-h-screen bg-base-950 text-content-primary">
@@ -118,11 +130,15 @@ const SetupPanel = ({
                       {(currentConfig).sections.map((section) => (
                         <div
                           key={section.id}
+                          {...cardA11yProps({ onClick: () => { setSelectedSection(section.id); setSelectedSubSection(''); } })}
                           onClick={() => {
                             setSelectedSection(section.id);
                             setSelectedSubSection('');
                           }}
-                          className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                          // Selection is signalled only by a green border, which
+                          // a screen reader cannot see. aria-pressed says it.
+                          aria-pressed={selectedSection === section.id}
+                          className={`p-4 rounded-lg border cursor-pointer transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 ${
                             selectedSection === section.id
                               ? 'border-success-500 bg-success-900'
                               : 'border-border-strong hover:border-border-strong bg-base-800'
@@ -165,8 +181,10 @@ const SetupPanel = ({
                           {frqSection.subSections.map((subSection) => (
                             <div
                               key={subSection.id}
+                              {...cardA11yProps({ onClick: () => setSelectedSubSection(subSection.id) })}
                               onClick={() => setSelectedSubSection(subSection.id)}
-                              className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                              aria-pressed={selectedSubSection === subSection.id}
+                              className={`p-4 rounded-lg border cursor-pointer transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 ${
                                 selectedSubSection === subSection.id
                                   ? 'border-success-500 bg-success-900'
                                   : 'border-border-strong hover:border-border-strong bg-base-800'
@@ -509,20 +527,10 @@ const SetupPanel = ({
                 </div>
                 <div className="space-y-3">
                   {testHistory.slice(0, 3).map((test) => (
-                    <div key={test.id} className="p-3 bg-base-800 rounded-lg hover:bg-base-800 transition-colors cursor-pointer"
-                         onClick={() => {
-                           console.log('RECENT: Loading test results:', test.results);
-                           const sanitizedResults = sanitizeResultsData(test.results);
-                           console.log('RECENT: Sanitized test results:', sanitizedResults);
-                           const emergencyCleanedResults = emergencyCleanResults(sanitizedResults);
-                           console.log('RECENT: Emergency cleaned test results:', emergencyCleanedResults);
-                           setTestResults(emergencyCleanedResults);
-                           setQuestions(test.questions || []);
-                           setUserAnswers(test.userAnswers || {});
-                           setSelectedSubjectParent(test.subject);
-                           setSelectedSectionParent(test.section);
-                           setCurrentView('results');
-                         }}>
+                    <div key={test.id} className="p-3 bg-base-800 rounded-lg hover:bg-base-800 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
+                         aria-label={`View results for your ${test.subject} test`}
+                         {...cardA11yProps({ onClick: () => openHistoricTest(test) })}
+                         onClick={() => openHistoricTest(test)}>
                       <div className="flex items-center justify-between">
                         <div>
                           <h4 className="font-medium text-content-primary mb-2">{test.subject}</h4>

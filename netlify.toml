@@ -6,6 +6,16 @@
 [functions]
   directory = "netlify/functions"
 
+# Without this, `netlify dev` reports "No app server detected" and serves the
+# stale contents of ap-prep-hub/build as a static site — so source edits appear
+# to do nothing and chunk hashes stop matching. Pin the CRA dev server instead.
+[dev]
+  command = "npm start"
+  targetPort = 3000
+  port = 8888
+  publish = "build"
+  autoLaunch = false
+
 # --- Performance: Caching headers ---
 
 # Hashed static assets (JS/CSS/media) — immutable, cache forever

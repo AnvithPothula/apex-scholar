@@ -99,41 +99,11 @@ const SRV_WEEK_LIMIT = Number(process.env.AI_PROXY_WEEK_LIMIT || 600);
 const SRV_FIVE_H_MS = 5 * 60 * 60 * 1000;
 const SRV_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
-let _adminApp = null;
-let _adminTried = false;
-// Build service-account creds. Prefer the 3 split vars (small — keeps the
-// function's total env payload under AWS Lambda's 4KB limit); fall back to the
-// full FIREBASE_SERVICE_ACCOUNT JSON if that's what's set.
-function loadServiceAccount() {
-  const projectId = process.env.FIREBASE_PROJECT_ID;
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  let privateKey = process.env.FIREBASE_PRIVATE_KEY;
-  if (projectId && clientEmail && privateKey) {
-    return { projectId, clientEmail, privateKey: privateKey.replace(/\\n/g, '\n') };
-  }
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
-  if (raw) return JSON.parse(raw);
-  return null;
-}
-
-function getAdminApp() {
-  if (_adminTried) return _adminApp;
-  _adminTried = true;
-  try {
-    const creds = loadServiceAccount();
-    if (!creds) return null;
-    const admin = require('firebase-admin');
-    _adminApp = (admin.apps && admin.apps.length)
-      ? admin.app()
-      : admin.initializeApp({ credential: admin.credential.cert(creds) });
-    _adminApp.__admin = admin; // stash for FieldValue
-    return _adminApp;
-  } catch (err) {
-    console.error('[ai-proxy] firebase-admin init failed:', err.message);
-    _adminApp = null;
-    return null;
-  }
-}
+// Shared with admin-stats, the email functions and schoology-oauth. This file
+// used to keep its own copy whose key handling only replaced escaped \n, so a
+// quoted / CRLF / newline-less key threw inside cert() and was swallowed.
+const { getAdminApp } = require('../lib/firebaseAdmin');
+const { hasUnlimitedUsage } = require('../lib/unlimitedUsers');
 
 async function verifyUid(event, app) {
   const authHeader = getHeader(event, 'authorization') || '';
@@ -204,6 +174,11 @@ function buildCorsHeaders(origin) {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-App-Token',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    // Without this the browser hides X-Apex-Model from fetch(), so the client
+    // can't tell which model in the chain actually answered — and the UI ends
+    // up showing whatever the user picked in the dropdown, which is a lie
+    // whenever the chain fell through to a different model.
+    'Access-Control-Expose-Headers': 'X-Apex-Model',
     Vary: 'Origin',
   };
 }
@@ -301,7 +276,15 @@ exports.handler = async (event) => {
 
   // Firebase auth + tamper-proof per-user quota (only if a service account is
   // configured; otherwise this whole block is skipped and behavior is unchanged).
-  const adminApp = getAdminApp();
+  const { app: adminApp, error: adminError } = getAdminApp();
+  // Auth here is OPTIONAL by design: with no service account the proxy still
+  // serves anonymous traffic behind the IP rate limit. But a service account
+  // that is present and BROKEN also lands here, and that fails open past
+  // per-user quota enforcement — so say so in the logs rather than degrading
+  // silently. FIREBASE_PROJECT_ID being set is what separates the two cases.
+  if (!adminApp && adminError && process.env.FIREBASE_PROJECT_ID) {
+    console.error(`[ai-proxy] admin configured but unusable, per-user quota NOT enforced: ${adminError}`);
+  }
   if (adminApp) {
     const uid = await verifyUid(event, adminApp);
     if (!uid) {
@@ -315,7 +298,13 @@ exports.handler = async (event) => {
       // else: anonymous (e.g. guest) — IP rate-limit already applied above.
     } else {
       try {
-        const quota = await enforceServerQuota(adminApp, uid);
+        // Usage-exempt accounts skip METERING only. This grants no admin
+        // capability — that is a separate list checked elsewhere and in
+        // firestore.rules. Placed after verifyUid so the exemption applies to a
+        // cryptographically verified uid, never to a client-supplied claim.
+        const quota = hasUnlimitedUsage(uid)
+          ? { ok: true }
+          : await enforceServerQuota(adminApp, uid);
         if (!quota.ok) {
           const retryAfter = Math.max(1, Math.ceil((quota.resetAt - Date.now()) / 1000));
           return {
@@ -364,21 +353,22 @@ exports.handler = async (event) => {
   // RPD (interactive workhorse); gemini-3.5/3-preview/2.5 flash = 20 RPD each
   // (scarce "premium" reserve — FRQ grading only). Pro models are 0 RPD: never.
   const MODEL_CHAINS = {
-    bulk:        ['gemma-4-31b-it', 'gemma-4-26b-a4b-it', 'gemini-3.1-flash-lite'],
-    interactive: ['gemini-3.1-flash-lite', 'gemma-4-31b-it', 'gemini-2.5-flash'],
-    premium:     ['gemini-3.5-flash', 'gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-3.1-flash-lite'],
+    bulk:        ['gemma-4-31b-it', 'gemma-4-26b-a4b-it', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite'],
+    interactive: ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
+    premium:     ['gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3-flash-preview', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite'],
     // Gemma is text-only — anything carrying an image must stay on Gemini.
-    vision:      ['gemini-3.1-flash-lite', 'gemini-2.5-flash', 'gemini-3.5-flash'],
+    vision:      ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-2.5-flash', 'gemini-3.5-flash'],
     // Second-opinion chain: deliberately leads with the model `bulk` does NOT,
     // so a generated answer key is checked by a different architecture. If this
     // shared the generator's model it would just agree with itself.
-    verify:      ['gemma-4-26b-a4b-it', 'gemini-3.1-flash-lite', 'gemma-4-31b-it'],
+    verify:      ['gemma-4-26b-a4b-it', 'gemma-4-31b-it', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite'],
   };
   const TASK_TO_CHAIN = {
     tutorChat: 'interactive', explain: 'interactive',
     solver: 'vision',
     // lessonTeach is batch content authoring, not chat: it wants Gemma's
-    // unlimited TPM and 15k RPD, not flash-lite's scarcer 500 RPD.
+    // 14,400 RPD, not flash-lite's scarcer 500. (Gemma's TPM is 16K, NOT
+    // unlimited as this comment used to claim — hence the oversize guard below.)
     lessonTeach: 'bulk',
     mcqGenerate: 'bulk', practiceTest: 'bulk', flashcardGen: 'bulk',
     summarize: 'bulk', reviewCard: 'bulk', diagnostic: 'bulk',
@@ -404,11 +394,19 @@ exports.handler = async (event) => {
   // Walk the chain: per (key, model) cooldown on 429, per-model dead-mark on
   // "model not found", bounded total attempts to keep latency sane.
   let lastErr = 'Service temporarily unavailable';
-  // Up to 3 keys per model. Every non-2xx (except a genuine 400) tries the next
-  // key — a 403/404/429/5xx can be key-specific (a flaky project), so we never
-  // abandon a model on one bad key. flash-lite is the floor of every chain.
+  // Up to 5 keys per model for KEY-scoped failures (403/404/429 — a flaky
+  // project). A 5xx is model-scoped and abandons the model immediately. Every
+  // chain now floors on a deep pool (Gemma 14,400 RPD or flash-lite 500), never
+  // on a 20-RPD -flash model.
+  // Gemma tops out at 16K TPM against flash-lite's 250K, so an oversized prompt
+  // is a guaranteed 429 there. Don't spend a round trip discovering that.
+  const payloadChars = JSON.stringify(contents).length;
+  const usableModels = models.filter((m) => !(m.startsWith('gemma-') && payloadChars > 48_000));
+  if (usableModels.length) models = usableModels;
+
   for (const m of models) {
-    for (let tried = 0, k = 0; tried < 5 && k < API_KEYS.length; k++) {
+    let modelDown = false;
+    for (let tried = 0, k = 0; tried < 5 && k < API_KEYS.length && !modelDown; k++) {
       const keyIdx = (currentKeyIndex + k) % API_KEYS.length;
       if ((modelKeyCooldown.get(`${keyIdx}:${m}`) || 0) > Date.now()) continue;
       tried++;
@@ -422,6 +420,16 @@ exports.handler = async (event) => {
         if (!resp.ok) {
           if (resp.status === 400) {
             return { statusCode: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Apex-Model': m }, body: await resp.text() };
+          }
+          // A 5xx is Google's capacity for this MODEL, shared by every key —
+          // verified directly: one key, one second, gemini-3.1-flash-lite 503
+          // while five other models returned 200. Cooling down the (key,model)
+          // pair here punished healthy keys for an upstream outage, and walking
+          // the ring fired four more doomed requests into an overloaded model.
+          if (resp.status >= 500) {
+            lastErr = `${m}: HTTP ${resp.status}`;
+            modelDown = true;
+            continue;
           }
           const retryAfter = resp.status === 429 ? parseInt(resp.headers.get('retry-after') || '3600', 10) : 60;
           modelKeyCooldown.set(`${keyIdx}:${m}`, Date.now() + retryAfter * 1000);

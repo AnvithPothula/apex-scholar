@@ -20,15 +20,7 @@ const musicTheory = {
     {
       name: "Unit 1: Music Fundamentals I - Pitch, Major Scales and Key Signatures, Rhythm, Meter, and Expressive Elements",
       weight: "20-25%",
-      topics: [
-        "Staff notation",
-        "Clefs and ledger lines",
-        "Major scales and key signatures",
-        "Intervals",
-        "Rhythm and note values",
-        "Time signatures",
-        "Dynamics and articulation"
-      ],
+      topics: ["Pitch and Pitch Notation", "Half Steps and Whole Steps", "Major Scales and Scale Degrees", "Major Keys and Key Signatures", "Simple and Compound Beat Division"],
       keyConcepts: [
         "Treble and bass clef notation",
         "Circle of fifths",
@@ -49,14 +41,7 @@ const musicTheory = {
     {
       name: "Unit 2: Music Fundamentals II - Minor Scales and Key Signatures, Melody, Timbre, and Texture",
       weight: "15-20%",
-      topics: [
-        "Minor scales (natural, harmonic, melodic)",
-        "Relative and parallel relationships",
-        "Melodic construction",
-        "Phrase structure",
-        "Timbre and instrumentation",
-        "Musical texture types"
-      ],
+      topics: ["Minor Scales: Natural, Harmonic, and Melodic", "Other Scales: Chromatic, WholeTone, and Pentatonic", "Interval Size and Quality", "Interval Inversion and Compound Intervals", "Transposing Instruments", "Melodic Transposition", "Texture and Texture Types", "Rhythmic Devices"],
       keyConcepts: [
         "Three forms of minor scales",
         "Relative major/minor relationships",
@@ -76,13 +61,7 @@ const musicTheory = {
     {
       name: "Unit 3: Music Fundamentals III - Triads and Seventh Chords",
       weight: "15-20%",
-      topics: [
-        "Triad construction and quality",
-        "Seventh chord construction",
-        "Chord symbols and figured bass",
-        "Inversions",
-        "Voice leading principles"
-      ],
+      topics: ["Triad and Chord Qualities (M, m, d, A)", "Diatonic Chords and Roman Numerals", "Chord Inversions and Figures: Introduction to Figured Bass", "Seventh Chords", "Seventh Chord Inversions and Figures"],
       keyConcepts: [
         "Major, minor, diminished, augmented triads",
         "Seventh chord types and qualities",
@@ -102,13 +81,7 @@ const musicTheory = {
     {
       name: "Unit 4: Harmony and Voice Leading I - Chord Function, Cadences, and Phrase Harmonization",
       weight: "15-20%",
-      topics: [
-        "Tonic, predominant, and dominant functions",
-        "Cadence types",
-        "Phrase harmonization",
-        "Non-chord tones",
-        "Voice leading in four parts"
-      ],
+      topics: ["Soprano-Bass Counterpoint", "SATB Voice Leading", "Harmonic Progression, Functional Harmony, and Cadences", "Voice Leading with Seventh Chords", "Voice Leading with Seventh Chords in Inversions"],
       keyConcepts: [
         "Functional harmony system",
         "Authentic, plagal, half, and deceptive cadences",
@@ -128,13 +101,7 @@ const musicTheory = {
     {
       name: "Unit 5: Harmony and Voice Leading II - Chord Progressions and Predominant Function",
       weight: "10-15%",
-      topics: [
-        "Common chord progressions",
-        "Predominant chords (ii, IV, vi)",
-        "Secondary dominants",
-        "Modulation techniques",
-        "Sequence patterns"
-      ],
+      topics: ["Adding Predominant Function IV (iv) and ii (ii\u00b0) to a Melodic Phrase", "The vi (VI) Chord", "Predominant Seventh Chords", "The iii (III) Chord", "Cadences and Predominant Function", "Cadential 6 Chords", "Additional 6 Chords"],
       keyConcepts: [
         "Circle of fifths progressions",
         "Predominant chord function",
@@ -154,13 +121,7 @@ const musicTheory = {
     {
       name: "Unit 6: Harmony and Voice Leading III - Embellishments, Motives, and Melodic Devices",
       weight: "5-10%",
-      topics: [
-        "Advanced non-chord tones",
-        "Motivic development",
-        "Melodic devices and ornamentation",
-        "Texture and accompaniment patterns",
-        "Style characteristics"
-      ],
+      topics: ["Embellishing Tones: Identifying Passing Tones and Neighbor Tones", "Embellishing Tones: Writing Passing Tones and Neighbor Tones", "Motive and Motivic Transformation", "Harmonic Sequence"],
       keyConcepts: [
         "Appoggiaturas, escape tones, anticipations",
         "Motivic transformation techniques",
@@ -180,13 +141,7 @@ const musicTheory = {
     {
       name: "Unit 7: Harmony and Voice Leading IV - Secondary Function and Modulation",
       weight: "5-10%",
-      topics: [
-        "Advanced secondary function",
-        "Modulation types and techniques",
-        "Harmonic analysis of modulation",
-        "Key relationships",
-        "Chromatic harmony"
-      ],
+      topics: ["Part Writing of Secondary Dominant Chords", "Tonicization through Secondary Leading Tone Chords", "Part Writing of Secondary Leading Tone Chords"],
       keyConcepts: [
         "Secondary leading-tone chords",
         "Common chord modulation",
@@ -206,14 +161,7 @@ const musicTheory = {
     {
       name: "Unit 8: Modes and Form",
       weight: "5-10%",
-      topics: [
-        "Church modes",
-        "Modal characteristics",
-        "Binary and ternary forms",
-        "Rondo form",
-        "Theme and variations",
-        "Formal analysis"
-      ],
+      topics: ["Modes", "Phrase Relationships", "Common Formal Sections"],
       keyConcepts: [
         "Dorian, Phrygian, Lydian, Mixolydian modes",
         "Modal scale degrees and characteristics",

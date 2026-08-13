@@ -12,6 +12,7 @@
  */
 
 const crypto = require('crypto');
+const { getAdminApp } = require('../lib/firebaseAdmin');
 
 function verifyToken(token) {
   const secret = process.env.UNSUBSCRIBE_SECRET;
@@ -32,30 +33,6 @@ function verifyToken(token) {
   return uid;
 }
 
-let _adminApp = null;
-let _adminTried = false;
-
-function getAdminApp() {
-  if (_adminTried) return _adminApp;
-  _adminTried = true;
-  try {
-    const projectId = process.env.FIREBASE_PROJECT_ID;
-    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-    const privateKey = process.env.FIREBASE_PRIVATE_KEY;
-    const creds = (projectId && clientEmail && privateKey)
-      ? { projectId, clientEmail, privateKey: privateKey.replace(/\\n/g, '\n') }
-      : (process.env.FIREBASE_SERVICE_ACCOUNT ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT) : null);
-    if (!creds) return null;
-    const admin = require('firebase-admin');
-    _adminApp = (admin.apps && admin.apps.length)
-      ? admin.app()
-      : admin.initializeApp({ credential: admin.credential.cert(creds) });
-    return _adminApp;
-  } catch (err) {
-    console.error('[email-unsubscribe] firebase-admin init failed:', err.message);
-    return null;
-  }
-}
 
 const page = (title, message) => `<!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title></head>
@@ -80,9 +57,10 @@ exports.handler = async (event) => {
     };
   }
 
-  const app = getAdminApp();
+  const { app, error: adminError } = getAdminApp();
   if (!app) {
-    return { statusCode: 503, headers: html, body: page('Temporarily unavailable', 'Please try again shortly.') };
+    console.error('[email-unsubscribe] admin unavailable:', adminError);
+    return { statusCode: 503, headers: html, body: page('Temporarily unavailable', 'Please try again shortly, or email help@apex-scholar.com and we\'ll remove you manually.') };
   }
 
   try {

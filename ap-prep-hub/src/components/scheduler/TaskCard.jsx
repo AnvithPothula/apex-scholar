@@ -61,7 +61,10 @@ export const TaskCard = React.memo(function TaskCard({ task, onEdit, onDelete, o
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-base-800 flex-shrink-0 ml-2">
+              {/* Icon-only trigger, so it needs a name — a screen reader
+                  otherwise announces a row of identical unlabelled buttons.
+                  Naming it after the task also disambiguates which row it acts on. */}
+              <Button variant="ghost" size="sm" aria-label={`Actions for ${task.name || 'task'}`} className="h-8 w-8 p-0 hover:bg-base-800 flex-shrink-0 ml-2">
                 <MoreVertical size={14} className="sm:w-4 sm:h-4" strokeWidth={1.5}/>
               </Button>
             </DropdownMenuTrigger>

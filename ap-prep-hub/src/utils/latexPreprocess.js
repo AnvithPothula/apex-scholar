@@ -238,12 +238,45 @@ function balanceDollars(text) {
  * Pre-process content to fix common LaTeX rendering issues.
  * Exported for use by MarkdownRenderer and LaTeXRenderer.
  */
+/**
+ * Re-split a markdown table that arrived on a single line.
+ *
+ * The AI sometimes emits a whole table without newlines:
+ *   | Score | Composite % | | :--- | :--- | | 5 | 70-100% | | 4 | 57-69% |
+ * react-markdown needs one row per line, so that renders as raw pipe soup —
+ * students saw literal "| :--- |" in a tutor answer.
+ *
+ * Only lines that contain a separator cell (---) AND other content are touched,
+ * so a correctly formatted multi-line table is left completely alone. Inside
+ * such a line, `| |` is always a row boundary, never an empty cell.
+ */
+export function repairInlineTables(text) {
+  if (typeof text !== 'string' || text.indexOf('|') === -1) return text;
+  return text.split('\n').map((line) => {
+    const t = line.trim();
+    if (!t.startsWith('|')) return line;
+    // A separator cell somewhere other than the very start means the header row
+    // and the separator row got joined together.
+    if (!/\|\s*:?-{3,}:?\s*\|/.test(t)) return line;
+    const cells = t.split(/\|\s*\|/);
+    if (cells.length < 2) return line;
+    return cells
+      .map((seg, i) => {
+        let row = seg.trim();
+        if (!row.startsWith('|')) row = '| ' + row;
+        if (!row.endsWith('|')) row = row + ' |';
+        return row;
+      })
+      .join('\n');
+  }).join('\n');
+}
+
 export function preprocessContent(content) {
   // Always return a string — downstream renderers assume that.
   if (typeof content !== 'string') return '';
   if (content === '') return '';
 
-  let processed = content;
+  let processed = repairInlineTables(content);
 
   // 0. Strip control chars + normalize alternate delimiters BEFORE wrapping.
   // We deliberately do NOT strip nested $ here — doing it before the wrap

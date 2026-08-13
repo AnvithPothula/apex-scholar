@@ -15,139 +15,17 @@ const physicsC_ElectricityMagnetism = {
     "Fields: How do fields predict and describe interactions?",
     "Conservation: How are conservation laws used to predict the motion of objects and systems?"
   ],
+  // REVISED framework (CED, fall 2024). Five units became SIX, and they are
+  // numbered 8-13 because AP Physics C now numbers Mechanics 1-7 and E&M 8-13
+  // as one continuous sequence. Electrostatics was split into "Electric Charges,
+  // Fields, and Gauss's Law" plus a standalone "Electric Potential".
   units: [
-    {
-      name: "Unit 1: Electrostatics",
-      weight: "25-30%",
-      topics: [
-        "Coulomb's law",
-        "Electric field and electric field lines",
-        "Gauss's law",
-        "Electric potential and potential energy",
-        "Equipotential surfaces"
-      ],
-      keyConcepts: [
-        "Coulomb's law with superposition",
-        "Electric field as vector field: E⃗ = F⃗/q",
-        "Gauss's law: ∮E⃗·dA⃗ = Q_enclosed/ε₀",
-        "Electric potential: V = U/q and E⃗ = -∇V",
-        "Work and potential energy in electric fields",
-        "Field lines and equipotential surfaces",
-        "Continuous charge distributions"
-      ],
-      essentialKnowledge: [
-        "Electric force follows Coulomb's law with superposition",
-        "Electric field is force per unit charge",
-        "Gauss's law relates field to enclosed charge",
-        "Electric potential is potential energy per unit charge",
-        "Field points from high to low potential"
-      ]
-    },
-    {
-      name: "Unit 2: Conductors, Capacitors, and Dielectrics",
-      weight: "15-20%",
-      topics: [
-        "Electrostatic properties of conductors",
-        "Capacitors and capacitance",
-        "Energy stored in capacitors",
-        "Dielectrics",
-        "Capacitor combinations"
-      ],
-      keyConcepts: [
-        "Conductors in electrostatic equilibrium",
-        "Electric field inside and outside conductors",
-        "Capacitance: C = Q/V",
-        "Energy stored: U = ½CV² = ½QV = ½Q²/C",
-        "Dielectric constant and polarization",
-        "Series and parallel capacitor combinations",
-        "Energy density in electric fields"
-      ],
-      essentialKnowledge: [
-        "Electric field inside conductors is zero",
-        "Capacitance depends on geometry and dielectric",
-        "Capacitors store electrical energy",
-        "Dielectrics increase capacitance",
-        "Energy is stored in electric fields"
-      ]
-    },
-    {
-      name: "Unit 3: Electric Circuits",
-      weight: "20-25%",
-      topics: [
-        "Current, resistance, and EMF",
-        "Kirchhoff's rules",
-        "RC circuits",
-        "Electrical power and energy"
-      ],
-      keyConcepts: [
-        "Current density and microscopic view: J⃗ = nqv⃗",
-        "Resistance and Ohm's law: R = ρL/A",
-        "Kirchhoff's voltage and current laws",
-        "RC circuit transients: exponential charging/discharging",
-        "Time constants: τ = RC",
-        "Power dissipation: P = I²R = V²/R",
-        "EMF and terminal voltage"
-      ],
-      essentialKnowledge: [
-        "Current is related to charge carrier motion",
-        "Resistance depends on material properties",
-        "Kirchhoff's laws enable circuit analysis",
-        "RC circuits exhibit exponential behavior",
-        "Power equals energy per unit time"
-      ]
-    },
-    {
-      name: "Unit 4: Magnetic Fields",
-      weight: "15-20%",
-      topics: [
-        "Forces on moving charges and currents",
-        "Fields due to currents",
-        "Biot-Savart law",
-        "Ampère's law"
-      ],
-      keyConcepts: [
-        "Magnetic force: F⃗ = q(v⃗ × B⃗) and F⃗ = IL⃗ × B⃗",
-        "Cyclotron motion and radius",
-        "Biot-Savart law: dB⃗ = (μ₀/4π) × (Idl⃗ × r̂)/r²",
-        "Ampère's law: ∮B⃗·dl⃗ = μ₀I_enclosed",
-        "Magnetic fields of wires, loops, and solenoids",
-        "Force between current-carrying wires"
-      ],
-      essentialKnowledge: [
-        "Moving charges experience magnetic forces",
-        "Magnetic force is perpendicular to velocity and field",
-        "Currents create magnetic fields",
-        "Ampère's law relates field to current",
-        "Magnetic fields have no monopoles"
-      ]
-    },
-    {
-      name: "Unit 5: Electromagnetic Induction",
-      weight: "20-25%",
-      topics: [
-        "Motional EMF",
-        "Faraday's law and Lenz's law",
-        "Inductance",
-        "RL circuits",
-        "Energy in magnetic fields"
-      ],
-      keyConcepts: [
-        "Motional EMF: ε = BLv",
-        "Faraday's law: ε = -dΦ_B/dt",
-        "Magnetic flux: Φ_B = ∫B⃗·dA⃗",
-        "Lenz's law and energy conservation",
-        "Self-inductance: L = Φ/I",
-        "RL circuit transients: I(t) = (ε/R)(1 - e^(-Rt/L))",
-        "Energy stored in inductors: U = ½LI²"
-      ],
-      essentialKnowledge: [
-        "Changing magnetic flux induces EMF",
-        "Induced currents oppose flux changes (Lenz's law)",
-        "Inductors store energy in magnetic fields",
-        "RL circuits have exponential current growth/decay",
-        "Electromagnetic induction enables generators and transformers"
-      ]
-    }
+    { name: "Unit 8: Electric Charges, Fields, and Gauss's Law", weight: "15-25%", topics: ["Electric Fields of Charge Distributions", "Electric Charge and Electric Force", "Conservation of Electric Charge and the Process of Charging", "1.B", "Electric Flux"] },
+    { name: "Unit 9: Electric Potential", weight: "10-20%", topics: ["Electric Potential Energy", "1.B", "Conservation of Electric Energy"] },
+    { name: "Unit 10: Conductors and Capacitors", weight: "10-15%", topics: ["Capacitors", "Dielectrics"] },
+    { name: "Unit 11: Electric Circuits", weight: "15-25%", topics: ["Resistance, Resistivity, and Ohm\u2019s Law", "Electric Power", "Compound Direct Current Circuits", "Kirchhoff\u2019s Loop Rule", "Kirchhoff\u2019s Junction Rule", "1.B"] },
+    { name: "Unit 12: Magnetic Fields and Electromagnetism", weight: "10-20%", topics: ["Magnetic Fields", "1.B", "Magnetic Fields of Current-Carrying Wires and the Biot-Savart Law"] },
+    { name: "Unit 13: Electromagnetic Induction", weight: "10-20%", topics: ["Magnetic Flux", "Electromagnetic Induction", "Induced Currents and Magnetic Forces", "1.C", "Circuits with Resistors and Inductors (LR Circuits)", "Circuits with Capacitors and Inductors (LC Circuits)"] }
   ],
   keySkills: [
     "Mathematical Modeling: Use vector calculus and differential equations",

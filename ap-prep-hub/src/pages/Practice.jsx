@@ -14,7 +14,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { FileQuestion, Zap, RotateCcw, ChevronRight, Target, Users } from 'lucide-react';
+import { FileQuestion, Zap, RotateCcw, ChevronRight, Target, Users, Calculator, Stethoscope } from 'lucide-react';
 import { Card, Badge } from '../components/ui/UIComponents';
 import { useAuth } from '../contexts/AuthContext';
 import { createPageUrl } from '../utils/helpers';
@@ -70,6 +70,24 @@ export default function Practice() {
       body: 'Build a deck, study it, or grab a public one.',
       to: createPageUrl('Flashcards'),
       meta: deckCount ? `${deckCount} ${deckCount === 1 ? 'deck' : 'decks'}` : null,
+    },
+    {
+      // Diagnostics belongs on this hub: it is the "where do I even start"
+      // entry point, and it was previously reachable only by URL.
+      key: 'diagnostics',
+      icon: Stethoscope,
+      title: 'Diagnostics',
+      body: 'A short assessment that finds which units you are weakest in.',
+      to: createPageUrl('Diagnostics'),
+      meta: null,
+    },
+    {
+      key: 'calculator',
+      icon: Calculator,
+      title: 'AP Score Calculator',
+      body: 'Turn raw section scores into an estimated 1–5, and see the curve behind it.',
+      to: createPageUrl('ApScoreCalculator'),
+      meta: null,
     },
     {
       key: 'classes',

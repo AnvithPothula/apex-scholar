@@ -1,170 +1,141 @@
 # Apex Scholar 🎓
 
-An AI-powered study assistant designed to help students excel in Advanced Placement (AP) courses and exams.
+Free AI-powered AP exam prep — tutors, practice tests with AI grading, spaced repetition, and a
+study scheduler. Live at **[apex-scholar.com](https://apex-scholar.com)**.
+
+> **Positioning:** everything AP prep normally charges for, free. The wedge is
+> **AI-graded FRQs** — no free competitor does it well.
 
 ## 🌟 Features
 
-### 🤖 AI Tutors
-- **Personalized Learning**: AI tutors specialized in each AP subject
-- **Interactive Conversations**: Get instant help with questions and concepts
-- **Secure Input Handling**: Advanced prompt injection protection
-- **Dynamic Subject Selection**: Access all AP subjects through a unified interface
+| Route | What it does |
+|---|---|
+| `/ai-tutors` | Subject-specific AI chat tutors. **Open to guests** — no account needed. |
+| `/practice` | Hub for Practice Tests, Review, Flashcards and Classes. |
+| `/practice-tests` | AI-generated exam-format tests (MCQ, SAQ, DBQ, LEQ, FRQ) with timing, AI rubric grading, and auto-save/resume. |
+| `/review` | SM-2 spaced repetition over every question you missed. Pick one subject or mix. |
+| `/flashcards` | Create, study, or share decks. **Import from Quizlet** by pasting their export. |
+| `/classes` | Class/club join links with a shared leaderboard. Multiple owners supported. |
+| `/progress` | Measured mastery per subject, streaks, weekly activity, achievements. |
+| `/diagnostics` | Short diagnostic per subject to find weak spots. |
+| `/solver` | Photo or text problem solver with step-by-step solutions. |
+| `/smart-scheduler` | Study schedule built from your subjects, deadlines and real AP exam dates. |
+| `/ap-score-calculator` | **Public, no sign-in.** Estimate a 1–5 from raw section scores, and see the curve used. |
+| `/settings` | Subjects, AI personalisation, email preferences, integrations. |
+| `/privacy`, `/terms` | Public legal pages. |
 
-### 📝 Practice Tests
-- **Authentic AP Exam Structure**: Practice tests that mirror real AP exam formats
-- **Comprehensive Question Types**: 
-  - Multiple Choice Questions (MCQ)
-  - Short Answer Questions (SAQ)
-  - Document-Based Questions (DBQ)
-  - Long Essay Questions (LEQ)
-  - Free Response Questions (FRQ)
-- **Accurate Timing**: Proper time allocation matching official AP exam durations
-- **Subject-Specific Content**: Tailored questions for each AP course
+### Honesty principles baked into the product
+These are deliberate and worth preserving:
 
-### 📅 Smart Scheduler
-- **Intelligent Study Planning**: AI-powered scheduling based on your exam dates
-- **Exam Dashboard**: Track all your AP exam schedules
-- **Personalized Recommendations**: Study plans adapted to your progress
+- **Evidence before verdicts.** Mastery reports nothing until it has enough answered questions
+  (`MIN_SAMPLES`), rather than declaring a "weak area" from one question.
+- **Skipping ≠ being wrong.** Unanswered questions are excluded from scoring and mastery.
+- **Estimates are labelled as estimates.** The score calculator shows its whole curve and states
+  that the College Board does not publish cut points.
+- **No fabricated personalisation.** Recommendations come from measured data or are not shown.
 
-### ⚙️ Settings & Integrations
-- **Schoology Integration**: Sync with your school's learning management system
-- **User Preferences**: Customize your learning experience
-- **Data Management**: Control your study data and privacy
+## 🛠️ Stack
 
-## 🎯 Supported AP Subjects
+- **Frontend:** React 18 (Create React App), Tailwind CSS with design tokens, Framer Motion
+- **Auth/DB:** Firebase Auth + Firestore (rules in `firestore.rules`)
+- **AI:** Google Gemini via a **server-side proxy** — a Cloudflare Worker (`ai.apex-scholar.com`)
+  with the Netlify function `ai-proxy` as fallback. Task→model chains route bulk work to Gemma and
+  reserve scarce Flash quota for FRQ grading.
+- **Hosting/serverless:** Netlify (`netlify/functions/*`)
+- **Email:** Cloudflare Email Routing inbound, SMTP2GO outbound
+- **Analytics:** GA4, env-gated so dev and previews send nothing
 
-The platform supports all major AP subjects including:
-- **STEM**: Biology, Chemistry, Physics (1, 2, C), Calculus (AB, BC), Statistics, Computer Science (A, Principles)
-- **Humanities**: English Language, English Literature, History (US, European, World), Art History
-- **Social Sciences**: Psychology, Human Geography, Government & Politics (US, Comparative)
-- **Languages**: Spanish, French, German, Chinese, Japanese, Italian, Latin
-- **Arts**: Music Theory, Studio Art & Design
-- **And many more...**
+> ⚠️ **AI keys are server-side.** Anything named `REACT_APP_*` is inlined into the public browser
+> bundle by CRA — used or not. Never put a secret in one.
 
-## 🛠️ Technology Stack
+## 🚀 Getting started
 
-- **Frontend**: React 18 with modern hooks and context
-- **Routing**: React Router DOM
-- **Styling**: Tailwind CSS with custom components
-- **UI Components**: Custom UI library with Lucide React icons
-- **Animations**: Framer Motion
-- **AI Integration**: Google Gemini API
-- **Authentication**: Firebase Auth
-- **Database**: Firestore
-- **Build Tool**: Webpack with Create React App
+```bash
+git clone https://github.com/yourusername/apex-scholar.git
+cd apex-scholar/ap-prep-hub
+npm install
+cp .env.example .env      # fill in Firebase web config at minimum
+npm start                 # http://localhost:3000
+```
 
-## 🚀 Getting Started
+### Running with serverless functions
+Functions do **not** run under `npm start`. To exercise `ai-proxy`, `admin-stats`, or the email
+functions locally, run Netlify Dev **from the repository root** (not from `ap-prep-hub` — the
+`base` in `netlify.toml` is relative to the root and will double up):
 
-### Prerequisites
-- Node.js (v14 or higher)
-- npm or yarn
-- Firebase project setup
-- Google Gemini API key
+```bash
+cd apex-scholar && netlify dev   # http://localhost:8888
+```
 
-### Installation
+Stop anything already on port 3000 first, or CRA fails to start and chunks fail to load.
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/yourusername/apex-scholar.git
-   cd apex-scholar
-   ```
+### Useful scripts
+```bash
+npm start          # dev server on :3000
+npm run start:https # https://localhost:3000 — needed to exercise the real Google redirect sign-in
+npm run build      # production build
+npm test           # Jest
+```
 
-2. **Install dependencies**
-   ```bash
-   cd ap-prep-hub
-   npm install
-   ```
-
-3. **Environment Setup**
-
-   a. Copy the environment template:
-   ```bash
-   cd ap-prep-hub
-   cp .env.example .env
-   ```
-
-   b. Get your API keys:
-   - **Google Gemini API**: Visit [Google AI Studio](https://makersuite.google.com/app/apikey) to create API keys
-   - **Firebase**: Create a project at [Firebase Console](https://console.firebase.google.com/), then go to Project Settings > General > Your apps
-   - **EmailJS** (optional): Sign up at [EmailJS](https://www.emailjs.com/) for feedback form functionality
-
-   c. Edit `.env` and fill in your actual API keys:
-   ```env
-   REACT_APP_GEMINI_API_KEY=your_actual_gemini_key_here
-   REACT_APP_FIREBASE_API_KEY=your_actual_firebase_key_here
-   # ... (see .env.example for all required fields)
-   ```
-
-   ⚠️ **Security Note**: Never commit your `.env` file to version control. It contains sensitive credentials.
-
-4. **Start the development server**
-   ```bash
-   cd ap-prep-hub
-   npm start
-   ```
-
-The application will open at `http://localhost:3001`
-
-## 📁 Project Structure
+## 📁 Structure
 
 ```
 apex-scholar/
-├── ap-prep-hub/                 # Main React application
-│   ├── src/
-│   │   ├── components/          # Reusable UI components
-│   │   ├── pages/              # Main application pages
-│   │   ├── contexts/           # React contexts (Auth, etc.)
-│   │   ├── services/           # API and external services
-│   │   ├── utils/              # Utility functions
-│   │   └── constants/          # Application constants
-│   ├── public/                 # Static assets
-│   └── package.json
-├── AP Course and Exam Descriptions/ # Official AP course materials
-└── README.md
+├── netlify.toml                  # build + functions config (base = ap-prep-hub)
+├── ap-prep-hub/
+│   ├── firestore.rules           # security rules — user-scoped, default deny
+│   ├── netlify/
+│   │   ├── functions/            # ai-proxy, admin-stats, email-broadcast, email-unsubscribe,
+│   │   │                         # cors-proxy, schoology-oauth
+│   │   └── lib/                  # shared function code (firebase-admin bootstrap)
+│   ├── cloudflare/ai-router/     # the Cloudflare Worker that fronts Gemini
+│   └── src/
+│       ├── pages/                # one file per route above
+│       ├── components/           # ui/, practice/, scheduler/, admin/, flashcards/
+│       ├── services/             # geminiService, srs, mastery, classes, activityTracker, …
+│       ├── utils/                # apScore, whyWrong, quizletImport, examTime, analytics, …
+│       └── constants/            # apScoreModels, testConfigurations, apExamDates, admins
+└── AP Course and Exam Descriptions/
 ```
 
-## 🔒 Security Features
+## 🔒 Security notes
 
-- **Input Sanitization**: Comprehensive protection against prompt injection attacks
-- **Secure Authentication**: Firebase-based user authentication
-- **Data Privacy**: User data protection and privacy controls
-- **Safe AI Interactions**: Validated prompts and responses
+- Firestore rules are **deny-by-default** and user-scoped. Reads of a document by a *derived id*
+  need an id branch in the rule — `resource.data` is `null` for a document that does not exist yet,
+  so an ownership check alone denies the first read.
+- The AI proxy requires an app token; without it the endpoint returns 401.
+- Admin UIDs are duplicated across `src/constants/admins.js`, `firestore.rules`, and the functions
+  (three runtimes that cannot import each other). `src/constants/admins.test.js` fails if they drift.
+- Server-only secrets live in Netlify **without** the `REACT_APP_` prefix.
 
 ## 🧪 Testing
 
-The application includes comprehensive testing for:
-- Practice test generation accuracy
-- Question type validation
-- Timing calculations
-- Security measures
+```bash
+npm test
+```
+Covers the SM-2 scheduler, mastery/evidence rules, AP score models (including an integrity test that
+section weights sum to the composite max), Quizlet import parsing, exam-time parsing, join codes,
+admin-UID drift, and the email broadcast safety gates.
 
-## 📚 Course Materials
-
-The repository includes official AP Course and Exam Descriptions for reference, ensuring that practice content aligns with current AP standards.
+**A green build is not evidence a page renders.** Load changed routes in a browser before calling
+work done — several defects have shipped past passing builds and tests.
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+1. Fork, branch (`git checkout -b feature/thing`)
+2. `npm test` and `CI=true npm run build` must both be clean
+3. Update this README if your change makes it inaccurate
+4. Open a PR
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT — see [LICENSE](LICENSE).
 
-## 🙏 Acknowledgments
+## 📧 Contact
 
-- College Board for AP course standards and guidelines
-- Google Gemini for AI capabilities
-- Firebase for backend services
-- The open-source community for excellent tools and libraries
-
-## 📧 Support
-
-For support, email support@apexscholar.com or create an issue in this repository.
+**help@apex-scholar.com**
 
 ---
 
-**Built with ❤️ for students pursuing academic excellence**
+AP® is a trademark registered by the College Board, which is not affiliated with, and does not
+endorse, Apex Scholar.

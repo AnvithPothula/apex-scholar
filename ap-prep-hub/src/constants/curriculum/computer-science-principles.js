@@ -20,12 +20,7 @@ const computerSciencePrinciples = {
     {
       name: "Unit 1: Creative Development",
       weight: "10-13%",
-      topics: [
-        "Collaboration",
-        "Program function and purpose",
-        "Program design and development",
-        "Identifying and correcting errors"
-      ],
+      topics: ["Collaboration", "Program Function and Purpose", "Program Design and Development", "SKILLS 1.B"],
       keyConcepts: [
         "Collaborative programming practices",
         "Design thinking and problem decomposition",
@@ -45,12 +40,7 @@ const computerSciencePrinciples = {
     {
       name: "Unit 2: Data",
       weight: "17-22%",
-      topics: [
-        "Binary numbers",
-        "Data compression",
-        "Extracting information from data",
-        "Using programs to process data"
-      ],
+      topics: ["Binary Numbers", "SKILL 1.D", "SKILLS", "Using Programs with Data"],
       keyConcepts: [
         "Binary representation of data",
         "Lossless vs. lossy compression",
@@ -70,24 +60,7 @@ const computerSciencePrinciples = {
     {
       name: "Unit 3: Algorithms and Programming",
       weight: "30-35%",
-      topics: [
-        "Variables and assignments",
-        "Data abstraction",
-        "Mathematical expressions",
-        "Strings",
-        "Boolean expressions",
-        "Conditionals",
-        "Nested conditionals",
-        "Iteration",
-        "Developing algorithms",
-        "Lists",
-        "Binary search",
-        "Calling procedures",
-        "Developing procedures",
-        "Libraries",
-        "Random values",
-        "Simulations"
-      ],
+      topics: ["The Skills\u0007section\u0007offers\u0007one\u0007or\u0007more\u0007skills\u0007related\u0007to\u0007the\u0007topic", "Mathematical Expressions", "Strings", "SKILLS", "SKILLS", "Iteration", "Developing Algorithms", "Lists", "Calling Procedures", "SKILLS", "Libraries", "SKILLS", "Simulations", "Algorithmic Efficiency", "Undecidable Problems"],
       keyConcepts: [
         "Variables store and manipulate data",
         "Abstraction simplifies complex problems",
@@ -110,12 +83,7 @@ const computerSciencePrinciples = {
     {
       name: "Unit 4: Computer Systems and Networks",
       weight: "11-15%",
-      topics: [
-        "The Internet",
-        "Fault tolerance",
-        "Parallel and distributed computing",
-        "Packet switching"
-      ],
+      topics: ["SKILLS 1.D", "SKILL"],
       keyConcepts: [
         "Internet protocols and structure",
         "Redundancy and fault tolerance",
@@ -135,14 +103,7 @@ const computerSciencePrinciples = {
     {
       name: "Unit 5: Impact of Computing",
       weight: "21-26%",
-      topics: [
-        "Beneficial and harmful effects",
-        "Digital divide",
-        "Computing bias",
-        "Crowdsourcing",
-        "Legal and ethical concerns",
-        "Safe computing"
-      ],
+      topics: ["Beneficial and Harmful Effects", "SKILL 5.E", "Crowdsourcing", "SKILL 5.E", "SKILLS 5.D"],
       keyConcepts: [
         "Computing innovations have global impacts",
         "Digital divide affects access to technology",

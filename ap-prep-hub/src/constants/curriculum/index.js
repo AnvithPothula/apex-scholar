@@ -43,11 +43,15 @@ const subjectImports = {
   studioArt2D: () => import('./studio-art2-d'),
   studioArt3D: () => import('./studio-art3-d'),
   studioArtDrawing: () => import('./studio-art-drawing'),
+  businessPersonalFinance: () => import('./business-personal-finance'),
+  cybersecurity: () => import('./cybersecurity'),
 };
 
 // Lightweight sync map of subject names (no need to load full data just for names)
 const subjectNames = {
   artHistory: "AP Art History",
+  businessPersonalFinance: "AP Business with Personal Finance",
+  cybersecurity: "AP Cybersecurity",
   biology: "AP Biology",
   calculusAB: "AP Calculus AB",
   calculusBC: "AP Calculus BC",

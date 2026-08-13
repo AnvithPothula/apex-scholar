@@ -354,6 +354,46 @@ body {
   min-height: 100dvh;
 }
 
+/*
+ * Fills exactly the space under the fixed header, for the app-shell pages that
+ * scroll internally instead of scrolling the document (AI Tutors, Smart
+ * Scheduler).
+ *
+ * Must be dvh, not vh. On iOS Safari and Chrome Android, 100vh is the
+ * URL-bar-HIDDEN height, so a `h-[calc(100vh-3.5rem)]` box is taller than what
+ * you can actually see — the composer sits under the browser chrome and the
+ * page gains a scrollbar it should never have. dvh tracks the visible viewport.
+ *
+ * Written as a plain class rather than a Tailwind arbitrary value because the
+ * vh line is a fallback for engines without dvh, and two competing declarations
+ * of the same property cannot be expressed in one utility class.
+ */
+.h-below-header {
+  height: calc(100vh - 3.5rem);
+  height: calc(100dvh - 3.5rem);
+  /*
+   * Layout reserves 4rem of bottom padding for the mobile tab bar (pb-16
+   * md:pb-0). A shell that already fills the viewport must hand it back, or
+   * the page ends up 64px taller than the screen — dead space below the fold
+   * that you can scroll to and that serves no purpose.
+   */
+  margin-bottom: -4rem;
+}
+
+@media (min-width: 640px) {
+  .h-below-header {
+    height: calc(100vh - 4rem);
+    height: calc(100dvh - 4rem);
+  }
+}
+
+/* The tab bar itself disappears at md, so stop compensating for it. */
+@media (min-width: 768px) {
+  .h-below-header {
+    margin-bottom: 0;
+  }
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
@@ -482,4 +522,61 @@ body {
   @page {
     margin: 14mm;
   }
+}
+
+/*
+ * Indeterminate progress bar.
+ *
+ * A pulsing full-width bar reads as "finished"; a segment that travels reads as
+ * "still working". Used when an operation has no countable unit of work (AI
+ * grading is one long call), so the bar must not imply a position it doesn't know.
+ */
+@keyframes apex-indeterminate {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
+.animate-indeterminate {
+  animation: apex-indeterminate 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-indeterminate {
+    animation: none;
+    transform: none;
+    width: 100%;
+    opacity: 0.5;
+  }
+}
+
+/*
+ * Long display math scrolls inside its own box.
+ *
+ * A KaTeX display block is as wide as the equation needs, and a tutor answer
+ * like "FRQ Raw = 291.667/16.67 ≈ 17.4" is wider than a phone. Without this it
+ * pushed the whole chat row past the viewport and gave the message list a
+ * horizontal scrollbar. overflow-y stays hidden so tall fractions are not
+ * clipped by an unwanted vertical scroller; the padding keeps descenders off
+ * the scroll edge.
+ */
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-block: 0.25rem;
+  max-width: 100%;
+}
+
+/*
+ * INLINE math is the harder case: it sits mid-sentence, so it cannot be given
+ * its own scroller without breaking the line. A tutor answer like
+ * "74 - 45 = 29 composite points" is wider than a 320px phone once KaTeX lays
+ * it out, and it dragged the whole chat row past the viewport — the message
+ * list grew its own horizontal scrollbar.
+ *
+ * Confining the scroll to the message body keeps the chat column fixed: at
+ * worst one bubble scrolls sideways, instead of the entire conversation.
+ */
+.markdown-content {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
 }

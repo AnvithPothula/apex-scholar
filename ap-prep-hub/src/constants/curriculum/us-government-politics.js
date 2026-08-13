@@ -20,13 +20,7 @@ const usGovernmentPolitics = {
     {
       name: "Unit 1: Foundations of American Democracy",
       weight: "15-22%",
-      topics: [
-        "Ideals of democracy",
-        "Types of democracy",
-        "Challenges of the Articles of Confederation",
-        "Constitutional Convention and ratification",
-        "Principles of American government"
-      ],
+      topics: ["Relationship Between the States and National Government", "Ideals of Democracy", "Types of Democracy", "Government Power and Individual Rights", "Concept Application", "Principles of American Government", "Constitutional Interpretations of Federalism", "Federalism in Action"],
       keyConcepts: [
         "Democratic ideals: liberty, equality, justice",
         "Participatory, pluralist, and elite democracy",
@@ -47,13 +41,7 @@ const usGovernmentPolitics = {
     {
       name: "Unit 2: Interactions Among Branches of Government",
       weight: "25-36%",
-      topics: [
-        "Congress: structure and powers",
-        "Presidency: roles and powers",
-        "Federal bureaucracy",
-        "Federal judiciary",
-        "Checks and balances in action"
-      ],
+      topics: ["Congress: The Senate and the House of Representatives", "Structures, Powers, and Functions of Congress", "Congressional Behavior", "Checks on the Presidency", "Expansion of Presidential Power", "Presidential Communication", "The Judicial Branch", "The Role of the Judicial Branch", "The Court in Action", "Checks on the Judicial Branch", "The Bureaucracy", "Discretionary and Rulemaking Authority", "Holding the Bureaucracy Accountable"],
       keyConcepts: [
         "Congressional powers: enumerated, implied, inherent",
         "Legislative process and committee system",
@@ -75,13 +63,7 @@ const usGovernmentPolitics = {
     {
       name: "Unit 3: Civil Liberties and Civil Rights",
       weight: "13-18%",
-      topics: [
-        "Bill of Rights",
-        "First Amendment freedoms",
-        "Due process and equal protection",
-        "Civil rights movements",
-        "Balancing individual liberty and public order"
-      ],
+      topics: ["The Bill of Rights", "First Amendment: Freedom of Religion", "Articulate a defensible claim/thesis", "First Amendment: Freedom of the Press", "Second Amendment: Right to Bear Arms", "Amendments: Balancing Individual Freedom with Public Order and Safety", "Selective Incorporation", "Amendments: Due Process and the Right to Privacy", "Social Movements and Equal Protection", "Government Responses to Social Movements", "Balancing Minority and Majority Rights", "Affirmative Action"],
       keyConcepts: [
         "Incorporation of Bill of Rights",
         "First Amendment: religion, speech, press, assembly",
@@ -103,13 +85,7 @@ const usGovernmentPolitics = {
     {
       name: "Unit 4: American Political Ideologies and Beliefs",
       weight: "10-15%",
-      topics: [
-        "American political culture",
-        "Political ideologies",
-        "Public opinion formation",
-        "Measuring public opinion",
-        "Political socialization"
-      ],
+      topics: ["Political Socialization", "Changes in Ideology", "Influence of Political Events on Ideology", "Evaluating Public Opinion Data", "Ideologies of Political Parties", "Ideology and Policymaking", "Ideology and Social Policy"],
       keyConcepts: [
         "Core American values: individualism, equality, democracy",
         "Political ideologies: liberal, conservative, libertarian",
@@ -130,14 +106,7 @@ const usGovernmentPolitics = {
     {
       name: "Unit 5: Political Participation",
       weight: "20-27%",
-      topics: [
-        "Voting rights and models of voting behavior",
-        "Voter turnout",
-        "Political parties",
-        "Elections and campaigns",
-        "Interest groups and lobbying",
-        "Social movements"
-      ],
+      topics: ["Voting Rights and Models of Voting Behavior", "Voter Turnout", "Political Parties", "Third-Party Politics", "Interest Groups Influencing Policymaking", "Groups Influencing Policy Outcomes", "Electing a President", "Congressional Elections", "Modern Campaigns", "Campaign Finance", "Changing Media"],
       keyConcepts: [
         "Expansion of voting rights over time",
         "Models of voting: rational choice, retrospective, party-line",

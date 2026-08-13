@@ -24,12 +24,7 @@ const usHistory = {
     {
       name: "Period 1: 1491-1607",
       weight: "4-6%",
-      topics: [
-        "Native American societies before European contact",
-        "European exploration and conquest",
-        "Columbian Exchange and its effects",
-        "Labor systems in the Americas"
-      ],
+      topics: ["Contextualizing Period 1", "Developments and Processes", "European Exploration in the Americas", "Columbian Exchange, Spanish Exploration, and Conquest", "Labor, Slavery, and Caste in the Spanish Colonial System", "Cultural Interactions Between Europeans, Native", "Causation in Period 1"],
       keyConcepts: [
         "Diverse Native American societies and cultures",
         "European motivations for exploration",
@@ -49,12 +44,7 @@ const usHistory = {
     {
       name: "Period 2: 1607-1754",
       weight: "6-8%",
-      topics: [
-        "European colonization",
-        "Colonial society and culture",
-        "Transatlantic trade",
-        "Interactions between Europeans, Africans, and Native Americans"
-      ],
+      topics: ["Contextualization", "European Colonization", "The Regions of British Colonies", "Transatlantic Trade", "Interactions Between American Indians and Europeans", "Slavery in the British Colonies", "Developments and Processes", "Comparison in Period 2"],
       keyConcepts: [
         "Different colonial models: Spanish, French, Dutch, English",
         "Regional differences in colonial development",
@@ -74,14 +64,7 @@ const usHistory = {
     {
       name: "Period 3: 1754-1800",
       weight: "10-17%",
-      topics: [
-        "Seven Years' War and its aftermath",
-        "Causes of the American Revolution",
-        "Revolutionary War",
-        "Articles of Confederation",
-        "Constitutional Convention",
-        "Early republic"
-      ],
+      topics: ["Contextualization", "The Seven Years\u2019 War (The French and Indian War)", "Taxation Without Representation", "Philosophical Foundations of the American Revolution", "The American Revolution", "The Influence of Revolutionary Ideals", "The Articles of Confederation", "The Constitutional Convention and Debates over Ratification", "The Constitution", "Sourcing and Situation", "Developing an American Identity", "Movement in the Early Republic", "Continuity and Change in Period 3"],
       keyConcepts: [
         "British policies after Seven Years' War",
         "Colonial resistance and revolutionary ideology",
@@ -103,15 +86,7 @@ const usHistory = {
     {
       name: "Period 4: 1800-1848",
       weight: "10-17%",
-      topics: [
-        "Jefferson's presidency",
-        "War of 1812",
-        "Market Revolution",
-        "Jacksonian democracy",
-        "Second Great Awakening",
-        "Reform movements",
-        "Westward expansion"
-      ],
+      topics: ["Contextualization", "The Rise of Political Parties and the Era of Jefferson", "Politics and Regional Interests", "America on the World Stage", "Market Revolution: Industrialization", "Market Revolution: Society and Culture", "Expanding Democracy", "Jackson and Federal Power", "The Development of an American Culture", "The Second Great Awakening", "An Age of Reform", "African Americans in the Early Republic", "The Society of the South in the Early Republic", "Causation in Period 4"],
       keyConcepts: [
         "Louisiana Purchase and Lewis and Clark",
         "Industrial Revolution impacts",
@@ -133,13 +108,7 @@ const usHistory = {
     {
       name: "Period 5: 1844-1877",
       weight: "10-17%",
-      topics: [
-        "Manifest Destiny and Mexican-American War",
-        "Compromise of 1850",
-        "Civil War causes",
-        "Civil War",
-        "Reconstruction"
-      ],
+      topics: ["Contextualization", "Manifest Destiny", "The Mexican\u2013American War", "The Compromise of 1850", "Sectional Conflict: Regional Differences", "Failure of Compromise", "Election of 1860 and Secession", "Military Conflict in the Civil War", "Government Policies During the Civil War", "Reconstruction", "Failure of Reconstruction", "Comparison in Period 5"],
       keyConcepts: [
         "Mexican-American War and territorial acquisition",
         "Kansas-Nebraska Act and popular sovereignty",
@@ -162,13 +131,7 @@ const usHistory = {
     {
       name: "Period 6: 1865-1898",
       weight: "10-17%",
-      topics: [
-        "Industrial capitalism",
-        "Labor and immigration",
-        "Politics of the Gilded Age",
-        "Populism",
-        "Western development"
-      ],
+      topics: ["Contextualization", "Westward Expansion: Economic Development", "Westward Expansion: Social and Cultural Development", "The \u201cNew South\u201d", "Technological Innovation", "The Rise of Industrial Capitalism", "Labor in the Gilded Age", "Immigration and Migration in the Gilded Age", "Responses to Immigration in the Gilded Age", "Development of the Middle Class", "Reform in the Gilded Age", "Controversies over the Role of Government in the Gilded Age", "Politics in the Gilded Age", "Continuity and Change Period 6"],
       keyConcepts: [
         "Second Industrial Revolution",
         "Corporate consolidation and monopolies",
@@ -190,14 +153,7 @@ const usHistory = {
     {
       name: "Period 7: 1890-1945",
       weight: "10-17%",
-      topics: [
-        "Progressive Era reforms",
-        "World War I",
-        "1920s culture and economy",
-        "Great Depression",
-        "New Deal",
-        "World War II"
-      ],
+      topics: ["Contextualization", "Imperialism: Debates", "The Spanish\u2013American War", "Sourcing and Situation", "World War I: Military and Diplomacy", "World War I: Home Front", "1920s: Innovations in Communication and Technology", "1920s: Cultural and Political Controversies", "The Great Depression", "The New Deal", "Interwar Foreign Policy", "World War II: Mobilization", "World War II: Military", "Postwar Diplomacy", "Comparison in Period 7"],
       keyConcepts: [
         "Progressive reforms in government and society",
         "American imperialism and overseas expansion",
@@ -220,14 +176,7 @@ const usHistory = {
     {
       name: "Period 8: 1945-1980",
       weight: "10-17%",
-      topics: [
-        "Cold War beginnings",
-        "Postwar prosperity",
-        "Civil Rights Movement",
-        "Great Society",
-        "Vietnam War",
-        "Counterculture and social movements"
-      ],
+      topics: ["Contextualization", "The Cold War from 1945 to 1980", "The Red Scare", "Sourcing and Situation", "Culture after 1945"],
       keyConcepts: [
         "Containment policy and Marshall Plan",
         "Suburban growth and consumer culture",

@@ -18,58 +18,22 @@ const precalculus = {
     {
       name: "Unit 1: Polynomial and Rational Functions",
       weight: "30-40%",
-      topics: [
-        "Change in tandem",
-        "Rates of change",
-        "Polynomial functions and rates of change",
-        "Polynomial functions and end behavior",
-        "Polynomial functions and zeros",
-        "Rational functions",
-        "Vertical asymptotes and holes",
-        "End behavior of rational functions",
-        "Transformations of functions"
-      ]
+      topics: ["2.B", "Rates of Change", "Rates of Change in Linear and Quadratic Functions", "Polynomial Functions and Rates of Change", "Polynomial Functions and Complex Zeros", "Polynomial Functions and End Behavior", "Rational Functions and End Behavior", "Rational Functions and Zeros", "Rational Functions and Vertical Asymptotes", "Rational Functions and Holes", "Equivalent Representations of Polynomial and Rational Expressions", "1.C", "Function Model Selection and Assumption Articulation", "Function Model Construction and Application"]
     },
     {
       name: "Unit 2: Exponential and Logarithmic Functions",
       weight: "27-40%",
-      topics: [
-        "Arithmetic and geometric sequences",
-        "Exponential functions",
-        "Exponential function manipulation",
-        "Exponential function context and data modeling",
-        "Composition of functions",
-        "Inverse functions",
-        "Logarithmic functions",
-        "Logarithmic function manipulation",
-        "Semi-log plots"
-      ]
+      topics: ["Change in Arithmetic and Geometric Sequences", "Change in Linear and Exponential Functions", "Exponential Functions", "Exponential Function Manipulation", "1.C", "Competing Function Model Validation", "Composition of Functions", "Inverse Functions", "Logarithmic Expressions", "Inverses of Exponential Functions", "Logarithmic Functions", "Logarithmic Function Manipulation", "Exponential and Logarithmic Equations and Inequalities", "Logarithmic Function Context and Data Modeling", "Semi-log Plots"]
     },
     {
       name: "Unit 3: Trigonometric and Polar Functions",
       weight: "15-20%",
-      topics: [
-        "Periodic phenomena",
-        "Sine, cosine, and tangent",
-        "Sinusoidal functions",
-        "Sinusoidal function context and data modeling",
-        "Trigonometric function transformations",
-        "Trigonometric identities and solving equations",
-        "Polar function graphs",
-        "Rates of change in polar functions"
-      ]
+      topics: ["Periodic Phenomena", "Sine and Cosine Function Graphs", "Sinusoidal Functions", "Sinusoidal Function Transformations", "Sinusoidal Function Context and Data Modeling", "The Tangent Function", "1.C", "Trigonometric Equations and Inequalities", "The Secant, Cosecant, and Cotangent Functions", "Equivalent Representations of Trigonometric Functions", "Trigonometry and Polar Coordinates", "Polar Function Graphs", "Rates of Change in Polar Functions"]
     },
     {
       name: "Unit 4: Functions Involving Parameters, Vectors, and Matrices",
       weight: "10-15%",
-      topics: [
-        "Parametric functions",
-        "Parametric functions modeling planar motion",
-        "Vectors",
-        "Vector-valued functions",
-        "Matrices",
-        "Matrices as transformations of the plane"
-      ]
+      topics: ["Parametric Functions", "Parametric Functions and Rates of Change", "Parametrically Defined Circles and Lines", "Implicitly Defined Functions", "Conic Sections", "Parametrization of Implicitly Defined Functions", "Vectors", "Vector-Valued Functions Additional Topic Available to Schools", "1.B", "1.B", "Matrices as Functions", "Matrices Modeling Contexts"]
     }
   ],
   keySkills: [

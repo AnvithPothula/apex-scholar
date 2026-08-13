@@ -14,6 +14,7 @@ import { Button, Card, CardHeader, CardTitle, CardContent, Input, FloatingInput,
 import CustomDropdown from '../components/ui/CustomDropdown';
 import MultiSelectDropdown from '../components/ui/MultiSelectDropdown';
 import HelpTooltip from '../components/ui/HelpTooltip';
+import { clampPreferences } from '../constants/studyPreferenceBounds';
 
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 
@@ -120,8 +121,11 @@ const Settings = () => {
         // `=== true` the toggle would show "off" for a user who is in fact
         // receiving mail — the toggle must never lie about that.
         setEmailOptIn(data.emailOptIn !== false);
-        // Merge user data with defaults to ensure all fields have values
-        const mergedPrefs = { ...defaultPrefs, ...data.studyPreferences };
+        // Merge user data with defaults to ensure all fields have values, then
+        // clamp — otherwise a stored out-of-range value (see PREFERENCE_BOUNDS)
+        // is displayed as-is and the user is shown a number the scheduler will
+        // never actually honour.
+        const mergedPrefs = clampPreferences({ ...defaultPrefs, ...data.studyPreferences }, defaultPrefs);
         setStudyPreferences(mergedPrefs);
         setBlackoutDates(data.blackoutDates || getDefaultBlackoutSchedule());
         if (data.aiPersonalization) {
@@ -198,6 +202,13 @@ const Settings = () => {
           validatedStudyPreferences[key] = getDefaultStudyPreferences()[key];
         }
       });
+
+      // Bring out-of-range values back inside the bounds the inputs advertise,
+      // so bad stored data is repaired on save instead of round-tripping.
+      Object.assign(
+        validatedStudyPreferences,
+        clampPreferences(validatedStudyPreferences, getDefaultStudyPreferences())
+      );
 
       // Validate blackout dates structure
       const validatedBlackoutDates = { ...getDefaultBlackoutSchedule() };

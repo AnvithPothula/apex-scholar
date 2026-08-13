@@ -14,6 +14,7 @@ import {
   Edit3,
   Trash2,
   Check,
+  Copy,
   X,
   FileText,
   Image,
@@ -47,7 +48,11 @@ import { cedSearch } from '../services/cedSearch';
 import { extractPdfTextFromBase64 } from '../services/pdfUtils';
 import SubjectSelector from '../components/tutors/SubjectSelector.jsx';
 import MarkdownRenderer from '../components/MarkdownRenderer.jsx';
-import ModelSelector, { getDefaultModel, saveSelectedModel } from '../components/ui/ModelSelector.jsx';
+import ModelSelector, { getDefaultModel, saveSelectedModel, getModelLabel } from '../components/ui/ModelSelector.jsx';
+import { scoringBriefFor } from '../utils/apScore';
+import { apexSiteBrief } from '../constants/apexFeatures';
+import { languageDirective } from '../constants/languageDirective';
+import { getScoreModel } from '../constants/apScoreModels';
 import { subjects } from '../constants/subjects';
 import { getCurriculumData, getSubjectName } from '../constants/comprehensiveCurriculum';
 import {
@@ -84,6 +89,26 @@ import geminiService, { RateLimitError } from '../services/geminiService';
 import { parseSingleMcq } from '../services/ai/mcqGenerator';
 import errorLogger from '../utils/errorLogger';
 
+/**
+ * Tutor answer modes.
+ *
+ * Previously four bare strings inline in the JSX plus a second copy in the
+ * Cmd+1..4 shortcut map — two lists that could drift, and nothing told the
+ * student what a mode did or that the shortcuts existed at all.
+ */
+const TUTOR_MODES = [
+  { id: 'Explain', label: 'Explain', short: 'Explain', hint: 'Teach the concept step by step' },
+  { id: 'Practice MCQ', label: 'Practice MCQ', short: 'MCQ', hint: 'Generate an exam-style multiple choice question' },
+  { id: 'Walkthrough', label: 'Walkthrough', short: 'Walkthrough', hint: 'Work through one problem line by line' },
+  { id: 'Summarize Attachment', label: 'Summarize Attachment', short: 'Summarize', hint: 'Condense the file you attached', requiresAttachment: true },
+];
+
+// Mac shows the command glyph, everything else Ctrl. A tooltip promising
+// "Ctrl+1" on a Mac is worse than no tooltip.
+const metaKeyLabel = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '')
+  ? '\u2318'
+  : 'Ctrl+';
+
 const AITutors = () => {
   const { subject: urlSubject } = useParams();
   const navigate = useNavigate();
@@ -111,8 +136,10 @@ const AITutors = () => {
   // Remaining free AI messages for guests today (per browser). Irrelevant
   // for signed-in users (UI gated behind isGuest).
   const [guestRemaining, setGuestRemaining] = useState(GUEST_MESSAGE_LIMIT);
-  const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  // Which message currently shows "Copied" — resets on a timer so the button
+  // doesn't stay stuck in the confirmed state.
+  const [copiedMessageId, setCopiedMessageId] = useState(null);
   // Bumping this re-attaches the messages listener after Firestore kills it (A30).
   const [messagesEpoch, setMessagesEpoch] = useState(0);
   const messagesRetryRef = useRef(0);
@@ -541,8 +568,10 @@ const AITutors = () => {
         handleFileSelect();
       } else if (meta && ['1','2','3','4'].includes(e.key)) {
         e.preventDefault();
-        const map = { '1':'Explain', '2':'Practice MCQ', '3':'Walkthrough', '4':'Summarize Attachment' };
-        setSelectedMode(map[e.key]);
+        // Derived from TUTOR_MODES so the shortcuts and the buttons cannot
+        // point at different modes.
+        const target = TUTOR_MODES[Number(e.key) - 1];
+        if (target) setSelectedMode(target.id);
       }
     };
     window.addEventListener('keydown', handler);
@@ -565,21 +594,66 @@ const AITutors = () => {
   // Scroll to bottom only when user is already near the bottom
   const chatContainerRef = useRef(null);
 
+  // Keep the newest message in view while the list is still growing.
+  //
+  // Two things this deliberately does NOT do:
+  //   - scrollIntoView. It walks up and scrolls EVERY scrollable ancestor,
+  //     including the document, and its default block:'start' aligns the
+  //     target to the top of the viewport. That dragged the whole page up
+  //     behind the fixed header, so sending a message hid the conversation.
+  //     Setting scrollTop moves exactly one element and cannot touch the page.
+  //   - fire once per message. KaTeX typesets after paint and markdown
+  //     reflows, so the list gains height after a [messages] effect has
+  //     already run — leaving the end of a long answer below the fold.
+  //     Observing the content box catches every late reflow instead.
+  //
+  // `stick` follows the user: scroll up to read history and new messages stop
+  // yanking you back down; return to the bottom and it resumes.
   useEffect(() => {
-    const container = chatContainerRef.current;
-    if (!container) return;
+    const el = chatContainerRef.current;
+    const content = el?.firstElementChild;
+    if (!el || !content || typeof ResizeObserver === 'undefined') return;
 
-    // Check if user is near bottom before scrolling
-    const { scrollTop, scrollHeight, clientHeight } = container;
-    const isNearBottom = scrollHeight - scrollTop - clientHeight < 200;
+    const atBottom = () => el.scrollHeight - el.scrollTop - el.clientHeight < 200;
+    let stick = atBottom();
 
-    if (isNearBottom) {
-      // Use requestAnimationFrame to scroll after DOM update
-      requestAnimationFrame(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
-      });
-    }
-  }, [messages, isTyping]);
+    const onScroll = () => { stick = atBottom(); };
+    el.addEventListener('scroll', onScroll, { passive: true });
+
+    const ro = new ResizeObserver(() => {
+      if (stick) el.scrollTop = el.scrollHeight;
+    });
+    ro.observe(content);
+
+    return () => {
+      ro.disconnect();
+      el.removeEventListener('scroll', onScroll);
+    };
+  }, [selectedSubject]);
+
+  // Opening a conversation lands on the newest message, like every chat app.
+  // The stick-to-bottom observer cannot do this on its own: a freshly loaded
+  // history is thousands of pixels from the bottom, so it starts unstuck and
+  // leaves the user staring at the oldest message.
+  useEffect(() => {
+    if (!activeConversationId) return;
+    const el = chatContainerRef.current;
+    if (!el) return;
+    requestAnimationFrame(() => {
+      const c = chatContainerRef.current;
+      if (c) c.scrollTop = c.scrollHeight;
+    });
+  }, [activeConversationId]);
+
+  // A mode that requires an attachment must not survive the attachment going
+  // away — otherwise removing the file strands the user in a mode whose button
+  // is now disabled, with no way back except picking another. This one effect
+  // covers every route in: the button, the Cmd+1..4 shortcut, and file removal.
+  useEffect(() => {
+    if (uploadedFiles.length > 0) return;
+    const active = TUTOR_MODES.find((m) => m.id === selectedMode);
+    if (active?.requiresAttachment) setSelectedMode('Explain');
+  }, [uploadedFiles, selectedMode]);
 
   // Close conversation menu when clicking elsewhere
   useEffect(() => {
@@ -918,6 +992,11 @@ const AITutors = () => {
       if (message.mcq) {
         messageData.mcq = message.mcq;
       }
+      // Which model answered — persisted so the attribution survives a reload
+      // rather than silently vanishing from older messages.
+      if (message.model) {
+        messageData.model = message.model;
+      }
       
       console.log('Saving message to Firebase...', { conversationId, messageId: messageData.id });
       const docRef = await addDoc(collection(db, 'conversations', conversationId, 'messages'), messageData);
@@ -1129,10 +1208,15 @@ const AITutors = () => {
         throw new Error('Empty response from AI');
       }
       
+      // Stamp what ACTUALLY answered, not what the dropdown says. Puter can
+      // fall through to Google, and the proxy substitutes models on 429 — so
+      // the picker's value is a request, not a record.
+      const resolved = geminiService.getLastResolvedModel();
       let aiMessage = {
         id: `ai_${Date.now()}`,
         type: 'ai',
         content: response,
+        model: resolved ? getModelLabel(resolved.model) : null,
         timestamp: new Date()
       };
 
@@ -1312,6 +1396,45 @@ ${curriculumData.units?.map((unit, i) => `Unit ${i + 1}: ${unit.name} (${unit.we
 ${curriculumData.examFormat ? `EXAM: ${curriculumData.examFormat.duration} — ${curriculumData.examFormat.sections?.map(s => `${s.name}: ${s.questions}q, ${s.weight}`).join('; ') || 'MC + FRQ'}` : ''}
 ` : 'AP-level curriculum with comprehensive academic standards';
 
+    // The exam's real section weights and composite cutoffs, so the tutor can
+    // answer "how many can I miss and still get a 4?" with the same numbers the
+    // score calculator shows. null for unmodelled subjects — better silent than
+    // quoting the generic fallback as if it were that exam's curve.
+    // subjectName, NOT subject: `subject` is the internal id (e.g. the curriculum
+    // key), while the score models are keyed by display name ("AP Biology").
+    // Passing the id here returned null every time, so the tutor kept inventing
+    // its own section maxima — it told a student the Bio FRQ was worth 46 points
+    // when the model says 36.
+    const scoringBrief = scoringBriefFor(subjectName);
+
+    // What this site can do, so the tutor recommends Apex Scholar's own free
+    // tools (with inline links) instead of sending students to Khan Academy.
+    const siteBrief = apexSiteBrief();
+    // World-language tutors must teach IN ENGLISH by default (see above).
+    const langDirective = languageDirective(subjectName);
+    const scoreModel = getScoreModel(subjectName);
+    const model_hint = (scoreModel && !scoreModel.generic)
+      ? scoreModel.sections.map((sec) => `"${sec.id}": <raw out of ${sec.maxRaw}>`).join(', ')
+      : '';
+
+    // Only offer the live calculator widget for subjects that actually have a
+    // model — otherwise the fence would render nothing and the tutor would be
+    // promising a calculator the student never sees.
+    const calculatorDirective = scoringBrief ? `
+LIVE SCORE CALCULATOR:
+When the student asks about their AP score, what they need for a 4 or 5, or what
+a raw score works out to, answer in words FIRST and then emit this fenced block
+so they get sliders they can drag:
+
+\`\`\`apex-score
+{"subject": "${subjectName}", ${model_hint}}
+\`\`\`
+
+Fill in each section id with the raw points under discussion; omit a section you
+have no number for. Use the section ids exactly as listed in the scoring model
+above. Emit at most one such block per reply, and never describe it as anything
+other than an estimate.` : '';
+
     // Subject suggestion for boundary messaging
     const suggestSubject = (current, text) => {
       const t = (text || '').toLowerCase();
@@ -1439,6 +1562,10 @@ ${citations.map(c => `- Page ${c.page}: ${c.snippet}`).join('\n')}
 ${personalDirective ? `\n${personalDirective}` : ''}
 
 ${curriculumContext}
+${scoringBrief ? `\n${scoringBrief}\n` : ''}
+${siteBrief}
+${langDirective ? `\n${langDirective}\n` : ''}
+${calculatorDirective}
 
 ${modeDirective}
 ${critiqueDirective}
@@ -1698,6 +1825,38 @@ Please check your internet connection and try again. In the meantime:
     }
   };
 
+  /**
+   * Copy an AI answer to the clipboard.
+   *
+   * Falls back to a hidden textarea + execCommand because navigator.clipboard
+   * is unavailable on insecure origins (plain-http localhost, which is exactly
+   * where this gets developed) and in some in-app browsers.
+   */
+  const handleCopyMessage = async (messageId, content) => {
+    const text = String(content || '');
+    if (!text) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      setCopiedMessageId(messageId);
+      setTimeout(() => setCopiedMessageId((id) => (id === messageId ? null : id)), 2000);
+    } catch (e) {
+      errorLogger.debug('Copy failed', { error: e?.message });
+      toast.error('Could not copy — select the text and copy manually.');
+    }
+  };
+
   const handleKeyPress = (e) => {
     console.log('Key pressed:', e.key, 'shiftKey:', e.shiftKey);
     
@@ -1903,19 +2062,23 @@ Please check your internet connection and try again. In the meantime:
   const subjectSuggestions = subjectSuggestionsState;
 
   return (
-    <div className="h-[calc(100vh-3.5rem)] sm:h-[calc(100vh-4rem)] flex bg-base-950 relative -mb-16 md:mb-0">
+    <div className="h-below-header flex bg-base-950 relative">
       {/* Mobile Sidebar Overlay */}
       {showMobileSidebar && (
         <div 
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
           onClick={() => setShowMobileSidebar(false)}
         />
       )}
-      
-      {/* Conversation Sidebar - Hidden on mobile by default, always visible on desktop */}
+
+      {/* Conversation sidebar: a drawer until lg, inline above it.
+          It docks at lg rather than md because it is 320px wide — on an iPad
+          in portrait (768px) that is 42% of the screen, which squeezed the
+          composer down to 118px. Below lg the chat gets the full width and the
+          sidebar opens over it. */}
       {selectedSubject && (
         <div
-          className={`fixed md:relative z-50 md:z-auto w-72 sm:w-80 h-full bg-base-850 md:bg-base-850 border-r border-border flex flex-col transition-transform duration-300 ease-in-out md:translate-x-0 md:opacity-100 ${showMobileSidebar ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0 md:translate-x-0 md:opacity-100'}`}
+          className={`fixed lg:relative z-50 lg:z-auto w-72 sm:w-80 h-full bg-base-850 lg:bg-base-850 border-r border-border flex flex-col transition-transform duration-300 ease-in-out lg:translate-x-0 lg:opacity-100 ${showMobileSidebar ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0 lg:translate-x-0 lg:opacity-100'}`}
         >
           {/* Sidebar Header */}
           <div className="p-3 sm:p-4 border-b border-border">
@@ -1927,7 +2090,8 @@ Please check your internet connection and try again. In the meantime:
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowMobileSidebar(false)}
-                  className="text-content-secondary hover:text-content-primary md:hidden"
+                  aria-label="Close conversations"
+                  className="text-content-secondary hover:text-content-primary lg:hidden"
                 >
                   <X strokeWidth={1.5} className="w-4 h-4" />
                 </Button>
@@ -1974,6 +2138,21 @@ Please check your internet connection and try again. In the meantime:
                 }`}
                 onClick={() => {
                   if (!editingConversationId) {
+                    handleConversationSelect(conversation.id);
+                  }
+                }}
+                // Selecting a conversation was mouse-only: a bare onClick div,
+                // so keyboard users could not switch threads at all. It also
+                // contains a real options button, so aria-current (not a nested
+                // role=button) conveys which thread is open.
+                role="button"
+                tabIndex={0}
+                aria-current={activeConversationId === conversation.id ? 'true' : undefined}
+                aria-label={`Open ${conversation.name || 'conversation'}`}
+                onKeyDown={(e) => {
+                  if (editingConversationId) return;
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
                     handleConversationSelect(conversation.id);
                   }
                 }}
@@ -2048,7 +2227,8 @@ Please check your internet connection and try again. In the meantime:
                             showConversationMenu === conversation.id ? null : conversation.id
                           );
                         }}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0 text-content-muted hover:text-content-primary"
+                        aria-label={`Options for ${conversation.name || 'conversation'}`}
+                        className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity h-6 w-6 p-0 text-content-muted hover:text-content-primary"
                       >
                         <MoreVertical strokeWidth={1.5} className="w-3 h-3" />
                       </Button>
@@ -2109,7 +2289,8 @@ Please check your internet connection and try again. In the meantime:
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowMobileSidebar(true)}
-                  className="text-content-secondary hover:text-content-primary md:hidden flex-shrink-0 p-2"
+                  className="text-content-secondary hover:text-content-primary lg:hidden flex-shrink-0 p-2"
+                  aria-label="Show conversations"
                 >
                   <BookOpen strokeWidth={1.5} className="w-5 h-5" />
                 </Button>
@@ -2157,6 +2338,7 @@ Please check your internet connection and try again. In the meantime:
                   variant="ghost"
                   size="sm"
                   onClick={() => navigate('/ai-tutors')}
+                  aria-label="Back to subjects"
                   className="text-content-secondary hover:text-content-primary sm:hidden p-2"
                 >
                   <ChevronLeft strokeWidth={1.5} className="w-5 h-5" />
@@ -2172,20 +2354,32 @@ Please check your internet connection and try again. In the meantime:
       <div className="bg-base-850 border-b border-border z-10">
         <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 py-2">
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2" role="group" aria-label="Tutor modes">
-            {['Explain','Practice MCQ','Walkthrough','Summarize Attachment'].map((m) => (
-              <Button
-                key={m}
-                variant={selectedMode === m ? 'primary' : 'ghost'}
-                size="sm"
-                aria-pressed={selectedMode === m}
-                onClick={() => setSelectedMode(m)}
-                className={`text-xs sm:text-sm px-2 sm:px-3 py-1.5 ${selectedMode === m ? 'bg-base-800 text-content-primary border border-border-strong border-b-2 border-b-content-muted' : 'text-content-secondary hover:text-content-primary'}`}
-              >
-                <span className="hidden sm:inline">{m}</span>
-                <span className="sm:hidden">{m === 'Practice MCQ' ? 'MCQ' : m === 'Summarize Attachment' ? 'Summarize' : m}</span>
-              </Button>
-            ))}
-            <label className="ml-1 sm:ml-2 inline-flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-content-secondary">
+            {TUTOR_MODES.map((mode, i) => {
+              // Summarize is the one mode that cannot work alone: with nothing
+              // attached it sent "summarize the attached files" and the tutor
+              // dutifully summarized nothing. Disabled until a file exists, and
+              // the tooltip says why instead of leaving a dead-looking button.
+              const needsFile = mode.requiresAttachment && uploadedFiles.length === 0;
+              return (
+                <Button
+                  key={mode.id}
+                  variant={selectedMode === mode.id ? 'primary' : 'ghost'}
+                  size="sm"
+                  aria-pressed={selectedMode === mode.id}
+                  disabled={needsFile}
+                  title={needsFile ? 'Attach a file first to summarize it' : `${mode.hint} (${metaKeyLabel}${i + 1})`}
+                  onClick={() => setSelectedMode(mode.id)}
+                  className={`text-xs sm:text-sm px-2 sm:px-3 py-1.5 ${selectedMode === mode.id ? 'bg-base-800 text-content-primary border border-border-strong border-b-2 border-b-content-muted' : 'text-content-secondary hover:text-content-primary'} ${needsFile ? 'opacity-40 cursor-not-allowed' : ''}`}
+                >
+                  <span className="hidden sm:inline">{mode.label}</span>
+                  <span className="sm:hidden">{mode.short}</span>
+                </Button>
+              );
+            })}
+            <label
+              className="ml-1 sm:ml-2 inline-flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-content-secondary cursor-pointer"
+              title="Paste your own work and the tutor critiques your reasoning instead of just solving it"
+            >
               <input type="checkbox" checked={checkMySteps} onChange={(e) => setCheckMySteps(e.target.checked)} className="w-3 h-3 sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">Check my steps</span>
               <span className="sm:hidden">Check</span>
@@ -2195,7 +2389,13 @@ Please check your internet connection and try again. In the meantime:
       </div>
 
       {/* Chat Area */}
-      <div ref={chatContainerRef} className="flex-1 overflow-y-auto scroll-touch">
+      {/* `relative` is load-bearing, not cosmetic. Rendered answers contain ~60
+          absolutely-positioned KaTeX spans; with this container left static,
+          their containing block was the page wrapper, so overflow could not
+          clip them. They escaped the scroll box and stretched the document to
+          ~3100px — the blank space under the tutor, and the reason sending a
+          message scrolled the whole page instead of the message list. */}
+      <div ref={chatContainerRef} className="relative flex-1 overflow-y-auto scroll-touch">
         <div className="max-w-4xl mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
           {/* Welcome Message */}
           {messages.length === 1 && messages[0].suggestions && (
@@ -2237,7 +2437,7 @@ Please check your internet connection and try again. In the meantime:
                 transition={{ duration: 0.2 }}
                 className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
               >
-                <div className={`flex gap-3 max-w-4xl ${message.type === 'user' ? 'flex-row-reverse' : ''}`}>
+                <div className={`flex gap-3 max-w-4xl min-w-0 ${message.type === 'user' ? 'flex-row-reverse' : ''}`}>
                   {/* Avatar */}
                   <div className="flex-shrink-0">
                     <div className={`w-10 h-10 rounded-sm flex items-center justify-center ${
@@ -2254,7 +2454,12 @@ Please check your internet connection and try again. In the meantime:
                   </div>
 
                   {/* Message Content */}
-                  <div className="flex-1 max-w-2xl">
+                  {/* min-w-0 is load-bearing. A flex item defaults to
+                      min-width:auto, so this column refused to shrink below its
+                      content's min-content width and the whole message row ran
+                      ~30px past the viewport on a phone — giving the chat its
+                      own horizontal scrollbar. */}
+                  <div className="flex-1 min-w-0 max-w-2xl">
                     <Card className={`${
                       message.type === 'user'
                         ? 'bg-base-750 text-content-primary border border-border'
@@ -2319,13 +2524,48 @@ Please check your internet connection and try again. In the meantime:
                           )
                         )}
                         
-                        <div className={`text-xs mt-2 ${
-                          message.type === 'user' ? 'text-content-muted' : 'text-content-muted'
-                        }`}>
-                          {message.timestamp.toLocaleTimeString([], { 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
+                        <div className="flex items-center justify-between gap-2 mt-2">
+                          <div className="text-xs text-content-muted flex items-center gap-1.5 min-w-0">
+                            <span className="flex-shrink-0">
+                              {message.timestamp.toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                            {/* Which model actually answered. Shown per-message
+                                because it can differ from the picker (and from
+                                the message above it) whenever a fallback fires. */}
+                            {message.type === 'ai' && message.model && (
+                              <span
+                                className="truncate opacity-70"
+                                title={`Answered by ${message.model}`}
+                              >
+                                · {message.model}
+                              </span>
+                            )}
+                          </div>
+                          {/* Copy an explanation without selecting it by hand —
+                              students routinely want the worked steps in their
+                              own notes, and dragging to select a long markdown
+                              answer on mobile is close to impossible. */}
+                          {message.type === 'ai' && !message.mcq && (
+                            <button
+                              type="button"
+                              onClick={() => handleCopyMessage(message.id, message.content)}
+                              aria-label={copiedMessageId === message.id ? 'Copied' : 'Copy this answer'}
+                              title={copiedMessageId === message.id ? 'Copied' : 'Copy'}
+                              // min-h-[24px] meets the WCAG 2.5.8 target minimum. Unlike the inline
+                              // prose links nearby (exempt as "in a sentence"), this is a
+                              // standalone control, so the exception does not apply.
+                              className="text-xs text-content-muted hover:text-content-primary transition-colors inline-flex items-center gap-1 px-1.5 py-0.5 min-h-[24px] rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-content-muted"
+                            >
+                              {copiedMessageId === message.id ? (
+                                <><Check strokeWidth={1.5} className="w-3.5 h-3.5" /> Copied</>
+                              ) : (
+                                <><Copy strokeWidth={1.5} className="w-3.5 h-3.5" /> Copy</>
+                              )}
+                            </button>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
@@ -2374,8 +2614,6 @@ Please check your internet connection and try again. In the meantime:
               </motion.div>
             )}
           </AnimatePresence>
-
-          <div ref={messagesEndRef} />
         </div>
       </div>
 
@@ -2436,7 +2674,17 @@ Please check your internet connection and try again. In the meantime:
                 onKeyDown={handleKeyPress}
                 className="text-sm sm:text-base py-2.5 sm:py-4 pr-12 sm:pr-20 min-h-[2.5rem] sm:min-h-[3rem] max-h-24 sm:max-h-32"
                 multiline={true}
+                aria-label={`Ask about ${getSubjectName(selectedSubject)}`}
               />
+              {/* The composer is multiline, so Enter-sends vs Shift+Enter-newline
+                  is not guessable. Desktop only — there is no Shift key to
+                  mention on a phone keyboard. */}
+              <p className="hidden sm:block text-xs text-content-muted mt-1.5">
+                <kbd className="px-1 py-0.5 rounded bg-base-800 border border-border-strong">Enter</kbd> to send ·{' '}
+                <kbd className="px-1 py-0.5 rounded bg-base-800 border border-border-strong">Shift</kbd>
+                {' + '}
+                <kbd className="px-1 py-0.5 rounded bg-base-800 border border-border-strong">Enter</kbd> for a new line
+              </p>
             </div>
             
             <div className="flex gap-1.5 sm:gap-2 items-center flex-shrink-0">
@@ -2460,10 +2708,11 @@ Please check your internet connection and try again. In the meantime:
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  console.log('Send button clicked');
                   handleSendMessage();
                 }}
                 disabled={(!currentMessage.trim() && uploadedFiles.length === 0) || isTyping || (isGuest && guestRemaining <= 0)}
+                aria-label="Send message"
+                title="Send (Enter)"
                 className="px-3 sm:px-6 py-2 sm:py-2.5 bg-content-primary text-base-950 hover:opacity-90"
               >
                 <Send strokeWidth={1.5} className="w-4 h-4 sm:w-5 sm:h-5" />

@@ -31,13 +31,7 @@ const comparativeGovernment = {
     {
       name: "Political Systems, Regimes, and Governments",
       weight: "15-22%",
-      topics: [
-        "Sources of power and authority",
-        "Political institutions and constitutions",
-        "Democracy and authoritarianism",
-        "Federal and unitary systems",
-        "Parliamentary and presidential systems"
-      ],
+      topics: ["The suggested skill offers a possible skill to pair with the topic", "The Practice of Political Scientists", "Defining Political Organizations", "Democracy vs", "Sources of Power and Authority", "Change in Power and Authority", "Political Legitimacy", "Sustaining Legitimacy", "Political Stability"],
       keyConcepts: [
         "Legitimacy and types of authority",
         "Democratic vs. authoritarian regimes",
@@ -55,13 +49,7 @@ const comparativeGovernment = {
     {
       name: "Political Institutions",
       weight: "25-35%",
-      topics: [
-        "Executives: presidents and prime ministers",
-        "Legislatures: structure and functions",
-        "Judiciaries and constitutional courts",
-        "Bureaucracies and implementation",
-        "Military and security forces"
-      ],
+      topics: ["Parliamentary, Presidential, and Semi-Presidential Systems", "Comparing Parliamentary, Presidential, and SemiPresidential Systems", "Executive Systems", "Executive Term Limits", "Removal of Executives", "Legislative Systems", "Independent Legislatures", "Concept Application", "Independent Judiciaries"],
       keyConcepts: [
         "Separation of powers",
         "Checks and balances",
@@ -79,13 +67,7 @@ const comparativeGovernment = {
     {
       name: "Political Culture, Citizen Participation, and Voting Behavior",
       weight: "15-25%",
-      topics: [
-        "Political socialization and culture",
-        "Citizen participation and civil society",
-        "Elections and electoral systems",
-        "Political parties and party systems",
-        "Interest groups and social movements"
-      ],
+      topics: ["Civil Society", "Political Culture", "Political Ideologies", "Nature and Role of Political Participation", "Forces that Impact Political Participation", "Country Comparison", "Challenges from Political and Social Cleavages"],
       keyConcepts: [
         "Political culture variations",
         "Civic engagement patterns",
@@ -103,13 +85,7 @@ const comparativeGovernment = {
     {
       name: "Party and Electoral Systems and Citizen Organizations",
       weight: "15-25%",
-      topics: [
-        "Electoral laws and voting systems",
-        "Campaign finance and political competition",
-        "Political party organization",
-        "Interest group strategies",
-        "Social movement mobilization"
-      ],
+      topics: ["Electoral Systems and Rules", "Objectives of Election Rules", "Political Party Systems", "Country Comparison", "Pluralist and Corporatist Interests"],
       keyConcepts: [
         "Proportional vs. majoritarian systems",
         "Political party institutionalization",
@@ -127,13 +103,7 @@ const comparativeGovernment = {
     {
       name: "Political and Economic Changes and Development",
       weight: "15-25%",
-      topics: [
-        "Democratization and democratic consolidation",
-        "Economic liberalization and globalization",
-        "Political transitions and regime change",
-        "Development challenges and state capacity",
-        "Corruption and governance"
-      ],
+      topics: ["Impact of Global Economic and Technological Forces", "Political Responses to Global Market Forces", "Challenges from Globalization", "Policies and Economic Liberalization", "Adaptation of Social Policies", "Impact of Industrialization and Economic Development", "Causes and Effects of Demographic Change", "Impact of Natural Resources"],
       keyConcepts: [
         "Democratic transition phases",
         "Economic reform challenges",

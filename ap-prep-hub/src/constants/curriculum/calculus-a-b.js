@@ -19,20 +19,7 @@ const calculusAB = {
     {
       name: "Unit 1: Limits and Continuity",
       weight: "4-7%",
-      topics: [
-        "Introduction to limits",
-        "Estimating limit values from graphs",
-        "Estimating limit values from tables",
-        "Determining limits using algebraic manipulation",
-        "Determining limits using squeeze theorem",
-        "Exploring types of discontinuities",
-        "Defining continuity at a point",
-        "Confirming continuity over an interval",
-        "Removing discontinuities",
-        "Connecting infinite limits and vertical asymptotes",
-        "Connecting limits at infinity and horizontal asymptotes",
-        "Working with the intermediate value theorem"
-      ],
+      topics: ["Introducing Calculus: Can Change Occur at an Instant?", "Defining Limits and Using Limit Notation", "Estimating Limit Values from Graphs", "Estimating Limit Values from Tables", "Determining Limits Using Algebraic Properties of Limits", "Selecting Procedures for Determining Limits", "Determining Limits Using the Squeeze Theorem", "Defining Continuity at a Point", "Confirming Continuity over an Interval", "Removing Discontinuities", "Connecting Infinite Limits and Vertical Asymptotes", "Connecting Limits at Infinity and Horizontal Asymptotes", "Working with the Intermediate Value Theorem (IVT)"],
       keyConcepts: [
         "Intuitive and formal definition of limits",
         "One-sided limits and two-sided limits",
@@ -52,19 +39,7 @@ const calculusAB = {
     {
       name: "Unit 2: Differentiation: Definition and Fundamental Properties",
       weight: "4-7%",
-      topics: [
-        "Defining average and instantaneous rates of change",
-        "Defining the derivative of a function at a point and as a function",
-        "Estimating derivatives from graphs and tables",
-        "Connecting differentiability and continuity",
-        "Applying the power rule",
-        "Derivative rules for constants, sums, differences, and constant multiples",
-        "Derivatives of cos x, sin x, e^x, and ln x",
-        "The product rule",
-        "The quotient rule",
-        "Finding derivatives of tangent, cotangent, secant, and cosecant functions",
-        "Calculating higher-order derivatives"
-      ],
+      topics: ["Defining Average and Instantaneous Rates of Change at a Point", "Defining the Derivative of a Function and Using Derivative Notation", "Estimating Derivatives of a Function at a Point", "Applying the Power Rule", "Derivative Rules: Constant, Sum, Difference, and Constant Multiple", "Derivatives of cos x, sin x, e x, and ln x", "The Product Rule", "The Quotient Rule"],
       keyConcepts: [
         "Definition of derivative as a limit",
         "Geometric interpretation as slope of tangent line",
@@ -84,13 +59,7 @@ const calculusAB = {
     {
       name: "Unit 3: Differentiation: Composite, Implicit, and Inverse Functions",
       weight: "6-10%",
-      topics: [
-        "The chain rule for differentiating composite functions",
-        "Implicit differentiation",
-        "Differentiating inverse functions",
-        "Differentiating inverse trigonometric functions",
-        "Selecting procedures for calculating derivatives"
-      ],
+      topics: ["The Chain Rule", "Implicit Differentiation", "Differentiating Inverse Functions", "Differentiating Inverse Trigonometric Functions", "Calculating Higher Order Derivatives"],
       keyConcepts: [
         "Chain rule for composite functions",
         "Implicit differentiation techniques",
@@ -108,15 +77,7 @@ const calculusAB = {
     {
       name: "Unit 4: Contextual Applications of Differentiation",
       weight: "6-10%",
-      topics: [
-        "Interpreting the meaning of the derivative in context",
-        "Straight-line motion: connecting position, velocity, and acceleration",
-        "Rates of change in applied contexts other than motion",
-        "Introduction to related rates",
-        "Solving related rates problems",
-        "Approximating values using local linearity and linearization",
-        "Using L'Hôpital's rule for determining limits of indeterminate forms"
-      ],
+      topics: ["Interpreting the Meaning of the Derivative in Context", "Straight-Line Motion: Connecting Position, Velocity, and Acceleration", "Rates of Change in Applied Contexts Other Than Motion", "Introduction to Related Rates", "Solving Related Rates Problems", "Using L\u2019Hospital\u2019s Rule for Determining Limits of Indeterminate Forms"],
       keyConcepts: [
         "Position, velocity, and acceleration relationships",
         "Related rates problem-solving strategies",
@@ -134,19 +95,7 @@ const calculusAB = {
     {
       name: "Unit 5: Analytical Applications of Differentiation",
       weight: "15-18%",
-      topics: [
-        "Using the mean value theorem",
-        "Extreme value theorem and critical points",
-        "Determining intervals where functions are increasing or decreasing",
-        "Using the first derivative test for relative extrema",
-        "Using the candidates test for absolute extrema",
-        "Determining concavity using the second derivative",
-        "Using the second derivative test for extrema",
-        "Sketching graphs of functions and their derivatives",
-        "Connecting functions with their first and second derivatives",
-        "Introduction to optimization problems",
-        "Solving optimization problems"
-      ],
+      topics: ["Using the Mean Value Theorem", "Determining Intervals on Which a Function Is Increasing or Decreasing", "Using the First Derivative Test to Determine Relative (Local) Extrema", "Using the Candidates Test to Determine Absolute (Global) Extrema", "Determining Concavity of Functions over Their Domains", "Using the Second Derivative Test to Determine Extrema", "Sketching Graphs of Functions and Their Derivatives", "Connecting a Function, Its First Derivative, and Its Second Derivative", "Introduction to Optimization Problems", "Solving Optimization Problems", "Implementing Mathematical Processes"],
       keyConcepts: [
         "Mean Value Theorem and its applications",
         "Critical points and extreme values",
@@ -167,19 +116,7 @@ const calculusAB = {
     {
       name: "Unit 6: Integration and Accumulation of Change",
       weight: "17-20%",
-      topics: [
-        "Exploring accumulations of change",
-        "Approximating areas under curves with Riemann sums",
-        "Riemann sums, summation notation, and definite integral notation",
-        "The fundamental theorem of calculus and accumulation functions",
-        "Interpreting the behavior of accumulation functions",
-        "Applying properties of definite integrals",
-        "The fundamental theorem of calculus and definite integrals",
-        "Finding antiderivatives and indefinite integrals",
-        "Integrating using substitution",
-        "Integrating functions using long division and completing the square",
-        "Selecting techniques for antidifferentiation"
-      ],
+      topics: ["Exploring Accumulations of Change", "Approximating Areas with Riemann Sums", "Riemann Sums, Summation Notation, and Definite Integral Notation", "The Fundamental Theorem of Calculus and Accumulation Functions", "Interpreting the Behavior of Accumulation Functions Involving Area", "Applying Properties of Definite Integrals", "The Fundamental Theorem of Calculus and Definite Integrals", "Integrating Using Substitution", "Integrating Functions Using Long Division and Completing the Square", "Integrating Using Integration by Parts bc only", "Integrating Using Linear Partial Fractions bc only", "Evaluating Improper Integrals bc only", "Selecting Techniques for Antidifferentiation"],
       keyConcepts: [
         "Riemann sums and definite integrals",
         "Fundamental Theorem of Calculus (both parts)",
@@ -198,16 +135,7 @@ const calculusAB = {
     {
       name: "Unit 7: Differential Equations",
       weight: "6-12%",
-      topics: [
-        "Modeling situations with differential equations",
-        "Verifying solutions for differential equations",
-        "Sketching slope fields",
-        "Reasoning using slope fields",
-        "Approximating solutions using Euler's method",
-        "Finding general solutions using separation of variables",
-        "Finding particular solutions using initial conditions",
-        "Exponential models with differential equations"
-      ],
+      topics: ["Modeling Situations with Differential Equations", "Verifying Solutions for Differential Equations", "Sketching Slope Fields", "Reasoning Using Slope Fields", "Finding General Solutions Using Separation of Variables", "Exponential Models with Differential Equations", "Logistic Models with Differential Equations bc only"],
       keyConcepts: [
         "Differential equations as mathematical models",
         "Slope fields and solution curves",
@@ -227,20 +155,7 @@ const calculusAB = {
     {
       name: "Unit 8: Applications of Integration",
       weight: "6-12%",
-      topics: [
-        "Finding the average value of a function on an interval",
-        "Connecting position, velocity, and acceleration using integrals",
-        "Using accumulation functions in applied contexts",
-        "Finding areas between curves expressed as functions of x",
-        "Finding areas between curves expressed as functions of y",
-        "Finding areas between curves that intersect at more than two points",
-        "Volumes with cross sections: squares and rectangles",
-        "Volumes with cross sections: triangles and semicircles",
-        "Volume with disc method: revolving around x- or y-axis",
-        "Volume with disc method: revolving around other axes",
-        "Volume with washer method: revolving around x- or y-axis",
-        "Volume with washer method: revolving around other axes"
-      ],
+      topics: ["Finding the Average Value of a Function on an Interval", "Finding the Area Between Curves Expressed as Functions of x", "Finding the Area Between Curves Expressed as Functions of y", "Finding the Area Between Curves That Intersect at More Than Two Points", "Volumes with Cross Sections: Squares and Rectangles", "Volumes with Cross Sections: Triangles and Semicircles", "Volume with Disc Method: Revolving Around the x- or y-Axis", "Volume with Disc Method: Revolving Around Other Axes", "Volume with Washer Method: Revolving Around the x- or y-Axis", "Volume with Washer Method: Revolving Around Other Axes", "The Arc Length of a Smooth, Planar Curve and Distance Traveled bc only"],
       keyConcepts: [
         "Average value of functions",
         "Motion problems using integration",

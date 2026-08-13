@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Brain, Target, TrendingUp, Clock, Play, ArrowRight, Search, CheckCircle, BarChart3, Award, Zap, X, AlertCircle, Lightbulb } from 'lucide-react';
+import { Brain, Target, TrendingUp, Clock, Play, ArrowRight, Search, CheckCircle, BarChart3, Award, Zap, X, AlertCircle, Lightbulb, BookOpen, ChevronDown } from 'lucide-react';
 import { Button, Card, Badge, Input } from '../components/ui/UIComponents';
+import ProgressIndicator from '../components/ui/ProgressIndicator';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -67,6 +68,7 @@ const DiagnosticTypes = () => {
   const [answers, setAnswers] = useState({});
   const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
   const [diagnosticResult, setDiagnosticResult] = useState(null);
+  const [showReview, setShowReview] = useState(false);
   // NOTE: previously stored diagnostic history in local state and fetched it
   // here on mount, but nothing in the render reads it — removed to drop the
   // wasted Firestore round-trip. Restore both pieces if/when the UI surfaces
@@ -102,6 +104,9 @@ const DiagnosticTypes = () => {
         toast.error('Failed to generate diagnostic questions. Please try again.');
       }
       setTakingDiagnostic(null);
+      // The URL still says /diagnostics/<subject>/start after a failure, which
+      // lies about what is on screen and makes a refresh silently retry.
+      navigate('/diagnostics', { replace: true });
     } finally {
       setIsGeneratingQuestions(false);
     }
@@ -162,7 +167,11 @@ const DiagnosticTypes = () => {
       // was confidently labelled a strength or a weakness.
       Object.entries(topicScores).forEach(([concept, score]) => {
         const percentage = (score.correct / score.total) * 100;
-        const level = levelFor(percentage, score.total);
+        // MIN_SAMPLES (5) is the bar for the Progress page, which aggregates
+        // across every session. One 15-question diagnostic covers ~5 concepts at
+        // 3 questions each, so it uses a documented lower bar of 3 — enough to
+        // say something within this test, and the copy below never overstates it.
+        const level = levelFor(percentage, score.total, 3);
         if (level === 'green') {
           strengths.push(concept);
         } else if (level === 'red' || level === 'yellow') {
@@ -171,6 +180,16 @@ const DiagnosticTypes = () => {
         // 'insufficient' -> no claim either way.
       });
 
+      // Topics the student got NOTHING right on. A 15-question diagnostic rarely
+      // gives any single topic enough questions to clear MIN_SAMPLES, so
+      // `weaknesses` is usually empty — but 0/3 is still worth telling someone
+      // about, as long as it is framed as a pointer and not a verdict.
+      const missedTopics = Object.entries(topicScores)
+        .filter(([, sc]) => sc.correct === 0 && sc.total > 0)
+        .sort((a, b) => b[1].total - a[1].total)
+        .map(([concept, sc]) => `${concept} (0 of ${sc.total})`)
+        .slice(0, 5);
+
       const result = {
         subject: takingDiagnostic.name,
         accuracy,
@@ -178,8 +197,9 @@ const DiagnosticTypes = () => {
         correctAnswers,
         strengths,
         weaknesses,
+        missedTopics,
         topicScores,
-        recommendations: generateRecommendations(accuracy, weaknesses)
+        recommendations: generateRecommendations(accuracy, weaknesses, missedTopics)
       };
 
       setDiagnosticResult(result);
@@ -198,8 +218,8 @@ const DiagnosticTypes = () => {
       await recordPracticeTest(user.uid, {
         subject: takingDiagnostic.name || takingDiagnostic.key || '',
         questionsAnswered: questions.length,
-        correctAnswers: Math.round(((result?.score || 0) / 100) * questions.length),
-        scorePercent: result?.score ?? null,
+        correctAnswers: result.correctAnswers,
+        scorePercent: result.accuracy,
       });
 
       // (No local history state — diagnostic results are persisted to
@@ -212,23 +232,30 @@ const DiagnosticTypes = () => {
     }
   };
 
-  const generateRecommendations = (accuracy, weaknesses) => {
+  const generateRecommendations = (accuracy, weaknesses, missedTopics = []) => {
     const recommendations = [];
-    
+
     if (accuracy < 50) {
-      recommendations.push('Review fundamental concepts before moving to advanced topics');
-      recommendations.push('Consider taking practice tests to identify specific knowledge gaps');
+      recommendations.push('Start with the course framework rather than practice questions — at this score the gaps are in the fundamentals, not in exam technique');
+      recommendations.push('Work through one unit at a time and re-test that unit before moving on');
     } else if (accuracy < 70) {
-      recommendations.push('Focus on practicing problems in your weak areas');
-      recommendations.push('Review explanations for missed questions');
+      recommendations.push('Drill the topics you missed, then re-take this diagnostic to see if the score moves');
+      recommendations.push('Read the explanation for every question you got wrong, not just the ones you guessed');
     } else {
-      recommendations.push('Great job! Continue practicing to maintain your strong performance');
-      recommendations.push('Consider taking more challenging practice materials');
+      recommendations.push('Solid base — move on to full-length practice tests for timing and stamina');
+      recommendations.push('Use the review queue to keep the topics you already know from fading');
     }
 
-    weaknesses.forEach(weakness => {
-      recommendations.push(`Spend extra time studying ${weakness}`);
-    });
+    // Name specifics. A confirmed weakness is stated plainly; a topic that was
+    // simply missed is offered as somewhere to look, because one or two
+    // questions is not enough to conclude anything.
+    // Only name CONFIRMED weaknesses here. Missed topics are already listed in
+    // the Areas for Improvement card; repeating them made the panel read like
+    // three copies of the same sentence.
+    weaknesses.forEach((w) => recommendations.push(`Spend extra time on ${w}`));
+    if (!weaknesses.length && missedTopics.length) {
+      recommendations.push('Start with the topics listed under Areas for Improvement');
+    }
 
     return recommendations;
   };
@@ -273,10 +300,13 @@ const DiagnosticTypes = () => {
         // Diagnostic Test Interface
         <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
           {isGeneratingQuestions ? (
-            <Card className="p-12 text-center">
+            <Card className="p-6 sm:p-12 text-center">
               <div className="w-16 h-16 border-4 border-content-muted border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
-              <h2 className="text-2xl font-bold text-content-primary mb-4">Generating Diagnostic Questions</h2>
-              <p className="text-content-muted">AI is creating personalized questions for {takingDiagnostic.name}...</p>
+              <h2 className="text-xl sm:text-2xl font-bold text-content-primary mb-3">Generating diagnostic questions</h2>
+              <p className="text-content-muted mb-8">Writing personalized questions for {takingDiagnostic.name}.</p>
+              {/* Elapsed time, because this is a multi-second AI call and a bare
+                  spinner is indistinguishable from a hang. */}
+              <ProgressIndicator label="Generating" className="max-w-sm mx-auto" />
             </Card>
           ) : diagnosticResult ? (
             // Results Display
@@ -314,9 +344,11 @@ const DiagnosticTypes = () => {
                             {score.correct}/{score.total}
                           </span>
                         </div>
-                        <div className="w-full bg-base-800 rounded-full h-2">
-                          <div 
-                            className="bg-success-500 h-2 rounded-full" 
+                        <div className={`w-full rounded-full h-2 ${score.correct === 0 ? 'bg-error-900' : 'bg-base-800'}`}>
+                          <div
+                            className={`h-2 rounded-full ${
+                              score.correct / score.total >= 0.7 ? 'bg-success-500' : 'bg-warning-500'
+                            }`}
                             style={{ width: `${(score.correct / score.total) * 100}%` }}
                           ></div>
                         </div>
@@ -342,7 +374,14 @@ const DiagnosticTypes = () => {
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-content-muted">Focus on building fundamental knowledge</p>
+                    // Empty does NOT mean "no strengths". A 15-question
+                    // diagnostic rarely gives one topic enough questions to
+                    // clear the evidence bar, so say that rather than offering
+                    // advice dressed up as a finding.
+                    <p className="text-content-muted">
+                      No topic had enough questions here to call it a strength with any
+                      confidence. A full practice test gives a clearer read.
+                    </p>
                   )}
                 </Card>
 
@@ -360,8 +399,30 @@ const DiagnosticTypes = () => {
                         </li>
                       ))}
                     </ul>
+                  ) : diagnosticResult.missedTopics?.length ? (
+                    // The old copy said "Great job! No major weak areas
+                    // identified" to a student who had just scored 13%, because
+                    // no single topic cleared the minimum sample size. Show what
+                    // they actually missed, flagged as a pointer not a verdict.
+                    <>
+                      <p className="text-content-muted mb-2 text-sm">
+                        Too few questions per topic to be certain, but you missed every question on:
+                      </p>
+                      <ul className="space-y-2">
+                        {diagnosticResult.missedTopics.map((m, i) => (
+                          <li key={i} className="text-content-secondary flex items-center">
+                            <AlertCircle className="w-4 h-4 text-accent-400 mr-2" />
+                            {m}
+                          </li>
+                        ))}
+                      </ul>
+                    </>
                   ) : (
-                    <p className="text-content-muted">Great job! No major weak areas identified</p>
+                    <p className="text-content-muted">
+                      {diagnosticResult.accuracy >= 70
+                        ? 'No single topic stood out as a weak area.'
+                        : 'No single topic had enough questions to flag, but the overall score says the fundamentals need work.'}
+                    </p>
                   )}
                 </Card>
               </div>
@@ -381,17 +442,97 @@ const DiagnosticTypes = () => {
                 </ul>
               </Card>
 
-              <div className="flex gap-4 justify-center">
+              <Card className="p-6 mb-8">
+                <button
+                  onClick={() => setShowReview((v) => !v)}
+                  className="w-full flex items-center justify-between text-left"
+                  aria-expanded={showReview}
+                >
+                  <h3 className="text-xl font-bold text-content-primary flex items-center">
+                    <BookOpen className="w-5 h-5 mr-2" />
+                    Review your answers
+                    <span className="ml-2 text-body-sm font-normal text-content-muted">
+                      ({diagnosticResult.totalQuestions - diagnosticResult.correctAnswers} missed)
+                    </span>
+                  </h3>
+                  <ChevronDown
+                    className={`w-5 h-5 text-content-muted transition-transform ${showReview ? 'rotate-180' : ''}`}
+                  />
+                </button>
+
+                {showReview && (
+                  <div className="mt-6 space-y-6">
+                    {questions.map((q, qi) => {
+                      const picked = answers[qi];
+                      const isCorrect = picked === q.correctAnswer;
+                      return (
+                        <div key={qi} className="border-t border-border-subtle pt-4 first:border-t-0 first:pt-0">
+                          <div className="flex items-start gap-2 mb-3">
+                            {isCorrect ? (
+                              <CheckCircle className="w-4 h-4 text-success-400 mt-1 shrink-0" />
+                            ) : (
+                              <X className="w-4 h-4 text-error-400 mt-1 shrink-0" />
+                            )}
+                            <p className="text-content-primary font-medium min-w-0">
+                              {qi + 1}. {q.question}
+                            </p>
+                          </div>
+                          <div className="space-y-2 ml-6">
+                            {q.choices.map((choice, ci) => {
+                              const isAnswer = ci === q.correctAnswer;
+                              const isPicked = ci === picked;
+                              if (!isAnswer && !isPicked) return null;
+                              return (
+                                <div
+                                  key={ci}
+                                  className={`p-3 rounded-lg border text-body-sm ${
+                                    isAnswer
+                                      ? 'border-success-500 bg-success-900/30'
+                                      : 'border-error-500 bg-error-900/30'
+                                  }`}
+                                >
+                                  <p className="text-content-primary">
+                                    <span className="font-medium mr-2">{String.fromCharCode(65 + ci)}.</span>
+                                    {choice}
+                                    <span className="ml-2 text-content-muted">
+                                      {isAnswer ? '(correct answer)' : '(your answer)'}
+                                    </span>
+                                  </p>
+                                  {q.explanations?.[ci] && (
+                                    <p className="text-content-secondary mt-2">{q.explanations[ci]}</p>
+                                  )}
+                                </div>
+                              );
+                            })}
+                            {picked === undefined && (
+                              <p className="text-content-muted text-body-sm">You skipped this question.</p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </Card>
+
+              <div className="flex flex-wrap gap-4 justify-center">
                 <Button
                   onClick={() => {
                     setTakingDiagnostic(null);
                     setDiagnosticResult(null);
                     setQuestions([]);
                     setAnswers({});
+                    setShowReview(false);
                   }}
                   variant="outline"
                 >
                   Take Another Diagnostic
+                </Button>
+                <Button
+                  onClick={() => navigate(`/ai-tutors/${encodeURIComponent(takingDiagnostic.key)}`)}
+                  variant="outline"
+                >
+                  Ask a Tutor
                 </Button>
                 <Button
                   onClick={() => navigate('/practice-tests')}
@@ -709,7 +850,17 @@ const DiagnosticTypes = () => {
                 whileHover={{ scale: 1.02 }}
                 className="cursor-pointer"
               >
-                <Card className="p-6 h-full hover:bg-base-850 transition-all duration-200 group border-border hover:border-border-strong">
+                {/* The wrapper already had cursor-pointer and the Start button
+                    already called stopPropagation, but the card itself had no
+                    onClick — so the whole card advertised itself as clickable
+                    and did nothing when tapped. role="presentation" keeps this
+                    a mouse convenience only: keyboard and screen-reader users
+                    use the real Start Diagnostic button inside, so the card
+                    never becomes a second, nested interactive element. */}
+                <Card
+                  role="presentation"
+                  onClick={() => handleStartDiagnostic(key)}
+                  className="p-6 h-full hover:bg-base-850 transition-all duration-200 group border-border hover:border-border-strong">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">

@@ -43,6 +43,8 @@ const Practice = lazy(() => import('./pages/Practice'));
 // eslint-disable-next-line import/first
 const Legal = lazy(() => import('./pages/Legal'));
 // eslint-disable-next-line import/first
+const ScoreCalculator = lazy(() => import('./pages/ScoreCalculator'));
+// eslint-disable-next-line import/first
 const ProgressPage = lazy(() => import('./pages/Progress'));
 // eslint-disable-next-line import/first
 const Classes = lazy(() => import('./pages/Classes'));
@@ -162,6 +164,11 @@ function MainApp() {
           {/* Legal pages are intentionally NOT behind GuestGate — they must be
               readable (and crawlable) without an account, and linkable from
               outside the app. */}
+          {/* Public: no GuestGate. This is the highest-intent free search query
+              in AP prep ("AP Biology score calculator") and gating it would
+              defeat the purpose. */}
+          <Route path={createPageUrl("ApScoreCalculator")} element={<ScoreCalculator />} />
+          <Route path={createPageUrl("ApScoreCalculator", ":slug")} element={<ScoreCalculator />} />
           <Route path={createPageUrl("Privacy")} element={<Legal />} />
           <Route path={createPageUrl("Terms")} element={<Legal />} />
           <Route path={createPageUrl("Practice")} element={<GuestGate feature={FEATURES.practiceHub}><Practice /></GuestGate>} />
