@@ -42,3 +42,56 @@ describe('HEALTH_PROBES', () => {
     });
   });
 });
+
+describe('diagnose', () => {
+  const { diagnose, interpretProbe } = require('./healthProbes');
+
+  it('does not blame missing Gemini keys for a 401', () => {
+    // Live failure: ai-proxy returned 401 Unauthorized and the panel said
+    // "Needs GEMINI_API_KEYS". The keys were fine; the app token was not.
+    const d = diagnose('ai-proxy', 401, 'Unauthorized');
+    expect(d).toMatch(/App-token gate/);
+    expect(d).toMatch(/BUILD time/);
+    expect(d).not.toMatch(/GEMINI_API_KEYS/);
+  });
+
+  it('separates the two different 401s ai-proxy can return', () => {
+    expect(diagnose('ai-proxy', 401, 'Authentication required')).toMatch(/Firebase ID token/);
+    expect(diagnose('ai-proxy', 401, 'Unauthorized')).toMatch(/REACT_APP_AI_PROXY_APP_TOKEN/);
+  });
+
+  it('names a 404 as an undeployed function', () => {
+    expect(diagnose('admin-stats', 404)).toMatch(/not deployed/);
+  });
+
+  it('stays quiet when it has nothing to add', () => {
+    expect(diagnose('admin-stats', 500, 'boom')).toBeNull();
+  });
+
+  it('keeps the static hint alongside the diagnosis', () => {
+    const r = interpretProbe(
+      { status: 401, contentType: 'application/json', payload: { error: 'Unauthorized' } },
+      [400],
+      'ai-proxy'
+    );
+    expect(r.ok).toBe(false);
+    expect(r.detail).toBe('Unauthorized');
+    expect(r.diagnosis).toMatch(/App-token/);
+    expect(r.hint).toBeUndefined(); // the static hint comes from the probe, not from here
+  });
+});
+
+describe('the probe authenticates itself', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const panel = fs.readFileSync(
+    path.resolve(__dirname, '..', 'DeveloperSettings.jsx'), 'utf8');
+
+  it('sends X-App-Token, not just a Firebase bearer token', () => {
+    // ai-proxy's isAuthorized() accepts X-App-Token OR a bearer equal to the
+    // app token. Sending a Firebase ID token as the bearer is neither, so the
+    // panel 401'd itself and reported an outage that did not exist.
+    expect(panel).toMatch(/'X-App-Token': appToken/);
+    expect(panel).toMatch(/REACT_APP_AI_PROXY_APP_TOKEN/);
+  });
+});

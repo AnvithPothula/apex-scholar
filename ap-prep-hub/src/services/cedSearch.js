@@ -52,6 +52,12 @@ const SUBJECT_TO_PDF = {
   // Arts
   'AP Art and Design': 'ap-art-and-design-course-and-exam-description.pdf',
   'AP Studio Art and Design': 'ap-art-and-design-course-and-exam-description.pdf',
+  // One CED covers all three Art and Design courses. Without these three lines
+  // their tutors got no CED grounding at all — cedSearch does an exact lookup
+  // and returns [] on a miss, so the failure was completely silent.
+  'AP Studio Art: 2-D Design': 'ap-art-and-design-course-and-exam-description.pdf',
+  'AP Studio Art: 3-D Design': 'ap-art-and-design-course-and-exam-description.pdf',
+  'AP Studio Art: Drawing': 'ap-art-and-design-course-and-exam-description.pdf',
   'AP Music Theory': 'ap-music-theory-course-and-exam-description.pdf',
 
   // World Languages

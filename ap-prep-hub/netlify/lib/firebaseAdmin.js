@@ -41,11 +41,41 @@ function normalizePrivateKey(raw) {
   return key;
 }
 
+/**
+ * Structural fingerprint of the RAW env value — no key material.
+ *
+ * "It may be truncated or the wrong value" is a guess, and a guess is useless
+ * when the only person who can see the variable is the one reading the message.
+ * This reports the shape instead: length, what it starts with, and which
+ * markers are present. A real key is ~1700 chars and starts with `-----`.
+ */
+function fingerprintPrivateKey(raw) {
+  if (typeof raw !== 'string' || raw === '') return 'not set';
+  const head = raw.slice(0, 5);
+  const startsWith =
+    head.startsWith('-----') ? "'-----'"
+    : head.startsWith('"') || head.startsWith("'") ? 'a quote character'
+    : head.startsWith('{') ? "'{' (this looks like JSON — use FIREBASE_SERVICE_ACCOUNT instead)"
+    : /^[A-Za-z0-9+/]/.test(head) ? 'base64 characters (the PEM header is missing)'
+    : JSON.stringify(head);
+  return [
+    `${raw.length} chars (a service-account key is ~1700)`,
+    `starts with ${startsWith}`,
+    `BEGIN marker: ${raw.includes('-----BEGIN') ? 'yes' : 'NO'}`,
+    `END marker: ${raw.includes('-----END') ? 'yes' : 'NO'}`,
+    `escaped \\n: ${raw.includes('\\n') ? 'yes' : 'no'}`,
+    `real newlines: ${raw.includes('\n') ? 'yes' : 'no'}`,
+  ].join(', ');
+}
+
 /** Cheap shape check so we can report a useful reason before cert() throws. */
-function describeKeyProblem(key) {
+function describeKeyProblem(key, raw) {
   if (!key) return 'FIREBASE_PRIVATE_KEY is empty.';
   if (!key.includes('-----BEGIN')) {
-    return 'FIREBASE_PRIVATE_KEY has no "-----BEGIN PRIVATE KEY-----" header — it may be truncated or the wrong value.';
+    const fp = raw === undefined ? '' : ` [${fingerprintPrivateKey(raw)}]`;
+    return 'FIREBASE_PRIVATE_KEY has no "-----BEGIN PRIVATE KEY-----" header. '
+      + 'Paste the whole private_key field from the service-account JSON, '
+      + 'including the -----BEGIN/-----END lines.' + fp;
   }
   if (!key.includes('-----END')) {
     return 'FIREBASE_PRIVATE_KEY has no "-----END PRIVATE KEY-----" footer — it looks truncated.';
@@ -102,7 +132,7 @@ function getAdminApp() {
     return _cached;
   }
 
-  const keyProblem = describeKeyProblem(creds.privateKey);
+  const keyProblem = describeKeyProblem(creds.privateKey, process.env.FIREBASE_PRIVATE_KEY);
   if (keyProblem) {
     _cached = { app: null, error: keyProblem };
     return _cached;
@@ -129,4 +159,6 @@ function getAdminApp() {
   return _cached;
 }
 
-module.exports = { getAdminApp, normalizePrivateKey, describeKeyProblem, loadServiceAccount };
+module.exports = {
+  getAdminApp, normalizePrivateKey, describeKeyProblem, loadServiceAccount, fingerprintPrivateKey,
+};

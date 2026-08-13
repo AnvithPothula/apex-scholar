@@ -82,3 +82,50 @@ describe('loadServiceAccount', () => {
     expect(error).toMatch(/not valid JSON/);
   });
 });
+
+describe('fingerprintPrivateKey', () => {
+  const { fingerprintPrivateKey, describeKeyProblem, normalizePrivateKey } =
+    require('../../netlify/lib/firebaseAdmin');
+
+  const BODY = 'MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQ'.repeat(30);
+
+  it('reports structure only — never key material', () => {
+    const fp = fingerprintPrivateKey('-----BEGIN PRIVATE KEY-----\\n' + BODY + '\\n-----END PRIVATE KEY-----\\n');
+    expect(fp).not.toContain(BODY.slice(0, 20));
+    expect(fp).toMatch(/BEGIN marker: yes/);
+    expect(fp).toMatch(/END marker: yes/);
+  });
+
+  it('identifies a key pasted without its PEM armor', () => {
+    // The production symptom: no BEGIN header, value ends in base64 + \n.
+    const fp = fingerprintPrivateKey(BODY + 'Xn\\n');
+    expect(fp).toMatch(/PEM header is missing/);
+    expect(fp).toMatch(/BEGIN marker: NO/);
+  });
+
+  it('spots the whole service-account JSON in the wrong variable', () => {
+    expect(fingerprintPrivateKey('{"type":"service_account"}'))
+      .toMatch(/FIREBASE_SERVICE_ACCOUNT/);
+  });
+
+  it('spots a quote-wrapped value', () => {
+    expect(fingerprintPrivateKey('"-----BEGIN PRIVATE KEY-----"')).toMatch(/quote character/);
+  });
+
+  it('says "not set" rather than throwing on an absent value', () => {
+    expect(fingerprintPrivateKey(undefined)).toBe('not set');
+    expect(fingerprintPrivateKey('')).toBe('not set');
+  });
+
+  it('attaches the fingerprint to the missing-header message', () => {
+    const raw = BODY + 'Xn\\n';
+    const msg = describeKeyProblem(normalizePrivateKey(raw), raw);
+    expect(msg).toMatch(/no "-----BEGIN PRIVATE KEY-----" header/);
+    expect(msg).toMatch(/PEM header is missing/);
+  });
+
+  it('stays backward compatible when no raw value is passed', () => {
+    expect(describeKeyProblem('nonsense')).toMatch(/no "-----BEGIN/);
+    expect(describeKeyProblem('nonsense')).not.toMatch(/\[/);
+  });
+});

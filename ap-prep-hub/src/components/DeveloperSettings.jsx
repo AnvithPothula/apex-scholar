@@ -92,10 +92,17 @@ export default function DeveloperSettings({ onClose }) {
             const token = current ? await current.getIdToken() : null;
             const results = await Promise.all(HEALTH_PROBES.map(async (probe) => {
                 try {
+                    // The proxy's app-token gate accepts X-App-Token OR a bearer
+                    // token equal to the app token. The probe was sending a
+                    // Firebase ID token as the bearer, which is neither — so it
+                    // 401'd itself and the panel reported a production outage
+                    // that did not exist. Send the same header geminiService does.
+                    const appToken = (process.env.REACT_APP_AI_PROXY_APP_TOKEN || '').trim();
                     const res = await fetch(`/.netlify/functions/${probe.key}`, {
                         method: probe.method,
                         headers: {
                             ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                            ...(appToken ? { 'X-App-Token': appToken } : {}),
                             ...(probe.body ? { 'Content-Type': 'application/json' } : {}),
                         },
                         ...(probe.body ? { body: probe.body } : {}),
@@ -104,7 +111,7 @@ export default function DeveloperSettings({ onClose }) {
                     const payload = contentType.includes('application/json')
                         ? await res.json().catch(() => null)
                         : null;
-                    return { ...probe, ...interpretProbe({ status: res.status, contentType, payload }, probe.healthy) };
+                    return { ...probe, ...interpretProbe({ status: res.status, contentType, payload }, probe.healthy, probe.key) };
                 } catch (err) {
                     return { ...probe, ok: false, detail: err.message || 'Request failed' };
                 }
@@ -230,7 +237,10 @@ export default function DeveloperSettings({ onClose }) {
                                                 </span>
                                             </div>
                                             <p className={`text-xs mt-1 ${r.ok ? 'text-content-muted' : 'text-error-400'}`}>{r.detail}</p>
-                                            {!r.ok && (
+                                            {!r.ok && r.diagnosis && (
+                                                <p className="text-xs text-warning-500 mt-1">{r.diagnosis}</p>
+                                            )}
+                                            {!r.ok && r.hint && (
                                                 <p className="text-xs text-content-muted mt-1">
                                                     Needs <code>{r.hint}</code>
                                                 </p>

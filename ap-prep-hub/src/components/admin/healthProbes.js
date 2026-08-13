@@ -51,11 +51,43 @@ export const HEALTH_PROBES = [
  * bare `res.ok` reports every function as healthy under `npm start`. Content
  * type is the only reliable signal that a function actually ran.
  */
-export function interpretProbe({ status, contentType, payload }, healthy) {
+export function interpretProbe({ status, contentType, payload }, healthy, key) {
   if (!String(contentType || '').includes('application/json')) {
     return { ok: false, detail: 'Not running — use `netlify dev` or the deployed site.' };
   }
   if (healthy.includes(status)) return { ok: true, detail: `HTTP ${status}` };
   const reason = payload && (payload.error || payload.message);
-  return { ok: false, detail: reason || `HTTP ${status}` };
+  const diagnosis = diagnose(key, status, reason);
+  return { ok: false, detail: reason || `HTTP ${status}`, ...(diagnosis ? { diagnosis } : {}) };
+}
+
+/**
+ * The per-probe `hint` above names the variables a function needs, which is the
+ * right answer when it is unconfigured and the WRONG answer when it is
+ * configured and rejecting us. A live 401 from ai-proxy was shown next to
+ * "Needs GEMINI_API_KEYS", which sends debugging in the wrong direction — the
+ * keys were fine.
+ */
+export function diagnose(key, status, reason = '') {
+  const text = String(reason || '');
+
+  if (status === 401 && key === 'ai-proxy') {
+    if (/authentication required/i.test(text)) {
+      return 'The proxy requires a signed-in user (REQUIRE_AUTH) and no valid Firebase ID token was sent.';
+    }
+    // The app-token gate. Note this fires for the PROBE's own credentials, and
+    // says nothing about whether real AI traffic works — that goes to
+    // REACT_APP_AI_PROXY_URL (the Cloudflare worker), not this function.
+    return 'App-token gate rejected the probe. REACT_APP_AI_PROXY_APP_TOKEN must match AI_PROXY_APP_TOKEN '
+      + 'and is inlined at BUILD time, so it has to be scoped to Builds and the site rebuilt. '
+      + 'This does not affect live AI traffic, which uses REACT_APP_AI_PROXY_URL.';
+  }
+  if (status === 401) return 'The function rejected our credentials rather than reporting missing config.';
+  if (status === 403) return 'Forbidden — the caller is authenticated but not an admin.';
+  if (status === 404) return 'Function not deployed at this path. Check the build published netlify/functions.';
+  if (status === 429) return 'Rate limited by the function itself, not by Google.';
+  if (status >= 500 && /private_key|private key/i.test(text)) {
+    return 'The credentials are present but unparseable — see the key fingerprint below.';
+  }
+  return null;
 }
