@@ -19,7 +19,32 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 
 const AUTH_HOST = 'https://ai-study-helper-f2f24.firebaseapp.com';
 
+// `netlify dev` serves the functions on 8888 and proxies the CRA server on 3000.
+// Nothing served /.netlify/functions/* on 3000 itself, so opening the app there
+// 404'd every function call — which is what the unexplained
+// "404 (Not Found) (ai-proxy)" / "(email-broadcast)" console lines were. The
+// System Health panel then reported the functions as down when they were fine.
+const FUNCTIONS_HOST = process.env.NETLIFY_DEV_URL || 'http://localhost:8888';
+
 module.exports = function (app) {
+  app.use(
+    '/.netlify/functions',
+    createProxyMiddleware({
+      target: FUNCTIONS_HOST,
+      changeOrigin: true,
+      logLevel: 'warn',
+      // With `netlify dev` not running there is nothing to proxy to. Answer with
+      // JSON naming the cause: interpretProbe treats a non-JSON body as "not
+      // running", and an HTML error page would read as a mystery failure.
+      onError: (err, req, res) => {
+        res.writeHead(503, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          error: `Netlify functions are not running. Start them with \`netlify dev\` (expected at ${FUNCTIONS_HOST}), or open the app on port 8888.`,
+        }));
+      },
+    })
+  );
+
   app.use(
     '/__',
     createProxyMiddleware({

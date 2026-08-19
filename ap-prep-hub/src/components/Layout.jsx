@@ -2,7 +2,7 @@ import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { overlayVariants, modalVariants } from '../utils/animations';
-import { Brain, Calendar, Settings, LogOut, Award, Shield, X, MessageSquare, Send, FileQuestion, Calculator, Star, Code2, Sun, Moon, Lock, LogIn, GraduationCap, TrendingUp, FileText } from 'lucide-react';
+import { Brain, Calendar, Settings, LogOut, Award, Shield, X, MessageSquare, Send, FileQuestion, Calculator, Star, Code2, Sun, Moon, Lock, LogIn, GraduationCap, FileText } from 'lucide-react';
 import { Button, Avatar, AvatarFallback, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from './ui/UIComponents';
 import { useAuth } from '../contexts/AuthContext';
 import { createPageUrl, cn } from '../utils/helpers';
@@ -169,9 +169,6 @@ export function Layout({ children }) {
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-40 sm:w-48 bg-base-850 border-border">
-                                    <DropdownMenuItem onSelect={() => navigate(createPageUrl('Progress'))} className="flex items-center text-content-primary hover:bg-base-800 hover:text-content-primary">
-                                        <TrendingUp strokeWidth={1.5} size={14} className="mr-2"/>Progress
-                                    </DropdownMenuItem>
                                     <DropdownMenuItem onSelect={() => navigate(createPageUrl('Settings'))} className="flex items-center text-content-primary hover:bg-base-800 hover:text-content-primary">
                                         <Settings strokeWidth={1.5} size={14} className="mr-2"/>Settings
                                     </DropdownMenuItem>

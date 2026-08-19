@@ -548,25 +548,30 @@ class AssignmentSyncService {
 
   // logging removed to keep console clean during sync operations
 
-    const intervalId = setInterval(async () => {
+    const runSync = async () => {
       try {
-  // logging removed to keep console clean during sync operations
         await this.syncAssignments(userId, { daysBack: 1 });
       } catch (error) {
         console.error('Error in scheduled sync:', error);
       }
-    }, intervalMinutes * 60 * 1000);
+    };
 
+    const intervalId = setInterval(runSync, intervalMinutes * 60 * 1000);
     this.syncIntervals.set(userId, intervalId);
+
+    // setInterval's first tick is one full interval away, so flipping the
+    // toggle used to appear to do nothing for up to an hour. Sync now, then on
+    // the interval. Not awaited — enabling the toggle must stay instant.
+    runSync();
 
     // Save auto-sync settings to Firebase for persistence
     try {
       const userTokensRef = doc(db, 'users', userId, 'integrations', 'schoology');
-      await updateDoc(userTokensRef, {
+      await setDoc(userTokensRef, {
         autoSync: true,
         syncInterval: intervalMinutes,
         autoSyncStarted: new Date()
-      });
+      }, { merge: true });
   // logging removed to keep console clean during sync operations
     } catch (error) {
       console.error('Error saving auto-sync settings:', error);
@@ -595,10 +600,10 @@ class AssignmentSyncService {
       const userTokensRef = doc(db, 'users', userId, 'integrations', 'schoology');
       const tokenDoc = await getDoc(userTokensRef);
       if (tokenDoc.exists()) {
-        await updateDoc(userTokensRef, {
+        await setDoc(userTokensRef, {
           autoSync: false,
           autoSyncStopped: new Date()
-        });
+        }, { merge: true });
       }
     } catch (error) {
       // Silently ignore — this is a best-effort persistence during cleanup

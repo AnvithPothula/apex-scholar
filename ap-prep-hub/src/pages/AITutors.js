@@ -126,6 +126,8 @@ const AITutors = () => {
   const [editingName, setEditingName] = useState('');
   const [showConversationMenu, setShowConversationMenu] = useState(null);
   const [uploadedFiles, setUploadedFiles] = useState([]);
+  // >0 while FileReader is still working. Sending mid-read dropped the attachment.
+  const [filesProcessing, setFilesProcessing] = useState(0);
   const [selectedMode, setSelectedMode] = useState('Explain'); // 'Explain' | 'Practice MCQ' | 'Walkthrough' | 'Summarize Attachment'
   const [checkMySteps, setCheckMySteps] = useState(false);
   const [selectedModel, setSelectedModel] = useState(getDefaultModel);
@@ -143,6 +145,9 @@ const AITutors = () => {
   // Bumping this re-attaches the messages listener after Firestore kills it (A30).
   const [messagesEpoch, setMessagesEpoch] = useState(0);
   const messagesRetryRef = useRef(0);
+  // Consecutive AI failures, so the retry countdown backs off across messages
+  // instead of promising the same 60 seconds after the fifth 502 in a row.
+  const aiFailureStreak = useRef(0);
   // Removed diagnostics UI and state
 
   // Warm up AI service (Puter model probe) to reduce first-call latency
@@ -715,24 +720,34 @@ const AITutors = () => {
   }, [activeConversationId, conversations.length, cleanupEmptyConversation, isSwitchingSubjects]);
 
   // Enhanced file upload handler with Gemini analysis support
+  // Opens the persistent hidden <input> rendered below.
+  //
+  // This used to build a detached input, click it, and return — leaving NOTHING
+  // holding a reference to the element. An input that is never in the document
+  // can be garbage-collected before its `change` event fires, so the picker
+  // opened, the user chose a file, and nothing happened. Intermittently. That
+  // is the "sometimes it attaches, sometimes it doesn't" report; Safari is the
+  // worst offender. A ref'd element in the tree cannot be collected.
+  const fileInputRef = useRef(null);
   const handleFileSelect = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*,.pdf,.doc,.docx,.txt,.csv,.json';
-    input.multiple = true; // Allow multiple files
-    input.onchange = async (e) => {
-      const files = Array.from(e.target.files);
-      if (files.length > 0) {
-        await processUploadedFiles(files);
-      }
-    };
-    input.click();
+    const el = fileInputRef.current;
+    if (!el) return;
+    el.value = ''; // so re-picking the SAME file still fires `change`
+    el.click();
+  };
+
+  const handleFileInputChange = async (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (files.length > 0) await processUploadedFiles(files);
   };
 
   // Process uploaded files and convert to base64 for Gemini API
   const processUploadedFiles = async (files) => {
     const processedFiles = [];
     const errors = [];
+    setFilesProcessing((n) => n + files.length);
+    try {
     
     for (const file of files) {
       // Check file size (max 10MB)
@@ -757,6 +772,9 @@ const AITutors = () => {
     if (processedFiles.length > 0) {
       setUploadedFiles(prev => [...prev, ...processedFiles]);
       console.log('Files uploaded successfully:', processedFiles.map(f => f.name));
+    }
+    } finally {
+      setFilesProcessing((n) => Math.max(0, n - files.length));
     }
   };
 
@@ -1687,54 +1705,42 @@ RESPONSE STRUCTURE: Direct analysis → 2-3 key concepts → AP application → 
       });
       const text = await geminiService.generateFromPayload(payload);
       console.log("Received AI response, length:", text?.length || 0);
+      aiFailureStreak.current = 0; // a success clears the backoff
       return text;
       
     } catch (error) {
       console.error('Error calling enhanced Gemini API:', error);
       
+      // Consecutive failures raise the wait. Reset on any success (see the
+      // success path above), so a one-off blip does not push the student to a
+      // ten-minute wait.
+      aiFailureStreak.current += 1;
+      const httpCode = (String(error?.message || '').match(/\b(4\d\d|5\d\d)\b/) || [])[1] || '';
+      const retrySpec = `attempt=${aiFailureStreak.current}`
+        + (error?.retryAfter ? ` retryAfter=${error.retryAfter}` : '')
+        + (httpCode ? ` reason=${httpCode}` : '');
+
       // Check for rate limit error and provide specific message
       if (error instanceof RateLimitError || error.isRateLimit || 
           (error.message && (error.message.includes('rate') || error.message.includes('quota') || error.message.includes('429')))) {
-        const waitTime = error.retryAfter || 60;
-        return `⏳ **AI Service Temporarily Unavailable**
+        return `The AI service is at capacity right now.
 
-The AI service is currently experiencing high demand. Please wait **${waitTime} seconds** before trying again.
-
-**While you wait:**
-- Review your course materials for ${subjectName}
-- Check out the Practice Tests section
-- Browse flashcards for quick review
-
-*The service will automatically become available again shortly. Thank you for your patience!*`;
+\`\`\`apex-retry
+${retrySpec}
+\`\`\``;
       }
       
-      // Enhanced contextual fallback with proper formatting
-      return `I apologize, but I'm experiencing connectivity issues right now.
+      // Model overloaded / unreachable. Say that and stop.
+      //
+      // This used to emit a page of generic "Study Suggestions" built from a
+      // fuzzy keyword match against the curriculum, presented as though it were
+      // an answer to the question the student asked. Confidently generic filler
+      // during an outage is worse than a plain outage notice.
+      return `I couldn't reach the AI service for that message.
 
-**However, regarding your question about ${subjectName}:**
-
-${curriculumData ? `
-## Quick Reference
-This topic likely relates to **${curriculumData.units?.find(unit => 
-  unit.topics?.some(topic => 
-    topic.toLowerCase().includes(userMessage.toLowerCase().split(' ')[0]) ||
-    userMessage.toLowerCase().includes(topic.toLowerCase().split(' ')[0])
-  )
-)?.name || 'one of our key course units'}**.
-
-## Study Suggestions
-- Review the relevant unit in your course materials
-- Practice with AP-style questions on this topic  
-- Connect this concept to broader ${subjectName} themes
-- Check the College Board course description
-
-*I'll be back online shortly to provide more detailed guidance!*
-` : `
-Please check your internet connection and try again. In the meantime:
-- Review your course materials for related concepts
-- Practice problems are always helpful for ${subjectName}
-- Consider reaching out to your teacher for additional support
-`}`;
+\`\`\`apex-retry
+${retrySpec}
+\`\`\``;
     }
   };
 
@@ -1763,6 +1769,13 @@ Please check your internet connection and try again. In the meantime:
     console.log('Send message clicked, current message:', currentMessage);
     if ((!currentMessage.trim() && uploadedFiles.length === 0) || isTyping || !activeConversationId) {
       console.log('Message empty, already typing, or no active conversation, returning');
+      return;
+    }
+
+    // A large PDF can take seconds to read. Sending during that window shipped
+    // the message with no attachment at all — silently.
+    if (filesProcessing > 0) {
+      toast.info('Still reading your file — it will be ready in a moment.');
       return;
     }
 
@@ -2626,6 +2639,23 @@ Please check your internet connection and try again. In the meantime:
       >
         <div className="max-w-4xl mx-auto p-3 sm:p-4 md:p-6">
           {/* Display uploaded files */}
+          {/* Persistent, ref'd file input. Must stay mounted — see handleFileSelect. */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/*,.pdf,.doc,.docx,.txt,.csv,.json"
+            onChange={handleFileInputChange}
+            className="hidden"
+            aria-hidden="true"
+            tabIndex={-1}
+          />
+          {filesProcessing > 0 && (
+            <div className="flex items-center gap-2 text-body-sm text-content-muted mb-2">
+              <span className="w-3 h-3 border-2 border-content-muted border-t-transparent rounded-full animate-spin" />
+              Reading {filesProcessing} file{filesProcessing === 1 ? '' : 's'}…
+            </div>
+          )}
           {uploadedFiles.length > 0 && (
             <div className="mb-3 sm:mb-4 p-2 sm:p-3 bg-base-800 rounded-lg border border-border-strong">
               <div className="flex items-center justify-between mb-2">
@@ -2710,7 +2740,7 @@ Please check your internet connection and try again. In the meantime:
                   e.stopPropagation();
                   handleSendMessage();
                 }}
-                disabled={(!currentMessage.trim() && uploadedFiles.length === 0) || isTyping || (isGuest && guestRemaining <= 0)}
+                disabled={(!currentMessage.trim() && uploadedFiles.length === 0) || isTyping || filesProcessing > 0 || (isGuest && guestRemaining <= 0)}
                 aria-label="Send message"
                 title="Send (Enter)"
                 className="px-3 sm:px-6 py-2 sm:py-2.5 bg-content-primary text-base-950 hover:opacity-90"

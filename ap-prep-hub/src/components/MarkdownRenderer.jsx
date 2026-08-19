@@ -6,6 +6,7 @@ import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 import { preprocessContent } from '../utils/latexPreprocess';
 import InlineScoreCalculator from './tutors/InlineScoreCalculator';
+import RetryCountdown from './tutors/RetryCountdown';
 
 // Re-export so existing imports keep working without churn.
 export { preprocessContent };
@@ -72,6 +73,11 @@ const mdComponents = {
     // rather than a confidently wrong score.
     if (/language-apex-score/.test(className || '')) {
       return <InlineScoreCalculator spec={String(children)} />;
+    }
+    // A ```apex-retry fence is a live countdown. A static "try again in 60
+    // seconds" baked into a chat message is stale the moment it renders.
+    if (/language-apex-retry/.test(className || '')) {
+      return <RetryCountdown spec={String(children)} />;
     }
     return (
       <pre className="bg-base-900 p-3 rounded-sm overflow-x-auto my-2 border border-border">

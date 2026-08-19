@@ -68,6 +68,55 @@ function fingerprintPrivateKey(raw) {
   ].join(', ');
 }
 
+/**
+ * Why OpenSSL rejected a key that LOOKS well-formed.
+ *
+ * `error:1E08010C:DECODER routines::unsupported` is emitted for every body-level
+ * problem, so the message alone cannot tell you which. Run against the
+ * NORMALIZED key and check the things that actually differ.
+ */
+function diagnoseParsedKey(key) {
+  if (typeof key !== 'string' || !key) return 'key is empty after normalization';
+
+  const header = (key.match(/-----BEGIN ([A-Z ]+)-----/) || [])[1];
+  const footer = (key.match(/-----END ([A-Z ]+)-----/) || [])[1];
+  const notes = [];
+
+  if (header && footer && header !== footer) {
+    notes.push(`header says "${header}" but footer says "${footer}" — mismatched armor`);
+  }
+  if (header === 'RSA PRIVATE KEY') {
+    notes.push('this is a PKCS#1 key; Google service accounts ship PKCS#8 ("BEGIN PRIVATE KEY"). Wrong key file?');
+  }
+
+  const body = key
+    .replace(/-----BEGIN [A-Z ]+-----/, '')
+    .replace(/-----END [A-Z ]+-----/, '')
+    .trim();
+
+  if (/ /.test(body)) {
+    notes.push('the base64 body contains SPACES — newlines were replaced by spaces somewhere in the copy/paste');
+  }
+  const bad = body.replace(/[A-Za-z0-9+/=\n\r]/g, '');
+  if (bad) {
+    notes.push(`the body has ${bad.length} character(s) that are not valid base64 (first: ${JSON.stringify(bad[0])})`);
+  }
+  const b64 = body.replace(/\s/g, '');
+  if (b64.length < 1000) {
+    notes.push(`the body is only ${b64.length} base64 chars; a real key is ~1600 — it is truncated`);
+  }
+  if (b64.length % 4 !== 0) {
+    notes.push(`the body length (${b64.length}) is not a multiple of 4, so the base64 is incomplete`);
+  }
+  if (!/^MI/.test(b64)) {
+    notes.push(`the body should start with "MI" (a DER SEQUENCE) but starts with ${JSON.stringify(b64.slice(0, 4))}`);
+  }
+
+  const lines = key.split('\n').filter(Boolean).length;
+  notes.push(`${lines} line(s) after normalization, ${b64.length} base64 chars`);
+  return notes.join('; ');
+}
+
 /** Cheap shape check so we can report a useful reason before cert() throws. */
 function describeKeyProblem(key, raw) {
   if (!key) return 'FIREBASE_PRIVATE_KEY is empty.';
@@ -154,11 +203,15 @@ function getAdminApp() {
     _cached = { app, error: null };
   } catch (e) {
     // The common one: "Failed to parse private key: ... DECODER routines::unsupported"
-    _cached = { app: null, error: `Firebase admin init failed: ${e.message}` };
+    _cached = {
+      app: null,
+      error: `Firebase admin init failed: ${e.message} — ${diagnoseParsedKey(creds.privateKey)}`,
+    };
   }
   return _cached;
 }
 
 module.exports = {
   getAdminApp, normalizePrivateKey, describeKeyProblem, loadServiceAccount, fingerprintPrivateKey,
+  diagnoseParsedKey,
 };

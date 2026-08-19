@@ -1,5 +1,6 @@
 /* eslint-disable import/first */
 import React, { useEffect, Suspense, lazy } from 'react';
+import { retryingImport, clearChunkReloadFlag } from './utils/lazyWithRetry';
 import { BrowserRouter as Router, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
 import AnimatedOutlet from './components/ui/AnimatedOutlet';
 import { AuthProvider } from './contexts/AuthContext';
@@ -9,9 +10,9 @@ import { Layout } from './components/Layout.jsx';
 import { LoginPage } from './components/auth/LoginPage';
 // Lazy: this OAuth-callback route statically pulls schoologyAPI -> Firestore,
 // which put the whole SDK in the initial bundle for a page almost nobody hits.
-const SchoologyCallback = lazy(() =>
+const SchoologyCallback = lazy(retryingImport(() =>
   import('./components/auth/SchoologyCallback').then((m) => ({ default: m.SchoologyCallback }))
-);
+));
 import GuestGate from './components/GuestGate';
 import { Calendar, FileQuestion, Zap, Calculator, Settings as SettingsIcon, Activity, GraduationCap, Brain, TrendingUp, Users } from 'lucide-react';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -21,35 +22,35 @@ import { ConfirmProvider } from './contexts/ConfirmContext';
 import ToastContainer from './components/ui/Toast';
 import AiDowngradeNotice from './components/ui/AiDowngradeNotice';
 // eslint-disable-next-line import/first
-const AITutors = lazy(() => import('./pages/AITutors'));
+const AITutors = lazy(retryingImport(() => import('./pages/AITutors')));
 // eslint-disable-next-line import/first
-const SmartScheduler = lazy(() => import('./pages/SmartScheduler'));
+const SmartScheduler = lazy(retryingImport(() => import('./pages/SmartScheduler')));
 // eslint-disable-next-line import/first
-const PracticeTests = lazy(() => import('./pages/PracticeTests'));
+const PracticeTests = lazy(retryingImport(() => import('./pages/PracticeTests')));
 // eslint-disable-next-line import/first
-const Settings = lazy(() => import('./pages/Settings'));
+const Settings = lazy(retryingImport(() => import('./pages/Settings')));
 // eslint-disable-next-line import/first
-const Flashcards = lazy(() => import('./pages/Flashcards'));
+const Flashcards = lazy(retryingImport(() => import('./pages/Flashcards')));
 // eslint-disable-next-line import/first
-const Solver = lazy(() => import('./pages/Solver'));
+const Solver = lazy(retryingImport(() => import('./pages/Solver')));
 // eslint-disable-next-line import/first
-const Diagnostics = lazy(() => import('./pages/Diagnostics'));
+const Diagnostics = lazy(retryingImport(() => import('./pages/Diagnostics')));
 // eslint-disable-next-line import/first
-const LearnHub = lazy(() => import('./pages/LearnHub'));
+const LearnHub = lazy(retryingImport(() => import('./pages/LearnHub')));
 // eslint-disable-next-line import/first
-const Review = lazy(() => import('./pages/Review'));
+const Review = lazy(retryingImport(() => import('./pages/Review')));
 // eslint-disable-next-line import/first
-const Practice = lazy(() => import('./pages/Practice'));
+const Practice = lazy(retryingImport(() => import('./pages/Practice')));
 // eslint-disable-next-line import/first
-const Legal = lazy(() => import('./pages/Legal'));
+const Legal = lazy(retryingImport(() => import('./pages/Legal')));
 // eslint-disable-next-line import/first
-const ScoreCalculator = lazy(() => import('./pages/ScoreCalculator'));
+const ScoreCalculator = lazy(retryingImport(() => import('./pages/ScoreCalculator')));
 // eslint-disable-next-line import/first
-const ProgressPage = lazy(() => import('./pages/Progress'));
+const ProgressPage = lazy(retryingImport(() => import('./pages/Progress')));
 // eslint-disable-next-line import/first
-const Classes = lazy(() => import('./pages/Classes'));
+const Classes = lazy(retryingImport(() => import('./pages/Classes')));
 // eslint-disable-next-line import/first
-const NotFound = lazy(() => import('./pages/NotFound'));
+const NotFound = lazy(retryingImport(() => import('./pages/NotFound')));
 import { createPageUrl } from './utils/helpers';
 import { initializeBackgroundSync } from './services/backgroundSync';
 import { initAnalytics, trackPageView } from './utils/analytics';
@@ -72,6 +73,11 @@ const FEATURES = {
 
 // Main App Component
 function App() {
+  // The app mounted, so whatever chunk state forced a reload is resolved. Clear
+  // the guard now rather than leaving it set for the rest of the session, or the
+  // NEXT deploy's stale chunk would throw instead of reloading.
+  useEffect(() => { clearChunkReloadFlag(); }, []);
+
   // Initialize background sync when app starts
   useEffect(() => {
     initializeBackgroundSync();

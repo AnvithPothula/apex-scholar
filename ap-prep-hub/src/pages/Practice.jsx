@@ -14,7 +14,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { FileQuestion, Zap, RotateCcw, ChevronRight, Target, Users, Calculator, Stethoscope } from 'lucide-react';
+import { FileQuestion, Zap, RotateCcw, ChevronRight, Target, Users, Calculator, Stethoscope, TrendingUp } from 'lucide-react';
 import { Card, Badge } from '../components/ui/UIComponents';
 import { useAuth } from '../contexts/AuthContext';
 import { createPageUrl } from '../utils/helpers';
@@ -87,6 +87,17 @@ export default function Practice() {
       title: 'AP Score Calculator',
       body: 'Turn raw section scores into an estimated 1–5, and see the curve behind it.',
       to: createPageUrl('ApScoreCalculator'),
+      meta: null,
+    },
+    {
+      // Progress moved off the account menu and onto this hub — it answers
+      // "how am I doing", which is a practice question, and it was buried where
+      // nobody looked for it.
+      key: 'progress',
+      icon: TrendingUp,
+      title: 'Progress',
+      body: 'Streaks, accuracy over time, and the topics your answers say are weakest.',
+      to: createPageUrl('Progress'),
       meta: null,
     },
     {

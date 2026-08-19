@@ -9,8 +9,14 @@
 # Without this, `netlify dev` reports "No app server detected" and serves the
 # stale contents of ap-prep-hub/build as a static site — so source edits appear
 # to do nothing and chunk hashes stop matching. Pin the CRA dev server instead.
+# Run `netlify dev` from the REPOSITORY ROOT, not from ap-prep-hub/.
+#   - From ap-prep-hub/ the `base` above resolves against the cwd and you get
+#     "Base directory does not exist: .../ap-prep-hub/ap-prep-hub".
+#   - From the root, a bare `npm start` fails with "Missing script: start"
+#     because package.json lives in ap-prep-hub/. Hence the explicit --prefix,
+#     which also sets the script's cwd so CRA finds src/setupProxy.js and public/.
 [dev]
-  command = "npm start"
+  command = "npm --prefix ap-prep-hub start"
   targetPort = 3000
   port = 8888
   publish = "build"

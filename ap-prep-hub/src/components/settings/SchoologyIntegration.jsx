@@ -13,9 +13,7 @@ import {
   BookOpen,
   AlertCircle,
   Loader,
-  LogIn,
-  LogOut,
-  ExternalLink
+  LogOut
 } from 'lucide-react';
 import { Button, Card, CardHeader, CardTitle, CardContent } from '../ui/UIComponents';
 import { useAuth } from '../../contexts/AuthContext';
@@ -41,7 +39,6 @@ export function SchoologyIntegration() {
   // OAuth-side state (separate from the calendar-feed `isConnected` above).
   const [oauthConnected, setOauthConnected] = useState(false);
   const [schoologyName, setSchoologyName] = useState(null);
-  const [isSigningIn, setIsSigningIn] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   // Load integration status on component mount
@@ -82,24 +79,6 @@ export function SchoologyIntegration() {
       loadIntegrationStatus();
     }
   }, [user, loadIntegrationStatus]);
-
-  const handleSchoologySignIn = async () => {
-    try {
-      setIsSigningIn(true);
-      setError(null);
-      // Initiates OAuth and redirects the browser to Schoology. The callback
-      // page (/schoology-callback) finishes the dance and writes tokens to
-      // Firestore. We don't reach the .then() because the page unloads.
-      await schoologyAPI.initiateOAuth(user.uid);
-    } catch (error) {
-      console.error('Error starting Schoology sign-in:', error);
-      setError(
-        error?.message ||
-          "Couldn't start Schoology sign-in. If the problem persists, paste a calendar URL below as a fallback."
-      );
-      setIsSigningIn(false);
-    }
-  };
 
   const handleSchoologySignOut = async () => {
     const ok = await confirm({
@@ -312,15 +291,15 @@ export function SchoologyIntegration() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Schoology Account (OAuth) — primary path */}
+        {/* Schoology sign-in was removed: the calendar feed is the supported path.
+            This block now renders ONLY for users who connected before the change,
+            so they can still sign out rather than being stuck connected forever. */}
+        {oauthConnected && (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <h3 className="font-medium text-content-primary">Schoology Account</h3>
-            <span className="text-[10px] uppercase tracking-wide font-semibold text-primary-400 bg-primary-900/40 border border-primary-700/40 rounded px-1.5 py-0.5">
-              Recommended
-            </span>
           </div>
-          {oauthConnected ? (
+          {(
             <div className="flex items-center justify-between gap-3 p-3 rounded-md bg-base-800 border border-border">
               <div className="flex items-center gap-2 min-w-0">
                 <CheckCircle className="w-5 h-5 text-success-400 flex-shrink-0" strokeWidth={1.5} />
@@ -347,35 +326,9 @@ export function SchoologyIntegration() {
                 )}
               </Button>
             </div>
-          ) : (
-            <div className="space-y-3">
-              <p className="text-sm text-content-secondary">
-                Sign in with your Schoology account to sync directly. You stay signed in until you log out.
-              </p>
-              <Button
-                onClick={handleSchoologySignIn}
-                disabled={isSigningIn}
-                className="w-full sm:w-auto"
-              >
-                {isSigningIn ? (
-                  <>
-                    <Loader className="w-4 h-4 mr-2 animate-spin" strokeWidth={1.5} />
-                    Redirecting…
-                  </>
-                ) : (
-                  <>
-                    <LogIn className="w-4 h-4 mr-2" strokeWidth={1.5} />
-                    Sign in with Schoology
-                    <ExternalLink className="w-3 h-3 ml-1.5 opacity-60" strokeWidth={1.5} />
-                  </>
-                )}
-              </Button>
-              <p className="text-xs text-content-muted">
-                Some districts disable third-party app sign-in. If it doesn&apos;t work for you, paste a calendar URL below instead.
-              </p>
-            </div>
           )}
         </div>
+        )}
 
         {/* Connection Status (calendar feed) */}
         <div className="space-y-4 border-t border-border-strong pt-4">

@@ -7,6 +7,8 @@ import { useNavigate } from 'react-router-dom';
 import { cn, createPageUrl } from '../utils/helpers';
 import achievementsService from '../services/achievementsService';
 import dataService from '../services/dataService';
+import { buildActivityMap, totalStudyMinutes } from '../services/activityMap';
+import { currentWorkOnly } from '../services/academicYear';
 import geminiService from '../services/geminiService';
 import { masteryBySubject, weakestArea } from '../services/mastery';
 import srs, { dueCards } from '../services/srs';
@@ -24,11 +26,6 @@ const formatStudyTime = (minutes) => {
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
   return hours > 0 ? `${hours}.${Math.round(mins/6)} hours` : `${mins} minutes`;
-};
-
-const formatLocalDateKey = (date) => {
-  const pad = (value) => String(value).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 };
 
 const processSubjectProgress = (progressData, studySessions, practiceTests = [], mySubjects = []) => {
@@ -295,22 +292,33 @@ const ProgressPage = () => {
         dataService.getUserSubjects(user.uid)
       ]);
 
-      // Build activity heatmap data for StreakCalendar
-      const activityMap = {};
-      studySessions.forEach(session => {
-        const date = session.timestamp?.toDate?.() || (session.createdAt?.toDate?.()) || null;
-        if (date) {
-          const key = formatLocalDateKey(date);
-          activityMap[key] = (activityMap[key] || 0) + 1;
-        }
-      });
+      // Build activity heatmap data for StreakCalendar.
+      // Previously this read ONLY studySessions, a collection that activityTracker
+      // started writing late — so a user with real practice-test history saw a
+      // blank grid next to "169 questions answered".
+      const diagnostics = await dataService.getUserDiagnosticResults(user.uid).catch(() => []);
+      const activityMap = buildActivityMap({ studySessions, practiceTests, diagnostics });
 
-      // Process and organize data
-      const masteries = masteryBySubject(practiceTests);
+      // Process and organize data.
+      //
+      // Scope recommendations to the CURRENT AP year and the courses the student
+      // is still taking. Last year's weak AP Biology units are not wrong, they
+      // are just no longer this student's problem — and a "Focus next" card
+      // pointing at a finished course is worse than no card at all.
+      // The heatmap above deliberately keeps everything: history is history.
+      const enrolledSubjects = (mySubjects || [])
+        .map((s) => s?.name || s?.subject || s)
+        .filter((s) => typeof s === 'string');
+      const currentTests = currentWorkOnly(practiceTests, { enrolledSubjects });
+      const masteries = masteryBySubject(currentTests);
       const processedData = {
         overall: {
           studyStreak: achievements.studyStreaks?.current || 0,
-          totalStudyTime: formatStudyTime(stats.totalStudyTime || 0),
+          // stats.totalStudyTime sums `duration`, which only the practice-test
+          // path ever wrote, so this read "0 minutes" for everyone else.
+          totalStudyTime: formatStudyTime(
+            totalStudyMinutes({ studySessions, practiceTests }) || stats.totalStudyTime || 0
+          ),
           questionsAnswered: calculateTotalQuestions(studySessions, flashcardDecks, masteries),
           accuracy: calculateOverallAccuracy(studySessions, flashcardDecks, masteries),
           improvement: calculateImprovement(studySessions),
@@ -321,7 +329,7 @@ const ProgressPage = () => {
         masteries,
         weeklyActivity: processWeeklyActivity(studySessions),
         achievements: processAchievements(achievements, user.uid),
-        recommendations: await generateRecommendations(overallProgress, studySessions, masteries),
+        recommendations: await generateRecommendations(overallProgress, currentWorkOnly(studySessions, { enrolledSubjects }), masteries),
         activityMap,
       };
 
