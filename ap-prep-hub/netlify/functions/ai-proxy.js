@@ -178,7 +178,9 @@ function buildCorsHeaders(origin) {
     // can't tell which model in the chain actually answered — and the UI ends
     // up showing whatever the user picked in the dropdown, which is a lie
     // whenever the chain fell through to a different model.
-    'Access-Control-Expose-Headers': 'X-Apex-Model',
+    // Without Retry-After here the browser hides it from JS and the client's
+    // countdown falls back to a made-up 60 seconds.
+    'Access-Control-Expose-Headers': 'X-Apex-Model, Retry-After',
     Vary: 'Origin',
   };
 }
@@ -224,6 +226,25 @@ function isAuthorized(event) {
 // ---------------------------------------------------------------------------
 // Handler
 // ---------------------------------------------------------------------------
+/**
+ * Seconds to wait, from a 429 response.
+ *
+ * Google does NOT send a `Retry-After` header — the number is in the body as a
+ * RetryInfo detail (`"retryDelay": "26s"`). This code read the header, always
+ * got NaN, and fell back to 3600, so a transient per-MINUTE 429 (which clears in
+ * about half a minute) sidelined that key+model pair for a full hour. Under load
+ * that walks the whole ring out of service one pair at a time.
+ */
+function retryDelaySeconds(headerValue, bodyText) {
+  const fromHeader = parseInt(headerValue || '', 10);
+  if (Number.isFinite(fromHeader) && fromHeader > 0) return fromHeader;
+  const m = /"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/.exec(String(bodyText || ''));
+  if (m) return Math.ceil(Number(m[1]));
+  // A per-day quota carries no delay and clears at midnight Pacific.
+  if (/PerDay|per day/i.test(String(bodyText || ''))) return 3600;
+  return 60;
+}
+
 exports.handler = async (event) => {
   const allowedOrigin = getAllowedOrigin(event);
   if (!allowedOrigin) {
@@ -353,18 +374,33 @@ exports.handler = async (event) => {
   // RPD (interactive workhorse); gemini-3.5/3-preview/2.5 flash = 20 RPD each
   // (scarce "premium" reserve — FRQ grading only). Pro models are 0 RPD: never.
   const MODEL_CHAINS = {
-    bulk:        ['gemma-4-31b-it', 'gemma-4-26b-a4b-it', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite'],
-    interactive: ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
-    premium:     ['gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3-flash-preview', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite'],
-    // Gemma is text-only — anything carrying an image must stay on Gemini.
-    vision:      ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-2.5-flash', 'gemini-3.5-flash'],
-    // Second-opinion chain: deliberately leads with the model `bulk` does NOT,
-    // so a generated answer key is checked by a different architecture. If this
-    // shared the generator's model it would just agree with itself.
-    verify:      ['gemma-4-26b-a4b-it', 'gemma-4-31b-it', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite'],
-  };
+  // Written out in full, not composed from shared arrays: aiRouterCapacity.test.js
+  // compares these three copies by parsing the source text, and a spread hides
+  // the model names from it. Verbosity here buys a real drift check.
+  //
+  // Gemma is the TAIL of every chain, never the lead. Measured twice against
+  // this app's own prompts:
+  //   mcqGenerate (JSON):  gemma-4-31b-it 2/3 parsed, flash-lite 3/3
+  //   explain     (prose): gemma-4-31b-it 0/3 clean,  flash-lite 3/3
+  // Given a prompt shaped as an instruction list it restates the task as a plan
+  // ("* Subject: AP Biology. * Question: ...") and calls that the answer. Every
+  // prompt in this app is an instruction list. It still absorbs overflow at the
+  // tail, where a 2-in-3 answer beats none.
+  bulk:        ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
+  interactive: ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
+  // FRQ grading is the one place output quality is worth the scarce pool, so
+  // the newest -flash models lead and the lites catch the overflow.
+  premium:     ['gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
+  // No Gemma. Gemma 4 is documented to accept images, but that is unverified
+  // here and the solver is not the place to find out.
+  vision:      ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'],
+  verify:      ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
+};
+
   const TASK_TO_CHAIN = {
-    tutorChat: 'interactive', explain: 'interactive',
+    tutorChat: 'interactive',
+    // Review-card explanations are high volume and short — see modelChains.js.
+    explain: 'bulk',
     solver: 'vision',
     // lessonTeach is batch content authoring, not chat: it wants Gemma's
     // 14,400 RPD, not flash-lite's scarcer 500. (Gemma's TPM is 16K, NOT
@@ -390,6 +426,11 @@ exports.handler = async (event) => {
   const requested = normModel(payload.model);
   const preferred = isGoogleModel(requested) ? requested : null;
   if (preferred) models = [preferred, ...models.filter((m) => m !== preferred)];
+
+  // Tracked across the walk so a total failure can tell the client how long to
+  // wait rather than leaving the UI to invent a number.
+  let soonestRetry = null;
+  let rateLimited = false;
 
   // Walk the chain: per (key, model) cooldown on 429, per-model dead-mark on
   // "model not found", bounded total attempts to keep latency sane.
@@ -431,8 +472,15 @@ exports.handler = async (event) => {
             modelDown = true;
             continue;
           }
-          const retryAfter = resp.status === 429 ? parseInt(resp.headers.get('retry-after') || '3600', 10) : 60;
-          modelKeyCooldown.set(`${keyIdx}:${m}`, Date.now() + retryAfter * 1000);
+          let cooldown = 60;
+          if (resp.status === 429) {
+            cooldown = retryDelaySeconds(resp.headers.get('retry-after'), await resp.text());
+            // Soonest moment any attempted pair frees up — what the client
+            // counts down instead of guessing.
+            if (soonestRetry === null || cooldown < soonestRetry) soonestRetry = cooldown;
+            rateLimited = true;
+          }
+          modelKeyCooldown.set(`${keyIdx}:${m}`, Date.now() + cooldown * 1000);
           continue; // next key
         }
         currentKeyIndex = (keyIdx + 1) % API_KEYS.length; // spread load
@@ -449,6 +497,22 @@ exports.handler = async (event) => {
     }
   }
   console.error(`[ai-proxy] exhausted task=${task} chain=${chainName} attempts=${attempts}: ${lastErr}`);
+
+  // 429 with a real number when every failure was a rate limit; 503 only when
+  // something is actually broken. A student can wait out the first and should
+  // be told how long.
+  if (rateLimited) {
+    const retryAfter = soonestRetry || 60;
+    return {
+      statusCode: 429,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json',
+        'Retry-After': String(retryAfter),
+      },
+      body: JSON.stringify({ error: 'All models are rate limited right now', retryAfter }),
+    };
+  }
 
   return {
     statusCode: 503,

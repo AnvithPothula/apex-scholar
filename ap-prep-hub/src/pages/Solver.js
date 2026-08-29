@@ -307,8 +307,7 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
       // Check for rate limit error
       if (error instanceof RateLimitError || error.isRateLimit ||
           (error.message && (error.message.includes('rate') || error.message.includes('quota') || error.message.includes('429')))) {
-        const waitTime = error.retryAfter || 60;
-        toast.error(`AI service is temporarily unavailable due to high demand. Please wait ${waitTime} seconds and try again.`);
+        toast.aiBusy(error.retryAfter, { reason: 'solver' });
       } else {
         toast.error('Failed to analyze the problem. Please try again.');
       }

@@ -149,6 +149,22 @@ class JSONParser {
       t => t.replace(/,,+/g, ','),
       // Fix empty array elements
       t => t.replace(/\[\s*,/g, '[').replace(/,\s*\]/g, ']'),
+      // LaTeX commands whose first letter is also a JSON escape character.
+      //
+      // The generic repair below deliberately leaves \b \f \n \r \t \u alone
+      // because those ARE valid JSON escapes. In question text they almost
+      // never are: `\text{}` became TAB + "ext{", `\frac{}` became FORMFEED +
+      // "rac{", `\to` became TAB + "o" — a live review card read "S o P"
+      // instead of "S → P". Since \text and \frac are the two most common
+      // commands in chemistry and maths questions, this corrupted a large share
+      // of generated content.
+      //
+      // A whitelist, not a blanket rule: a genuine \n newline inside a string
+      // must keep working, so only these exact command names are protected.
+      t => t.replace(
+        /(?<!\\)\\(?=(?:text|theta|times|triangle|therefore|tfrac|tan|tau|to|frac|forall|floor|neq|nabla|nonumber|not|nu|beta|binom|bullet|bar|rightarrow|rangle|right|rho|upsilon|underline|uparrow|unit)\b)/g,
+        '\\\\'
+      ),
       // Fix invalid escape sequences that aren't valid JSON (only if not already escaped)
       t => t.replace(/(?<!\\)\\([^"\\/bfnrtu])/g, '\\\\$1'),
       // Fix missing quotes on keys (basic)

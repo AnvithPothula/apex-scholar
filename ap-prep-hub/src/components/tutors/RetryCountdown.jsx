@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { RefreshCw, WifiOff } from 'lucide-react';
+import { waitSecondsFor, parseRetrySpec, formatWait } from '../../services/aiRetry';
 
 /**
  * Live "try again in N" countdown for an AI outage message.
@@ -13,30 +14,9 @@ import { RefreshCw, WifiOff } from 'lucide-react';
  * way it emits the score calculator.
  */
 
-/** Backoff by consecutive failure count. Capped so the number stays useful. */
-export function waitSecondsFor(attempt, retryAfter) {
-  if (Number.isFinite(retryAfter) && retryAfter > 0) return Math.min(Math.round(retryAfter), 600);
-  const n = Number.isFinite(attempt) && attempt > 0 ? attempt : 1;
-  return Math.min(15 * 2 ** (n - 1), 600); // 15, 30, 60, 120, 240, 480, 600
-}
-
-/** `attempt=2 retryAfter=45 reason=502` -> { attempt: 2, retryAfter: 45, reason: '502' } */
-export function parseRetrySpec(spec) {
-  const out = {};
-  for (const m of String(spec || '').matchAll(/(\w+)\s*=\s*([^\s]+)/g)) {
-    const n = Number(m[2]);
-    out[m[1]] = Number.isFinite(n) && m[1] !== 'reason' ? n : m[2];
-  }
-  return out;
-}
-
-export function formatWait(s) {
-  if (s <= 0) return 'now';
-  if (s < 60) return `${s}s`;
-  const m = Math.floor(s / 60);
-  const rem = s % 60;
-  return rem ? `${m}m ${rem}s` : `${m}m`;
-}
+// Timing and wording live in services/aiRetry.js so this and AIBusyNotice
+// cannot drift into showing different numbers for the same failure.
+export { waitSecondsFor, parseRetrySpec, formatWait } from '../../services/aiRetry';
 
 export default function RetryCountdown({ spec, onRetry }) {
   const { attempt, retryAfter, reason } = parseRetrySpec(spec);

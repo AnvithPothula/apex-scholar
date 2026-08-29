@@ -50,131 +50,145 @@ export const SUBJECT_KEY_TO_EXAM_NAME = {
   "studioArtDrawing": "AP Studio Art: Drawing",
   "usHistory": "AP U.S. History",
   "worldHistory": "AP World History: Modern",
-  "africanAmericanStudies": "AP African American Studies"
+  "africanAmericanStudies": "AP African American Studies",
+  // On the 2027 schedule for the first time.
+  "businessPersonalFinance": "AP Business with Personal Finance",
+  "cybersecurity": "AP Cybersecurity",
+  // College Board's current name for the three portfolio courses.
+  "studioArt": "AP Art and Design"
 };
 
-// 2025 AP Exam Dates (Based on College Board schedule)
-// AP Exam Dates for 2025
-// All times are in local time (8:00 AM and 12:00 PM in each timezone)
-// System defaults to Central Time if user timezone cannot be detected
-export const AP_EXAM_DATES_2025 = {
-  // Week 1: May 5-9, 2025
-  "AP Art History": { date: "2025-05-06", time: "8:00 AM" },
-  "AP Biology": { date: "2025-05-05", time: "8:00 AM" },
-  "AP Computer Science A": { date: "2025-05-08", time: "8:00 AM" },
-  "AP English Literature and Composition": { date: "2025-05-07", time: "8:00 AM" },
-  "AP Environmental Science": { date: "2025-05-05", time: "8:00 AM" },
-  "AP Physics 1: Algebra-Based": { date: "2025-05-06", time: "12:00 PM" },
-  "AP Psychology": { date: "2025-05-05", time: "12:00 PM" },
-  "AP Spanish Language and Culture": { date: "2025-05-07", time: "12:00 PM" },
-  "AP U.S. History": { date: "2025-05-08", time: "12:00 PM" },
-  "AP World History: Modern": { date: "2025-05-09", time: "12:00 PM" },
+// 2027 AP Exam Dates — transcribed from the College Board's official schedule.
+// Source of truth, re-verify every August:
+//   https://apcentral.collegeboard.org/exam-administration-ordering-scores/exam-dates
+//   https://apcentral.collegeboard.org/exam-administration-ordering-scores/exam-dates/late-testing-dates
+//
+// Week 1: May 3-7 · Week 2: May 10-14 · Late testing: May 17-21.
+// 2025 and 2026 tables were deleted once their administrations passed; they were
+// unreachable (getTargetExamYear never returns a past year) and only invited drift.
+export const AP_EXAM_DATES_2027 = {
+  // --- Week 1: May 3-7, 2027 ---
+  // Monday, May 3
+  "AP Human Geography":                          { date: "2027-05-03", time: "8:00 AM",  lateDate: "2027-05-17", lateTime: "12:00 PM" },
+  "AP Physics C: Mechanics":                     { date: "2027-05-03", time: "8:00 AM",  lateDate: "2027-05-20", lateTime: "12:00 PM" },
+  "AP Biology":                                  { date: "2027-05-03", time: "12:00 PM", lateDate: "2027-05-19", lateTime: "8:00 AM" },
+  "AP Italian Language and Culture":             { date: "2027-05-03", time: "12:00 PM", lateDate: "2027-05-18", lateTime: "8:00 AM" },
+  // Tuesday, May 4
+  "AP Business with Personal Finance":           { date: "2027-05-04", time: "8:00 AM",  lateDate: "2027-05-17", lateTime: "12:00 PM" },
+  "AP U.S. Government and Politics":             { date: "2027-05-04", time: "8:00 AM",  lateDate: "2027-05-18", lateTime: "8:00 AM" },
+  "AP European History":                         { date: "2027-05-04", time: "12:00 PM", lateDate: "2027-05-17", lateTime: "8:00 AM" },
+  "AP Microeconomics":                           { date: "2027-05-04", time: "12:00 PM", lateDate: "2027-05-19", lateTime: "8:00 AM" },
+  // Wednesday, May 5
+  "AP Cybersecurity":                            { date: "2027-05-05", time: "8:00 AM",  lateDate: "2027-05-18", lateTime: "12:00 PM" },
+  "AP English Literature and Composition":       { date: "2027-05-05", time: "8:00 AM",  lateDate: "2027-05-17", lateTime: "8:00 AM" },
+  "AP Physics 1: Algebra-Based":                 { date: "2027-05-05", time: "12:00 PM", lateDate: "2027-05-19", lateTime: "8:00 AM" },
+  "AP Physics C: Electricity and Magnetism":     { date: "2027-05-05", time: "12:00 PM", lateDate: "2027-05-20", lateTime: "8:00 AM" },
+  // Thursday, May 6
+  "AP French Language and Culture":              { date: "2027-05-06", time: "8:00 AM",  lateDate: "2027-05-17", lateTime: "12:00 PM" },
+  "AP Physics 2: Algebra-Based":                 { date: "2027-05-06", time: "8:00 AM",  lateDate: "2027-05-21", lateTime: "12:00 PM" },
+  "AP World History: Modern":                    { date: "2027-05-06", time: "8:00 AM",  lateDate: "2027-05-18", lateTime: "12:00 PM" },
+  "AP African American Studies":                 { date: "2027-05-06", time: "12:00 PM", lateDate: "2027-05-19", lateTime: "8:00 AM" },
+  "AP Chemistry":                                { date: "2027-05-06", time: "12:00 PM", lateDate: "2027-05-20", lateTime: "8:00 AM" },
+  // Friday, May 7
+  "AP German Language and Culture":              { date: "2027-05-07", time: "8:00 AM",  lateDate: "2027-05-20", lateTime: "12:00 PM" },
+  "AP U.S. History":                             { date: "2027-05-07", time: "8:00 AM",  lateDate: "2027-05-18", lateTime: "12:00 PM" },
+  "AP Macroeconomics":                           { date: "2027-05-07", time: "12:00 PM", lateDate: "2027-05-21", lateTime: "8:00 AM" },
+  // Pilot schools only — listed for completeness; no curriculum key maps to it yet.
+  "AP Networking":                               { date: "2027-05-07", time: "12:00 PM", lateDate: "2027-05-17", lateTime: "8:00 AM" },
 
-  // Week 2: May 12-16, 2025
-  "AP Calculus AB": { date: "2025-05-13", time: "8:00 AM" },
-  "AP Calculus BC": { date: "2025-05-13", time: "8:00 AM" },
-  "AP Chemistry": { date: "2025-05-12", time: "8:00 AM" },
-  "AP Chinese Language and Culture": { date: "2025-05-14", time: "8:00 AM" },
-  "AP Computer Science Principles": { date: "2025-05-15", time: "8:00 AM" },
-  "AP English Language and Composition": { date: "2025-05-14", time: "12:00 PM" },
-  "AP European History": { date: "2025-05-15", time: "12:00 PM" },
-  "AP Human Geography": { date: "2025-05-13", time: "12:00 PM" },
-  "AP Macroeconomics": { date: "2025-05-16", time: "8:00 AM" },
-  "AP Physics 2: Algebra-Based": { date: "2025-05-12", time: "12:00 PM" },
-  "AP Physics C: Mechanics": { date: "2025-05-14", time: "8:00 AM" },
-  "AP Physics C: Electricity and Magnetism": { date: "2025-05-14", time: "12:00 PM" },
-  "AP Precalculus": { date: "2025-05-16", time: "12:00 PM" },
-  "AP Statistics": { date: "2025-05-16", time: "12:00 PM" },
-  "AP U.S. Government and Politics": { date: "2025-05-12", time: "12:00 PM" },
+  // --- Week 2: May 10-14, 2027 ---
+  // Monday, May 10
+  "AP Calculus AB":                              { date: "2027-05-10", time: "8:00 AM",  lateDate: "2027-05-20", lateTime: "12:00 PM" },
+  "AP Calculus BC":                              { date: "2027-05-10", time: "8:00 AM",  lateDate: "2027-05-20", lateTime: "12:00 PM" },
+  "AP Music Theory":                             { date: "2027-05-10", time: "12:00 PM", lateDate: "2027-05-19", lateTime: "8:00 AM" },
+  "AP Seminar":                                  { date: "2027-05-10", time: "12:00 PM", lateDate: "2027-05-18", lateTime: "8:00 AM" },
+  // Tuesday, May 11
+  "AP Japanese Language and Culture":            { date: "2027-05-11", time: "8:00 AM",  lateDate: "2027-05-18", lateTime: "12:00 PM" },
+  "AP Precalculus":                              { date: "2027-05-11", time: "8:00 AM",  lateDate: "2027-05-20", lateTime: "8:00 AM" },
+  "AP Statistics":                               { date: "2027-05-11", time: "12:00 PM", lateDate: "2027-05-21", lateTime: "8:00 AM" },
+  // Wednesday, May 12
+  "AP English Language and Composition":         { date: "2027-05-12", time: "8:00 AM",  lateDate: "2027-05-21", lateTime: "8:00 AM" },
+  "AP Art History":                              { date: "2027-05-12", time: "12:00 PM", lateDate: "2027-05-18", lateTime: "8:00 AM" },
+  "AP Computer Science A":                       { date: "2027-05-12", time: "12:00 PM", lateDate: "2027-05-20", lateTime: "8:00 AM" },
+  // Thursday, May 13
+  "AP Spanish Language and Culture":             { date: "2027-05-13", time: "8:00 AM",  lateDate: "2027-05-19", lateTime: "12:00 PM" },
+  "AP Chinese Language and Culture":             { date: "2027-05-13", time: "12:00 PM", lateDate: "2027-05-21", lateTime: "8:00 AM" },
+  "AP Environmental Science":                    { date: "2027-05-13", time: "12:00 PM", lateDate: "2027-05-20", lateTime: "8:00 AM" },
+  // Friday, May 14
+  "AP Government and Politics: Comparative":     { date: "2027-05-14", time: "8:00 AM",  lateDate: "2027-05-20", lateTime: "12:00 PM" },
+  "AP Computer Science Principles":              { date: "2027-05-14", time: "8:00 AM",  lateDate: "2027-05-21", lateTime: "12:00 PM" },
+  "AP Spanish Literature and Culture":           { date: "2027-05-14", time: "8:00 AM",  lateDate: "2027-05-19", lateTime: "12:00 PM" },
+  "AP Latin":                                    { date: "2027-05-14", time: "12:00 PM", lateDate: "2027-05-20", lateTime: "8:00 AM" },
+  "AP Psychology":                               { date: "2027-05-14", time: "12:00 PM", lateDate: "2027-05-21", lateTime: "8:00 AM" },
 
-  // Additional subjects (Late testing periods)
-  "AP French Language and Culture": { date: "2025-05-20", time: "8:00 AM" },
-  "AP German Language and Culture": { date: "2025-05-21", time: "8:00 AM" },
-  "AP Italian Language and Culture": { date: "2025-05-22", time: "8:00 AM" },
-  "AP Japanese Language and Culture": { date: "2025-05-23", time: "8:00 AM" },
-  "AP Latin": { date: "2025-05-20", time: "12:00 PM" },
-  "AP Microeconomics": { date: "2025-05-21", time: "12:00 PM" },
-  "AP Music Theory": { date: "2025-05-22", time: "12:00 PM" },
-  "AP Spanish Literature and Culture": { date: "2025-05-23", time: "12:00 PM" },
-  "AP Government and Politics: Comparative": { date: "2025-05-20", time: "8:00 AM" },
-
-  // Portfolio Submission Deadlines (Studio Art subjects)
-  "AP Studio Art: 2-D Design": { date: "2025-05-08", time: "8:00 PM", type: "portfolio" },
-  "AP Studio Art: 3-D Design": { date: "2025-05-08", time: "8:00 PM", type: "portfolio" },
-  "AP Studio Art: Drawing": { date: "2025-05-08", time: "8:00 PM", type: "portfolio" },
-
-  // Capstone Programs
-  "AP Research": { date: "2025-04-30", time: "8:00 PM", type: "presentation" },
-  "AP Seminar": { date: "2025-04-30", time: "8:00 PM", type: "presentation" }
+  // --- Digital portfolio deadlines, 11:59 p.m. ET, no late testing ---
+  // AP Art and Design (all three portfolios): May 7, 2027. The umbrella name is
+  // what College Board publishes now; the three legacy per-portfolio keys stay
+  // so older user docs still resolve.
+  "AP Art and Design":                           { date: "2027-05-07", time: "11:59 PM", type: "portfolio" },
+  "AP Studio Art: 2-D Design":                   { date: "2027-05-07", time: "11:59 PM", type: "portfolio" },
+  "AP Studio Art: 3-D Design":                   { date: "2027-05-07", time: "11:59 PM", type: "portfolio" },
+  "AP Studio Art: Drawing":                      { date: "2027-05-07", time: "11:59 PM", type: "portfolio" },
+  // AP Research has no exam — the academic paper and presentation are due April 30.
+  "AP Research":                                 { date: "2027-04-30", time: "11:59 PM", type: "presentation" },
 };
 
-// 2026 AP Exam Dates (Based on College Board official schedule)
-// https://apcentral.collegeboard.org/exam-administration-ordering-scores/exam-dates
-// https://apcentral.collegeboard.org/exam-administration-ordering-scores/exam-dates/late-testing-dates
-// Each entry includes optional lateDate/lateTime for late testing (Week 3: May 18-22)
-export const AP_EXAM_DATES_2026 = {
-  // Week 1: May 4-8, 2026
-  "AP Biology":                                  { date: "2026-05-04", time: "8:00 AM", lateDate: "2026-05-20", lateTime: "12:00 PM" },
-  "AP Latin":                                    { date: "2026-05-04", time: "8:00 AM", lateDate: "2026-05-18", lateTime: "12:00 PM" },
-  "AP European History":                         { date: "2026-05-04", time: "12:00 PM", lateDate: "2026-05-18", lateTime: "8:00 AM" },
-  "AP Microeconomics":                           { date: "2026-05-04", time: "12:00 PM", lateDate: "2026-05-20", lateTime: "8:00 AM" },
-  "AP Chemistry":                                { date: "2026-05-05", time: "8:00 AM", lateDate: "2026-05-20", lateTime: "12:00 PM" },
-  "AP Human Geography":                          { date: "2026-05-05", time: "8:00 AM", lateDate: "2026-05-18", lateTime: "12:00 PM" },
-  "AP U.S. Government and Politics":             { date: "2026-05-05", time: "12:00 PM", lateDate: "2026-05-19", lateTime: "8:00 AM" },
-  "AP English Literature and Composition":       { date: "2026-05-06", time: "8:00 AM", lateDate: "2026-05-18", lateTime: "12:00 PM" },
-  "AP Government and Politics: Comparative":     { date: "2026-05-06", time: "12:00 PM", lateDate: "2026-05-18", lateTime: "8:00 AM" },
-  "AP Physics 1: Algebra-Based":                 { date: "2026-05-06", time: "12:00 PM", lateDate: "2026-05-22", lateTime: "8:00 AM" },
-  "AP Physics 2: Algebra-Based":                 { date: "2026-05-07", time: "8:00 AM", lateDate: "2026-05-21", lateTime: "12:00 PM" },
-  "AP World History: Modern":                    { date: "2026-05-07", time: "8:00 AM", lateDate: "2026-05-18", lateTime: "8:00 AM" },
-  "AP African American Studies":                 { date: "2026-05-07", time: "12:00 PM", lateDate: "2026-05-19", lateTime: "12:00 PM" },
-  "AP Statistics":                               { date: "2026-05-07", time: "12:00 PM", lateDate: "2026-05-20", lateTime: "8:00 AM" },
-  "AP Italian Language and Culture":             { date: "2026-05-08", time: "8:00 AM", lateDate: "2026-05-21", lateTime: "12:00 PM" },
-  "AP U.S. History":                             { date: "2026-05-08", time: "8:00 AM", lateDate: "2026-05-19", lateTime: "12:00 PM" },
-  "AP Chinese Language and Culture":             { date: "2026-05-08", time: "12:00 PM", lateDate: "2026-05-21", lateTime: "8:00 AM" },
-  "AP Macroeconomics":                           { date: "2026-05-08", time: "12:00 PM", lateDate: "2026-05-20", lateTime: "12:00 PM" },
+/**
+ * Exam years with a hand-verified table above.
+ *
+ * When the current target year is not in this list, getCurrentYearExamDates()
+ * falls back to a *generated* schedule that guesses each subject's slot from the
+ * usual pattern — it is wrong for many subjects, and it fails silently. The test
+ * in apExamDates.test.js goes red the moment this list stops covering the current
+ * target year, so the annual re-verification is forced rather than remembered.
+ */
+export const VERIFIED_EXAM_YEARS = [2027];
 
-  // Week 2: May 11-15, 2026
-  "AP Calculus AB":                              { date: "2026-05-11", time: "8:00 AM", lateDate: "2026-05-21", lateTime: "12:00 PM" },
-  "AP Calculus BC":                              { date: "2026-05-11", time: "8:00 AM", lateDate: "2026-05-21", lateTime: "12:00 PM" },
-  "AP Music Theory":                             { date: "2026-05-11", time: "12:00 PM", lateDate: "2026-05-21", lateTime: "8:00 AM" },
-  "AP Seminar":                                  { date: "2026-05-11", time: "12:00 PM", lateDate: "2026-05-20", lateTime: "8:00 AM" },
-  "AP French Language and Culture":              { date: "2026-05-12", time: "8:00 AM", lateDate: "2026-05-20", lateTime: "12:00 PM" },
-  "AP Precalculus":                              { date: "2026-05-12", time: "8:00 AM", lateDate: "2026-05-21", lateTime: "8:00 AM" },
-  "AP Japanese Language and Culture":            { date: "2026-05-12", time: "12:00 PM", lateDate: "2026-05-19", lateTime: "8:00 AM" },
-  "AP Psychology":                               { date: "2026-05-12", time: "12:00 PM", lateDate: "2026-05-22", lateTime: "12:00 PM" },
-  "AP English Language and Composition":         { date: "2026-05-13", time: "8:00 AM", lateDate: "2026-05-21", lateTime: "8:00 AM" },
-  "AP German Language and Culture":              { date: "2026-05-13", time: "8:00 AM", lateDate: "2026-05-22", lateTime: "12:00 PM" },
-  "AP Physics C: Mechanics":                     { date: "2026-05-13", time: "12:00 PM", lateDate: "2026-05-21", lateTime: "12:00 PM" },
-  "AP Spanish Literature and Culture":           { date: "2026-05-13", time: "12:00 PM", lateDate: "2026-05-22", lateTime: "8:00 AM" },
-  "AP Art History":                              { date: "2026-05-14", time: "8:00 AM", lateDate: "2026-05-21", lateTime: "12:00 PM" },
-  "AP Spanish Language and Culture":             { date: "2026-05-14", time: "8:00 AM", lateDate: "2026-05-22", lateTime: "8:00 AM" },
-  "AP Computer Science Principles":              { date: "2026-05-14", time: "12:00 PM", lateDate: "2026-05-21", lateTime: "8:00 AM" },
-  "AP Physics C: Electricity and Magnetism":     { date: "2026-05-14", time: "12:00 PM", lateDate: "2026-05-22", lateTime: "12:00 PM" },
-  "AP Environmental Science":                    { date: "2026-05-15", time: "8:00 AM", lateDate: "2026-05-22", lateTime: "8:00 AM" },
-  "AP Computer Science A":                       { date: "2026-05-15", time: "12:00 PM", lateDate: "2026-05-22", lateTime: "12:00 PM" },
+/**
+ * The exam administration a student is currently counting down to.
+ *
+ * Rolls over on June 1: once May's administration is over, the next exam any
+ * student cares about is next May's. (This is deliberately not the same as
+ * currentApYear() in academicYear.js, which rolls over August 1 because it
+ * answers a different question — which school year work belongs to.)
+ */
+export const getTargetExamYear = (today = new Date()) =>
+  today.getMonth() >= 5 ? today.getFullYear() + 1 : today.getFullYear();
 
-  // Portfolio / Capstone Deadlines (no late testing)
-  "AP Studio Art: 2-D Design":                   { date: "2026-05-08", time: "8:00 PM", type: "portfolio" },
-  "AP Studio Art: 3-D Design":                   { date: "2026-05-08", time: "8:00 PM", type: "portfolio" },
-  "AP Studio Art: Drawing":                      { date: "2026-05-08", time: "8:00 PM", type: "portfolio" },
-  "AP Research":                                 { date: "2026-04-30", time: "11:59 PM", type: "presentation" },
-};
+/**
+ * Which sitting a given student actually takes.
+ *
+ * A student who ticked "taking the late exam" was seeing two different dates on
+ * the same screen: the scheduler read `lateDate` (via getUpcomingExamsSync) while
+ * the countdown component read `date` and counted down to a sitting that student
+ * isn't attending. One helper, so there is only one answer.
+ *
+ * Falls back to the main sitting whenever there is no late date — portfolio and
+ * Capstone deadlines have none.
+ */
+export function sittingFor(examInfo, isLate = false) {
+  if (!examInfo) return null;
+  const late = Boolean(isLate) && Boolean(examInfo.lateDate);
+  return {
+    date: late ? examInfo.lateDate : examInfo.date,
+    time: late ? examInfo.lateTime : examInfo.time,
+    isLate: late,
+  };
+}
 
 // Get current year's exam dates (auto-updates based on current year)
 export const getCurrentYearExamDates = () => {
   const today = new Date();
-  const currentYear = today.getFullYear();
-  
-  // If we're past May (month 4), use next year's dates
-  const targetYear = today.getMonth() >= 5 ? currentYear + 1 : currentYear;
-  
-  // Use static verified College Board dates when available
-  if (targetYear === 2025) {
-    return AP_EXAM_DATES_2025;
+  const targetYear = getTargetExamYear(today);
+
+  // Use the hand-verified College Board table when we have one.
+  if (targetYear === 2027) {
+    return AP_EXAM_DATES_2027;
   }
-  if (targetYear === 2026) {
-    return AP_EXAM_DATES_2026;
-  }
+
+  // No verified table for this year yet — everything below is a GUESS from the
+  // usual May pattern and is wrong for many subjects. apExamDates.test.js fails
+  // when execution can reach here, so this should never ship.
   
   // Calculate the first Monday in May for the target year
   const firstOfMay = new Date(targetYear, 4, 1); // May 1st
@@ -415,10 +429,10 @@ export const getUpcomingExamsSync = (userSubjects = [], lateTestingSubjects = []
     .filter(([examName]) => userExamNames.includes(examName))
     .map(([examName, examInfo]) => {
       const subjectKey = examNameToSubjectKey[examName];
-      const isLate = lateSet.has(subjectKey) && examInfo.lateDate;
-
-      const dateStr = isLate ? examInfo.lateDate : examInfo.date;
-      const timeStr = isLate ? examInfo.lateTime : examInfo.time;
+      const sitting = sittingFor(examInfo, lateSet.has(subjectKey));
+      const { isLate } = sitting;
+      const dateStr = sitting.date;
+      const timeStr = sitting.time;
 
       const examDate = new Date(dateStr);
       const [ey, em, ed] = dateStr.split('-').map(Number);

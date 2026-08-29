@@ -692,4 +692,25 @@ export function slugFor(subject) {
     .replace(/^-+|-+$/g, '');
 }
 
+/**
+ * The curve as display rows — every competitor hides this, which is exactly why
+ * showing it is the differentiator.
+ *
+ * Lives here rather than in apScore.js because scripts/prerender.mjs needs it and
+ * can only load modules that have no imports of their own.
+ */
+export function curveRows(model) {
+  const order = [5, 4, 3, 2, 1];
+  return order.map((s) => {
+    const min = s === 1 ? 0 : model.cutoffs[s];
+    const max = s === 5 ? model.compositeMax : model.cutoffs[s + 1] - 1;
+    return {
+      score: s,
+      min,
+      max,
+      percentMin: Math.round((min / model.compositeMax) * 100),
+    };
+  });
+}
+
 export default AP_SCORE_MODELS;

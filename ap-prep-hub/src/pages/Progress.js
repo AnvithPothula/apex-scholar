@@ -15,11 +15,24 @@ import srs, { dueCards } from '../services/srs';
 import StreakCalendar from '../components/ui/StreakCalendar';
 import ExamCountdown from '../components/ui/ExamCountdown';
 import { SUBJECT_KEY_TO_EXAM_NAME } from '../constants/apExamDates';
+import { SUBJECT_KEY_BY_DISPLAY_NAME } from '../constants/curriculum';
 
-// Reverse lookup: exam display name → curriculum key (for ExamCountdown)
-const EXAM_NAME_TO_KEY = Object.fromEntries(
-  Object.entries(SUBJECT_KEY_TO_EXAM_NAME).map(([k, v]) => [v, k])
-);
+/**
+ * Stored subject name → curriculum key, for ExamCountdown.
+ *
+ * Was built by inverting SUBJECT_KEY_TO_EXAM_NAME, which is keyed on the *exam
+ * table's* names. A user doc stores the *curriculum's* name, and for three
+ * courses those differ — "AP United States History" vs "AP U.S. History",
+ * and both flavours of Government. Those subjects silently never showed a
+ * countdown. The curriculum's own alias map knows every spelling, so it goes
+ * first; the inverted map stays as a fallback for exam-table-only names.
+ */
+const EXAM_NAME_TO_KEY = {
+  ...Object.fromEntries(
+    Object.entries(SUBJECT_KEY_TO_EXAM_NAME).map(([k, v]) => [v, k])
+  ),
+  ...SUBJECT_KEY_BY_DISPLAY_NAME,
+};
 
 // Pure data transforms — extracted to module level to avoid re-creation on every render
 const formatStudyTime = (minutes) => {
@@ -282,14 +295,16 @@ const ProgressPage = () => {
         flashcardDecks,
         stats,
         practiceTests,
-        mySubjects
+        mySubjects,
+        lateSubjects
       ] = await Promise.all([
         dataService.getUserProgress(user.uid),
         dataService.getUserStudySessions(user.uid, 30),
         dataService.getUserFlashcardDecks(user.uid),
         dataService.getUserStats(user.uid),
         dataService.getUserPracticeTests(user.uid),
-        dataService.getUserSubjects(user.uid)
+        dataService.getUserSubjects(user.uid),
+        dataService.getLateTestingSubjects(user.uid).catch(() => [])
       ]);
 
       // Build activity heatmap data for StreakCalendar.
@@ -331,6 +346,9 @@ const ProgressPage = () => {
         achievements: processAchievements(achievements, user.uid),
         recommendations: await generateRecommendations(overallProgress, currentWorkOnly(studySessions, { enrolledSubjects }), masteries),
         activityMap,
+        // Subject keys the student sits in the late window. The countdown has to
+        // target the same date the scheduler shows, or the two disagree.
+        lateTestingSubjects: lateSubjects || [],
       };
 
       setProgressData(processedData);
@@ -1049,6 +1067,9 @@ const ProgressPage = () => {
                               {EXAM_NAME_TO_KEY[subject.name] && (
                                 <ExamCountdown
                                   subjectKey={EXAM_NAME_TO_KEY[subject.name]}
+                                  late={(progressData.lateTestingSubjects || []).includes(
+                                    EXAM_NAME_TO_KEY[subject.name]
+                                  )}
                                   className="mt-3"
                                 />
                               )}

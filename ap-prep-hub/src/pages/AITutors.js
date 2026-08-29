@@ -86,6 +86,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../contexts/ConfirmContext';
 import geminiService, { RateLimitError } from '../services/geminiService';
+import { nextSessionNumber } from './conversationNaming';
+import { promptBudget, briefCurriculum } from '../services/promptBudget';
 import { parseSingleMcq } from '../services/ai/mcqGenerator';
 import errorLogger from '../utils/errorLogger';
 
@@ -148,6 +150,8 @@ const AITutors = () => {
   // Consecutive AI failures, so the retry countdown backs off across messages
   // instead of promising the same 60 seconds after the fifth 502 in a row.
   const aiFailureStreak = useRef(0);
+  // Guards double-clicks on "New chat" — see handleNewConversation.
+  const newConversationInFlight = useRef(false);
   // Removed diagnostics UI and state
 
   // Warm up AI service (Puter model probe) to reduce first-call latency
@@ -449,7 +453,27 @@ const AITutors = () => {
       await initGuestConversation(selectedSubject);
       return;
     }
-    
+
+    // This function awaits four round trips before the new conversation
+    // exists. Two fast clicks therefore created TWO conversations, and the
+    // second one usually stayed empty forever. A ref, not state, because the
+    // guard has to hold within a single tick.
+    if (newConversationInFlight.current) {
+      console.log('New conversation already being created; ignoring click');
+      return;
+    }
+    newConversationInFlight.current = true;
+    try {
+
+    // If the chat you are already looking at is empty, "New chat" has nothing
+    // to do. Creating another one here is what produced the trail of empty
+    // "Session N" threads: the old cleanup only ran when more than one
+    // conversation existed, so the first empty was never collected.
+    if (activeConversationId && await isConversationEmpty(activeConversationId)) {
+      console.log('Current conversation is already empty; not creating another');
+      return;
+    }
+
     // Clean up current conversation if it's empty before creating a new one
     if (activeConversationId && conversations.length > 1) {
       console.log('Cleaning up current conversation before creating new one...');
@@ -458,7 +482,10 @@ const AITutors = () => {
     
     const curriculumData = await getCurriculumData(selectedSubject);
     const subjectName = curriculumData?.name || selectedSubject;
-    const sessionNumber = conversations.length + 1;
+    // Number from the HIGHEST existing session, not the count. After deleting a
+    // conversation the count goes down and the next session reused a name that
+    // was already on screen.
+    const sessionNumber = nextSessionNumber(conversations);
     
     const newConversation = {
       name: `${subjectName} - Session ${sessionNumber}`,
@@ -485,6 +512,9 @@ const AITutors = () => {
 
     // Save welcome message to Firebase
     await saveMessage(conversationId, welcomeMessage);
+    } finally {
+      newConversationInFlight.current = false;
+    }
   };
 
   // Initialize conversations when user or subject changes
@@ -1576,12 +1606,20 @@ ${citations.map(c => `- Page ${c.page}: ${c.snippet}`).join('\n')}
     personalization.customInstructions ? `STUDENT INSTRUCTIONS: ${personalization.customInstructions}` : ''
   ].filter(Boolean).join('\n');
 
+  // Trim the static blocks after the opening turn. See services/promptBudget.js:
+  // the full curriculum, the site brief and the scoring brief were resent
+  // verbatim on every message of a thread.
+  const budget = promptBudget({ turn: (conversationHistory?.length || 0) < 2 ? 1 : 2, message: userMessage });
+  const curriculumBlock = budget.curriculum === 'full'
+    ? curriculumContext
+    : briefCurriculum(curriculumData);
+
   const systemPrompt = `You are an expert AP ${subjectName} tutor. You ONLY answer questions related to ${subjectName}. Your goal: help the student score a 5.${studentName ? `\nThe student's name is ${studentName}. Address them by name occasionally.` : ''}
 ${personalDirective ? `\n${personalDirective}` : ''}
 
-${curriculumContext}
-${scoringBrief ? `\n${scoringBrief}\n` : ''}
-${siteBrief}
+${curriculumBlock}
+${scoringBrief && budget.scoringBrief ? `\n${scoringBrief}\n` : ''}
+${budget.siteBrief ? siteBrief : ''}
 ${langDirective ? `\n${langDirective}\n` : ''}
 ${calculatorDirective}
 

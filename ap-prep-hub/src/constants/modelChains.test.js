@@ -34,7 +34,10 @@ describe('model chains', () => {
     expect(TASK_TO_CHAIN.tutorChat).toBe('interactive');
     expect(RPD[MODEL_CHAINS.interactive[0]]).toBeGreaterThanOrEqual(500);
     expect(TASK_TO_CHAIN.practiceTest).toBe('bulk');
-    expect(MODEL_CHAINS.bulk[0].startsWith('gemma-')).toBe(true);
+    // Gemma is the floor, not the lead — see "never lets Gemma LEAD a chain"
+    // in aiRouterCapacity.test.js for the measurements behind that.
+    expect(MODEL_CHAINS.bulk[0].startsWith('gemma-')).toBe(false);
+    expect(MODEL_CHAINS.bulk[MODEL_CHAINS.bulk.length - 1].startsWith('gemma-')).toBe(true);
   });
 
   it('gives every chain somewhere to go when the lead model 503s', () => {
@@ -68,8 +71,11 @@ describe('chainFor', () => {
     expect(c.length).toBeGreaterThan(0);
   });
 
-  it('keeps Gemma for normal-sized prompts', () => {
-    expect(chainFor('practiceTest', null, 5000)[0]).toBe('gemma-4-31b-it');
+  it('keeps Gemma reachable as the tail for normal-sized prompts', () => {
+    // Once flash-lite is exhausted, a 2-in-3 chance beats no answer at all.
+    const chain = chainFor('summarize', null, 5000);
+    expect(chain[0].startsWith('gemma-')).toBe(false);
+    expect(chain.some((m) => m.startsWith('gemma-'))).toBe(true);
   });
 
   it('falls back to interactive for an unknown task', () => {

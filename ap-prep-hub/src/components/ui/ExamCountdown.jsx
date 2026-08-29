@@ -4,6 +4,7 @@ import { getSubjectColor } from '../../constants/subjectColors';
 import {
   getCurrentYearExamDates,
   SUBJECT_KEY_TO_EXAM_NAME,
+  sittingFor,
 } from '../../constants/apExamDates';
 import AnimatedCounter from './AnimatedCounter';
 
@@ -21,9 +22,12 @@ const formatExamDate = (d) =>
  *
  * Props:
  *   subjectKey  — curriculum subject key (e.g. "calculusAB")
+ *   late        — the student ticked "taking the late exam" for this subject.
+ *                 Without it the countdown targeted the main sitting while the
+ *                 scheduler showed the late one, on the same screen.
  *   className   — optional extra classes for the outer wrapper
  */
-export default function ExamCountdown({ subjectKey, className = '' }) {
+export default function ExamCountdown({ subjectKey, late = false, className = '' }) {
   const [timeLeft, setTimeLeft] = useState(null); // { days, hours, minutes } | 'passed' | null
   const [exam, setExam] = useState(null); // { name, when } — what we're counting DOWN TO
 
@@ -34,18 +38,18 @@ export default function ExamCountdown({ subjectKey, className = '' }) {
     if (!examName) return;
 
     const examDates = getCurrentYearExamDates();
-    const examInfo = examDates[examName];
-    if (!examInfo) return;
+    const sitting = sittingFor(examDates[examName], late);
+    if (!sitting) return;
 
     // Parse exam datetime in local time
-    const [year, month, day] = examInfo.date.split('-').map(Number);
-    const [timePart, meridiem] = examInfo.time.split(' ');
+    const [year, month, day] = sitting.date.split('-').map(Number);
+    const [timePart, meridiem] = sitting.time.split(' ');
     let [hours, minutes] = timePart.split(':').map(Number);
     if (meridiem === 'PM' && hours !== 12) hours += 12;
     if (meridiem === 'AM' && hours === 12) hours = 0;
     const examDateTime = new Date(year, month - 1, day, hours, minutes, 0, 0);
 
-    setExam({ name: examName, when: examDateTime });
+    setExam({ name: examName, when: examDateTime, isLate: sitting.isLate });
 
     const compute = () => {
       const now = new Date();
@@ -72,7 +76,7 @@ export default function ExamCountdown({ subjectKey, className = '' }) {
     const isFinalWeek = examDateTime - new Date() <= FINAL_WEEK_MS;
     const id = setInterval(compute, isFinalWeek ? 60_000 : 60 * 60_000);
     return () => clearInterval(id);
-  }, [subjectKey]);
+  }, [subjectKey, late]);
 
   // Render nothing when there is no data
   if (timeLeft === null) return null;

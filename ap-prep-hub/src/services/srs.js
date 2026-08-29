@@ -15,6 +15,9 @@ import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../config/firestore';
 
 const MAX_CARDS = 300;
+/** Relearning step, in days: 10 minutes. */
+const RELEARN_INTERVAL = 10 / (24 * 60);
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Grades a student can give themselves, mapped to SM-2 quality scores. */
@@ -42,12 +45,20 @@ export function review(card = {}, quality = GRADE.good, now = Date.now()) {
   let interval;
   if (q < 3) {
     // Lapse: back to the start of the ladder, but keep the (now lower) ease.
+    //
+    // A card you just got wrong comes back in MINUTES, not tomorrow. Pressing
+    // "Again" and being told the card is scheduled for tomorrow is the wrong
+    // answer to "I don't know this" — the whole point is to see it again while
+    // you are still in the session. Standard relearning step.
     reps = 0;
-    interval = 1;
+    interval = RELEARN_INTERVAL;
   } else {
     reps = prevReps + 1;
-    if (reps === 1) interval = 1;
-    else if (reps === 2) interval = 6;
+    // "Easy" on a card's first pass skips ahead. Without this every grade on a
+    // new card produced the same 1-day interval, so the four buttons were four
+    // names for one outcome and choosing between them was meaningless.
+    if (reps === 1) interval = q >= GRADE.easy ? 4 : 1;
+    else if (reps === 2) interval = q >= GRADE.easy ? 10 : 6;
     else interval = Math.max(1, Math.round(prevInterval * ease));
   }
 

@@ -101,3 +101,130 @@ describe('Gemma is skipped when the prompt cannot fit its 16K TPM', () => {
     expect(proxy).toMatch(/if \(usableModels\.length\) models = usableModels/);
   });
 });
+
+describe('task routing agrees across all three runtimes', () => {
+  const { TASK_TO_CHAIN } = require('../constants/modelChains');
+
+  const routingIn = (src) => {
+    const block = src.match(/TASK_TO_CHAIN\s*=\s*\{([\s\S]*?)\n\s*\};/);
+    if (!block) return null;
+    const out = {};
+    for (const m of block[1].matchAll(/(\w+):\s*'(\w+)'/g)) out[m[1]] = m[2];
+    return out;
+  };
+
+  it('maps every task to the same chain everywhere', () => {
+    for (const src of [worker, proxy]) {
+      const routing = routingIn(src);
+      expect(routing).not.toBeNull();
+      expect(routing).toEqual(TASK_TO_CHAIN);
+    }
+  });
+
+  it('never lets Gemma LEAD a chain', () => {
+    // Measured twice against the app's own prompts:
+    //   mcqGenerate (JSON):  gemma-4-31b-it 2/3 parsed, flash-lite 3/3
+    //   explain     (prose): gemma-4-31b-it 0/3 clean,  flash-lite 3/3
+    // Same failure both times: given an instruction-list prompt it restates the
+    // task as a plan and calls that the answer. Every prompt in this app is an
+    // instruction list, so Gemma leading anything ships slop.
+    for (const [name, chain] of Object.entries(MODEL_CHAINS)) {
+      expect([name, chain[0].startsWith('gemma-')]).toEqual([name, false]);
+    }
+  });
+
+  it('still keeps Gemma reachable as a tail', () => {
+    // Its 14,400 RPD is the only thing standing between a flash-lite exhaustion
+    // and a hard failure, and a 2-in-3 answer beats none.
+    for (const name of ['bulk', 'interactive', 'verify']) {
+      expect(MODEL_CHAINS[name].some((m) => m.startsWith('gemma-'))).toBe(true);
+    }
+  });
+
+  it('keeps live tutor chat on the low-latency chain', () => {
+    expect(TASK_TO_CHAIN.tutorChat).toBe('interactive');
+  });
+});
+
+describe('rate-limit signalling', () => {
+  // The worker is ESM inside a CommonJS package and jest-resolve rejects a
+  // data: URL import, so the function is sliced out of the source and evaluated
+  // on its own — consistent with how the rest of this file treats the worker as
+  // text. Extraction failing is a test failure, not a silent skip.
+  const retryDelaySeconds = (() => {
+    const start = worker.indexOf('export function retryDelaySeconds');
+    if (start === -1) throw new Error('retryDelaySeconds not found in the worker');
+    let depth = 0;
+    let end = -1;
+    for (let i = worker.indexOf('{', start); i < worker.length; i++) {
+      if (worker[i] === '{') depth++;
+      else if (worker[i] === '}' && --depth === 0) { end = i + 1; break; }
+    }
+    if (end === -1) throw new Error('retryDelaySeconds body is unbalanced');
+    // eslint-disable-next-line no-new-func
+    return new Function(`${worker.slice(start, end).replace('export ', '')}
+      return retryDelaySeconds;`)();
+  })();
+
+  it('reads the delay Google actually sends', () => {
+    // Google puts this in the BODY as a RetryInfo detail, not in a Retry-After
+    // header. The worker read the header, always got NaN, and fell back to a
+    // flat 60s — so the countdown shown to a student was never the real wait.
+    const body = JSON.stringify({
+      error: {
+        code: 429,
+        details: [
+          { '@type': 'type.googleapis.com/google.rpc.RetryInfo', retryDelay: '26s' },
+        ],
+      },
+    });
+    expect(retryDelaySeconds(null, body)).toBe(26);
+  });
+
+  it('prefers a Retry-After header when one exists', () => {
+    expect(retryDelaySeconds('30', '{"retryDelay":"5s"}')).toBe(30);
+  });
+
+  it('rounds a fractional delay up rather than down', () => {
+    // Waiting 1s on a 1.5s delay just earns a second 429.
+    expect(retryDelaySeconds(null, '"retryDelay": "1.5s"')).toBe(2);
+  });
+
+  it('treats a daily-quota 429 as an hour, not a minute', () => {
+    // A per-day quota clears at midnight Pacific. Telling a student to retry in
+    // 60 seconds sends them into a loop of identical failures.
+    expect(retryDelaySeconds(null, 'GenerateRequestsPerDayPerProjectPerModel')).toBe(3600);
+  });
+
+  it('returns 0 when the response says nothing about timing', () => {
+    expect(retryDelaySeconds(null, '{}')).toBe(0);
+    expect(retryDelaySeconds(null, '')).toBe(0);
+  });
+
+  it('answers 429 with a retryAfter, not a bare 502', () => {
+    // "Busy, wait 26 seconds" and "broken" need different words in front of a
+    // student, and only the status code lets the client tell them apart.
+    expect(worker).toMatch(/status: 429|429,\s*$|\b429\b/m);
+    expect(worker).toMatch(/retryAfter/);
+    expect(worker).toMatch(/'Retry-After'/);
+  });
+});
+
+describe('the client can actually read the wait', () => {
+  it('exposes Retry-After through CORS in both runtimes', () => {
+    // A Retry-After the browser hides from JS is the same as no Retry-After:
+    // res.headers.get() returns null and the countdown invents 60 seconds.
+    for (const src of [worker, proxy]) {
+      const m = /Access-Control-Expose-Headers':\s*'([^']+)'/.exec(src);
+      expect(m).not.toBeNull();
+      expect(m[1]).toMatch(/Retry-After/);
+    }
+  });
+
+  it('also puts the number in the JSON body', () => {
+    // Survives any hop that strips headers.
+    for (const src of [worker, proxy]) {
+      expect(src).toMatch(/retryAfter/);
+    }
+  });
+});

@@ -164,8 +164,54 @@ export function buildExplainAllPrompt(card = {}) {
     'and for every wrong one say specifically what is wrong with it and what misconception would ' +
     'make someone pick it. Use the format "A) …" on its own line for each. Do not skip any choice.'
   );
+  // Without this the model narrates its reasoning first — a real answer began
+  // "Crucial Observation: ... Wait a minute. ... Conclusion:" and then hit the
+  // token ceiling mid-thought, so the student got working-out and no answer.
+  lines.push(
+    'Start your reply with "A)". Do not restate the question, the choices, or your reasoning ' +
+    'process — no "Let me think", no "Wait", no bullet summary of the setup.'
+  );
+  // The answer key is AI-generated and is sometimes wrong. When the model spots
+  // that, saying so plainly is far more useful to the student than silently
+  // explaining a wrong answer as if it were right.
+  lines.push(
+    'If the marked correct answer looks wrong to you, still explain every choice, then add a ' +
+    'final line beginning "Note:" saying which choice you believe is correct and why.'
+  );
 
   return lines.join('\n');
 }
 
 export default buildWhyWrongPrompt;
+
+/**
+ * Does this response restate the task instead of answering it?
+ *
+ * Gemma 4 does this reliably — measured 0/3 clean on this file's own
+ * `buildExplainAllPrompt`, opening with `* Subject: AP Biology. * Question: ...`
+ * instead of the explanation. It cannot be prompted out of it (Round 48 tried),
+ * it ignores `responseSchema` and `responseJsonSchema` on the free tier, and
+ * both thinking controls are rejected outright:
+ *   thinkingConfig  -> 400 "Thinking budget is not supported for this model"
+ *   thinkingLevel   -> 400 "Unknown name"
+ *
+ * So Gemma is the last resort in every chain rather than the lead, and when it
+ * is reached anyway this catches the output before a student reads a plan.
+ * Detects the shape, not the wording: a run of `* Label: value` lines, or an
+ * opening that echoes the prompt's own field names.
+ */
+export function looksLikeReasoningLeak(text) {
+  const t = String(text || '').trim();
+  if (!t) return false;
+
+  const head = t.slice(0, 400);
+  // Two or more "* Label:" bullets in the opening is the signature.
+  const labelled = (head.match(/(?:^|\s)\*\s*[A-Z][\w /-]{2,30}:/g) || []).length;
+  if (labelled >= 2) return true;
+
+  // Or it opens by echoing a field the prompt supplied.
+  if (/^\s*[*-]?\s*(Subject|Question|Task|Role|Goal|Topic|Format|Output|Instructions?)\s*:/i.test(head)) {
+    return true;
+  }
+  return false;
+}

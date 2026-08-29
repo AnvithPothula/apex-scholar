@@ -1,4 +1,4 @@
-import { buildWhyWrongPrompt, wasSkipped, missFromResult } from './whyWrong';
+import { buildWhyWrongPrompt, wasSkipped, missFromResult, looksLikeReasoningLeak } from './whyWrong';
 
 const miss = {
   subject: 'AP Biology',
@@ -112,5 +112,40 @@ describe('wasSkipped', () => {
   it('treats a real answer as answered, including index 0', () => {
     expect(wasSkipped('A')).toBe(false);
     expect(wasSkipped(0)).toBe(false);
+  });
+});
+
+describe('looksLikeReasoningLeak', () => {
+  it('catches the exact shape Gemma produces', () => {
+    // Measured output, not invented: 0/3 clean on buildExplainAllPrompt.
+    expect(looksLikeReasoningLeak(
+      '* Subject: AP Biology. * Question: Which organelle is the primary site of ATP synthesis?'
+    )).toBe(true);
+    expect(looksLikeReasoningLeak(
+      '* Role: Expert AP Biology teacher. * Task: Produce up to 5 questions.'
+    )).toBe(true);
+  });
+
+  it('catches an opening that echoes a prompt field', () => {
+    expect(looksLikeReasoningLeak('Subject: AP Biology\nThe answer is B.')).toBe(true);
+    expect(looksLikeReasoningLeak('Goal: explain each choice')).toBe(true);
+  });
+
+  it('passes a real explanation through', () => {
+    expect(looksLikeReasoningLeak(
+      'A) Ribosome — incorrect. Ribosomes assemble proteins; they do not synthesise ATP.\nB) Mitochondrion — correct.'
+    )).toBe(false);
+  });
+
+  it('does not trip on a legitimate bulleted answer', () => {
+    // A single labelled bullet is normal prose, not a restated task.
+    expect(looksLikeReasoningLeak(
+      'The key idea is chemiosmosis.\n* Note: ATP synthase sits in the inner membrane.'
+    )).toBe(false);
+  });
+
+  it('handles empty and junk input', () => {
+    expect(looksLikeReasoningLeak('')).toBe(false);
+    expect(looksLikeReasoningLeak(null)).toBe(false);
   });
 });

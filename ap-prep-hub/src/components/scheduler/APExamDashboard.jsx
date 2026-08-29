@@ -183,7 +183,7 @@ const APExamDashboard = () => {
 
                           {/* Live countdown */}
                           {exam.subjectKey && (
-                            <ExamCountdown subjectKey={exam.subjectKey} className="mb-3" />
+                            <ExamCountdown subjectKey={exam.subjectKey} late={exam.isLateTesting} className="mb-3" />
                           )}
 
                           <div className="grid grid-cols-2 gap-4 mb-3">

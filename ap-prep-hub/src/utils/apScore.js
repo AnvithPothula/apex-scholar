@@ -6,7 +6,7 @@
  * (A6), which is systematically wrong wherever section weights differ.
  */
 
-import { getScoreModel } from '../constants/apScoreModels';
+import { getScoreModel, curveRows } from '../constants/apScoreModels';
 
 const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
 
@@ -70,23 +70,8 @@ export function scoreFor(subject, raws) {
   };
 }
 
-/**
- * The curve as display rows — every competitor hides this, which is exactly why
- * showing it is the differentiator.
- */
-export function curveRows(model) {
-  const order = [5, 4, 3, 2, 1];
-  return order.map((s) => {
-    const min = s === 1 ? 0 : model.cutoffs[s];
-    const max = s === 5 ? model.compositeMax : model.cutoffs[s + 1] - 1;
-    return {
-      score: s,
-      min,
-      max,
-      percentMin: Math.round((min / model.compositeMax) * 100),
-    };
-  });
-}
+// curveRows lives in apScoreModels.js so the prerender script can reach it.
+export { curveRows };
 
 /**
  * Back-compat shim for the old percentage-only helper in PracticeTests.

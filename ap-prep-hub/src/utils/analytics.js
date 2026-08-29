@@ -23,10 +23,24 @@ export function initAnalytics() {
   if (window.navigator?.doNotTrack === '1' || window.doNotTrack === '1') return false;
   loaded = true;
 
+  // gtag is 166 KiB (68 KiB unused) and blocked the main thread for 67ms in a
+  // Lighthouse run where LCP was already 9.2s. Analytics is never worth
+  // competing with the app's own first paint, so the tag waits for an idle
+  // slot. Queued events still work: dataLayer is set up synchronously below,
+  // and gtag() only pushes onto it — the script drains the queue when it lands.
   const s = document.createElement('script');
   s.async = true;
   s.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(GA_ID)}`;
-  document.head.appendChild(s);
+  const append = () => document.head.appendChild(s);
+  const whenIdle = () => {
+    if (typeof window.requestIdleCallback === 'function') {
+      window.requestIdleCallback(append, { timeout: 4000 });
+    } else {
+      setTimeout(append, 1000);
+    }
+  };
+  if (document.readyState === 'complete') whenIdle();
+  else window.addEventListener('load', whenIdle, { once: true });
 
   window.dataLayer = window.dataLayer || [];
   function gtag() { window.dataLayer.push(arguments); }

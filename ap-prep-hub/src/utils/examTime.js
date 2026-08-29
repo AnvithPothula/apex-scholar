@@ -4,7 +4,7 @@
  *
  * CalendarGrid previously did `parseInt(exam.time.split(':')[0]) * 4`, which
  * throws away the AM/PM suffix entirely. Real consequences with the shipped
- * 2026 data, which contains both "8:00 PM" and "11:59 PM":
+ * exam data, whose portfolio deadlines carry evening times like "11:59 PM":
  *   "8:00 PM"  -> 8  -> rendered at 8 AM   (12 hours wrong)
  *   "11:59 PM" -> 11 -> rendered at 11 AM  (12 hours wrong)
  * It also crashed outright if `time` was missing, taking the whole calendar

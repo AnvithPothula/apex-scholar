@@ -45,11 +45,13 @@ export default function ToastContainer() {
             exit={{ opacity: 0, x: 80, scale: 0.95 }}
             transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
             role="alert"
-            aria-label={`${toast.type} notification: ${toast.message}`}
+            // message can be a React node (the AI-busy countdown), which would
+            // stringify to "[object Object]" for a screen reader.
+            aria-label={toast.ariaLabel || `${toast.type} notification: ${typeof toast.message === 'string' ? toast.message : ''}`}
             className={`relative overflow-hidden flex items-start gap-3 px-4 py-3 bg-base-800 border border-border rounded-md shadow-floating border-l-4 ${borderMap[toast.type] || borderMap.info}`}
           >
             <div className="flex-shrink-0 mt-0.5">{iconMap[toast.type] || iconMap.info}</div>
-            <p className="text-sm text-content-primary flex-1">{toast.message}</p>
+            <div className="text-sm text-content-primary flex-1">{toast.message}</div>
             <button
               onClick={() => removeToast(toast.id)}
               className="flex-shrink-0 text-content-muted hover:text-content-primary transition-colors"

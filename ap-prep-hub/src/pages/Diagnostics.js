@@ -8,9 +8,12 @@ import { useToast } from '../contexts/ToastContext';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AP_SUBJECTS } from '../constants/subjects';
 import geminiService, { RateLimitError } from '../services/geminiService';
+import { getBankQuestions } from '../services/questionBank';
+import errorLogger from '../utils/errorLogger';
 import dataService from '../services/dataService';
 import { recordPracticeTest } from '../services/activityTracker';
 import { levelFor } from '../services/mastery';
+import srs from '../services/srs';
 
 // Subjects to exclude from diagnostics (no standard exam format or not suitable for practice tests)
 const EXCLUDED_SUBJECTS = [
@@ -83,23 +86,51 @@ const DiagnosticTypes = () => {
     setIsGeneratingQuestions(true);
     setTakingDiagnostic({ key: subjectKey, name: subjectName });
 
-    try {
-      // Generate diagnostic questions using Gemini AI
-      const generatedQuestions = await geminiService.generateDiagnosticQuestions(
-        subjectName,
-        'General Assessment', // We could make this more specific based on subject
-        'medium',
-        15 // Number of questions
-      );
+    const WANTED = 15;
+    // Below this the concept spread is too thin to call anything a weakness.
+    const MIN_QUESTIONS = 8;
 
-      setQuestions(generatedQuestions);
+    try {
+      // Pre-generated bank first. These questions are identical for every
+      // student, so generating them per-attempt was burning the largest single
+      // share of the daily Gemini quota. Returns [] on any failure, including an
+      // unseeded subject, and we fall through to live generation.
+      const banked = await getBankQuestions(subjectName, { count: WANTED });
+
+      // Top up rather than all-or-nothing: a partially seeded subject still
+      // saves most of the call, and a thin bank shouldn't shrink the diagnostic.
+      const shortfall = WANTED - banked.length;
+      let generated = [];
+      if (shortfall > 0) {
+        try {
+          generated = await geminiService.generateDiagnosticQuestions(
+            subjectName,
+            'General Assessment',
+            'medium',
+            shortfall
+          );
+        } catch (genError) {
+          // With a seeded bank the AI is optional. Only fail the diagnostic if
+          // what's banked isn't enough to draw conclusions from — otherwise a
+          // rate limit would block a student whose questions were already ready.
+          if (banked.length < MIN_QUESTIONS) throw genError;
+          errorLogger.warn('Diagnostic top-up failed; running on banked questions', {
+            subject: subjectName,
+            banked: banked.length,
+          });
+        }
+      }
+
+      const finalQuestions = [...banked, ...generated];
+      if (!finalQuestions.length) throw new Error('No diagnostic questions available');
+
+      setQuestions(finalQuestions);
       setCurrentQuestionIndex(0);
       setAnswers({});
     } catch (error) {
       console.error('Error generating questions:', error);
       if (error instanceof RateLimitError || error?.isRateLimit) {
-        const waitTime = error.retryAfter || 60;
-        toast.error(`AI service is temporarily busy. Please wait ${waitTime} seconds and try again.`);
+        toast.aiBusy(error.retryAfter, { reason: 'diagnostic' });
       } else {
         toast.error('Failed to generate diagnostic questions. Please try again.');
       }
@@ -203,6 +234,32 @@ const DiagnosticTypes = () => {
       };
 
       setDiagnosticResult(result);
+
+      // Missed diagnostic questions belong in the review queue for the same
+      // reason missed practice-test questions do — the queue already exists
+      // (services/srs.js) and the practice-test path has fed it since it was
+      // built; diagnostics simply never did, so the single assessment whose
+      // whole purpose is finding weak spots was the one that dropped them.
+      try {
+        const misses = questions
+          .map((q, i) => ({ q, i }))
+          .filter(({ q, i }) => answers[i] !== q.correctAnswer)
+          .map(({ q, i }) => ({
+            question: q.question,
+            subject: takingDiagnostic.name,
+            unit: q.concept || null,
+            options: Array.isArray(q.choices) ? q.choices : null,
+            correctIndex: Number.isInteger(q.correctAnswer) ? q.correctAnswer : null,
+            userAnswer: answers[i] != null ? q.choices?.[answers[i]] : '',
+            correctAnswer: q.choices?.[q.correctAnswer] ?? '',
+            // The per-choice explanation for the answer they actually picked is
+            // more useful on a review card than the generic correct-answer one.
+            explanation: q.explanations?.[answers[i]] || q.explanations?.[q.correctAnswer] || '',
+          }));
+        if (misses.length) await srs.addMisses(user.uid, misses);
+      } catch (e) {
+        console.error('Error queueing missed diagnostic questions:', e);
+      }
 
       // Save to Firebase
       await dataService.saveDiagnosticResult(user.uid, {

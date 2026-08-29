@@ -26,6 +26,21 @@ service cloud.firestore {
       );
     }
 
+    // Pre-generated MCQ bank, shared by every student.
+    //
+    // Read-only for clients, deliberately. A client that could write here could
+    // put a wrong answer key in front of the whole user base, and no shape rule
+    // can validate that an answer is correct. Seeding runs from
+    // scripts/seed-question-bank.mjs with service-account credentials.
+    match /questionBank/{bundleId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /questionBankIndex/{subjectId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // Shared curriculum content (lessons, practice, unit summaries).
     // World-readable (no PII); written only by admins via the Learn UI.
     match /curriculum/{document=**} {

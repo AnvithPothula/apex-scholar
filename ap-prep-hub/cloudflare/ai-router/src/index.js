@@ -28,20 +28,66 @@ const CORS_METHODS = 'POST, OPTIONS';
 // so the busiest task in the app floored on the scarcest pool in the account.
 // Every chain now ends on a deep pool.
 export const MODEL_CHAINS = {
-  bulk:        ['gemma-4-31b-it', 'gemma-4-26b-a4b-it', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite'],
-  interactive: ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
-  premium:     ['gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3-flash-preview', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite'],
-  // Gemma has no image input, so vision cannot borrow the deep pool at all.
-  vision:      ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-2.5-flash', 'gemini-3.5-flash'],
-  // Second-opinion chain: deliberately leads with the model `bulk` does NOT, so
-  // a generated answer key is checked by a different architecture.
-  verify:      ['gemma-4-26b-a4b-it', 'gemma-4-31b-it', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite'],
+  // Written out in full, not composed from shared arrays: aiRouterCapacity.test.js
+  // compares these three copies by parsing the source text, and a spread hides
+  // the model names from it. Verbosity here buys a real drift check.
+  //
+  // Gemma is the TAIL of every chain, never the lead. Measured twice against
+  // this app's own prompts:
+  //   mcqGenerate (JSON):  gemma-4-31b-it 2/3 parsed, flash-lite 3/3
+  //   explain     (prose): gemma-4-31b-it 0/3 clean,  flash-lite 3/3
+  // Given a prompt shaped as an instruction list it restates the task as a plan
+  // ("* Subject: AP Biology. * Question: ...") and calls that the answer. Every
+  // prompt in this app is an instruction list. It still absorbs overflow at the
+  // tail, where a 2-in-3 answer beats none.
+  bulk:        ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
+  interactive: ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
+  // FRQ grading is the one place output quality is worth the scarce pool, so
+  // the newest -flash models lead and the lites catch the overflow.
+  premium:     ['gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
+  // No Gemma. Gemma 4 is documented to accept images, but that is unverified
+  // here and the solver is not the place to find out.
+  vision:      ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'],
+  verify:      ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
 };
 
 // Gemma's TPM ceiling is 16K against flash-lite's 250K. A prompt over roughly
 // that size is a guaranteed 429 on Gemma, so trying it just burns a round trip.
 const GEMMA_MAX_CHARS = 48_000; // ~12k tokens, leaving headroom for the reply
 const isGemma = (m) => m.startsWith('gemma-');
+
+/**
+ * Cache-key normalization.
+ *
+ * The key was a hash of the raw request, so "explain photosynthesis",
+ * "Explain photosynthesis." and "explain  photosynthesis" were three different
+ * cache entries for one answer. Students ask the same thing in slightly
+ * different words constantly, so the exact-match hit rate was far below what
+ * the traffic could support.
+ *
+ * Only the CACHE KEY is normalized — the model still receives the student's
+ * original wording, so nothing about the answer changes.
+ */
+export function normalizeText(text) {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/[\u2018\u2019]/g, "'")     // smart quotes
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/(?<!\d)\.(?!\d)/g, ' ')     // sentence periods go, 3.14 stays
+    .replace(/[^\p{L}\p{N}\s'"+\-=/^_.]/gu, ' ')  // keep math-ish chars, drop the rest
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function normalizeForCache(contents) {
+  if (!Array.isArray(contents)) return contents;
+  return contents.map((c) => ({
+    role: c?.role,
+    parts: Array.isArray(c?.parts)
+      ? c.parts.map((p) => (typeof p?.text === 'string' ? { text: normalizeText(p.text) } : p))
+      : c?.parts,
+  }));
+}
 
 /** true when this status means the MODEL is out, not this particular key. */
 export const isModelScoped = (status) => status >= 500;
@@ -59,6 +105,27 @@ export const isModelScoped = (status) => status >= 500;
 const pairCooldown = new Map(); // `${keyIndex}:${model}` -> epoch ms
 const PAIR_COOLDOWN_MAX = 4096;
 
+/**
+ * Seconds to wait, from a 429 response.
+ *
+ * Google does NOT send a `Retry-After` header on these — it puts the number in
+ * the body as a RetryInfo detail (`"retryDelay": "26s"`). The header was being
+ * read and always came back NaN, so every cooldown fell to the flat 60s default
+ * and the client had no real number to show the student. Header first anyway,
+ * in case it ever appears.
+ */
+export function retryDelaySeconds(headerValue, bodyText) {
+  const fromHeader = parseInt(headerValue || '', 10);
+  if (Number.isFinite(fromHeader) && fromHeader > 0) return fromHeader;
+  const m = /"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/.exec(String(bodyText || ''));
+  if (m) return Math.ceil(Number(m[1]));
+  // A daily-quota 429 names the metric but carries no delay; it clears at
+  // midnight Pacific, so a minute is the wrong answer — say an hour and let the
+  // pair re-cool if it is still dead.
+  if (/PerDay|per day/i.test(String(bodyText || ''))) return 3600;
+  return 0;
+}
+
 export function pairIsCooling(map, keyIdx, model, now) {
   return (map.get(`${keyIdx}:${model}`) || 0) > now;
 }
@@ -74,13 +141,17 @@ export function coolPair(map, keyIdx, model, now, retryAfterSeconds) {
   map.set(`${keyIdx}:${model}`, now + secs * 1000);
 }
 export const TASK_TO_CHAIN = {
-  tutorChat: 'interactive', explain: 'interactive',
+  tutorChat: 'interactive',
+  // Review-card explanations, not live chat — see src/constants/modelChains.js.
+  explain: 'bulk',
   solver: 'vision',
   // lessonTeach is batch content authoring, not chat: Gemma's unlimited TPM and
   // 15k RPD suit it better than flash-lite's scarcer 500 RPD.
   lessonTeach: 'bulk',
+  // JSON out -> structured. Prose out -> bulk (Gemma's deep pool).
   mcqGenerate: 'bulk', practiceTest: 'bulk', flashcardGen: 'bulk',
-  summarize: 'bulk', reviewCard: 'bulk', diagnostic: 'bulk',
+  reviewCard: 'bulk', diagnostic: 'bulk',
+  summarize: 'bulk',
   verifyMcq: 'verify',
   frqGrade: 'premium',
 };
@@ -109,7 +180,10 @@ function cors(origin, allowed) {
     // The worker names the model that actually answered in X-Apex-Model, and a
     // cross-origin response hides non-safelisted headers unless they are
     // exposed — without this the tutor's model attribution reads null in prod.
-    'Access-Control-Expose-Headers': 'X-Apex-Model, X-Apex-Cache',
+    // Retry-After is useless unless it is exposed: without it here the browser
+    // hides the header from JS, res.headers.get('retry-after') returns null, and
+    // every countdown falls back to a made-up 60 seconds.
+    'Access-Control-Expose-Headers': 'X-Apex-Model, X-Apex-Cache, Retry-After',
     'Vary': 'Origin',
     'Content-Type': 'application/json',
   };
@@ -162,10 +236,10 @@ export default {
       (c) => Array.isArray(c && c.parts) && c.parts.some((p) => p && (p.inline_data || p.inlineData))
     );
 
-    // ---- Exact cache (skip images: base64 blows up keys and rarely repeats) ----
+    // ---- Cache (skip images: base64 blows up keys and rarely repeats) ----
     let cacheKey = null;
     if (!hasImage && env.CACHE) {
-      cacheKey = await sha256(JSON.stringify({ contents, generationConfig, task }));
+      cacheKey = await sha256(JSON.stringify({ contents: normalizeForCache(contents), generationConfig, task }));
       const hit = await env.CACHE.get(cacheKey);
       if (hit) return new Response(hit, { status: 200, headers: { ...headers, 'X-Apex-Cache': 'hit' } });
     }
@@ -191,6 +265,11 @@ export default {
     const payloadChars = JSON.stringify(contents).length;
     const usable = models.filter((m) => !(isGemma(m) && payloadChars > GEMMA_MAX_CHARS));
     if (usable.length) models = usable;
+
+    // Tracked across the whole walk so a total failure can tell the client how
+    // long to wait instead of leaving it to guess.
+    let soonestRetry = null;
+    let rateLimited = false;
 
     const now = Date.now();
     for (const m of models) {
@@ -227,8 +306,13 @@ export default {
               // This project is out of quota for THIS model only. Remember it so
               // the next request spends its attempts on models this key can
               // still serve, and drop straight to the next key here.
-              coolPair(pairCooldown, keyIdx, m, Date.now(),
-                parseInt(resp.headers.get('retry-after') || '', 10));
+              const secs = retryDelaySeconds(resp.headers.get('retry-after'), await resp.text());
+              coolPair(pairCooldown, keyIdx, m, Date.now(), secs);
+              // Soonest moment ANY attempted pair frees up. This is what the
+              // client counts down; without it the UI invents a number.
+              const wait = secs > 0 ? secs : 60;
+              if (soonestRetry === null || wait < soonestRetry) soonestRetry = wait;
+              rateLimited = true;
             }
             continue; // 401/403/404/429 are key-scoped -> next key
           }
@@ -239,6 +323,17 @@ export default {
           lastErr = err.message;
         }
       }
+    }
+    // 429, not 502, when every failure was a rate limit: "busy, wait N seconds"
+    // and "broken" need different words in front of a student, and only the
+    // status code lets the client tell them apart.
+    if (rateLimited) {
+      const retryAfter = soonestRetry || 60;
+      return json(
+        { error: 'All models are rate limited right now', detail: lastErr, retryAfter },
+        429,
+        { ...headers, 'Retry-After': String(retryAfter) }
+      );
     }
     return json({ error: 'All API attempts failed', detail: lastErr }, 502, headers);
   },

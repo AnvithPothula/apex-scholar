@@ -574,7 +574,19 @@ class SchoologyCalendarService {
         });
 
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          // The function answers errors as JSON with a `error` field naming the
+          // real cause (host not allow-listed, rate limited, or — in dev — the
+          // Netlify functions server simply not running). Reporting only
+          // "HTTP 503" threw all of that away and made every failure look the
+          // same, which is why a missing `netlify dev` read as a broken feed.
+          let detail = '';
+          try {
+            const body = await response.clone().json();
+            detail = body?.error ? ` — ${body.error}` : '';
+          } catch {
+            /* not JSON; the status alone is all there is */
+          }
+          throw new Error(`HTTP ${response.status}: ${response.statusText}${detail}`);
         }
 
         const icalData = await response.text();

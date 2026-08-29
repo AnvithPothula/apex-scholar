@@ -21,6 +21,7 @@ import { createPageUrl } from '../utils/helpers';
 import srs, { dueCards } from '../services/srs';
 import dataService from '../services/dataService';
 import { masteryBySubject, weakestArea } from '../services/mastery';
+import { currentWorkOnly } from '../services/academicYear';
 
 export default function Practice() {
   const { user } = useAuth();
@@ -33,15 +34,24 @@ export default function Practice() {
     if (!user) return;
     let cancelled = false;
     (async () => {
-      const [queue, decks, tests] = await Promise.all([
+      const [queue, decks, tests, mySubjects] = await Promise.all([
         srs.getQueue(user.uid),
         dataService.getUserFlashcardDecks(user.uid).catch(() => []),
         dataService.getUserPracticeTests(user.uid).catch(() => []),
+        dataService.getUserSubjects(user.uid).catch(() => []),
       ]);
       if (cancelled) return;
       setDueCount(dueCards(queue, Date.now(), 999).length);
       setDeckCount(decks.length);
-      setFocus(weakestArea(masteryBySubject(tests)));
+      // Scope to the current AP year and the courses the student still takes.
+      // Progress was fixed in Round 42 but this hub was not, so it kept
+      // reporting "AP U.S. History — 4% correct" to a student who finished that
+      // course last year. Same helper, same reasoning: a "focus next" card
+      // pointing at a finished course is worse than no card.
+      const enrolledSubjects = (mySubjects || [])
+        .map((x) => x?.name || x?.subject || x)
+        .filter((x) => typeof x === 'string');
+      setFocus(weakestArea(masteryBySubject(currentWorkOnly(tests, { enrolledSubjects }))));
     })();
     return () => { cancelled = true; };
   }, [user]);

@@ -7,6 +7,7 @@ import { AP_SUBJECTS } from '../constants/subjects';
 import apiKeyManager from '../services/APIKeyManager';
 import apiManager from '../services/apiManager';
 import geminiService, { RateLimitError } from '../services/geminiService';
+import { retryAfterFrom } from '../services/aiRetry';
 import aiUsageLimiter from '../services/aiUsageLimiter';
 import srs from '../services/srs';
 import { recordTestForClasses } from '../services/classes';
@@ -1412,9 +1413,12 @@ Format as JSON:
     } catch (error) {
       console.error('Error generating test:', error);
       
-      // Check if it's a rate limiting error
-      if (error.message && (error.message.includes('All') && error.message.includes('API keys are rate limited'))) {
-        toast.error('We\'ve reached our daily usage limit for AI question generation. Please try again tomorrow or in a few hours when the limits reset.');
+      // A rate limit is a wait, not a failure, and the student needs the number.
+      // retryAfterFrom returns null for anything that isn't one, so a genuine
+      // error still gets a real error message rather than a countdown to nothing.
+      const retryAfter = retryAfterFrom(error);
+      if (retryAfter !== null) {
+        toast.aiBusy(retryAfter, { reason: 'practice test' });
       } else if (error?.code === 'ai_usage_limit' || (error.message && error.message.includes('usage limit'))) {
         toast.error(error.message);
       } else {

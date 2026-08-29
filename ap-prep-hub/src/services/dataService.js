@@ -298,6 +298,24 @@ class DataService {
     }
   }
 
+  /**
+   * Subject keys the student marked as late-testing.
+   *
+   * Lives on the same user doc as `subjects` but is fetched separately rather
+   * than folded into getUserSubjects, whose callers all want a plain array of
+   * subjects and would each need updating.
+   */
+  async getLateTestingSubjects(userId) {
+    try {
+      const snap = await getDoc(doc(this.db, 'users', userId));
+      const late = snap.exists() ? snap.data().lateTestingSubjects : null;
+      return Array.isArray(late) ? late : [];
+    } catch (error) {
+      console.error('Error fetching late-testing subjects:', error);
+      return [];
+    }
+  }
+
   /** Completed practice tests, newest first — the input to the mastery model. */
   async getUserPracticeTests(userId, limitCount = 50) {
     try {

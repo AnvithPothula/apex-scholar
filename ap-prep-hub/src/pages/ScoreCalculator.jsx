@@ -13,7 +13,10 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { Calculator, Info, ChevronDown } from 'lucide-react';
+import useDocumentMeta from '../hooks/useDocumentMeta';
+import { scoreCalculatorTitle, scoreCalculatorDescription, canonicalFor } from '../utils/pageMeta';
+import { Calculator, Info, ChevronDown, Share2 } from 'lucide-react';
+import ScoreCard from '../components/ui/ScoreCard';
 import { Card, Button } from '../components/ui/UIComponents';
 import { createPageUrl } from '../utils/helpers';
 import { MODELLED_SUBJECTS, getScoreModel, SUBJECT_BY_SLUG, slugFor } from '../constants/apScoreModels';
@@ -41,6 +44,15 @@ export default function ScoreCalculator() {
     if (fromSlug && fromSlug !== subject) setSubject(fromSlug);
   }, [slug, subject]);
 
+  // Per-subject title/description/canonical. Without these every calculator
+  // shared the site's generic <title>, so "ap bio score calculator" matched
+  // nothing even though the page was public and in the sitemap.
+  useDocumentMeta({
+    title: scoreCalculatorTitle(subject),
+    description: scoreCalculatorDescription(subject),
+    canonical: canonicalFor(`/ap-score-calculator/${slugFor(subject)}`),
+  });
+
   const chooseSubject = (next) => {
     setSubject(next);
     setRaws({});
@@ -51,6 +63,7 @@ export default function ScoreCalculator() {
   // student's own numbers instead of an empty form. Values are clamped through
   // the same helper the tutor's inline widget uses, because a query string is
   // just as untrusted as AI output.
+  const [showShare, setShowShare] = useState(false);
   const [searchParams] = useSearchParams();
   const seededFromTest = searchParams.get('from') === 'test';
   const [raws, setRaws] = useState(() =>
@@ -165,7 +178,26 @@ export default function ScoreCalculator() {
               </div>
             ))}
           </div>
+
+          {/* Students screenshot this and post it. A cropped screenshot loses
+              the "estimated" caveat, so offer a card that carries the caveat
+              inside the image. */}
+          <button
+            type="button"
+            onClick={() => setShowShare((v) => !v)}
+            aria-expanded={showShare}
+            className="mt-4 inline-flex items-center gap-1.5 text-body-sm rounded-md border border-border px-3 py-1.5 text-content-primary hover:bg-base-800"
+          >
+            <Share2 className="w-3.5 h-3.5" strokeWidth={1.5} />
+            {showShare ? 'Hide share card' : 'Share this score'}
+          </button>
         </Card>
+
+        {showShare && (
+          <div className="mb-4">
+            <ScoreCard subject={subject} result={result} onClose={() => setShowShare(false)} />
+          </div>
+        )}
 
         {/* The curve. No competitor shows this — which is exactly why it's here. */}
         <Card className="p-0 mb-4 overflow-hidden">

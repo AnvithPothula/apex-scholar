@@ -93,8 +93,15 @@ const subjectNames = {
   studioArtDrawing: "AP Studio Art: Drawing",
 };
 
-// Comprehensive display-name → key mapping for all subjects
-const displayNameMap = {
+/**
+ * Comprehensive display-name → key mapping for all subjects.
+ *
+ * Exported because one course legitimately has several names in this codebase:
+ * the curriculum calls it "AP United States History", the exam table calls it
+ * "AP U.S. History", and a user doc stores whichever was current when they
+ * enrolled. Anything resolving a stored subject name must come through here.
+ */
+export const SUBJECT_KEY_BY_DISPLAY_NAME = {
   // Arts
   'AP Art History': 'artHistory',
   'AP Studio Art and Design': 'studioArt',
@@ -172,6 +179,8 @@ const displayNameMap = {
   'AP Seminar': 'seminar',
   'AP African American Studies': 'africanAmericanStudies',
 };
+
+const displayNameMap = SUBJECT_KEY_BY_DISPLAY_NAME;
 
 // Cache for loaded subject data
 const cache = {};

@@ -34,7 +34,10 @@ describe('SM-2 review', () => {
     const lapsed = review(mature, GRADE.again, NOW);
 
     expect(lapsed.reps).toBe(0);
-    expect(lapsed.interval).toBe(1);
+    // A card you just got wrong returns in minutes, not tomorrow — see the
+    // relearning step in srs.js.
+    expect(lapsed.interval).toBeCloseTo(10 / (24 * 60), 6);
+    expect(lapsed.due - NOW).toBeLessThan(60 * 60 * 1000);
     expect(lapsed.lapses).toBe(1);
     // A lapse must make the card harder, not easier.
     expect(lapsed.ease).toBeLessThan(mature.ease);
@@ -84,5 +87,29 @@ describe('queue', () => {
       { id: 'drop', interval: 90 },
     ];
     expect(trim(cards, 1).map((c) => c.id)).toEqual(['keep']);
+  });
+});
+
+describe('grade differentiation on a new card', () => {
+  it('makes the four buttons mean four different things', () => {
+    // They used to all schedule 1 day, so choosing between them was
+    // meaningless and the interval shown on each button read "1d · 1d · 1d · 1d".
+    const again = review({}, GRADE.again, NOW);
+    const good = review({}, GRADE.good, NOW);
+    const easy = review({}, GRADE.easy, NOW);
+    expect(again.interval).toBeLessThan(good.interval);
+    expect(good.interval).toBeLessThan(easy.interval);
+  });
+
+  it('keeps easy ahead of good on the second pass too', () => {
+    const seen = review({}, GRADE.good, NOW);
+    expect(review(seen, GRADE.easy, NOW).interval)
+      .toBeGreaterThan(review(seen, GRADE.good, NOW).interval);
+  });
+
+  it('leaves the mature ladder on ease, not on fixed steps', () => {
+    const mature = { ease: 2.5, reps: 5, interval: 30, lapses: 0 };
+    expect(review(mature, GRADE.good, NOW).interval)
+      .toBe(Math.round(30 * review(mature, GRADE.good, NOW).ease));
   });
 });

@@ -70,8 +70,9 @@ const escapeHtml = (s) => String(s || '')
  *
  * Constraints that drive every choice here: Gmail strips <style> blocks, Outlook
  * ignores flexbox and most modern CSS, and many clients block remote images by
- * default. So this is table-free but fully inline-styled, uses no images, and
- * degrades to readable text if CSS is dropped entirely. Light background on
+ * default. So this is fully inline-styled and degrades to readable text if CSS is
+ * dropped entirely. Images are supported in the body but never load-bearing —
+ * the message must still read with every image blocked. Light background on
  * purpose — a dark email in a light inbox reads as spam.
  */
 function buildHtml(bodyHtml, unsubUrl, subject) {
@@ -157,16 +158,83 @@ function buildHtml(bodyHtml, unsubUrl, subject) {
 }
 
 /** Preserve paragraph breaks from a plain-text body without allowing markup. */
+/**
+ * A deliberately small markdown subset for broadcast bodies.
+ *
+ * The body was escaped and nothing else, so a message was one flat wall of
+ * grey text — no way to bold a date or link to a page. Full markdown is the
+ * wrong answer here: email clients ignore <style>, so every element needs
+ * inline CSS, and a parser that emits classed HTML would render unstyled.
+ *
+ * Escaping happens FIRST and the markup is applied to the escaped string, so a
+ * body containing raw HTML still cannot inject anything.
+ *
+ * Supported: **bold**, *italic*, [text](url), # / ## headings, - bullets, and
+ * blank-line paragraphs. Everything else is literal text.
+ */
+const P = 'margin:0 0 14px;font-size:15px;line-height:1.65;color:#a0a0a8';
+const H1 = 'margin:0 0 12px;font-size:21px;line-height:1.3;color:#ededed;font-weight:700';
+const H2 = 'margin:18px 0 10px;font-size:17px;line-height:1.35;color:#ededed;font-weight:600';
+const LI = 'margin:0 0 6px;font-size:15px;line-height:1.6;color:#a0a0a8';
+const A = 'color:#2dd4bf;text-decoration:underline';
+// Centred and fluid. Gmail, Outlook and Apple Mail all block remote images by
+// default for a sender you haven't replied to, so an image can decorate the
+// message but must never carry it — hence the alt text requirement below.
+const IMG = 'max-width:100%;height:auto;display:block;margin:0 auto 14px;border:0';
+
+/** Inline markup, applied to ALREADY-ESCAPED text. */
+function inlineMarkup(escaped) {
+  return escaped
+    // ![alt](https://…) — must run BEFORE the link rule, which would otherwise
+    // match the [alt](url) inside it and leave a stray "!" in the body.
+    .replace(/!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g,
+      (_m, alt, url) => `<img src="${url}" alt="${alt}" style="${IMG}">`)
+    // [label](https://…) — only http(s), so no javascript: URLs.
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+      (_m, label, url) => `<a href="${url}" style="${A}">${label}</a>`)
+    .replace(/\*\*([^*]+)\*\*/g, '<strong style="color:#ededed">$1</strong>')
+    .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
+}
+
 function bodyToHtml(text) {
   return String(text || '')
     .split(/\n{2,}/)
-    .map((para) =>
+    .map((block) => {
+      const lines = block.split('\n');
+
+      // A block whose FIRST non-blank line starts with "- " is a list.
+      //
+      // Not "every line": a bullet long enough to wrap in the compose textarea
+      // has a continuation line that starts with a space, and requiring every
+      // line to carry a marker silently demoted the whole list to one grey
+      // paragraph with visible "-" characters in it. Continuation lines fold
+      // into the item above instead.
+      const items = lines.filter((l) => l.trim());
+      const MARKER = /^\s*[-*]\s+/;
+      if (items.length && MARKER.test(items[0])) {
+        const folded = [];
+        for (const line of items) {
+          if (MARKER.test(line)) folded.push(line.replace(MARKER, ''));
+          else if (folded.length) folded[folded.length - 1] += ` ${line.trim()}`;
+          else folded.push(line.trim());
+        }
+        const lis = folded
+          .map((l) => `<li style="${LI}">${inlineMarkup(escapeHtml(l))}</li>`)
+          .join('');
+        return `<ul style="margin:0 0 14px;padding-left:20px">${lis}</ul>`;
+      }
+
+      const heading = /^(#{1,2})\s+(.*)$/.exec(lines[0] || '');
+      if (heading && lines.length === 1) {
+        const style = heading[1] === '#' ? H1 : H2;
+        const tag = heading[1] === '#' ? 'h1' : 'h2';
+        return `<${tag} style="${style}">${inlineMarkup(escapeHtml(heading[2]))}</${tag}>`;
+      }
+
       // #a0a0a8 = content-secondary. ~7.5:1 on the #171717 card, so it clears
       // WCAG AA even though email clients never audit this.
-      `<p style="margin:0 0 14px;font-size:15px;line-height:1.65;color:#a0a0a8">${
-        escapeHtml(para).replace(/\n/g, '<br>')
-      }</p>`
-    )
+      return `<p style="${P}">${inlineMarkup(escapeHtml(block)).replace(/\n/g, '<br>')}</p>`;
+    })
     .join('');
 }
 
@@ -246,6 +314,21 @@ exports.handler = async (event) => {
       };
     }
 
+    // Preview renders the REAL email and sends nothing. Deliberately reuses
+    // buildHtml/bodyToHtml rather than re-implementing the layout in the admin
+    // UI, so what the admin approves is byte-for-byte what recipients get.
+    if (payload.preview === true) {
+      const unsubUrl = `${origin0}/.netlify/functions/email-unsubscribe?t=preview`;
+      return {
+        statusCode: 200, headers,
+        body: JSON.stringify({
+          mode: 'preview',
+          html: buildHtml(bodyToHtml(bodyText), unsubUrl, subject),
+          audience: recipients.length,
+        }),
+      };
+    }
+
     // A test send goes to exactly one address and touches nobody else.
     if (testTo) {
       const token = unsubscribeToken(adminUid);
@@ -312,10 +395,29 @@ async function sendBatch(apiKey, from, to, subject, bodyText, unsubUrl) {
     const json = await res.json().catch(() => ({}));
     const succeeded = json?.data?.succeeded ?? 0;
     if (!res.ok || succeeded < 1) {
-      return { ok: false, error: json?.data?.error || json?.error || `HTTP ${res.status}` };
+      // SMTP2GO reports the useful part in data.error_code and, for a sender
+      // that is not verified on the account, in field_validation_errors —
+      // neither of which was surfaced, so a refused send looked like a silent
+      // no-op. The most common cause is MAIL_FROM's domain not being verified.
+      const d = json?.data || {};
+      const parts = [
+        d.error_code,
+        d.error,
+        Array.isArray(d.field_validation_errors)
+          ? d.field_validation_errors.map((e) => `${e.field}: ${e.message}`).join('; ')
+          : d.field_validation_errors?.message,
+        Array.isArray(d.failures) && d.failures.length ? `failures: ${JSON.stringify(d.failures)}` : null,
+        json?.error,
+        succeeded === 0 && res.ok ? 'SMTP2GO accepted the request but delivered 0 messages' : null,
+      ].filter(Boolean);
+      return { ok: false, error: parts.join(' | ') || `HTTP ${res.status}` };
     }
     return { ok: true, succeeded };
   } catch (err) {
     return { ok: false, error: err.message };
   }
 }
+
+// Exported for tests; the handler above is the only production caller.
+module.exports.bodyToHtml = bodyToHtml;
+module.exports.buildHtml = buildHtml;

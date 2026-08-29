@@ -210,8 +210,7 @@ const FlashcardsPage = () => {
     } catch (error) {
       console.error('Error creating flashcards:', error);
       if (error instanceof RateLimitError || error?.isRateLimit) {
-        const waitTime = error.retryAfter || 60;
-        toast.error(`AI service is temporarily busy. Please wait ${waitTime} seconds and try again.`);
+        toast.aiBusy(error.retryAfter, { reason: 'flashcards' });
       } else {
         toast.error('Failed to generate flashcards. Please try again.');
       }

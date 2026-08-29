@@ -1,6 +1,6 @@
 ---
 name: ap-year-rollover
-description: Annual AP course rollover for Apex Scholar. Use when checking whether College Board has released updated Course and Exam Descriptions, when the user supplies new CED PDFs, or when rolling the app from one AP school year to the next. Produces the list of CEDs to download, then updates curricula, score models, test configurations, exam dates, and the sitemap from the new CEDs.
+description: Annual AP course rollover for Apex Scholar. Use when checking whether College Board has released updated Course and Exam Descriptions, when the user supplies new CED PDFs, or when rolling the app from one AP school year to the next. Also use when the AP exam calendar needs re-verifying against AP Central, or when apExamDates.test.js fails. Produces the list of CEDs to download, then updates curricula, score models, test configurations, the sitemap, and transcribes the new exam and late-testing dates from apcentral.collegeboard.org.
 ---
 
 # AP Year Rollover
@@ -44,7 +44,22 @@ ls -la ap-prep-hub/public/ced/*.pdf
 Every file's date tells you when it was last refreshed. A course listed with a
 newer CED than the local file's date needs replacing.
 
-### 1.3 Report to the user
+### 1.3 Exam dates change every year, CED or not
+
+Course content can be stable for years; the exam calendar never is. Check it on
+its own, independent of the CED table:
+
+```
+https://apcentral.collegeboard.org/exam-administration-ordering-scores/exam-dates
+https://apcentral.collegeboard.org/exam-administration-ordering-scores/exam-dates/late-testing-dates
+```
+
+The page shows **one exam year at a time** and flips to the next year over the
+summer. If it shows a year newer than `VERIFIED_EXAM_YEARS` in
+`src/constants/apExamDates.js`, the app is serving invented dates right now —
+see §2.6. Treat that as urgent regardless of what the CED table says.
+
+### 1.4 Report to the user
 
 Give three lists, and be explicit that the third is *not* to be deleted:
 
@@ -121,7 +136,8 @@ For each changed course:
    longer on the exam generates questions that cannot appear.**
 3. **`src/constants/apScoreModels.js`** — `sections[]` raw maxima and weights,
    `note`, and `cutoffConfidence`.
-4. **`src/constants/apExamDates.js`** — the new year's exam dates.
+4. **`src/constants/apExamDates.js`** — the new year's exam dates. See §2.6;
+   this one is mandatory every year even when no CED changed.
 5. **`public/sitemap.xml`** — only if slugs changed or subjects were added.
 
 ### 2.4 Adding a brand-new course
@@ -174,6 +190,49 @@ Two guards are mandatory when writing topics back:
 Some CEDs (world languages, English, Spanish Literature, Studio Art) have no
 numbered topic pages at all. Leave those alone.
 
+### 2.6 Exam dates — transcribe, never infer
+
+`src/constants/apExamDates.js` holds one hand-verified table per exam year plus
+a *generated* fallback that guesses each subject's slot from the usual May
+pattern. **The fallback is wrong for most subjects and fails silently** — a
+student sees a confident countdown to a date the College Board never published.
+It exists only so the app does not crash; reaching it in production is a bug.
+
+Transcribe both pages, subject by subject:
+
+| Source page | What it gives |
+|---|---|
+| `…/exam-administration-ordering-scores/exam-dates` | main administration: date + 8 a.m. / 12 p.m. session, portfolio and Capstone deadlines |
+| `…/exam-administration-ordering-scores/exam-dates/late-testing-dates` | `lateDate` / `lateTime` for every subject |
+
+Then:
+
+1. Add `AP_EXAM_DATES_<year>` in College Board's own order (Week 1 Monday →
+   Week 2 Friday), with a `// Monday, May N` comment per day so a reviewer can
+   diff it against the page by eye.
+2. Add the year to `VERIFIED_EXAM_YEARS` and to the `if` in
+   `getCurrentYearExamDates()`.
+3. **Delete the previous year's table.** `getTargetExamYear()` never returns a
+   past year, so an old table is unreachable code that only invites drift.
+4. Subject keys must match `SUBJECT_KEY_TO_EXAM_NAME`'s *values* exactly, not
+   College Board's wording. AP Central writes "Comparative Government and
+   Politics"; the app key is `"AP Government and Politics: Comparative"`. A
+   mismatch means that subject silently has no countdown.
+5. New courses on the schedule (pilots included) get an entry even if no
+   curriculum key maps to them yet — note that in a comment.
+6. Portfolio and Capstone entries carry `type: 'portfolio'` / `'presentation'`
+   and no `lateDate`; they are deadlines, not sittings.
+
+`src/constants/apExamDates.test.js` enforces the parts that can be checked
+mechanically: every exam falls inside the two official weeks, every late date
+inside the late-testing window, every sat exam has a late date, only the two
+official start times appear, every mappable curriculum subject has an entry —
+and, the reason the file exists, **`VERIFIED_EXAM_YEARS` covers the year
+students are currently counting down to.** That last assertion turns red on its
+own each June, which is what forces this section to get run.
+
+It cannot check the dates themselves. Read them off the page.
+
 ---
 
 ## Verification (required before reporting done)
@@ -184,6 +243,10 @@ CI=true npx react-scripts test --silent   # all suites must pass
 CI=true npm run build                     # must compile
 python3 .claude/skills/ap-year-rollover/scripts/audit_curriculum.py
 ```
+
+`apExamDates.test.js` failing on "has a hand-verified table for the year
+students are counting down to" means §2.6 has not been done — nothing else in
+this skill matters until it passes.
 
 Then load the app and check, per changed subject:
 - `/ap-score-calculator/<slug>` — one slider per section, correct maxima, all-max

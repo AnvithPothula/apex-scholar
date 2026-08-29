@@ -30,9 +30,14 @@
     <link rel="dns-prefetch" href="https://js.puter.com" />
 
     <!-- Design System Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Source+Sans+3:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Fonts are self-hosted (public/fonts). Google Fonts was the longest
+         critical chain on the deployed site: googleapis.com for the stylesheet,
+         then gstatic.com for the files — two third-party handshakes before any
+         text could paint. Preloading the files themselves starts them in
+         parallel with the stylesheet instead of after it. -->
+    <link rel="preload" href="%PUBLIC_URL%/fonts/plus-jakarta-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="%PUBLIC_URL%/fonts/source-sans-3-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="%PUBLIC_URL%/fonts/fonts.css">
 
     <!-- Primary SEO -->
     <title>Apex Scholar — AI Tutors, Practice Tests &amp; Smart Scheduler for AP Exams</title>
@@ -273,7 +278,31 @@
             markBlocked('SDK onload handler threw: ' + e);
           }
         };
-        document.head.appendChild(s);
+        // Deferred to idle, not appended inline.
+        //
+        // The SDK is 87 KiB (74 KiB of it unused on a cold page) and it was
+        // fetched on EVERY route, competing with the app's own JS for the
+        // critical path — Lighthouse measured LCP at 9.2s on mobile. Nothing
+        // can call puter.ai before the app has painted and the student has
+        // typed something, so there is no reason for it to race first paint.
+        //
+        // Still eager enough to be ready long before any AI call: waiting for
+        // load and then one idle slot is well under a second in practice, and
+        // geminiService only falls back to the Google API if __puterLoaded is
+        // still false when a request is actually made.
+        var startPuter = function () {
+          if (s.parentNode) return;
+          document.head.appendChild(s);
+        };
+        var whenIdle = function () {
+          if (typeof window.requestIdleCallback === 'function') {
+            window.requestIdleCallback(startPuter, { timeout: 2000 });
+          } else {
+            setTimeout(startPuter, 200);
+          }
+        };
+        if (document.readyState === 'complete') whenIdle();
+        else window.addEventListener('load', whenIdle, { once: true });
 
         // --- Strategy 2: Fast parallel fetch probe ---
         try {
@@ -316,7 +345,7 @@
         React replaces this on mount; users with JS enabled will never see it.
         Hidden visually with inline styles so it doesn't flash.
       -->
-      <div style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;">
+      <div id="crawler-fallback" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;">
         <h1>Apex Scholar — AI-Powered AP Exam Prep Platform</h1>
         <p>
           Free, all-in-one study tool for Advanced Placement exams. Apex Scholar combines

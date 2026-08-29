@@ -1097,6 +1097,16 @@ class GeminiService {
    * Throws on any proxy/transport failure so callers can dev-fallback.
    */
   async _requestViaProxy(body, model, context = 'AI proxy', task = '') {
+    // Serialised through the shared queue. Generating one practice test is ~13
+    // calls; firing those alongside the tutor and the solver is how a single
+    // student exhausts a key's requests-per-minute without any help from
+    // anyone else. The queue also remembers a 429, so the first refusal parks
+    // the remaining twelve instead of collecting twelve more.
+    const { enqueue } = await import('./aiQueue');
+    return enqueue(() => this._requestViaProxyNow(body, model, context, task));
+  }
+
+  async _requestViaProxyNow(body, model, context = 'AI proxy', task = '') {
     const url = this._aiProxyUrl();
     const headers = { 'Content-Type': 'application/json' };
     const appToken = (process.env.REACT_APP_AI_PROXY_APP_TOKEN || '').trim();
@@ -1133,7 +1143,19 @@ class GeminiService {
     }
 
     if (res.status === 429) {
-      const retryAfter = parseInt(res.headers.get('retry-after') || '60', 10);
+      // Two sources on purpose. The header only reaches JS if the server lists
+      // it in Access-Control-Expose-Headers, and the body survives a proxy that
+      // strips headers — a wrong number here is what makes a student retry too
+      // early and get refused again.
+      const fromHeader = parseInt(res.headers.get('retry-after') || '', 10);
+      const body = await res.json().catch(() => null);
+      const fromBody = Number(body && body.retryAfter);
+      const retryAfter =
+        [fromHeader, fromBody].find((n) => Number.isFinite(n) && n > 0) || 60;
+      // One refusal parks the whole tab. Without this each queued call learns
+      // the limit independently and earns its own 429.
+      const { setCooldown } = await import('./aiQueue');
+      setCooldown(retryAfter);
       this._handleRateLimit(new Error(`${context}: proxy rate limited`), context);
       throw new RateLimitError(`AI service is busy. Please wait ${retryAfter} seconds and try again.`, retryAfter);
     }
@@ -1154,6 +1176,10 @@ class GeminiService {
     // the one asked for. It reports the winner in X-Apex-Model (exposed via
     // Access-Control-Expose-Headers); null if an older proxy is deployed.
     this._noteResolvedModel('Google', res.headers.get('X-Apex-Model'));
+    // A success means capacity is back; holding the rest of the queue behind a
+    // stale cooldown would make the app feel broken long after it recovered.
+    const { clearCooldown } = await import('./aiQueue');
+    clearCooldown();
     return data;
   }
 

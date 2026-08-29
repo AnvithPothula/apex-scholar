@@ -15,10 +15,11 @@
  * sending reputation permanently.
  */
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { getAuth } from 'firebase/auth';
-import { Loader2, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Loader2, AlertTriangle, CheckCircle, Bold, Italic, Link2, List, Heading, Eye, Image } from 'lucide-react';
 import { Button, Input } from '../ui/UIComponents';
+import { applyWrap, applyLinePrefix, applyLink, applyImage } from './emailFormatting';
 
 const ENDPOINT = '/.netlify/functions/email-broadcast';
 
@@ -43,6 +44,34 @@ export default function EmailBroadcast() {
   const [confirmText, setConfirmText] = useState('');
   const [busy, setBusy] = useState('');
   const [result, setResult] = useState(null);
+  const [previewHtml, setPreviewHtml] = useState('');
+  const bodyRef = useRef(null);
+
+  /**
+   * Applies a toolbar edit and restores the caret.
+   *
+   * Without the setSelectionRange the caret jumps to the end after every
+   * button press, which makes the toolbar useless for anything but appending.
+   */
+  const edit = (fn) => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const next = fn(body, el.selectionStart, el.selectionEnd);
+    setBody(next.value);
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(next.selectionStart, next.selectionEnd);
+    });
+  };
+
+  const TOOLBAR = [
+    { key: 'bold', label: 'Bold', Icon: Bold, run: () => edit((v, a, b) => applyWrap(v, a, b, '**', 'bold text')) },
+    { key: 'italic', label: 'Italic', Icon: Italic, run: () => edit((v, a, b) => applyWrap(v, a, b, '*', 'italic text')) },
+    { key: 'link', label: 'Link', Icon: Link2, run: () => edit(applyLink) },
+    { key: 'image', label: 'Image', Icon: Image, run: () => edit(applyImage) },
+    { key: 'heading', label: 'Heading', Icon: Heading, run: () => edit((v, a, b) => applyLinePrefix(v, a, b, '## ')) },
+    { key: 'list', label: 'Bullet list', Icon: List, run: () => edit((v, a, b) => applyLinePrefix(v, a, b, '- ')) },
+  ];
   const [error, setError] = useState('');
 
   const call = async (payload, mode) => {
@@ -74,6 +103,13 @@ export default function EmailBroadcast() {
       }
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || `Request failed (${res.status})`);
+      // The preview is the real rendered email, so it goes in an iframe rather
+      // than into `result` (which is a one-line status strip).
+      if (json.mode === 'preview') {
+        setPreviewHtml(json.html || '');
+        return;
+      }
+      setPreviewHtml('');
       setResult(json);
     } catch (err) {
       setError(err.message || 'Request failed.');
@@ -104,7 +140,25 @@ export default function EmailBroadcast() {
         <label htmlFor="bc-body" className="block text-sm font-medium text-content-secondary mb-2">
           Message
         </label>
+        <div className="flex flex-wrap items-center gap-1 mb-2">
+          {TOOLBAR.map(({ key, label, Icon, run }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={run}
+              title={label}
+              aria-label={label}
+              className="p-2 rounded-md border border-border text-content-secondary hover:bg-base-800 hover:text-content-primary"
+            >
+              <Icon className="w-4 h-4" strokeWidth={1.5} />
+            </button>
+          ))}
+          <span className="text-xs text-content-muted ml-1">
+            **bold** · *italic* · [text](url) · ## heading · - bullet
+          </span>
+        </div>
         <textarea
+          ref={bodyRef}
           id="bc-body"
           value={body}
           onChange={(e) => setBody(e.target.value)}
@@ -118,6 +172,31 @@ export default function EmailBroadcast() {
       </div>
 
       <div className="border-t border-border-strong pt-4 space-y-3">
+        <div>
+          <p className="block text-sm font-medium text-content-secondary mb-2">
+            Preview — renders the real email, sends nothing
+          </p>
+          <Button variant="outline" disabled={!ready || !!busy} onClick={() => call({ preview: true }, 'preview')}>
+            {busy === 'preview'
+              ? <Loader2 className="w-4 h-4 mr-2 animate-spin" strokeWidth={1.5} />
+              : <Eye className="w-4 h-4 mr-2" strokeWidth={1.5} />}
+            Preview email
+          </Button>
+          {previewHtml && (
+            <div className="mt-3 rounded-lg border border-border-strong overflow-hidden bg-white">
+              {/* srcDoc + sandbox: the preview is email HTML with its own
+                  <html>/<body>, and it must not inherit the app's CSS or be
+                  able to run anything. */}
+              <iframe
+                title="Email preview"
+                srcDoc={previewHtml}
+                sandbox=""
+                className="w-full h-[520px] border-0"
+              />
+            </div>
+          )}
+        </div>
+
         <div>
           <label htmlFor="bc-test" className="block text-sm font-medium text-content-secondary mb-2">
             1 · Send a test to one address

@@ -28,7 +28,7 @@
   "scripts": {
     "start": "NODE_OPTIONS=--no-deprecation react-scripts start",
     "start:https": "HTTPS=true NODE_OPTIONS=--no-deprecation react-scripts start",
-    "build": "NODE_OPTIONS=--no-deprecation REACT_APP_VERSION=$npm_package_version react-scripts build",
+    "build": "NODE_OPTIONS=--no-deprecation REACT_APP_VERSION=$npm_package_version react-scripts build && node scripts/prerender.mjs",
     "test": "NODE_OPTIONS=--no-deprecation react-scripts test",
     "eject": "react-scripts eject",
     "release:patch": "npm version patch && git push --follow-tags",
