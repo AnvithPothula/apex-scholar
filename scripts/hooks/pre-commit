@@ -1,0 +1,55 @@
+#!/bin/sh
+# Block real credentials before they reach a commit.
+#
+# This repository is public. A key committed here is scraped within minutes, and
+# removing it later does not help: git history keeps it, and forks and archives
+# keep it after that. In 2026 a leaked key got a Google Cloud project suspended.
+#
+# Install (once, per clone):
+#   git config core.hooksPath scripts/hooks
+#
+# Bypass, only when you are certain:
+#   git commit --no-verify
+
+fail() {
+  echo "BLOCKED: $2"
+  echo "  file: $1"
+  echo "  Put secrets in .env (gitignored). If this is a false positive:"
+  echo "  git commit --no-verify"
+  exit 1
+}
+
+for f in $(git diff --cached --name-only --diff-filter=ACM); do
+  [ -f "$f" ] || continue
+  added=$(git diff --cached -U0 -- "$f" | grep '^+' | sed 's/^+//')
+  [ -n "$added" ] || continue
+
+  # --- API keys: both formats Google issues ---
+  # AIza + 35 (classic), and AQ.… ~53 chars with dots (issued from 2026).
+  if printf '%s' "$added" | grep -qE 'AIza[0-9A-Za-z_-]{30,}'; then
+    fail "$f" "a Google API key (AIza… format)"
+  fi
+  if printf '%s' "$added" | grep -qE 'AQ\.[A-Za-z0-9_.-]{40,}'; then
+    fail "$f" "a Google API key (AQ.… format)"
+  fi
+
+  # --- Service-account JSON ---
+  # Requires BOTH the type marker and a private_key field. The type string alone
+  # appears in .env.example, in firebaseAdmin.js's validation, in its tests, and
+  # in security docs that discuss this very check — all of which are legitimate
+  # and were being blocked. A real dumped credential always has both.
+  if printf '%s' "$added" | grep -qE '"type"[[:space:]]*:[[:space:]]*"service_account"' &&
+     printf '%s' "$added" | grep -qE '"private_key"[[:space:]]*:[[:space:]]*"-----BEGIN'; then
+    fail "$f" "a service-account JSON blob (type + private_key)"
+  fi
+
+  # --- Bare PEM private key ---
+  # The header alone is not evidence: it appears in error strings and test
+  # fixtures. Require an actual base64 body on a following line.
+  if printf '%s' "$added" | grep -q -- '-----BEGIN [A-Z ]*PRIVATE KEY-----' &&
+     printf '%s' "$added" | grep -qE '^[A-Za-z0-9+/]{60,}={0,2}$'; then
+    fail "$f" "a PEM private key with real key material"
+  fi
+done
+
+exit 0

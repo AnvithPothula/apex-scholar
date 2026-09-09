@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Apex Scholar — item labeller</title>
+<style>
+  :root{--bg:#0a0a0a;--card:#171717;--raised:#1e1e1e;--border:#2e2e2e;--text:#ededef;
+        --dim:#a0a0a8;--muted:#7d7d86;--teal:#2dd4bf;--red:#f0645f;--amber:#f5b544;--green:#4ade80}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+  .wrap{max-width:820px;margin:0 auto;padding:24px 16px 80px}
+  h1{font-size:18px;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 20px}
+  .bar{height:6px;background:var(--raised);border-radius:3px;overflow:hidden;margin-bottom:18px}
+  .bar>div{height:100%;background:var(--teal);transition:width .2s}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:14px}
+  .meta{display:flex;gap:10px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin-bottom:12px}
+  .meta span{background:var(--raised);padding:2px 8px;border-radius:99px}
+  .stem{font-size:16px;margin:0 0 16px;white-space:pre-wrap}
+  .choice{display:block;width:100%;text-align:left;background:var(--raised);border:1px solid var(--border);
+          color:var(--text);border-radius:8px;padding:11px 13px;margin-bottom:8px;cursor:pointer;font:inherit}
+  .choice:hover{background:#252525}
+  .choice.mine{border-color:var(--teal);background:rgba(45,212,191,.12)}
+  .choice.stored{border-color:var(--amber)}
+  .choice.both{border-color:var(--green);background:rgba(74,222,128,.12)}
+  .tag{float:right;font-size:11px;color:var(--muted)}
+  .flags{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+  .flag{background:var(--raised);border:1px solid var(--border);color:var(--dim);border-radius:99px;
+        padding:6px 12px;cursor:pointer;font:inherit;font-size:13px}
+  .flag.on{border-color:var(--red);background:rgba(240,100,95,.15);color:var(--text)}
+  .flag.ok.on{border-color:var(--green);background:rgba(74,222,128,.15)}
+  .row{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-top:16px}
+  button.act{background:var(--teal);color:#06231f;border:0;border-radius:8px;padding:10px 18px;font:inherit;font-weight:650;cursor:pointer}
+  button.ghost{background:transparent;border:1px solid var(--border);color:var(--dim);border-radius:8px;padding:10px 14px;font:inherit;cursor:pointer}
+  .expl{background:var(--raised);border-radius:8px;padding:12px;margin-top:12px;font-size:13px;color:var(--dim)}
+  .expl b{color:var(--text)}
+  kbd{background:var(--raised);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-size:11px;color:var(--muted)}
+  .hint{color:var(--muted);font-size:12px;margin-top:10px}
+  .done{text-align:center;padding:50px 20px}
+  input[type=file]{color:var(--dim);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Item labeller</h1>
+  <p class="sub">Blind first: answer it yourself before the stored key is shown. That is the whole point — seeing the key first makes agreement meaningless.</p>
+
+  <div id="load" class="card">
+    <p style="margin:0 0 10px">Load <code>sample.jsonl</code>:</p>
+    <input type="file" id="file" accept=".jsonl,.json,.txt">
+    <p class="hint" style="margin-top:14px">Resuming on another machine, or after clearing site data? Load your saved progress file too:</p>
+    <input type="file" id="resume" accept=".json">
+    <p class="hint">Progress also autosaves in this browser, but that is lost if you clear site data or switch browsers. Use <b>Save progress</b> for anything you would be upset to redo.</p>
+  </div>
+
+  <div id="app" hidden>
+    <div class="bar"><div id="prog"></div></div>
+    <div class="card">
+      <div class="meta">
+        <span id="pos"></span><span id="subj"></span><span id="concept"></span>
+      </div>
+      <p class="stem" id="stem"></p>
+      <div id="choices"></div>
+
+      <div id="phase1extra">
+        <button class="flag" id="skip" title="You cannot judge this subject. Better than guessing.">
+          S. I can't judge this one
+        </button>
+      </div>
+
+      <div id="phase2" hidden>
+        <div class="expl" id="explain"></div>
+        <p class="hint" style="margin-top:14px"><b>Anything wrong with it?</b> Pick every flaw that applies, or “No flaws”.</p>
+        <div class="flags" id="flags"></div>
+        <p class="hint" style="margin-top:12px"><b>How sure were you of your own answer?</b> A shaky right answer is not evidence about the item.</p>
+        <div class="flags"><button class="flag" id="unsure" title="Unsure items get adjudicated whether or not you agreed with the key.">U. I wasn't sure</button></div>
+      </div>
+
+      <div class="row">
+        <button class="ghost" id="back">&larr; Back</button>
+        <span class="hint" id="kbd"></span>
+        <button class="act" id="next">Next &rarr;</button>
+      </div>
+    </div>
+    <div class="row">
+      <span class="hint"><span id="stats"></span><br><span id="autosave" style="opacity:.65"></span></span>
+      <span>
+        <button class="ghost" id="saveprog">Save progress</button>
+        <button class="ghost" id="export">Export labels</button>
+      </span>
+    </div>
+  </div>
+
+  <div id="done" class="card done" hidden>
+    <h1>All 300 labelled</h1>
+    <p class="sub" id="summary"></p>
+    <button class="ghost" id="saveprog2">Save progress</button>
+    <button class="act" id="export2">Export labels</button>
+  </div>
+</div>
+
+<script>
+/* Flaw taxonomy. Deliberately the Item-Writing Flaws vocabulary used in the
+   published MCQ-quality literature, so the released dataset is comparable to
+   prior work rather than a bespoke scheme nobody can line up against. */
+const FLAWS = [
+  ['ok',                     'No flaws',                'the item is fine'],
+  ['key_wrong',              'Key is wrong',            'the stored answer is not correct'],
+  ['multiple_correct',       'Multiple defensible',     'more than one choice can be argued'],
+  ['none_correct',           'None correct',            'no choice is right'],
+  ['implausible_distractors','Weak distractors',        'wrong options are obviously wrong'],
+  ['unclear_stem',           'Unclear stem',            'ambiguous or unanswerable as written'],
+  ['giveaway',               'Giveaway cue',            'length or grammar reveals the answer'],
+  ['off_syllabus',           'Off syllabus',            'not AP-level content for this subject'],
+  ['explanation_wrong',      'Explanation wrong',       'rationale contradicts the key or is false'],
+];
+const LETTERS = ['A','B','C','D'];
+const KEY = 'apex.labels.v1';
+
+let rows = [], i = 0, labels = {};
+/** Identifies which sample a progress file belongs to, so a mismatched pair is
+    caught rather than silently mixing labels from two different draws. */
+let sampleFingerprint = '';
+
+function download(name, text, mime) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: mime }));
+  a.download = name;
+  a.click();
+  // Revoking immediately cancels the download in Safari.
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+}
+
+function fingerprint(list) {
+  return `${list.length}:${list[0] && list[0].id}:${list[list.length - 1] && list[list.length - 1].id}`;
+}
+
+function saveProgress() {
+  download('apex-label-progress.json', JSON.stringify({
+    format: 'apex-label-progress',
+    saved_at: new Date().toISOString(),
+    sample: sampleFingerprint,
+    labelled: rows.filter(isLabelled).length,
+    of: rows.length,
+    labels,
+  }, null, 1), 'application/json');
+}
+
+const $ = (id) => document.getElementById(id);
+const save = () => {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(labels));
+    const el = document.getElementById('autosave');
+    if (el) el.textContent = 'autosaved ' + new Date().toLocaleTimeString();
+  } catch (e) {
+    // Private windows and blocked site data both land here. Say so rather than
+    // letting someone label for three hours believing it is being kept.
+    const el = document.getElementById('autosave');
+    if (el) el.textContent = 'AUTOSAVE FAILED — use Save progress often';
+  }
+};
+
+try { labels = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { labels = {}; }
+
+let pendingProgress = null;
+
+$('resume').addEventListener('change', async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  let data;
+  try { data = JSON.parse(await f.text()); } catch { alert('That file is not valid JSON.'); return; }
+  if (data.format !== 'apex-label-progress' || !data.labels) {
+    alert('That does not look like a progress file. Load the apex-label-progress.json you saved.');
+    return;
+  }
+  pendingProgress = data;
+  // The sample may not be loaded yet, so apply what we can now and the rest on load.
+  if (rows.length) applyProgress();
+  else alert(`Progress loaded (${data.labelled} of ${data.of}). Now choose your sample file.`);
+});
+
+function applyProgress() {
+  if (!pendingProgress) return;
+  if (pendingProgress.sample && pendingProgress.sample !== sampleFingerprint) {
+    if (!confirm('That progress file was saved against a DIFFERENT sample.\n\n'
+      + 'Loading it will attach labels to whichever ids happen to match, which is '
+      + 'almost certainly not what you want.\n\nLoad anyway?')) { pendingProgress = null; return; }
+  }
+  labels = { ...labels, ...pendingProgress.labels };
+  save();
+  pendingProgress = null;
+  i = rows.findIndex((r) => !isLabelled(r));
+  if (i === -1) i = rows.length - 1;
+  render();
+}
+
+$('file').addEventListener('change', async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  rows = (await f.text()).split('\n').filter(Boolean).map((l) => JSON.parse(l));
+  sampleFingerprint = fingerprint(rows);
+  // Resume at the first unlabelled item rather than restarting.
+  i = rows.findIndex((r) => !isLabelled(r));
+  if (i === -1) i = rows.length - 1;
+  $('load').hidden = true; $('app').hidden = false;
+  render();
+  applyProgress();
+});
+
+function current() { return rows[i]; }
+function lab() {
+  const id = current().id;
+  if (!labels[id]) labels[id] = { my_answer: null, flags: [] };
+  return labels[id];
+}
+
+function render() {
+  const r = current(), L = lab();
+  const revealed = L.my_answer !== null;
+
+  $('prog').style.width = (rows.filter(isLabelled).length / rows.length * 100) + '%';
+  $('pos').textContent = `${i + 1} / ${rows.length}`;
+  $('subj').textContent = r.subject;
+  $('concept').textContent = r.concept || '—';
+  $('stem').textContent = r.question;
+
+  $('choices').innerHTML = '';
+  if (L.skipped) {
+    const d = document.createElement('div');
+    d.className = 'expl';
+    d.innerHTML = '<b>Skipped</b> — outside your subjects. Excluded from the base rate rather than guessed.';
+    $('choices').appendChild(d);
+  }
+  r.choices.forEach((c, n) => {
+    const b = document.createElement('button');
+    b.className = 'choice';
+    if (revealed) {
+      const mine = L.my_answer === n, stored = r.stored_answer === n;
+      if (mine && stored) b.className += ' both';
+      else if (mine) b.className += ' mine';
+      else if (stored) b.className += ' stored';
+      b.innerHTML = `<b>${LETTERS[n]}.</b> ${escapeHtml(c)}` +
+        (mine || stored ? `<span class="tag">${[mine ? 'your answer' : '', stored ? 'stored key' : ''].filter(Boolean).join(' · ')}</span>` : '');
+    } else {
+      b.innerHTML = `<b>${LETTERS[n]}.</b> ${escapeHtml(c)}`;
+    }
+    b.onclick = () => { L.my_answer = n; save(); render(); };
+    $('choices').appendChild(b);
+  });
+
+  $('phase1extra').hidden = revealed || L.skipped;
+  $('skip').className = 'flag' + (L.skipped ? ' on' : '');
+  $('phase2').hidden = !revealed;
+  if (revealed) {
+    $('explain').innerHTML = '<b>Stored explanations</b><br>' + r.explanations
+      .map((e, n) => `${LETTERS[n]}) ${escapeHtml(e)}`).join('<br>');
+    $('unsure').className = 'flag' + (L.unsure ? ' on' : '');
+    $('flags').innerHTML = '';
+    FLAWS.forEach(([code, name, help], n) => {
+      const b = document.createElement('button');
+      b.className = 'flag' + (code === 'ok' ? ' ok' : '') + (L.flags.includes(code) ? ' on' : '');
+      b.title = help;
+      b.textContent = `${n + 1}. ${name}`;
+      b.onclick = () => {
+        // "No flaws" is exclusive with everything else, in both directions.
+        if (code === 'ok') L.flags = L.flags.includes('ok') ? [] : ['ok'];
+        else L.flags = L.flags.includes(code)
+          ? L.flags.filter((f) => f !== code)
+          : [...L.flags.filter((f) => f !== 'ok'), code];
+        save(); render();
+      };
+      $('flags').appendChild(b);
+    });
+  }
+
+  $('kbd').innerHTML = revealed
+    ? 'flaws <kbd>1</kbd>–<kbd>9</kbd> · unsure <kbd>U</kbd> · next <kbd>Enter</kbd>'
+    : 'answer <kbd>A</kbd>–<kbd>D</kbd> · can\'t judge <kbd>S</kbd>';
+
+  const scorable = rows.filter(isScorable);
+  const dis = scorable.filter((r) => labels[r.id].my_answer !== r.stored_answer).length;
+  const skipped = rows.filter((r) => labels[r.id] && labels[r.id].skipped).length;
+  const unsure = scorable.filter((r) => labels[r.id].unsure).length;
+  $('stats').textContent = `${rows.filter(isLabelled).length} handled · ${scorable.length} scorable · `
+    + `${dis} to adjudicate · ${unsure} unsure · ${skipped} skipped`;
+}
+
+function escapeHtml(s){return String(s).replace(/[&<>"]/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+$('skip').onclick = () => { const L = lab(); L.skipped = !L.skipped; L.my_answer = null; save(); render(); };
+$('unsure').onclick = () => { const L = lab(); L.unsure = !L.unsure; save(); render(); };
+
+$('next').onclick = () => {
+  if (i < rows.length - 1) { i++; render(); }
+  else { $('app').hidden = true; $('done').hidden = false; summarise(); }
+};
+$('back').onclick = () => { if (i > 0) { i--; render(); } };
+
+document.addEventListener('keydown', (e) => {
+  if ($('app').hidden) return;
+  const L = lab();
+  if (e.key.toLowerCase() === 's' && L.my_answer === null) { $('skip').click(); return; }
+  if (e.key.toLowerCase() === 'u' && L.my_answer !== null) { $('unsure').click(); return; }
+  if (L.my_answer === null) {
+    const n = 'abcd'.indexOf(e.key.toLowerCase());
+    if (n >= 0 && n < current().choices.length) { L.my_answer = n; save(); render(); }
+  } else if (e.key >= '1' && e.key <= '9') {
+    const idx = Number(e.key) - 1;
+    if (FLAWS[idx]) $('flags').children[idx].click();
+  }
+  if (e.key === 'Enter') $('next').click();
+});
+
+function summarise() {
+  const scorable = rows.filter(isScorable);
+  const dis = scorable.filter((r) => labels[r.id].my_answer !== r.stored_answer);
+  const unsure = scorable.filter((r) => labels[r.id].unsure);
+  const toCheck = new Set([...dis, ...unsure].map((r) => r.id)).size;
+  $('summary').innerHTML = `${scorable.length} scorable, `
+    + `${rows.filter((r) => labels[r.id] && labels[r.id].skipped).length} skipped.<br>`
+    + `<b>${toCheck} items need adjudication</b> — every disagreement plus everything you marked unsure. `
+    + `Look those up properly; the base rate comes from the adjudicated verdicts, not from raw disagreement.`;
+}
+
+/** A row counts as labelled only when an answer was actually chosen. */
+function isLabelled(r) {
+  const L = labels[r.id];
+  return Boolean(L) && (Number.isInteger(L.my_answer) || L.skipped === true);
+}
+
+/** Answered, and confident enough for the answer to be evidence about the item. */
+function isScorable(r) {
+  const L = labels[r.id];
+  return Boolean(L) && Number.isInteger(L.my_answer) && !L.skipped;
+}
+
+function exportLabels() {
+  const out = rows.filter(isLabelled).map((r) => {
+    const L = labels[r.id];
+    const scorable = isScorable(r);
+    return {
+      ...r,
+      skipped: Boolean(L.skipped),
+      human_answer: scorable ? L.my_answer : null,
+      confidence: scorable ? (L.unsure ? 'unsure' : 'sure') : null,
+      // Raw agreement is a SCREENING signal, not the label. Anything false here,
+      // and anything marked unsure, needs adjudicating against the CED or a
+      // released exam before it counts toward the base rate.
+      key_agrees: scorable ? L.my_answer === r.stored_answer : null,
+      needs_adjudication: scorable && (L.unsure || L.my_answer !== r.stored_answer),
+      flags: L.flags || [],
+    };
+  });
+  download('labeled.jsonl', out.map((o) => JSON.stringify(o)).join('\n') + '\n', 'application/x-ndjson');
+}
+$('saveprog').onclick = saveProgress;
+$('saveprog2').onclick = saveProgress;
+$('export').onclick = exportLabels;
+$('export2').onclick = exportLabels;
+</script>
+</body>
+</html>

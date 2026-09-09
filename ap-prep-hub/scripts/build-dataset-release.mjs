@@ -1,0 +1,255 @@
+/**
+ * Turn `labeled.jsonl` into a publishable release for Hugging Face, Kaggle and
+ * GitHub at once, with the statistics computed rather than hand-written.
+ *
+ * Every number in the cards comes from the data. A dataset card with a
+ * hand-typed base rate is a dataset card that will eventually disagree with its
+ * own file.
+ *
+ * Usage (from ap-prep-hub/):
+ *   node scripts/build-dataset-release.mjs
+ *   node scripts/build-dataset-release.mjs --in docs/research/labeled.jsonl --version 1.0
+ */
+
+import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+const HF_URL = 'https://huggingface.co/datasets/apex-scholar/ap-item-quality';
+const KAGGLE_URL = 'https://www.kaggle.com/datasets/apexscholar/ap-item-quality';
+const GITHUB_URL = 'https://github.com/anvith/apex-scholar/tree/main/ap-prep-hub/docs/research';
+
+function parseArgs(argv) {
+  const out = { in: 'docs/research/labeled.jsonl', outDir: 'docs/research/release', version: '1.0' };
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--in') out.in = argv[++i];
+    else if (argv[i] === '--out') out.outDir = argv[++i];
+    else if (argv[i] === '--version') out.version = argv[++i];
+  }
+  return out;
+}
+
+/** RFC 4180: quote anything containing a comma, quote or newline; double the quotes. */
+function csvCell(v) {
+  const s = v === null || v === undefined ? '' : String(v);
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+const LETTERS = ['a', 'b', 'c', 'd'];
+
+function toCsv(rows) {
+  const cols = [
+    'id', 'subject', 'concept', 'generator_model', 'question',
+    ...LETTERS.map((l) => `choice_${l}`),
+    'stored_answer', 'human_answer', 'adjudicated_answer',
+    ...LETTERS.map((l) => `explanation_${l}`),
+    'confidence', 'key_agrees', 'needs_adjudication', 'skipped', 'flags',
+  ];
+  const lines = [cols.join(',')];
+  for (const r of rows) {
+    lines.push(cols.map((c) => {
+      if (c.startsWith('choice_')) return csvCell((r.choices || [])[LETTERS.indexOf(c.slice(7))]);
+      if (c.startsWith('explanation_')) return csvCell((r.explanations || [])[LETTERS.indexOf(c.slice(12))]);
+      // Pipe-joined: a CSV cell containing a comma-joined list is a trap for
+      // anyone who opens this in a spreadsheet.
+      if (c === 'flags') return csvCell((r.flags || []).join('|'));
+      return csvCell(r[c]);
+    }).join(','));
+  }
+  return lines.join('\n') + '\n';
+}
+
+function summarise(rows) {
+  const skipped = rows.filter((r) => r.skipped);
+  const scorable = rows.filter((r) => !r.skipped && Number.isInteger(r.human_answer));
+  // The base rate must come from adjudicated verdicts where they exist, because
+  // raw disagreement measures the annotator as much as the item.
+  const adjudicated = scorable.filter((r) => Number.isInteger(r.adjudicated_answer));
+  const settled = scorable.filter((r) => !r.needs_adjudication || Number.isInteger(r.adjudicated_answer));
+
+  const keyWrong = settled.filter((r) => {
+    const truth = Number.isInteger(r.adjudicated_answer) ? r.adjudicated_answer : r.human_answer;
+    return truth !== r.stored_answer;
+  });
+
+  const flagCounts = {};
+  rows.forEach((r) => (r.flags || []).forEach((f) => { flagCounts[f] = (flagCounts[f] || 0) + 1; }));
+
+  const bySubject = {};
+  settled.forEach((r) => {
+    const b = (bySubject[r.subject] ||= { n: 0, wrong: 0 });
+    b.n++;
+    const truth = Number.isInteger(r.adjudicated_answer) ? r.adjudicated_answer : r.human_answer;
+    if (truth !== r.stored_answer) b.wrong++;
+  });
+
+  return {
+    total: rows.length,
+    skipped: skipped.length,
+    scorable: scorable.length,
+    settled: settled.length,
+    pending: scorable.length - settled.length,
+    adjudicated: adjudicated.length,
+    keyWrong: keyWrong.length,
+    keyWrongPct: settled.length ? (keyWrong.length / settled.length * 100) : 0,
+    flagCounts,
+    bySubject,
+    subjects: [...new Set(rows.map((r) => r.subject))].sort(),
+    models: [...new Set(rows.map((r) => r.generator_model).filter(Boolean))].sort(),
+  };
+}
+
+function card(s, version, { forHuggingFace }) {
+  const flagRows = Object.entries(s.flagCounts).sort((a, b) => b[1] - a[1])
+    .map(([f, n]) => `| \`${f}\` | ${n} | ${(n / s.total * 100).toFixed(1)}% |`).join('\n') || '| — | 0 | — |';
+  const subjRows = Object.entries(s.bySubject).sort()
+    .map(([k, v]) => `| ${k} | ${v.n} | ${v.wrong} | ${v.n ? (v.wrong / v.n * 100).toFixed(1) : '0.0'}% |`).join('\n');
+
+  const frontmatter = forHuggingFace ? `---
+license: cc-by-4.0
+language:
+  - en
+tags:
+  - education
+  - question-answering
+  - multiple-choice
+  - data-quality
+  - llm-evaluation
+pretty_name: AP Item Quality
+size_categories:
+  - n<1K
+---
+
+` : '';
+
+  return `${frontmatter}# AP Item Quality v${version}
+
+Human-adjudicated quality labels for ${s.total} AI-generated Advanced Placement
+multiple-choice questions.
+
+## What this is
+
+The questions were generated by ${s.models.join(', ') || 'a large language model'}
+for [Apex Scholar](https://apex-scholar.com), a free AP study tool, and shipped
+to students after passing a **shape-only** check: four choices, four
+explanations, an answer index in range. Nothing verified that the marked answer
+was correct.
+
+This dataset is the result of checking.
+
+## Headline
+
+**${s.keyWrong} of ${s.settled} settled items have the wrong answer key — ${s.keyWrongPct.toFixed(1)}%.**
+
+${s.skipped} items were skipped as outside the annotator's competence and are excluded
+from that denominator. ${s.pending} remain unadjudicated.
+
+## Method
+
+Single annotator, **blind-then-reveal**: the annotator answered each item before
+the stored key was shown, because seeing the key first makes agreement
+meaningless.
+
+Raw disagreement is a *screening* signal, not a label. With a true error rate
+*e* and annotator accuracy *a*, observed disagreement is
+\`e·a + (1−e)·(1−a)\` — at 95% accuracy a true 5% reads as 9.5%. So every
+disagreement, and every item the annotator marked unsure, was adjudicated
+against the College Board Course and Exam Description, a released exam, or a
+textbook. **Not against another language model**: the items were generated by
+one, and the failure modes correlate.
+
+## Fields
+
+| field | meaning |
+|---|---|
+| \`question\`, \`choices\`, \`explanations\` | the generated item |
+| \`stored_answer\` | the key the generator produced (0-based) |
+| \`human_answer\` | the annotator's blind answer |
+| \`adjudicated_answer\` | the verdict after checking a source, where one was needed |
+| \`confidence\` | \`sure\` / \`unsure\`, self-reported before the reveal |
+| \`key_agrees\` | blind answer matched the stored key |
+| \`needs_adjudication\` | disagreed, or agreed while unsure |
+| \`skipped\` | outside the annotator's competence; excluded from rates |
+| \`flags\` | item-writing flaws (below) |
+
+## Flaw distribution
+
+| flag | count | share |
+|---|---|---|
+${flagRows}
+
+Codes follow the Item-Writing Flaws vocabulary used in the MCQ-quality
+literature (SAQUET, BenchMarker) so results line up against prior work.
+
+## Per subject
+
+| subject | settled | key wrong | rate |
+|---|---|---|---|
+${subjRows}
+
+## Limitations
+
+- **One annotator.** No inter-rater agreement. Treat the rate as one careful
+  reading, not a consensus.
+- **Nine subjects**, chosen as those the annotator has an AP exam score in or
+  which those scores subsume. Subjects they were mid-course in are held for v2
+  rather than guessed at.
+- **Not a random sample of all AP questions** — it samples one product's
+  generated bank, so it describes that generator's failure modes.
+
+## Mirrors
+
+- Hugging Face: ${HF_URL}
+- Kaggle: ${KAGGLE_URL}
+- GitHub (canonical, with the labelling tool): ${GITHUB_URL}
+
+## Licence
+
+CC BY 4.0. The items are model-generated; no student data of any kind is
+included, and none was used to produce this.
+`;
+}
+
+async function main() {
+  const args = parseArgs(process.argv.slice(2));
+  const inPath = path.join(ROOT, args.in);
+
+  let raw;
+  try { raw = await readFile(inPath, 'utf8'); }
+  catch { throw new Error(`No labels at ${args.in}. Export from docs/research/labeler.html first.`); }
+
+  const rows = raw.split('\n').filter(Boolean).map((l, i) => {
+    try { return JSON.parse(l); }
+    catch { throw new Error(`line ${i + 1} of ${args.in} is not valid JSON`); }
+  });
+  if (!rows.length) throw new Error(`${args.in} is empty`);
+
+  const s = summarise(rows);
+  const outDir = path.join(ROOT, args.outDir);
+  await mkdir(outDir, { recursive: true });
+
+  await writeFile(path.join(outDir, 'ap-item-quality.jsonl'),
+    rows.map((r) => JSON.stringify(r)).join('\n') + '\n', 'utf8');
+  await writeFile(path.join(outDir, 'ap-item-quality.csv'), toCsv(rows), 'utf8');
+  await writeFile(path.join(outDir, 'README.md'), card(s, args.version, { forHuggingFace: true }), 'utf8');
+  await writeFile(path.join(outDir, 'kaggle-description.md'), card(s, args.version, { forHuggingFace: false }), 'utf8');
+  await writeFile(path.join(outDir, 'dataset-metadata.json'), JSON.stringify({
+    title: 'AP Item Quality',
+    id: 'apexscholar/ap-item-quality',
+    licenses: [{ name: 'CC-BY-4.0' }],
+    resources: [
+      { path: 'ap-item-quality.csv', description: 'One row per labelled item.' },
+      { path: 'ap-item-quality.jsonl', description: 'Same data with choices and explanations as arrays.' },
+    ],
+  }, null, 2) + '\n', 'utf8');
+
+  console.log(`release -> ${args.outDir}`);
+  console.log(`  ${s.total} rows · ${s.scorable} scorable · ${s.skipped} skipped · ${s.pending} awaiting adjudication`);
+  console.log(`  key wrong: ${s.keyWrong}/${s.settled} (${s.keyWrongPct.toFixed(1)}%)`);
+  if (s.pending) console.log(`  NOTE: ${s.pending} items still need adjudication; the rate above excludes them.`);
+  process.exit(0);
+}
+
+main().catch((err) => { console.error(err.message || err); process.exit(1); });
