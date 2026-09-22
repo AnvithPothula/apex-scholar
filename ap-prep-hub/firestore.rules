@@ -36,6 +36,15 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+    // Derived misconception tags, keyed by the same bundle id as questionBank.
+    // Kept OUT of questionBank on purpose: tags are regenerable model output
+    // over 3,560 hand-seeded questions, and merging them into the source would
+    // put one bad migration between a model and the only copy of the bank.
+    // Same access shape as the bank it annotates — world-readable, admin-write.
+    match /questionBankTags/{bundleId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
     match /questionBankIndex/{subjectId} {
       allow read: if true;
       allow write: if isAdmin();
@@ -214,6 +223,16 @@ service cloud.firestore {
       allow create: if ownsIncoming();
       allow update: if ownsExisting() && ownsIncoming();
       allow delete: if ownsExisting();
+    }
+
+    // Per-question response log. APPEND-ONLY on purpose: a response records
+    // something that happened, so there is no legitimate reason to edit one,
+    // and a history a client can rewrite is not evidence. No update, no delete
+    // — not even by the owner.
+    match /responses/{responseId} {
+      allow read: if ownsExisting();
+      allow create: if ownsIncoming();
+      allow update, delete: if false;
     }
 
     // Diagnostic results at root level - accessible by owner

@@ -12,6 +12,7 @@ import aiUsageLimiter from '../services/aiUsageLimiter';
 import srs from '../services/srs';
 import { recordTestForClasses } from '../services/classes';
 import { recordPracticeTest } from '../services/activityTracker';
+import { logResponses } from '../services/responseLog';
 import { wasSkipped, missFromResult, optionText } from '../utils/whyWrong';
 import { getDefaultModel } from '../components/ui/ModelSelector';
 import { Button } from '../components/ui/UIComponents';
@@ -958,6 +959,28 @@ Format as JSON:
           }
           await addDoc(collection(db, 'practiceTests'), sanitizedData);
           console.log('Test saved to history successfully');
+
+          // Append-only response log, one row per attempted item. `userAnswer`
+          // is the index of the distractor chosen, which is what turns "wrong"
+          // into "wrong in this specific way" once distractors are tagged.
+          //
+          // msToAnswer is deliberately absent here rather than guessed: the test
+          // is one scrollable form and students jump between questions, so there
+          // is no honest per-item duration to record. Only the whole-test
+          // timeSpent is meaningful, and that is already stored on the test doc.
+          logResponses(user.uid, (emergencyCleanedResults?.questionResults || [])
+            .filter((r) => !wasSkipped(r.userAnswer))
+            .map((r) => {
+              const q = (questions || []).find((x) => x.id === r.questionId) || {};
+              return {
+                itemId: String(r.questionId ?? q.id ?? ''),
+                subject: selectedSubject,
+                unit: (selectedUnits || []).length === 1 ? selectedUnits[0] : (q.unit || null),
+                source: 'practiceTest',
+                chosen: Number.isInteger(r.userAnswer) ? r.userAnswer : null,
+                correct: Boolean(r.correct),
+              };
+            }));
 
           // Every miss becomes a spaced-repetition card, so a wrong answer
           // comes back on a schedule instead of being forgotten.

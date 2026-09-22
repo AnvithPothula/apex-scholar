@@ -1,0 +1,165 @@
+<meta charset="utf-8">
+<title>Misconception tag review</title>
+<style>
+  :root { color-scheme: dark; --bg:#0b0d10; --card:#14171c; --line:#252a31; --fg:#e7e9ec; --mut:#8b939e;
+          --ok:#3fb950; --no:#f85149; --acc:#2f81f7; }
+  body { background:var(--bg); color:var(--fg); font:15px/1.55 ui-sans-serif,system-ui,-apple-system,sans-serif;
+         margin:0; padding:28px 18px 80px; }
+  .wrap { max-width:760px; margin:0 auto; }
+  h1 { font-size:20px; margin:0 0 4px; } .sub { color:var(--mut); font-size:13px; margin:0 0 20px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:18px; margin-bottom:14px; }
+  .meta { display:flex; gap:8px; flex-wrap:wrap; font-size:12px; color:var(--mut); margin-bottom:10px; }
+  .chip { background:#1c2128; border:1px solid var(--line); border-radius:99px; padding:2px 10px; }
+  .stem { font-size:16px; margin:0 0 14px; white-space:pre-wrap; }
+  .opt { padding:8px 12px; border:1px solid var(--line); border-radius:7px; margin-bottom:6px; font-size:14px; }
+  .opt.key { border-color:var(--ok); background:#12301c; }
+  .opt.dis { border-color:var(--acc); background:#101c2e; }
+  .tagbox { margin-top:14px; padding:12px 14px; border:1px solid var(--acc); border-radius:8px; background:#0e1622; }
+  .tag { font-family:ui-monospace,monospace; font-size:15px; color:var(--acc); }
+  .concept { margin-top:4px; }
+  .expl { margin-top:10px; font-size:13px; color:var(--mut); }
+  .bar { position:fixed; left:0; right:0; bottom:0; background:#101318; border-top:1px solid var(--line);
+         padding:10px 18px; display:flex; gap:14px; align-items:center; justify-content:center; flex-wrap:wrap; font-size:13px; }
+  button { background:#1c2128; color:var(--fg); border:1px solid var(--line); border-radius:7px;
+           padding:7px 14px; font-size:13px; cursor:pointer; }
+  button:hover { border-color:var(--acc); }
+  #stats { color:var(--mut); } #auto { color:var(--mut); font-size:12px; }
+  .done { text-align:center; padding:40px 20px; }
+  .big { font-size:34px; font-weight:600; }
+</style>
+
+<div class="wrap">
+  <h1>Misconception tag review</h1>
+  <p class="sub">Does this tag describe the mistake a student would actually make by picking this option?
+     <b>Y</b> yes · <b>N</b> no · <b>S</b> can't judge. That is the whole job.</p>
+
+  <div id="load" class="card">
+    <p style="margin:0 0 10px">Load <code>tag-review.jsonl</code>:</p>
+    <input type="file" id="file" accept=".jsonl,.json,.txt">
+  </div>
+
+  <div id="app" hidden>
+    <div class="card">
+      <div class="meta"><span class="chip" id="pos"></span><span class="chip" id="subj"></span></div>
+      <p class="stem" id="stem"></p>
+      <div id="choices"></div>
+      <div class="tagbox">
+        <div class="tag" id="tag"></div>
+        <div class="concept" id="concept"></div>
+      </div>
+      <div class="expl" id="expl"></div>
+    </div>
+  </div>
+
+  <div id="done" class="card done" hidden>
+    <div class="big" id="precision"></div>
+    <p class="sub" id="summary"></p>
+    <button id="export2">Export verdicts</button>
+  </div>
+</div>
+
+<div class="bar" id="bar" hidden>
+  <button id="yes">Y · correct</button>
+  <button id="no">N · wrong</button>
+  <button id="skip">S · can't judge</button>
+  <span id="stats"></span><span id="auto"></span>
+  <button id="export">Export</button>
+</div>
+
+<script>
+const KEY = 'apex.tagreview.v1';
+let rows = [], i = 0, verdicts = {};
+const $ = (id) => document.getElementById(id);
+try { verdicts = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { verdicts = {}; }
+
+const save = () => {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(verdicts));
+    $('auto').textContent = 'saved ' + new Date().toLocaleTimeString();
+  } catch {
+    // Private windows block this. Say so rather than let someone review 60
+    // items believing it is being kept.
+    $('auto').textContent = 'AUTOSAVE FAILED — export before closing';
+  }
+};
+
+$('file').addEventListener('change', async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  rows = (await f.text()).split('\n').filter(Boolean).map((l) => JSON.parse(l));
+  $('load').hidden = true; $('app').hidden = false; $('bar').hidden = false;
+  i = rows.findIndex((r) => !verdicts[r.id]);
+  if (i === -1) i = rows.length;
+  render();
+});
+
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const L = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+function render() {
+  if (i >= rows.length) return finish();
+  const r = rows[i];
+  $('pos').textContent = `${i + 1} / ${rows.length}`;
+  $('subj').textContent = r.subject;
+  $('stem').textContent = r.question;
+  $('choices').innerHTML = r.choices.map((c, n) => {
+    const cls = n === r.correctAnswer ? 'opt key' : (n === r.distractor ? 'opt dis' : 'opt');
+    const note = n === r.correctAnswer ? ' — correct answer' : (n === r.distractor ? ' — being tagged' : '');
+    return `<div class="${cls}"><b>${L[n]}.</b> ${esc(c)}<span style="color:var(--mut)">${note}</span></div>`;
+  }).join('');
+  $('tag').textContent = r.tag;
+  $('concept').textContent = r.concept;
+  $('expl').textContent = r.storedExplanation ? `bank's own rationale: ${r.storedExplanation}` : '';
+  const done = rows.filter((x) => verdicts[x.id]).length;
+  const judged = rows.filter((x) => verdicts[x.id] && verdicts[x.id] !== 'skip');
+  const good = judged.filter((x) => verdicts[x.id] === 'yes').length;
+  $('stats').textContent = `${done} reviewed · ${judged.length} judged · ${good} correct`
+    + (judged.length ? ` · running precision ${(100 * good / judged.length).toFixed(0)}%` : '');
+}
+
+function record(v) {
+  if (i >= rows.length) return;
+  verdicts[rows[i].id] = v; save(); i++; render();
+}
+$('yes').onclick = () => record('yes');
+$('no').onclick = () => record('no');
+$('skip').onclick = () => record('skip');
+document.addEventListener('keydown', (e) => {
+  if ($('app').hidden) return;
+  const k = e.key.toLowerCase();
+  if (k === 'y') record('yes');
+  else if (k === 'n') record('no');
+  else if (k === 's') record('skip');
+});
+
+function finish() {
+  $('app').hidden = true; $('bar').hidden = true; $('done').hidden = false;
+  const judged = rows.filter((r) => verdicts[r.id] && verdicts[r.id] !== 'skip');
+  const good = judged.filter((r) => verdicts[r.id] === 'yes').length;
+  const p = judged.length ? 100 * good / judged.length : 0;
+  // Wilson interval — 40 items is a small sample and a bare percentage invites
+  // being quoted as if it were exact.
+  const n = judged.length, z = 1.96;
+  const ph = n ? good / n : 0, d = 1 + z * z / n;
+  const lo = n ? Math.max(0, ((ph + z * z / (2 * n)) - z * Math.sqrt(ph * (1 - ph) / n + z * z / (4 * n * n))) / d) : 0;
+  const hi = n ? Math.min(1, ((ph + z * z / (2 * n)) + z * Math.sqrt(ph * (1 - ph) / n + z * z / (4 * n * n))) / d) : 0;
+  $('precision').textContent = n ? `${p.toFixed(0)}% precision` : 'nothing judged';
+  $('summary').innerHTML = n
+    ? `${good} of ${n} tags correct &middot; 95% CI ${(100 * lo).toFixed(0)}–${(100 * hi).toFixed(0)}%<br>`
+      + `${rows.length - n} skipped. Per-tag breakdown is in the export.`
+    : 'Every item was skipped.';
+}
+
+const exportVerdicts = () => {
+  const out = rows.filter((r) => verdicts[r.id]).map((r) => ({
+    id: r.id, subject: r.subject, tag: r.tag, concept: r.concept, verdict: verdicts[r.id],
+  }));
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([out.map((o) => JSON.stringify(o)).join('\n')], { type: 'application/json' }));
+  a.download = 'tag-verdicts.jsonl';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+};
+$('export').onclick = exportVerdicts;
+$('export2').onclick = exportVerdicts;
+</script>

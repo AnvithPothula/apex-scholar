@@ -14,6 +14,7 @@ import dataService from '../services/dataService';
 import { recordPracticeTest } from '../services/activityTracker';
 import { levelFor } from '../services/mastery';
 import srs from '../services/srs';
+import { logResponses } from '../services/responseLog';
 
 // Subjects to exclude from diagnostics (no standard exam format or not suitable for practice tests)
 const EXCLUDED_SUBJECTS = [
@@ -170,10 +171,23 @@ const DiagnosticTypes = () => {
       let correctAnswers = 0;
       let topicScores = {};
       
+      // One row per item for the response log. Built in the same pass that
+      // scores the diagnostic so the two can never disagree.
+      const logRows = [];
+
       questions.forEach((question, index) => {
         const userAnswer = answers[index];
         const isCorrect = userAnswer === question.correctAnswer;
-        
+
+        logRows.push({
+          itemId: question.id || `${takingDiagnostic?.key || 'unknown'}:diag:${index}`,
+          subject: takingDiagnostic?.name || takingDiagnostic?.key || null,
+          unit: question.unit || question.concept || null,
+          source: 'diagnostic',
+          chosen: Number.isInteger(userAnswer) ? userAnswer : null,
+          correct: isCorrect,
+        });
+
         if (isCorrect) correctAnswers++;
         
         // Track by concept/topic
@@ -260,6 +274,10 @@ const DiagnosticTypes = () => {
       } catch (e) {
         console.error('Error queueing missed diagnostic questions:', e);
       }
+
+      // Append-only response log, one row per item. Fire-and-forget: a logging
+      // failure must never cost a student their diagnostic results.
+      logResponses(user.uid, logRows);
 
       // Save to Firebase
       await dataService.saveDiagnosticResult(user.uid, {

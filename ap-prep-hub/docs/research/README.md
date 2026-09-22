@@ -23,8 +23,15 @@ So: how many of the 3,560 are wrong, and can that be detected automatically?
 
 ## The dataset
 
-`sample.jsonl` — 300 items drawn stratified across all 36 subjects, 8–10 each,
-by `scripts/export-label-sample.mjs` (seeded, so the draw is reproducible).
+`sample.jsonl` — **200 items across 9 subjects**, 22–23 each, drawn stratified by
+`scripts/export-label-sample.mjs` (seeded, so the draw is reproducible):
+
+> AP Calculus AB · AP Calculus BC · AP Chemistry · AP Computer Science A ·
+> AP Computer Science Principles · AP Precalculus · AP Statistics ·
+> AP U.S. History · AP World History: Modern
+
+Deliberately not all 36. The sample is scoped to subjects one annotator can
+actually adjudicate — see **Subject coverage** below. Restratify if that changes.
 
 Each row carries the question, choices, stored answer index, the per-choice
 explanations, the generating model, and its bundle provenance.
@@ -59,6 +66,73 @@ guessing at, the number is pure noise that looks exactly like a finding.
 
 **So disagreement is a screening signal, not a label.** It tells you which items
 to look at. The label is made afterwards, by checking.
+
+## Doing it, step by step
+
+**1. Open the tool.** Double-click `ap-prep-hub/docs/research/labeler.html`, or:
+
+```bash
+open ap-prep-hub/docs/research/labeler.html
+```
+
+It runs entirely in the browser. Nothing is uploaded anywhere.
+
+**2. Use a normal window, not a private one.** Autosave writes to browser
+storage, and private windows block it. The tool says `AUTOSAVE FAILED` in that
+case rather than letting you work for an hour believing it is being kept — check
+that line under the counter says `autosaved <time>` before you settle in.
+
+**3. Load the sample.** First file box → `docs/research/sample.jsonl`. You should
+see `1 / 200` and an AP Statistics question. Leave the second box alone on a
+first run; it is for resuming.
+
+**4. Answer, blind.** The stored key is hidden. Press `A`–`D` for your answer, or
+`S` if you cannot judge this one.
+
+> Use `S` freely. A skipped item is excluded from the base rate; a guessed one
+> corrupts it. See the arithmetic under **Why raw disagreement is not the label**
+> — at 95% accuracy you publish nearly double the true error rate.
+
+**5. The key is revealed.** Now you see the stored answer, whether it matches
+yours, and all four explanations. Two things to do here:
+
+- Press `1`–`9` for any flaws you see (table below). Optional but valuable.
+- Press `U` if you were **not sure** — including when you agreed. Getting one
+  right by luck is not evidence about the item.
+
+**6. Press `Enter` for the next item.** `←` Back re-opens a previous one; your
+label is still there and can be changed.
+
+**7. Stop whenever you want.** Click **Save progress** → `apex-label-progress.json`
+lands in Downloads. Do this before closing the tab, and any time you would be
+annoyed to redo the last stretch.
+
+**8. Resume later.** Reopen `labeler.html`, then:
+
+- Second file box → the `apex-label-progress.json` you saved.
+- First file box → `sample.jsonl`.
+
+Either order works. It reopens at the first item you have not labelled and the
+counter shows your earlier totals. If browser storage survived, it resumes on its
+own when you load the sample — the file is the belt-and-braces copy for a cleared
+browser, a different machine, or a different browser.
+
+**9. When all 200 are done**, click **Export labels** → `labeled.jsonl`. Put it in
+`docs/research/`, then see **After labelling**.
+
+### Reference
+
+| key | does |
+|---|---|
+| `A` `B` `C` `D` | your answer (before the key is shown) |
+| `S` | can't judge this one — skip |
+| `1`–`9` | flaw codes, after the reveal, toggle on/off |
+| `U` | you weren't sure |
+| `Enter` | next item |
+
+Roughly 2–4 hours for 200 items. It does not have to be one sitting, and the
+counter line (`handled · scorable · to adjudicate · unsure · skipped`) tells you
+where you are at a glance.
 
 ## Labelling protocol
 
@@ -127,6 +201,26 @@ could actually judge. That is a normal limitation, honestly stated; a hidden
 one is what makes a dataset worthless.
 
 ## Flaw codes
+
+Press `1`–`9` after the reveal. Multiple codes per item are fine; press again to
+toggle off. The vocabulary is the Item-Writing Flaws taxonomy from the published
+literature, so the released dataset lines up against prior work.
+
+| key | code | means |
+|---|---|---|
+| 1 | `ok` | the item is fine |
+| 2 | `key_wrong` | the stored answer is not correct |
+| 3 | `multiple_correct` | more than one choice can be argued |
+| 4 | `none_correct` | no choice is right |
+| 5 | `implausible_distractors` | wrong options are obviously wrong |
+| 6 | `unclear_stem` | ambiguous or unanswerable as written |
+| 7 | `giveaway` | length or grammar reveals the answer |
+| 8 | `off_syllabus` | not AP-level content for this subject |
+| 9 | `explanation_wrong` | rationale contradicts the key or is false |
+
+`7 giveaway` is the one the deterministic sweep already measures at 28.1% of the
+bank (`docs/research/iwf-deterministic-sweep.md`), so your labels on it are what
+tell us whether that detector's precision is real.
 
 ## After labelling
 

@@ -15,6 +15,17 @@
     { "binding": "CACHE", "id": "45315ec082eb42409ba4555207490337" }
   ],
   "vars": {
-    "ALLOWED_ORIGINS": "https://apex-scholar.com,https://www.apex-scholar.com,http://localhost:3000"
+    "ALLOWED_ORIGINS": "https://apex-scholar.com,https://www.apex-scholar.com,http://localhost:3000",
+    // Audience/issuer for Firebase ID-token verification. Public (it ships in
+    // the client bundle), and it lives here rather than in a secret so it can
+    // never drift out of sync with the code that reads it: if this is wrong or
+    // missing, every signed-in student silently drops to the guest tier and
+    // practice tests start returning 403.
+    "FIREBASE_PROJECT_ID": "ai-study-helper-f2f24",
+    // Per-uid calls per 5h (matches AI_PROXY_5H_LIMIT on the Netlify proxy),
+    // and per-IP calls per hour for unauthenticated guests. Both are abuse
+    // ceilings well above real use; aiUsageLimiter is the user-facing cap.
+    "USER_QUOTA": "120",
+    "GUEST_QUOTA": "40"
   }
 }

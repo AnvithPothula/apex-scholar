@@ -1112,9 +1112,12 @@ class GeminiService {
     const appToken = (process.env.REACT_APP_AI_PROXY_APP_TOKEN || '').trim();
     if (appToken) headers['X-App-Token'] = appToken;
 
-    // Attach the signed-in user's Firebase ID token so the proxy can verify
-    // identity and enforce a tamper-proof per-user quota. Guests have no user,
-    // so they call anonymously (the proxy allows that unless AI_PROXY_REQUIRE_AUTH).
+    // Attach the signed-in user's Firebase ID token. This is the ONLY thing
+    // separating a real user from someone who read X-App-Token out of the
+    // bundle, so both proxies verify it and tier off the result: a verified uid
+    // gets every task on a per-uid quota, anything unverified gets tutor chat
+    // only (text, no images) on a tighter per-IP quota. Guests genuinely have
+    // no user — AI Tutors is open to them — and land in that second tier.
     // Lazy import keeps firebase/auth out of the unit-test module graph.
     try {
       const { auth } = await import('../config/firebase');

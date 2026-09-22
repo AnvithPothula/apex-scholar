@@ -146,6 +146,18 @@ export const AuthProvider = ({ children }) => {
                         const userDocRef = doc(db, "users", firebaseUser.uid);
                         const userDocSnap = await getDoc(userDocRef);
                         
+                        // Presence stamps. Uses the snapshot already fetched
+                        // above, so it adds no read, and is throttled to one
+                        // write per browser per day.
+                        try {
+                            const { recordPresence } = await import('../services/presence');
+                            recordPresence(
+                                firebaseUser.uid,
+                                userDocSnap.exists() ? userDocSnap.data() : null,
+                                { db, doc, setDoc, serverTimestamp: (await import('firebase/firestore')).serverTimestamp }
+                            );
+                        } catch (e) { /* presence is never worth breaking auth over */ }
+
                         if (userDocSnap.exists()) {
                             const userData = userDocSnap.data();
                             setUser(prev => ({ ...prev, ...userData }));

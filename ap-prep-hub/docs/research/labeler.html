@@ -93,7 +93,7 @@
   </div>
 
   <div id="done" class="card done" hidden>
-    <h1>All 300 labelled</h1>
+    <h1 id="donetitle">All labelled</h1>
     <p class="sub" id="summary"></p>
     <button class="ghost" id="saveprog2">Save progress</button>
     <button class="act" id="export2">Export labels</button>
@@ -245,7 +245,7 @@ function render() {
     } else {
       b.innerHTML = `<b>${LETTERS[n]}.</b> ${escapeHtml(c)}`;
     }
-    b.onclick = () => { L.my_answer = n; save(); render(); };
+    b.onclick = () => answer(n);
     $('choices').appendChild(b);
   });
 
@@ -289,6 +289,18 @@ function render() {
 function escapeHtml(s){return String(s).replace(/[&<>"]/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 $('skip').onclick = () => { const L = lab(); L.skipped = !L.skipped; L.my_answer = null; save(); render(); };
+
+/** Record an answer. Clearing `skipped` is the point: without it, pressing S and
+    then answering anyway (the obvious "wait, I do know this one" move) stored
+    both, and isScorable() drops anything skipped — so the answer was silently
+    excluded from the base rate while the UI showed it accepted. */
+function answer(n) {
+  const L = lab();
+  L.my_answer = n;
+  L.skipped = false;
+  save();
+  render();
+}
 $('unsure').onclick = () => { const L = lab(); L.unsure = !L.unsure; save(); render(); };
 
 $('next').onclick = () => {
@@ -304,7 +316,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key.toLowerCase() === 'u' && L.my_answer !== null) { $('unsure').click(); return; }
   if (L.my_answer === null) {
     const n = 'abcd'.indexOf(e.key.toLowerCase());
-    if (n >= 0 && n < current().choices.length) { L.my_answer = n; save(); render(); }
+    if (n >= 0 && n < current().choices.length) answer(n);
   } else if (e.key >= '1' && e.key <= '9') {
     const idx = Number(e.key) - 1;
     if (FLAWS[idx]) $('flags').children[idx].click();
@@ -313,6 +325,8 @@ document.addEventListener('keydown', (e) => {
 });
 
 function summarise() {
+  // Was hardcoded to 300, from a sample that is now 200.
+  $('donetitle').textContent = `All ${rows.length} labelled`;
   const scorable = rows.filter(isScorable);
   const dis = scorable.filter((r) => labels[r.id].my_answer !== r.stored_answer);
   const unsure = scorable.filter((r) => labels[r.id].unsure);

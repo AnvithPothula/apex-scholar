@@ -183,7 +183,7 @@ function cors(origin, allowed) {
     // Retry-After is useless unless it is exposed: without it here the browser
     // hides the header from JS, res.headers.get('retry-after') returns null, and
     // every countdown falls back to a made-up 60 seconds.
-    'Access-Control-Expose-Headers': 'X-Apex-Model, X-Apex-Cache, Retry-After',
+    'Access-Control-Expose-Headers': 'X-Apex-Model, X-Apex-Cache, Retry-After, X-Apex-Tier',
     'Vary': 'Origin',
     'Content-Type': 'application/json',
   };
@@ -201,6 +201,134 @@ function keysFrom(env) {
     if (k) out.push(k);
   }
   return out;
+}
+
+
+// ---------------------------------------------------------------------------
+// Identity.
+//
+// CORS only constrains browsers and APP_TOKEN is inlined in the public bundle,
+// so until this existed the Worker was a free Gemini proxy for anyone who read
+// main.<hash>.js. A Firebase ID token is the one credential a stranger cannot
+// copy out of the bundle, and the client has been sending it all along.
+//
+// Two tiers, because guests legitimately use the AI tutor without an account:
+//   verified uid -> every task, per-uid quota
+//   no token     -> tutor chat only, text only, tighter per-IP quota
+//
+// Firebase anonymous auth was the obvious way to give guests a token and is
+// worthless here: anyone can mint an anonymous account from the public web API
+// key, unlimited times. It would add a step, not a boundary. It would also
+// flip `user` truthy in AuthContext and silently unlock every GuestGate.
+// ---------------------------------------------------------------------------
+
+// '' is deliberate: several client paths omit `task`, and the router already
+// treats a missing task as the `interactive` chain — the same chain tutorChat
+// gets. Allowing it concedes nothing an attacker couldn't get by sending
+// task:'tutorChat' anyway.
+export const GUEST_TASKS = new Set(['tutorChat', '']);
+
+const JWKS_URL =
+  'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
+let jwksCache = { keys: null, expires: 0 };
+
+async function jwksKeys() {
+  if (jwksCache.keys && Date.now() < jwksCache.expires) return jwksCache.keys;
+  try {
+    const res = await fetch(JWKS_URL);
+    if (!res.ok) throw new Error(`JWKS ${res.status}`);
+    const { keys } = await res.json();
+    // Google rotates these on its own schedule and publishes the lifetime in
+    // Cache-Control; honour that instead of inventing a TTL.
+    const maxAge = Number(
+      (/(?:^|,)\s*max-age=(\d+)/.exec(res.headers.get('cache-control') || '') || [])[1] || 3600
+    );
+    jwksCache = { keys, expires: Date.now() + maxAge * 1000 };
+    return keys;
+  } catch (err) {
+    // A JWKS blip must not demote every signed-in student to the guest tier
+    // (that reads as "practice tests are broken"). Stale keys beat no keys:
+    // Google keeps retired keys serving for far longer than this cache.
+    if (jwksCache.keys) return jwksCache.keys;
+    throw err;
+  }
+}
+
+function b64urlBytes(s) {
+  const b64 = String(s).replace(/-/g, '+').replace(/_/g, '/');
+  const bin = atob(b64 + '='.repeat((4 - (b64.length % 4)) % 4));
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+const b64urlJson = (s) => JSON.parse(new TextDecoder().decode(b64urlBytes(s)));
+
+/**
+ * The pure half of token verification, split out so it is testable without a
+ * signing key. Every check here is load-bearing — in particular, dropping the
+ * `aud`/`iss` checks would accept a genuinely Google-signed token minted for
+ * any *other* Firebase project. The signature verifies; it just isn't ours.
+ *
+ * Returns null when the claims are good, otherwise a short reason string.
+ */
+export function verifyClaims(header, payload, projectId, nowSec) {
+  const SKEW = 60; // clock drift between Google, Cloudflare's edge and us
+  if (!projectId) return 'no project id configured';
+  if (!header || header.alg !== 'RS256' || !header.kid) return 'bad header';
+  if (!payload || typeof payload.sub !== 'string' || !payload.sub) return 'no subject';
+  if (payload.aud !== projectId) return 'wrong audience';
+  if (payload.iss !== `https://securetoken.google.com/${projectId}`) return 'wrong issuer';
+  if (!(Number(payload.exp) > nowSec - SKEW)) return 'expired';
+  if (!(Number(payload.iat) <= nowSec + SKEW)) return 'issued in the future';
+  return null;
+}
+
+/** Verified uid, or null. Never throws — a failure is just "not signed in". */
+async function verifyIdToken(token, projectId) {
+  const parts = String(token || '').split('.');
+  if (parts.length !== 3) return null;
+  let header, payload;
+  try {
+    header = b64urlJson(parts[0]);
+    payload = b64urlJson(parts[1]);
+  } catch { return null; }
+  if (verifyClaims(header, payload, projectId, Math.floor(Date.now() / 1000))) return null;
+
+  let keys;
+  try { keys = await jwksKeys(); } catch { return null; }
+  const jwk = keys.find((k) => k.kid === header.kid);
+  if (!jwk) return null;
+  try {
+    const key = await crypto.subtle.importKey(
+      'jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']
+    );
+    const ok = await crypto.subtle.verify(
+      'RSASSA-PKCS1-v1_5',
+      key,
+      b64urlBytes(parts[2]),
+      new TextEncoder().encode(`${parts[0]}.${parts[1]}`)
+    );
+    return ok ? payload.sub : null;
+  } catch { return null; }
+}
+
+/**
+ * Fixed-window counter in KV. Returns 0 when the call is allowed, otherwise the
+ * seconds until the window rolls (which is what the client counts down).
+ *
+ * ponytail: KV is eventually consistent, so a burst fanned across colos can
+ * overshoot the limit. Fine — this is an abuse ceiling, not a billing meter,
+ * and aiUsageLimiter is the tighter number users actually feel.
+ */
+async function overQuota(env, key, limit, windowSec) {
+  if (!env.CACHE || !limit) return 0;
+  const nowSec = Math.floor(Date.now() / 1000);
+  const bucket = Math.floor(nowSec / windowSec);
+  const k = `q:${key}:${bucket}`;
+  const used = Number(await env.CACHE.get(k)) || 0;
+  if (used >= limit) return Math.max(1, (bucket + 1) * windowSec - nowSec);
+  await env.CACHE.put(k, String(used + 1), { expirationTtl: windowSec * 2 });
+  return 0;
 }
 
 export default {
@@ -235,6 +363,35 @@ export default {
     const hasImage = contents.some(
       (c) => Array.isArray(c && c.parts) && c.parts.some((p) => p && (p.inline_data || p.inlineData))
     );
+
+    // ---- Who is calling, and may they ----
+    // Before the cache on purpose: a refused caller gets nothing at all, not
+    // even a free hit off someone else's answer.
+    const bearer = /^Bearer\s+(.+)$/i.exec(req.headers.get('authorization') || '');
+    const uid = bearer ? await verifyIdToken(bearer[1], env.FIREBASE_PROJECT_ID) : null;
+    let quotaWait;
+    if (uid) {
+      // Mirrors AI_PROXY_5H_LIMIT in netlify/functions/ai-proxy.js, which
+      // enforces the same ceiling per uid in Firestore.
+      quotaWait = await overQuota(env, `u:${uid}`, Number(env.USER_QUOTA || 120), 5 * 60 * 60);
+    } else {
+      // An unverified caller is a guest — whether that's a real visitor on the
+      // tutor page or someone who lifted the app token out of the bundle. Same
+      // deal either way: chat only, no images (an image forces the `vision`
+      // chain regardless of task, which is the expensive pool), per-IP ceiling.
+      if (!GUEST_TASKS.has(task) || hasImage) {
+        return json({ error: 'Sign in to use this feature.' }, 403, headers);
+      }
+      const ip = req.headers.get('cf-connecting-ip') || 'unknown';
+      quotaWait = await overQuota(env, `g:${ip}`, Number(env.GUEST_QUOTA || 40), 60 * 60);
+    }
+    if (quotaWait) {
+      return json({ error: 'AI usage limit reached', retryAfter: quotaWait }, 429, {
+        ...headers,
+        'Retry-After': String(quotaWait),
+      });
+    }
+    headers['X-Apex-Tier'] = uid ? 'user' : 'guest';
 
     // ---- Cache (skip images: base64 blows up keys and rarely repeats) ----
     let cacheKey = null;

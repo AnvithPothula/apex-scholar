@@ -13,7 +13,7 @@
  * fall back to the old reveal-only flow rather than breaking.
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Brain, CheckCircle, RotateCcw, Eye, CalendarClock, Sparkles, Loader2, XCircle } from 'lucide-react';
@@ -27,6 +27,7 @@ import { retryAfterFrom, formatWait } from '../services/aiRetry';
 import { buildWhyWrongPrompt, buildExplainAllPrompt, looksLikeReasoningLeak } from '../utils/whyWrong';
 import geminiService from '../services/geminiService';
 import { recordReviewSession } from '../services/activityTracker';
+import { logResponse } from '../services/responseLog';
 
 const GRADE_BUTTONS = [
   { key: 'again', label: 'Again', help: 'Got it wrong', variant: 'destructive' },
@@ -92,6 +93,12 @@ export default function Review() {
 
   const card = session[index];
 
+  // Stamped when a card is first shown, so the log can record how long the
+  // answer took. Fast-and-wrong is a confident misconception; slow-and-wrong is
+  // a gap. Nothing else distinguishes them, and it cannot be backfilled.
+  const shownAtRef = useRef(Date.now());
+  useEffect(() => { shownAtRef.current = Date.now(); }, [card?.id]);
+
   const resetCardState = useCallback(() => {
     setPicked(null);
     setRevealed(false);
@@ -103,13 +110,27 @@ export default function Review() {
     if (!card || !user) return;
     const updated = await srs.gradeCard(user.uid, card.id, GRADE[key]);
     setLastInterval(updated ? updated.due : null);
+    // Append-only response log. `picked` is the distractor actually chosen,
+    // which is four times the information of a correctness bit. On a card with
+    // no options to pick from, the student's own SM-2 grade is the only signal
+    // there is, so fall back to it.
+    logResponse(user.uid, {
+      itemId: card.id,
+      subject: card.subject,
+      source: 'review',
+      chosen: Number.isInteger(picked) ? picked : null,
+      correct: Number.isInteger(picked) && Number.isInteger(card.correctIndex)
+        ? picked === card.correctIndex
+        : GRADE[key] >= GRADE.good,
+      msToAnswer: Date.now() - shownAtRef.current,
+    });
     // Reviewing is studying — it has to count toward the streak. Fire-and-forget
     // so a logging hiccup never blocks the next card.
     recordReviewSession(user.uid, { cardsReviewed: 1, subject: card.subject || '' });
     setCompleted((n) => n + 1);
     setIndex((i) => i + 1);
     resetCardState();
-  }, [card, user, resetCardState]);
+  }, [card, user, picked, resetCardState]);
 
   const choose = (i) => {
     if (revealed) return;

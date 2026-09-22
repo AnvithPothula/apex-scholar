@@ -36,7 +36,10 @@ describe('AI router CORS', () => {
     // every time the router inspects an upstream header.
     const readHeaders = [...worker.matchAll(/(?:^|[^.\w])(?:request|req)\.headers\.get\('([a-z0-9-]+)'\)/g)]
       .map((m) => m[1])
-      .filter((h) => h !== 'origin'); // Origin is set by the browser, never by us
+      // Origin is set by the browser and CF-Connecting-IP by Cloudflare's edge;
+      // neither is a header a client may send, so neither belongs in the
+      // allow-list (listing cf-connecting-ip would invite clients to forge it).
+      .filter((h) => h !== 'origin' && h !== 'cf-connecting-ip');
     expect(readHeaders.length).toBeGreaterThan(0); // the regex must still match something
     readHeaders.forEach((h) => expect(allowed).toContain(h));
   });

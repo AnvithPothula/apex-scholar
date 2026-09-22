@@ -70,6 +70,38 @@
     Cache-Control = "no-cache, no-store, must-revalidate"
 
 # Security headers
+#
+# Content-Security-Policy notes, because every directive below is one broken
+# feature away from a bad afternoon:
+#
+#   script-src keeps 'unsafe-inline' on purpose. CRA inlines its webpack runtime
+#   chunk into index.html and public/index.html carries a hand-written Puter
+#   loader, and a static Netlify build has no server to mint a per-response
+#   nonce. Hashes would go stale on the next build. What CSP still buys with
+#   'unsafe-inline' is the part that matters here: an injected payload cannot
+#   pull its code from an attacker's host, and connect-src caps where anything
+#   can be sent. To tighten later: set INLINE_RUNTIME_CHUNK=false, then hash the
+#   remaining inline scripts in a post-build step next to scripts/prerender.mjs.
+#   (ld+json blocks are data, not executable script, so CSP ignores them.)
+#
+#   connect-src is the one that kills the app if it is wrong — dropping
+#   firestore.googleapis.com takes down every page, not one feature. The hosts:
+#   ai.apex-scholar.com (the Worker), generativelanguage (dev-only direct
+#   calls), identitytoolkit + securetoken + firebaseinstallations + firestore
+#   (Firebase SDK), googletagmanager/google-analytics (GA4), ingest.us.sentry.io
+#   (errorLogger), api.emailjs.com (emailService), puter (the AI fallback SDK),
+#   unpkg (pdf.js worker in pdfUtils.js). Firebase auth itself is same-origin:
+#   public/_redirects proxies /__/* to the firebaseapp.com auth handler.
+#
+#   frame-ancestors 'none' is the modern X-Frame-Options; both are here because
+#   X-Frame-Options is what older browsers read.
+#
+#   apis.google.com and www.gstatic.com are NOT optional: Firebase Auth loads a
+#   gapi shim from apis.google.com for the sign-in flow. The first version of
+#   this policy omitted them and Google sign-in failed outright with "Refused to
+#   load ... does not appear in the script-src directive". It was missed because
+#   the pre-deploy walkthrough loaded /login but never pressed the button — a
+#   CSP can only be verified by exercising the flow, not by rendering the page.
 [[headers]]
   for = "/*"
   [headers.values]
@@ -77,3 +109,4 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+    Content-Security-Policy = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests; script-src 'self' 'unsafe-inline' https://apis.google.com https://www.gstatic.com https://www.google.com https://js.puter.com https://www.googletagmanager.com https://www.google-analytics.com https://unpkg.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' blob: data:; worker-src 'self' blob:; manifest-src 'self'; frame-src 'self' https://accounts.google.com https://apis.google.com https://www.google.com https://www.gstatic.com https://ai-study-helper-f2f24.firebaseapp.com; connect-src 'self' https://ai.apex-scholar.com https://apis.google.com https://www.googleapis.com https://ai-study-helper-f2f24.firebaseapp.com https://generativelanguage.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://firebaseinstallations.googleapis.com https://firebaseremoteconfig.googleapis.com https://www.googletagmanager.com https://www.google-analytics.com https://region1.google-analytics.com https://*.analytics.google.com https://*.ingest.us.sentry.io https://api.emailjs.com https://api.puter.com wss://api.puter.com https://js.puter.com https://unpkg.com"

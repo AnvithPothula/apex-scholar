@@ -30,3 +30,10 @@ yarn-error.log*
 
 # Local Netlify folder
 .netlify
+
+# wrangler dev local state (Miniflare KV, caches) — never committed
+.wrangler/
+.dev.vars
+
+# Derived from a sweep run — reproduce with scripts/sweep-item-flaws.mjs
+docs/research/*.flagged.jsonl

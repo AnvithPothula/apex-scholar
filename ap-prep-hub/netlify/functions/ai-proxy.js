@@ -94,6 +94,12 @@ const requestBuckets = new Map();
 //     is "true", in which case it's rejected. IP rate-limiting still applies.
 // ---------------------------------------------------------------------------
 const REQUIRE_AUTH = (process.env.AI_PROXY_REQUIRE_AUTH || '').toLowerCase() === 'true';
+// Tasks an unverified caller may run. Guests reach exactly one AI surface in
+// the app (AI Tutors — everything else is behind GuestGate), so everything else
+// requires a verified uid. '' is included because several client paths omit
+// `task` and already route to the same `interactive` chain tutorChat uses.
+// Must stay in sync with GUEST_TASKS in cloudflare/ai-router/src/index.js.
+const GUEST_TASKS = new Set(['tutorChat', '']);
 const SRV_5H_LIMIT = Number(process.env.AI_PROXY_5H_LIMIT || 120);
 const SRV_WEEK_LIMIT = Number(process.env.AI_PROXY_WEEK_LIMIT || 600);
 const SRV_FIVE_H_MS = 5 * 60 * 60 * 1000;
@@ -306,8 +312,10 @@ exports.handler = async (event) => {
   if (!adminApp && adminError && process.env.FIREBASE_PROJECT_ID) {
     console.error(`[ai-proxy] admin configured but unusable, per-user quota NOT enforced: ${adminError}`);
   }
+  let verifiedUid = null;
   if (adminApp) {
     const uid = await verifyUid(event, adminApp);
+    verifiedUid = uid;
     if (!uid) {
       if (REQUIRE_AUTH) {
         return {
@@ -419,6 +427,19 @@ exports.handler = async (event) => {
   const hasImage = contents.some(
     (c) => Array.isArray(c && c.parts) && c.parts.some((p) => p && (p.inline_data || p.inlineData))
   );
+  // Same two-tier policy as cloudflare/ai-router/src/index.js: an unverified
+  // caller is a guest and gets the tutor only. Without this the bundle-public
+  // app token is a free pass to the vision and premium chains. Gated on
+  // adminApp because with no service account nothing CAN be verified — then
+  // everyone is a guest and this would break the app instead of securing it.
+  if (adminApp && !verifiedUid && (!GUEST_TASKS.has(task) || hasImage)) {
+    return {
+      statusCode: 403,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: 'Sign in to use this feature.' }),
+    };
+  }
+
   const chainName = hasImage ? 'vision' : (TASK_TO_CHAIN[task] || 'interactive');
   let models = MODEL_CHAINS[chainName].slice();
   // Only an *explicit* client-chosen Google model jumps the chain — never an
