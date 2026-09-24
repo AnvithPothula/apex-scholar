@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { RotateCw, Brain, CheckCircle, X, Target, TrendingUp, Trophy, FileQuestion, HelpCircle, Download, Sparkles } from 'lucide-react';
 import { Button, Card, Badge, Input } from '../ui/UIComponents';
 import { createPageUrl } from '../../utils/helpers';
-import { slugFor, getScoreModel } from '../../constants/apScoreModels';
+import { estimateForSavedTest, calculatorUrl } from '../../utils/testToScore';
 import AnimatedCounter from '../ui/AnimatedCounter';
 import MarkdownRenderer from '../MarkdownRenderer';
 import LaTeXRenderer from '../LaTeXRenderer';
@@ -34,7 +34,17 @@ const ResultsPanel = ({
 }) => {
   const navigate = useNavigate();
   // Hooks must run before the early return, so compute this here.
-  const missedCount = (testResults?.questionResults || []).filter((r) => !r.correct).length;
+  const missedCount = (testResults?.questionResults || []).filter((r) => !r.correct && !r.ungraded).length;
+  const ungradedCount = (testResults?.questionResults || []).filter((r) => r.ungraded).length;
+  // Nothing was graded (e.g. an FRQ-only test during an AI outage). An
+  // "Estimated AP Score" of 1 would be a verdict on work nobody read.
+  const nothingGraded = ungradedCount > 0 && !(Number(testResults?.totalPoints) > 0);
+
+  // Where the estimated AP score came from, for the calculator link. New
+  // results carry it; tests saved before it existed are re-derived from their
+  // questions with the same helper, so every result gets a working link.
+  const estimate = estimateForSavedTest(selectedSubject, testResults, questions);
+  const curveLink = estimate ? calculatorUrl(selectedSubject, estimate) : null;
 
   // Answer in place, reusing the same inline tutor as "Ask Tutor About This
   // Question". This used to navigate to the chat, which threw the student out
@@ -108,6 +118,17 @@ const ResultsPanel = ({
           </motion.div>
         )}
 
+        {ungradedCount > 0 && (
+          <Card className="p-4 sm:p-5 mb-6 md:mb-8 border border-warning-500/40">
+            <p className="text-body text-content-primary">
+              {ungradedCount} {ungradedCount === 1 ? 'response' : 'responses'} couldn't be graded
+            </p>
+            <p className="text-body-sm text-content-secondary mt-1">
+              The AI grader was unavailable, so {ungradedCount === 1 ? 'it was' : 'they were'} left out of your score instead of being marked wrong.
+            </p>
+          </Card>
+        )}
+
         {/* Score Overview */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6 md:mb-8">
           <motion.div
@@ -117,46 +138,35 @@ const ResultsPanel = ({
           >
             <Card className="p-3 sm:p-4 md:p-6 text-center">
               <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-content-primary mb-1 md:mb-2">
-                <AnimatedCounter value={safeTestResults.apScore} duration={1000} />
+                {nothingGraded ? '—' : <AnimatedCounter value={estimate?.score ?? safeTestResults.apScore} duration={1000} />}
               </div>
-              {/* "Predicted" overstated this badly: one hardcoded percentage
-                  curve is applied to all 36 subjects, and real College Board
-                  curves differ by subject and by year. It's a rough estimate
-                  from this test alone, so it now says so. */}
+              {/* Scored on this exam's own section weights and estimated cut
+                  points (the calculator's model), but from one practice test,
+                  so it is still labelled an estimate. */}
               <p className="text-content-secondary mb-1">Estimated AP Score</p>
               <p className="text-sm text-content-muted">
                 Rough estimate — not a College Board score
               </p>
-              {/* Deep-links to this subject's real curve so a student can drag
-                  the sliders and see exactly how far they were from the next
-                  score, instead of only seeing one number. */}
-              <button
-                type="button"
-                onClick={() => {
-                  // Carry the result across. The button used to open an EMPTY
-                  // calculator, throwing away the score the student had just
-                  // earned — the whole point is to drag the sliders and see how
-                  // far off the next band they were.
-                  //
-                  // A practice test is rarely full length (this one can be 3
-                  // questions against a 60-question section), so the raw count
-                  // cannot transfer directly. Scale by the same percentage this
-                  // page already used to state the estimated score, and tell the
-                  // calculator it came from a test so it can say so.
-                  const model = getScoreModel(selectedSubject);
-                  const pct = Math.max(0, Math.min(100, Number(safeTestResults.percentage) || 0)) / 100;
-                  const params = new URLSearchParams({ from: 'test' });
-                  if (model && !model.generic) {
-                    model.sections
-                      .filter((sec) => selectedSection === 'full' || sec.id === selectedSection)
-                      .forEach((sec) => params.set(sec.id, String(Math.round(pct * sec.maxRaw))));
-                  }
-                  navigate(`${createPageUrl('ApScoreCalculator')}/${slugFor(selectedSubject)}?${params}`);
-                }}
-                className="mt-2 text-sm text-primary-400 hover:underline"
-              >
-                See the curve →
-              </button>
+              {/* Opens the calculator on this subject with the sliders set from
+                  this test, so the student can see how far they were from the
+                  next score. Sections the test didn't include are predicted
+                  from the parts it did, and the calculator marks them. */}
+              {curveLink && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => navigate(curveLink)}
+                    className="mt-2 text-sm text-primary-400 hover:underline"
+                  >
+                    Open in the score calculator →
+                  </button>
+                  {estimate.predicted?.length > 0 && (
+                    <p className="text-caption text-content-muted mt-1">
+                      Sections not on this test are predicted from your other answers.
+                    </p>
+                  )}
+                </>
+              )}
             </Card>
           </motion.div>
 

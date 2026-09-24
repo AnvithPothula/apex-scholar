@@ -598,6 +598,11 @@ const DiagnosticTypes = () => {
                     setQuestions([]);
                     setAnswers({});
                     setShowReview(false);
+                    // Leave /diagnostics/<subject>/start. Staying there made
+                    // Start on the SAME subject a dead click (the start effect
+                    // keys on :subject, which wouldn't change) and made a
+                    // refresh silently restart the diagnostic.
+                    navigate('/diagnostics', { replace: true });
                   }}
                   variant="outline"
                 >
@@ -631,6 +636,7 @@ const DiagnosticTypes = () => {
                     setTakingDiagnostic(null);
                     setQuestions([]);
                     setAnswers({});
+                    navigate('/diagnostics', { replace: true });
                   }}
                   variant="outline"
                 >

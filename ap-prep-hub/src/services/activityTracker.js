@@ -39,6 +39,7 @@ export async function recordPracticeTest(userId, info = {}) {
     correctAnswers = 0,
     durationMinutes = 0,
     scorePercent = null,
+    fullLength = false,
   } = info;
 
   await Promise.all([
@@ -46,6 +47,7 @@ export async function recordPracticeTest(userId, info = {}) {
       achievementsService.trackActivity(userId, 'complete_practice_test', {
         score: scorePercent,
         subject,
+        fullLength,
       })
     ),
     // A test is also a study session — that's what advances the streak.
@@ -73,10 +75,11 @@ export async function recordPracticeTest(userId, info = {}) {
 /** A finished flashcard study run. */
 export async function recordFlashcardStudy(userId, info = {}) {
   if (!userId) return;
-  const { subject = '', cardsStudied = 0, durationMinutes = 0 } = info;
+  const { subject = '', cardsStudied = 0, durationMinutes = 0, accuracy, deckId, perfect = false } = info;
   await Promise.all([
     safely('flashcard achievement', () =>
-      achievementsService.trackActivity(userId, 'study_flashcard', { count: cardsStudied })
+      // perfectScore feeds "Perfect Deck" (every card of a deck right).
+      achievementsService.trackActivity(userId, 'study_flashcard', { count: cardsStudied, perfectScore: perfect })
     ),
     safely('flashcard streak', () =>
       achievementsService.trackActivity(userId, 'study_session', { subject })
@@ -87,6 +90,9 @@ export async function recordFlashcardStudy(userId, info = {}) {
         subject,
         cardsStudied,
         duration: durationMinutes,
+        // Progress averages session accuracy; dropping it here zeroed it.
+        ...(Number.isFinite(accuracy) ? { accuracy } : {}),
+        ...(deckId ? { deckId } : {}),
       })
     ),
   ]);
@@ -98,7 +104,9 @@ export async function recordReviewSession(userId, info = {}) {
   const { cardsReviewed = 0, subject = '' } = info;
   await Promise.all([
     safely('review achievement', () =>
-      achievementsService.trackActivity(userId, 'study_flashcard', { count: cardsReviewed })
+      // 'review_card' is what the Review achievements count. This tracked
+      // 'study_flashcard', so "Second Look" and "Spaced Out" could never unlock.
+      achievementsService.trackActivity(userId, 'review_card', { count: cardsReviewed })
     ),
     safely('review streak', () =>
       achievementsService.trackActivity(userId, 'study_session', { subject })
@@ -112,6 +120,23 @@ export async function recordReviewSession(userId, info = {}) {
       })
     ),
   ]);
+}
+
+/**
+ * A one-off Review milestone: 'comeback' (a card finally right after 3+
+ * misses) or 'queue_cleared' (every due card reviewed).
+ */
+export async function recordReviewEvent(userId, event) {
+  if (!userId || !['comeback', 'queue_cleared'].includes(event)) return;
+  await safely(`review ${event}`, () => achievementsService.trackActivity(userId, event));
+}
+
+/** A new flashcard deck (AI, manual or imported). Counter only. */
+export async function recordDeckCreated(userId) {
+  if (!userId) return;
+  await safely('deck created', () =>
+    achievementsService.trackActivity(userId, 'create_flashcard_deck')
+  );
 }
 
 /** One message sent to an AI tutor. Counter only — not a study session. */
@@ -133,6 +158,8 @@ const activityTracker = {
   recordFlashcardStudy,
   recordReviewSession,
   recordTutorMessage,
+  recordDeckCreated,
+  recordReviewEvent,
   recordSolve,
 };
 

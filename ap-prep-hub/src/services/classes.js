@@ -268,7 +268,9 @@ export async function getLeaderboard(code) {
 export async function recordTestForClasses(uid, { questionsAnswered = 0, correctAnswers = 0, subject = null } = {}) {
   if (!uid || questionsAnswered <= 0) return 0;
   try {
-    const all = await getMyClasses(uid);
+    // Live, not the raw pointers: after an owner deletes a class, the stale
+    // pointer made this re-create the member row under the deleted code.
+    const all = await getMyClassesLive(uid);
     // A class with a subject list only counts tests in those subjects; a class
     // with none counts everything. Without this an AP Bio class leaderboard
     // could be topped by someone grinding a different subject entirely.

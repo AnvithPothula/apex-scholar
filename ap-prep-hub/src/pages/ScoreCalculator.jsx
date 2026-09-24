@@ -56,6 +56,7 @@ export default function ScoreCalculator() {
   const chooseSubject = (next) => {
     setSubject(next);
     setRaws({});
+    setPredictedIds(new Set());
     // Keep the URL shareable and indexable for the chosen subject.
     navigate(`/ap-score-calculator/${slugFor(next)}`, { replace: true });
   };
@@ -66,6 +67,10 @@ export default function ScoreCalculator() {
   const [showShare, setShowShare] = useState(false);
   const [searchParams] = useSearchParams();
   const seededFromTest = searchParams.get('from') === 'test';
+  // Sections a practice test didn't cover arrive predicted, not measured.
+  const [predictedIds, setPredictedIds] = useState(() =>
+    new Set((searchParams.get('est') || '').split(',').filter(Boolean))
+  );
   const [raws, setRaws] = useState(() =>
     clampRawsForModel(getScoreModel(SUBJECT_BY_SLUG[slug || ''] || MODELLED_SUBJECTS[0]),
       Object.fromEntries(searchParams.entries()))
@@ -76,7 +81,14 @@ export default function ScoreCalculator() {
   const result = useMemo(() => scoreFor(subject, raws), [subject, raws]);
   const rows = useMemo(() => curveRows(model), [model]);
 
-  const setRaw = (id, value) => setRaws((prev) => ({ ...prev, [id]: value }));
+  const setRaw = (id, value) => {
+    setRaws((prev) => ({ ...prev, [id]: value }));
+    // Once the student sets it themselves it is no longer our prediction.
+    setPredictedIds((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev); next.delete(id); return next;
+    });
+  };
   const anyEntered = model.sections.some((s) => raws[s.id] !== undefined && raws[s.id] !== '');
 
   return (
@@ -110,7 +122,9 @@ export default function ScoreCalculator() {
               Saying so stops "40 / 60" reading as "you answered 60 questions". */}
           {seededFromTest && (
             <p className="text-caption text-primary-400 mt-2">
-              Filled in from your practice test, scaled to the full exam's section sizes. Adjust freely.
+              Filled in from your practice test, scaled to the full exam's section sizes.
+              {predictedIds.size > 0 && ' Sections marked "predicted" weren\'t on the test, so they assume you\'d score the same percentage as on the parts that were.'}
+              {' '}Adjust freely.
             </p>
           )}
         </Card>
@@ -119,7 +133,12 @@ export default function ScoreCalculator() {
           {model.sections.map((s) => (
             <div key={s.id}>
               <label htmlFor={`sc-${s.id}`} className="flex items-baseline justify-between mb-1.5">
-                <span className="text-sm font-medium text-content-secondary">{s.label}</span>
+                <span className="text-sm font-medium text-content-secondary">
+                  {s.label}
+                  {predictedIds.has(s.id) && (
+                    <span className="ml-2 text-caption text-primary-400">predicted</span>
+                  )}
+                </span>
                 <span className="text-caption text-content-muted">out of {s.maxRaw}</span>
               </label>
               <div className="flex items-center gap-3">

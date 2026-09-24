@@ -128,6 +128,12 @@ export const AuthProvider = ({ children }) => {
                 const displayName = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || "New User";
                 setUser({
                     uid: firebaseUser.uid,
+                    // Google sign-in never wrote `displayName` (only fullName),
+                    // so class leaderboards and public-deck credits showed
+                    // "Anonymous" for most users. Seed it from the provider;
+                    // a name set in Settings (on the user doc) still wins.
+                    // Deliberately NOT the email-prefix fallback below.
+                    displayName: firebaseUser.displayName || undefined,
                     fullName: displayName,
                     email: firebaseUser.email,
                     chatbotContext: 'I am a visual learner and prefer examples.',

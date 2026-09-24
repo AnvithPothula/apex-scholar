@@ -10,7 +10,6 @@ import {
   formatTimeInUserTimezone,
   formatDateTimeInUserTimezone,
   getCurrentTimeInUserTimezone,
-  parseTimeInUserTimezone,
   setUserTimezonePreference,
   getTimezoneDisplayString,
   isDaylightSavingTime
@@ -133,44 +132,6 @@ describe('Timezone Utilities', () => {
     });
   });
 
-  describe('parseTimeInUserTimezone', () => {
-    it('should parse 24-hour time format', () => {
-      const result = parseTimeInUserTimezone('14:30');
-      expect(result.getHours()).toBe(14);
-      expect(result.getMinutes()).toBe(30);
-    });
-
-    it('should parse 12-hour AM time format', () => {
-      const result = parseTimeInUserTimezone('10:30 AM');
-      expect(result.getHours()).toBe(10);
-      expect(result.getMinutes()).toBe(30);
-    });
-
-    it('should parse 12-hour PM time format', () => {
-      const result = parseTimeInUserTimezone('2:30 PM');
-      expect(result.getHours()).toBe(14);
-      expect(result.getMinutes()).toBe(30);
-    });
-
-    it('should handle noon correctly', () => {
-      const result = parseTimeInUserTimezone('12:00 PM');
-      expect(result.getHours()).toBe(12);
-    });
-
-    it('should handle midnight correctly', () => {
-      const result = parseTimeInUserTimezone('12:00 AM');
-      expect(result.getHours()).toBe(0);
-    });
-
-    it('should use provided date', () => {
-      // Create a date explicitly in local timezone to avoid UTC conversion issues
-      const targetDate = new Date(2026, 5, 15); // June 15, 2026 in local time
-      const result = parseTimeInUserTimezone('14:30', targetDate);
-      expect(result.getFullYear()).toBe(2026);
-      expect(result.getMonth()).toBe(5); // June
-      expect(result.getDate()).toBe(15);
-    });
-  });
 
   describe('getTimezoneDisplayString', () => {
     it('should return a formatted display string', () => {

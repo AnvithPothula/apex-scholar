@@ -189,7 +189,8 @@ const cache = {};
  * Resolve a subject string (camelCase key, display name, or fuzzy match) to a canonical key.
  * Returns the key or null.
  */
-const resolveSubjectKey = (subject) => {
+export const resolveSubjectKey = (subject) => {
+  if (typeof subject !== 'string' || !subject) return null;
   // Direct key match
   if (subjectImports[subject]) return subject;
 

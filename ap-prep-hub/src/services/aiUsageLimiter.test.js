@@ -97,3 +97,26 @@ describe('aiUsageLimiter practice-test budget (guest/localStorage)', () => {
     await expect(consumeTestDaily()).resolves.toBeUndefined();
   });
 });
+
+describe('practice-test daily budget: check before, spend after', () => {
+  const { assertTestDailyAvailable } = require('./aiUsageLimiter');
+
+  test('checking does not spend the day\'s test', async () => {
+    await assertTestDailyAvailable();
+    await assertTestDailyAvailable();
+    // Still available: a failed generation after the check costs nothing.
+    await expect(consumeTestDaily()).resolves.toBeUndefined();
+  });
+
+  test('refuses once the day\'s test has been spent', async () => {
+    await consumeTestDaily();
+    await expect(assertTestDailyAvailable()).rejects.toBeInstanceOf(AiUsageLimitError);
+  });
+
+  test('the day key is the LOCAL calendar date, not UTC', async () => {
+    await consumeTestDaily();
+    const d = new Date();
+    const local = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    expect(JSON.parse(localStorage.getItem(KEY)).testDay.day).toBe(local);
+  });
+});

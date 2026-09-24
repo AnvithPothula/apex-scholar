@@ -113,3 +113,27 @@ describe('grade differentiation on a new card', () => {
       .toBe(Math.round(30 * review(mature, GRADE.good, NOW).ease));
   });
 });
+
+describe('addMisses never overwrites the queue after a failed read', () => {
+  const fs = require('firebase/firestore');
+  const { addMisses } = require('./srs');
+
+  it('does not write when the existing queue could not be read', async () => {
+    fs.getDoc.mockRejectedValueOnce(new Error('offline'));
+    fs.setDoc.mockReset();
+    const added = await addMisses('u1', [{ question: 'Q?', subject: 'AP Biology' }], NOW);
+    expect(added).toBe(0);
+    // Writing here would replace the whole stored queue with this one miss.
+    expect(fs.setDoc).not.toHaveBeenCalled();
+  });
+
+  it('merges with the stored queue when the read succeeds', async () => {
+    const existing = cardFromMiss({ question: 'Old?', subject: 'AP Biology' }, NOW);
+    fs.getDoc.mockResolvedValueOnce({ exists: () => true, data: () => ({ cards: [existing] }) });
+    fs.setDoc.mockReset();
+    fs.setDoc.mockResolvedValueOnce(undefined);
+    await addMisses('u1', [{ question: 'New?', subject: 'AP Biology' }], NOW);
+    const saved = fs.setDoc.mock.calls[0][1].cards.map((c) => c.question);
+    expect(saved).toEqual(expect.arrayContaining(['Old?', 'New?']));
+  });
+});

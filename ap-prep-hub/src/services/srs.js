@@ -142,11 +142,17 @@ export function trim(cards = [], max = MAX_CARDS) {
 
 const queueRef = (uid) => doc(db, 'users', uid, 'progress', 'reviewQueue');
 
+/** Strict read: throws on failure, so a writer never mistakes "couldn't read" for "empty". */
+async function readQueue(uid) {
+  const snap = await getDoc(queueRef(uid));
+  return snap.exists() ? snap.data().cards || [] : [];
+}
+
+/** Lenient read for display: [] on failure. Never feed this into a write. */
 export async function getQueue(uid) {
   if (!uid) return [];
   try {
-    const snap = await getDoc(queueRef(uid));
-    return snap.exists() ? snap.data().cards || [] : [];
+    return await readQueue(uid);
   } catch (e) {
     console.error('[srs] getQueue failed', e);
     return [];
@@ -164,7 +170,9 @@ async function saveQueue(uid, cards) {
 export async function addMisses(uid, misses = [], now = Date.now()) {
   if (!uid || !misses.length) return 0;
   try {
-    const existing = await getQueue(uid);
+    // readQueue, not getQueue: getQueue returns [] on a failed read, and the
+    // save below would then overwrite the whole queue with just these misses.
+    const existing = await readQueue(uid);
     const byId = new Map(existing.map((c) => [c.id, c]));
     let added = 0;
     for (const miss of misses) {
@@ -187,7 +195,7 @@ export async function addMisses(uid, misses = [], now = Date.now()) {
 export async function gradeCard(uid, id, quality, now = Date.now()) {
   if (!uid || !id) return null;
   try {
-    const cards = await getQueue(uid);
+    const cards = await readQueue(uid);
     const idx = cards.findIndex((c) => c.id === id);
     if (idx === -1) return null;
     const updated = review(cards[idx], quality, now);

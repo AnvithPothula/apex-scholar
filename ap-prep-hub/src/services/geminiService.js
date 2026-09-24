@@ -928,26 +928,43 @@ class GeminiService {
   }
 
   async generateContent(prompt, options = {}) {
+    // Join an identical request that is still in flight (dedup only).
+    const requestHash = this._hashRequest(prompt, options);
+    const inFlight = this._getFromCache(requestHash);
+    if (inFlight) {
+      return await inFlight;
+    }
+
+    // Refuse locally-known cooldowns BEFORE charging the usage budget; the
+    // order used to be reversed, so every refused call still spent quota.
+    this._throwIfRateLimited();
     // Meter against the per-browser AI usage budget (no-op for admins and for
     // exempt categories like practice tests). Throws AiUsageLimitError if over.
     await aiUsageLimiter.consume(options?.usageCategory);
     let model = this._resolveModel(options.model);
     const t0 = Date.now();
 
-    // Check cache for duplicate requests
-    const requestHash = this._hashRequest(prompt, options);
-    const cachedPromise = this._getFromCache(requestHash);
-    if (cachedPromise) {
-      return await cachedPromise;
-    }
-
-    // Create the actual request promise
     const requestPromise = this._doGenerateContent(prompt, options, model, t0);
-
-    // Cache the promise for deduplication
     this._addToCache(requestHash, requestPromise);
+    // Evict once settled. Settled results used to stay cached for 5 minutes —
+    // including FAILURES — so "try again" replayed the same error or the same
+    // garbled answer without ever reaching the network.
+    requestPromise.then(
+      () => this._requestCache.delete(requestHash),
+      () => this._requestCache.delete(requestHash)
+    );
 
     return await requestPromise;
+  }
+
+  _throwIfRateLimited() {
+    if (this.isRateLimited()) {
+      const seconds = this.getRateLimitSecondsRemaining();
+      throw new RateLimitError(
+        `AI service is temporarily unavailable. Please wait ${seconds} seconds and try again.`,
+        seconds
+      );
+    }
   }
 
   async _doGenerateContent(prompt, options, model, t0) {
@@ -1077,18 +1094,6 @@ class GeminiService {
   /** True if Google is reachable at all (proxy enabled OR client keys present). */
   _googleConfigured() {
     return this._useProxyFirst() || apiKeyManager.getTotalKeys() > 0;
-  }
-
-  /**
-   * Public: send a raw generateContent payload to Google through the same
-   * proxy-first transport (used by apiManager so its legacy path doesn't hit
-   * Google directly with client keys). Returns Google's JSON response.
-   */
-  async requestGoogleRaw(body, opts = {}) {
-    if (!this._googleConfigured()) {
-      throw new Error('No Google AI configured (proxy disabled and no client keys).');
-    }
-    return this._requestGoogleWithRotation(body, opts);
   }
 
   /**
@@ -1343,16 +1348,9 @@ class GeminiService {
   }
 
   async generateWithImages(prompt, images = [], options = {}) {
+    this._throwIfRateLimited();
     // Meter against the per-browser AI usage budget (no-op for admins / exempt).
     await aiUsageLimiter.consume(options?.usageCategory);
-    // Check if we're rate limited
-    if (this.isRateLimited()) {
-      const seconds = this.getRateLimitSecondsRemaining();
-      throw new RateLimitError(
-        `AI service is temporarily unavailable. Please wait ${seconds} seconds and try again.`,
-        seconds
-      );
-    }
 
     let model = this._resolveModel(options.model);
     const t0 = Date.now();
@@ -1460,17 +1458,9 @@ class GeminiService {
    */
   async generateFromPayload(payload) {
     console.log('[AI] generateFromPayload called');
+    this._throwIfRateLimited();
     // Meter against the per-browser AI usage budget (no-op for admins / exempt).
     await aiUsageLimiter.consume(payload?.usageCategory);
-
-    // Check if we're rate limited
-    if (this.isRateLimited()) {
-      const seconds = this.getRateLimitSecondsRemaining();
-      throw new RateLimitError(
-        `AI service is temporarily unavailable. Please wait ${seconds} seconds and try again.`,
-        seconds
-      );
-    }
 
     // Translate payload.contents into a single prompt string for Puter
     // Flatten all contents into a single prompt string for Puter
@@ -1738,7 +1728,10 @@ Output ONLY a JSON array. Each object: {"question":"...","answer":"..."}. Use $L
     }
     
     console.error('Error parsing flashcards:', result.error, 'Response:', response?.substring(0, 200));
-    return this.createFallbackFlashcards(subject, topic, count);
+    // Throw rather than return createFallbackFlashcards(): those placeholder
+    // cards ("... - Question 1" / "The AI generation failed") were SAVED as a
+    // real deck. The caller already shows a "try again" toast on error.
+    throw new Error('Could not parse generated flashcards');
   }
 
   async solveProblem(problemText, subject = '', imageData = null) {
@@ -1791,15 +1784,11 @@ correctAnswer is the index (0-3) of the correct choice. Exactly 4 choices and 4 
       // Validate and fix question structure
       const validQuestions = result.data.filter(q => {
         if (!q || !q.question || !Array.isArray(q.choices)) return false;
-        // Ensure 4 choices
-        if (q.choices.length !== 4) {
-          while (q.choices.length < 4) q.choices.push(`Option ${q.choices.length + 1}`);
-          q.choices = q.choices.slice(0, 4);
-        }
-        // Ensure valid correctAnswer
-        if (typeof q.correctAnswer !== 'number' || q.correctAnswer < 0 || q.correctAnswer > 3) {
-          q.correctAnswer = 0;
-        }
+        // Reject rather than repair: padding with "Option 3" and defaulting a
+        // missing key to 0 put fabricated choices and answer keys in front of
+        // students (and into their review queue as "misses").
+        if (q.choices.length !== 4) return false;
+        if (!Number.isInteger(q.correctAnswer) || q.correctAnswer < 0 || q.correctAnswer > 3) return false;
         // Ensure explanations array
         if (!Array.isArray(q.explanations) || q.explanations.length !== 4) {
           q.explanations = q.choices.map((_, i) => i === q.correctAnswer ? 'Correct answer' : 'Incorrect');
@@ -1813,7 +1802,11 @@ correctAnswer is the index (0-3) of the correct choice. Exactly 4 choices and 4 
     }
     
     console.error('Error parsing diagnostic questions:', result.error);
-    return this.createFallbackDiagnosticQuestions(subject, topic, count);
+    // Throw rather than return createFallbackDiagnosticQuestions() ("Sample
+    // AP Biology question ... Option A for question 1", key always A), which
+    // ran as a real diagnostic. Diagnostics falls back to banked questions or
+    // shows a retry toast.
+    throw new Error('Could not parse generated diagnostic questions');
   }
 
   async analyzeStudentProgress(subjects, activities, weakAreas = []) {
@@ -1839,56 +1832,11 @@ Output ONLY JSON:
       };
     }
     
-    console.error('Error parsing progress analysis:', result.error);
-    return this.createFallbackProgressAnalysis();
+    // Throw rather than return canned "Good progress shown" advice dressed up
+    // as analysis; the Progress page has its own honest default on error.
+    throw new Error(`Could not parse progress analysis: ${result.error}`);
   }
 
-  // Fallback methods for when AI generation fails
-  createFallbackFlashcards(subject, topic, count) {
-    const flashcards = [];
-    for (let i = 0; i < Math.min(count, 10); i++) {
-      flashcards.push({
-        question: `${subject} ${topic} - Question ${i + 1}`,
-        answer: `This is a sample answer for ${topic} concept ${i + 1}. The AI generation failed, but this ensures the app continues working.`
-      });
-    }
-    return flashcards;
-  }
-
-  createFallbackDiagnosticQuestions(subject, topic, count) {
-    const questions = [];
-    for (let i = 0; i < Math.min(count, 5); i++) {
-      questions.push({
-        question: `Sample ${subject} question about ${topic} ${i + 1}`,
-        choices: [
-          `Option A for question ${i + 1}`,
-          `Option B for question ${i + 1}`,
-          `Option C for question ${i + 1}`,
-          `Option D for question ${i + 1}`
-        ],
-        correctAnswer: 0,
-        explanations: [
-          "This is the correct answer",
-          "This is incorrect because...",
-          "This is incorrect because...",
-          "This is incorrect because..."
-        ],
-        concept: `${topic} Concept ${i + 1}`
-      });
-    }
-    return questions;
-  }
-
-  createFallbackProgressAnalysis() {
-    return {
-      overallProgress: "Good progress shown across subjects",
-      strengths: ["Consistent study habits", "Good problem-solving approach"],
-      weaknesses: ["Need more practice in specific areas"],
-      recommendations: ["Continue regular practice", "Focus on weak areas"],
-      nextSteps: ["Take more practice tests", "Review challenging topics"],
-      timeAllocation: "Spend 60% time on weak areas, 40% on review"
-    };
-  }
 }
 
 const geminiServiceInstance = new GeminiService();

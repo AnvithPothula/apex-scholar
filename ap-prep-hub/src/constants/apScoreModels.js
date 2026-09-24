@@ -2,23 +2,39 @@
  * Per-subject AP scoring models.
  *
  * Every AP exam converts raw section scores into a weighted composite, then maps
- * that composite onto 1–5. The three shapes below are genuinely different, which
- * is why one universal curve (the old `convertToAPScore`, tracked as A6) was
- * wrong for most subjects:
- *   - AP Biology     50/50, FRQ raw 36 scaled up to 60
- *   - AP Calculus AB 50/50, MCQ ×1.2 then FRQ added raw
- *   - APUSH          40/20/25/15 across four separate sections
+ * that composite onto 1–5. Section shapes differ a lot between exams (Biology is
+ * 50/50, APUSH is 40/20/25/15 over four sections, CS A is 55/45), which is why
+ * one universal curve was wrong for most subjects.
  *
- * ⚠️ HONESTY NOTE, and it is the whole point of this feature: the College Board
- * does **not** publish its cut points. Every calculator online — Albert, Knowt,
- * and all the rest — is estimating from released practice exams and score
- * distributions, and cutoffs move a few points each year with exam difficulty.
- * `confidence` records how well-grounded each model is, and the UI shows the
- * curve rather than hiding it. Nobody else shows the curve.
+ * SECTION STRUCTURE (question counts, point values, weights) comes from the
+ * College Board: apcentral.collegeboard.org/courses/<course>/exam for counts
+ * and weights, and the official 2026 scoring guidelines
+ * (apcentral.collegeboard.org/media/pdf/ap26-sg-*.pdf) for FRQ point values —
+ * checked September 2026 for the May 2027 exams. The one assumption left: the
+ * project-based world-language tasks first appear in May 2027, so their raw
+ * scales reuse each exam's current rubric (0–5 European, 0–6 Chinese/Japanese).
+ * Raw scales only set slider ranges; weights are published either way.
  *
- * Sources: College Board course descriptions for the section structure and
- * weights (which ARE published), and aggregated 2022–2025 estimates for the
- * cut points (which are not).
+ * CUT POINTS are not published, so they are estimated — and the method matters,
+ * because College Board moved to Evidence-Based Standard Setting in 2024–25 and
+ * pass rates jumped (English Language 55% → 74%, Physics 1 47% → 66%), which
+ * makes every older curve too harsh:
+ *   'chart'   Released College Board conversion charts for this subject
+ *             (2012–2022 practice exams) re-anchored to the 2026 score
+ *             distribution: each cut keeps its percentile position in the
+ *             chart year and moves to the share of students at or above that
+ *             score in 2026 (interpolated on a normal-quantile scale).
+ *   'blend'   Same, but the exam was redesigned since the chart, so it is
+ *             averaged 50/50 with the cross-subject model below.
+ *   'pooled'  No released chart: a model fitted across all released charts
+ *             (composite % ≈ 50.8 + 17.9 · z, z = normal quantile of the share
+ *             of students below the cut), applied to this exam's 2026 score
+ *             distribution. Leave-one-subject-out error ≈ 8 composite points.
+ *   'typical' Brand-new course with no score history: the pooled model at a
+ *             typical AP distribution.
+ * `cutoffConfidence` is 'estimated' for chart/blend and 'extrapolated' for
+ * pooled/typical; the calculator says which. Research notes and sources:
+ * docs/research/ap-score-curves.md.
  */
 
 /**
@@ -28,7 +44,8 @@
  *   `weight` = composite points this section contributes at a perfect raw score.
  * @property {number} compositeMax  sum of all section weights
  * @property {{5:number,4:number,3:number,2:number}} cutoffs  minimum composite for each score
- * @property {'measured'|'estimated'} confidence
+ * @property {'estimated'|'extrapolated'} cutoffConfidence
+ * @property {'chart'|'blend'|'pooled'|'typical'} cutoffBasis  how the cutoffs were derived (see above)
  * @property {string} [note]
  */
 
@@ -38,29 +55,27 @@ export const AP_SCORE_MODELS = {
     slug: 'ap-biology',
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 60, weight: 60 },
-      { id: 'frq', label: 'Free response', maxRaw: 36, weight: 60 },
+      { id: 'frq', label: 'Free response (2 x 9 + 4 x 4 points)', maxRaw: 34, weight: 60 },
     ],
     compositeMax: 120,
-    cutoffs: { 5: 93, 4: 74, 3: 51, 2: 28 },
+    cutoffs: { 5: 82, 4: 65, 3: 47, 2: 29 },
     cutoffConfidence: 'estimated',
-    note: '60 MCQ (50%) and 6 FRQ worth 36 raw points (50%), scaled to a 120-point composite.',
+    cutoffBasis: 'blend',
+    note: "60 MCQ (50%) and 6 FRQ \u2014 two 9-point long and four 4-point short, 34 raw points (50%) \u2014 in a 120-point composite.",
   },
 
-  // The 2026 CED sets BOTH Calculus exams at 42 multiple-choice questions
-  // (graphing calculator required for the final 13) and 6 free-response
-  // questions. The app carried the retired 45-MCQ figure. Verified by pulling
-  // the exam-overview text straight out of the CED PDF.
   'AP Calculus AB': {
     label: 'AP Calculus AB',
     slug: 'ap-calculus-ab',
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 42, weight: 54 },
-      { id: 'frq', label: 'Free response', maxRaw: 54, weight: 54 },
+      { id: 'frq', label: 'Free response (6 x 9 points)', maxRaw: 54, weight: 54 },
     ],
     compositeMax: 108,
-    cutoffs: { 5: 77, 4: 59, 3: 43, 2: 27 },
+    cutoffs: { 5: 69, 4: 49, 3: 37, 2: 23 },
     cutoffConfidence: 'estimated',
-    note: '42 MCQ and 6 FRQ at 9 points each, each section scaled to 54 for a 108-point composite.',
+    cutoffBasis: 'chart',
+    note: "42 MCQ (50%) and six 9-point FRQs (50%), each section scaled to 54 for a 108-point composite.",
   },
 
   'AP Calculus BC': {
@@ -68,64 +83,59 @@ export const AP_SCORE_MODELS = {
     slug: 'ap-calculus-bc',
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 42, weight: 54 },
-      { id: 'frq', label: 'Free response', maxRaw: 54, weight: 54 },
+      { id: 'frq', label: 'Free response (6 x 9 points)', maxRaw: 54, weight: 54 },
     ],
     compositeMax: 108,
-    // BC's curve is famously more forgiving than AB's.
-    cutoffs: { 5: 68, 4: 57, 3: 42, 2: 26 },
+    cutoffs: { 5: 68, 4: 55, 3: 45, 2: 26 },
     cutoffConfidence: 'estimated',
-    note: 'Same structure as AB, but historically a more generous curve.',
+    cutoffBasis: 'chart',
+    note: "Same structure as AB; historically a more forgiving curve.",
   },
 
   'AP US History': {
     label: 'AP US History',
     slug: 'ap-us-history',
-    // Weights derived from the PUBLISHED section percentages (40/20/25/15),
-    // which are authoritative, rather than from third-party composite numbers.
-    // Several calculators online quote 60/30/37.5/22.5 alongside "out of 130" —
-    // those sum to 150 and are internally inconsistent. 130 × the percentages
-    // gives 52/26/32.5/19.5, which does sum to 130.
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 55, weight: 52 },
-      { id: 'saq', label: 'Short answer', maxRaw: 9, weight: 26 },
+      { id: 'saq', label: 'Short answer (3 x 3 points)', maxRaw: 9, weight: 26 },
       { id: 'dbq', label: 'Document-based question', maxRaw: 7, weight: 32.5 },
       { id: 'leq', label: 'Long essay', maxRaw: 6, weight: 19.5 },
     ],
     compositeMax: 130,
-    cutoffs: { 5: 98, 4: 81, 3: 62, 2: 40 },
-    cutoffConfidence: 'estimated',
-    note: 'Four separately weighted sections: 40% MCQ, 20% SAQ, 25% DBQ, 15% LEQ.',
+    cutoffs: { 5: 91, 4: 65, 3: 51, 2: 33 },
+    cutoffConfidence: 'extrapolated',
+    cutoffBasis: 'pooled',
+    note: "Four separately weighted sections: 40% MCQ, 20% SAQ, 25% DBQ, 15% LEQ.",
   },
+
   'AP World History: Modern': {
     label: 'AP World History: Modern',
     slug: 'ap-world-history',
-    // Identical structure to APUSH — same four sections, same published weights.
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 55, weight: 52 },
-      { id: 'saq', label: 'Short answer', maxRaw: 9, weight: 26 },
+      { id: 'saq', label: 'Short answer (3 x 3 points)', maxRaw: 9, weight: 26 },
       { id: 'dbq', label: 'Document-based question', maxRaw: 7, weight: 32.5 },
       { id: 'leq', label: 'Long essay', maxRaw: 6, weight: 19.5 },
     ],
     compositeMax: 130,
-    cutoffs: { 5: 101, 4: 84, 3: 64, 2: 41 },
-    cutoffConfidence: 'estimated',
-    note: 'Four weighted sections: 40% MCQ, 20% SAQ, 25% DBQ, 15% LEQ.',
+    cutoffs: { 5: 91, 4: 66, 3: 56, 2: 33 },
+    cutoffConfidence: 'extrapolated',
+    cutoffBasis: 'pooled',
+    note: "Four weighted sections: 40% MCQ, 20% SAQ, 25% DBQ, 15% LEQ.",
   },
 
   'AP Psychology': {
     label: 'AP Psychology',
     slug: 'ap-psychology',
-    // The redesigned exam is 2/3 MCQ, 1/3 FRQ (two 7-point questions).
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 75, weight: 66.7 },
-      { id: 'frq', label: 'Free response', maxRaw: 14, weight: 33.3 },
+      { id: 'frq', label: 'Free response (AAQ 7 + EBQ 7)', maxRaw: 14, weight: 33.3 },
     ],
     compositeMax: 100,
-    cutoffs: { 5: 70, 4: 58, 3: 45, 2: 33 },
-    // Weights are published; these cut points are extrapolated from score
-    // distributions rather than from a released conversion table.
-    cutoffConfidence: 'extrapolated',
-    note: 'Multiple choice is 66.7%, two 7-point FRQs are 33.3%.',
+    cutoffs: { 5: 74, 4: 56, 3: 43, 2: 27 },
+    cutoffConfidence: 'estimated',
+    cutoffBasis: 'blend',
+    note: "75 MCQ (66.7%) and two 7-point FRQs, the Article Analysis and Evidence-Based questions (33.3%).",
   },
 
   'AP Chemistry': {
@@ -133,61 +143,41 @@ export const AP_SCORE_MODELS = {
     slug: 'ap-chemistry',
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 60, weight: 50 },
-      { id: 'frq', label: 'Free response', maxRaw: 46, weight: 50 },
+      { id: 'frq', label: 'Free response (3 x 10 + 4 x 4 points)', maxRaw: 46, weight: 50 },
     ],
     compositeMax: 100,
-    cutoffs: { 5: 72, 4: 58, 3: 42, 2: 25 },
+    cutoffs: { 5: 72, 4: 48, 3: 29, 2: 16 },
     cutoffConfidence: 'estimated',
-    note: '60 MCQ (50%) and 7 FRQ worth 46 raw points (50%), each scaled to 50.',
+    cutoffBasis: 'chart',
+    note: "60 MCQ (50%) and 7 FRQ worth 46 raw points (50%), each scaled to 50.",
   },
 
-  // ---- Batch 2 -------------------------------------------------------------
-  // Section structures and weights below are PUBLISHED by the College Board and
-  // are reliable. The cut points are `extrapolated`: no conversion table is
-  // released, and the widely-reported anchor is that a 5 needs roughly 70% of
-  // the composite. Bands use 70 / 57 / 43 / 30 percent, which is consistent
-  // with the researched subjects above (Bio 77.5%, Chem 72%, Calc AB 71%).
-  // Treat these as rougher than batch 1 — the UI says so.
-
-  // The 2025 physics redesign put all four physics exams on the SAME shape:
-  // 42 MCQ / 85 min / 50%, then 4 FRQ / 95 min / 50%. Verified against
-  // apcentral.collegeboard.org exam pages, which are authoritative. Third-party
-  // calculators still quote the old 40-question format — the same kind of stale
-  // secondary source that produced the wrong APUSH weights.
-  //
-  // College Board does not publish the FRQ raw-point total, so that figure is
-  // an assumption; it only sets the slider range, since the section is weighted
-  // to 50 regardless.
   'AP Physics 1': {
     label: 'AP Physics 1',
     slug: 'ap-physics-1',
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 42, weight: 50 },
-      { id: 'frq', label: 'Free response (4 questions)', maxRaw: 40, weight: 50 },
+      { id: 'frq', label: 'Free response (4 questions, 40 points)', maxRaw: 40, weight: 50 },
     ],
     compositeMax: 100,
-    cutoffs: { 5: 70, 4: 57, 3: 43, 2: 30 },
-    cutoffConfidence: 'extrapolated',
-    note: '42 MCQ (50%) and four FRQs (50%), each scaled to 50.',
+    cutoffs: { 5: 58, 4: 45, 3: 34, 2: 29 },
+    cutoffConfidence: 'estimated',
+    cutoffBasis: 'blend',
+    note: "42 MCQ (50%) and four FRQs (50%): mathematical routines 10, translation between representations 12, experimental design 10, qualitative/quantitative 8.",
   },
 
   'AP Statistics': {
     label: 'AP Statistics',
     slug: 'ap-statistics',
-    // REVISED for 2026-27: the course consolidated to five units and the exam
-    // went fully digital. Multiple choice went 40 -> 42 and free response 6 -> 4
-    // (the four carrying more points each). Confirmed on College Board's
-    // AP Statistics Revisions page; the old 40/6 shape is retired.
-    // The CED states "42 multiple-choice questions and four 10-point free-response
-    // questions", so the 40-point FRQ total is published, not assumed.
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 42, weight: 50 },
       { id: 'frq', label: 'Free response (4 x 10 points)', maxRaw: 40, weight: 50 },
     ],
     compositeMax: 100,
-    cutoffs: { 5: 70, 4: 57, 3: 43, 2: 30 },
-    cutoffConfidence: 'extrapolated',
-    note: '42 MCQ (50%) and four 10-point free-response questions (50%), each scaled to 50.',
+    cutoffs: { 5: 68, 4: 53, 3: 42, 2: 33 },
+    cutoffConfidence: 'estimated',
+    cutoffBasis: 'blend',
+    note: "Revised for the May 2027 exam: 42 MCQ (50%) and four 10-point free-response questions (50%).",
   },
 
   'AP English Language and Composition': {
@@ -195,12 +185,13 @@ export const AP_SCORE_MODELS = {
     slug: 'ap-english-language',
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 45, weight: 45 },
-      { id: 'frq', label: 'Essays', maxRaw: 18, weight: 55 },
+      { id: 'frq', label: 'Essays (3 x 6 points)', maxRaw: 18, weight: 55 },
     ],
     compositeMax: 100,
-    cutoffs: { 5: 70, 4: 57, 3: 43, 2: 30 },
-    cutoffConfidence: 'extrapolated',
-    note: '45 MCQ (45%) and three 6-point essays (55%) — the FRQs outweigh the MCQ here.',
+    cutoffs: { 5: 70, 4: 56, 3: 42, 2: 31 },
+    cutoffConfidence: 'estimated',
+    cutoffBasis: 'blend',
+    note: "45 MCQ (45%) and three 6-point essays (55%) \u2014 the essays outweigh the MCQ.",
   },
 
   'AP Environmental Science': {
@@ -208,12 +199,13 @@ export const AP_SCORE_MODELS = {
     slug: 'ap-environmental-science',
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 80, weight: 78 },
-      { id: 'frq', label: 'Free response', maxRaw: 30, weight: 52 },
+      { id: 'frq', label: 'Free response (3 x 10 points)', maxRaw: 30, weight: 52 },
     ],
     compositeMax: 130,
-    cutoffs: { 5: 91, 4: 74, 3: 56, 2: 39 },
+    cutoffs: { 5: 92, 4: 71, 3: 54, 2: 43 },
     cutoffConfidence: 'extrapolated',
-    note: '80 MCQ (60%) and 3 FRQ worth 30 raw points (40%), composite out of 130.',
+    cutoffBasis: 'pooled',
+    note: "80 MCQ (60%) and three 10-point FRQs (40%), composite out of 130.",
   },
 
   'AP Human Geography': {
@@ -221,12 +213,13 @@ export const AP_SCORE_MODELS = {
     slug: 'ap-human-geography',
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 60, weight: 60 },
-      { id: 'frq', label: 'Free response', maxRaw: 21, weight: 60 },
+      { id: 'frq', label: 'Free response (3 x 7 points)', maxRaw: 21, weight: 60 },
     ],
     compositeMax: 120,
-    cutoffs: { 5: 84, 4: 68, 3: 52, 2: 36 },
-    cutoffConfidence: 'extrapolated',
-    note: '60 MCQ and 3 FRQ worth 21 raw points, weighted 50/50 into a 120-point composite.',
+    cutoffs: { 5: 82, 4: 67, 3: 51, 2: 32 },
+    cutoffConfidence: 'estimated',
+    cutoffBasis: 'chart',
+    note: "60 MCQ and three 7-point FRQs, weighted 50/50 into a 120-point composite.",
   },
 
   'AP Macroeconomics': {
@@ -234,12 +227,15 @@ export const AP_SCORE_MODELS = {
     slug: 'ap-macroeconomics',
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 60, weight: 60 },
-      { id: 'frq', label: 'Free response', maxRaw: 21, weight: 30 },
+      { id: 'frqLong', label: 'Long free response', maxRaw: 10, weight: 15 },
+      { id: 'frqShort1', label: 'Short free response 1', maxRaw: 5, weight: 7.5 },
+      { id: 'frqShort2', label: 'Short free response 2', maxRaw: 5, weight: 7.5 },
     ],
     compositeMax: 90,
-    cutoffs: { 5: 63, 4: 51, 3: 39, 2: 27 },
-    cutoffConfidence: 'extrapolated',
-    note: '60 MCQ (about two thirds) and 3 FRQ worth 21 raw points, composite out of 90.',
+    cutoffs: { 5: 70, 4: 58, 3: 44, 2: 29 },
+    cutoffConfidence: 'estimated',
+    cutoffBasis: 'chart',
+    note: "60 MCQ (two thirds); free response is one long question (half of the section) and two short ones (a quarter each). Composite out of 90.",
   },
 
   'AP Microeconomics': {
@@ -247,53 +243,45 @@ export const AP_SCORE_MODELS = {
     slug: 'ap-microeconomics',
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 60, weight: 60 },
-      { id: 'frq', label: 'Free response', maxRaw: 21, weight: 30 },
+      { id: 'frqLong', label: 'Long free response', maxRaw: 10, weight: 15 },
+      { id: 'frqShort1', label: 'Short free response 1', maxRaw: 5, weight: 7.5 },
+      { id: 'frqShort2', label: 'Short free response 2', maxRaw: 5, weight: 7.5 },
     ],
     compositeMax: 90,
-    cutoffs: { 5: 63, 4: 51, 3: 39, 2: 27 },
-    cutoffConfidence: 'extrapolated',
-    note: 'Same structure as Macroeconomics: 60 MCQ plus 3 FRQ, composite out of 90.',
+    cutoffs: { 5: 72, 4: 57, 3: 44, 2: 28 },
+    cutoffConfidence: 'estimated',
+    cutoffBasis: 'chart',
+    note: "Same structure as Macroeconomics: 60 MCQ, then one long and two short FRQs weighted 50/25/25. Composite out of 90.",
   },
-
-  // ---- Batch 3 ------------------------------------------------------------
-  // Section counts and percentage weights below are the College Board's
-  // published exam structures. The CUTOFFS are extrapolated from the
-  // researched subjects in batch 1, not published — College Board does not
-  // release per-year curves. The UI labels these as estimates.
-  //
-  // Deliberately NOT modelled: AP Physics C (Mechanics / E&M), whose format
-  // changed in the recent redesign, and the world-language exams, which fold
-  // in speaking tasks. A wrong named model is worse than the generic fallback,
-  // because the fallback at least tells the student it is generic.
 
   'AP English Literature and Composition': {
     label: 'AP English Literature',
     slug: 'ap-english-literature',
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 55, weight: 45 },
-      { id: 'frq', label: 'Free response (3 essays)', maxRaw: 18, weight: 55 },
+      { id: 'frq', label: 'Essays (3 x 6 points)', maxRaw: 18, weight: 55 },
     ],
     compositeMax: 100,
-    cutoffs: { 5: 70, 4: 57, 3: 43, 2: 30 },
+    cutoffs: { 5: 69, 4: 54, 3: 40, 2: 29 },
     cutoffConfidence: 'extrapolated',
-    note: '55 MCQ (45%) and three 6-point essays (55%).',
+    cutoffBasis: 'pooled',
+    note: "55 MCQ (45%) and three 6-point essays (55%).",
   },
 
   'AP European History': {
     label: 'AP European History',
     slug: 'ap-european-history',
-    // Same four-section shape as APUSH, so it uses the same 130-point
-    // composite and the same published 40/20/25/15 split.
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 55, weight: 52 },
-      { id: 'saq', label: 'Short answer', maxRaw: 9, weight: 26 },
+      { id: 'saq', label: 'Short answer (3 x 3 points)', maxRaw: 9, weight: 26 },
       { id: 'dbq', label: 'Document-based question', maxRaw: 7, weight: 32.5 },
       { id: 'leq', label: 'Long essay', maxRaw: 6, weight: 19.5 },
     ],
     compositeMax: 130,
-    cutoffs: { 5: 98, 4: 81, 3: 62, 2: 40 },
+    cutoffs: { 5: 89, 4: 67, 3: 51, 2: 33 },
     cutoffConfidence: 'extrapolated',
-    note: 'Four separately weighted sections: 40% MCQ, 20% SAQ, 25% DBQ, 15% LEQ.',
+    cutoffBasis: 'pooled',
+    note: "Four separately weighted sections: 40% MCQ, 20% SAQ, 25% DBQ, 15% LEQ.",
   },
 
   'AP United States Government and Politics': {
@@ -301,12 +289,16 @@ export const AP_SCORE_MODELS = {
     slug: 'ap-gov',
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 55, weight: 50 },
-      { id: 'frq', label: 'Free response (4 questions)', maxRaw: 12, weight: 50 },
+      { id: 'frqConcept', label: 'Concept application', maxRaw: 3, weight: 12.5 },
+      { id: 'frqQuant', label: 'Quantitative analysis', maxRaw: 4, weight: 12.5 },
+      { id: 'frqScotus', label: 'SCOTUS comparison', maxRaw: 4, weight: 12.5 },
+      { id: 'frqArgument', label: 'Argument essay', maxRaw: 6, weight: 12.5 },
     ],
     compositeMax: 100,
-    cutoffs: { 5: 70, 4: 57, 3: 43, 2: 30 },
+    cutoffs: { 5: 64, 4: 50, 3: 38, 2: 26 },
     cutoffConfidence: 'extrapolated',
-    note: '55 MCQ (50%) and four FRQs worth 12 raw points total (50%).',
+    cutoffBasis: 'pooled',
+    note: "55 MCQ (50%) and four FRQs worth 12.5% each \u2014 concept application (3 points), quantitative analysis (4), SCOTUS comparison (4), argument essay (6).",
   },
 
   'AP Comparative Government and Politics': {
@@ -314,25 +306,27 @@ export const AP_SCORE_MODELS = {
     slug: 'ap-comparative-government',
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 55, weight: 50 },
-      { id: 'frq', label: 'Free response (4 questions)', maxRaw: 12, weight: 50 },
+      { id: 'frq', label: 'Free response (4 questions, 19 points)', maxRaw: 19, weight: 50 },
     ],
     compositeMax: 100,
-    cutoffs: { 5: 70, 4: 57, 3: 43, 2: 30 },
+    cutoffs: { 5: 69, 4: 57, 3: 41, 2: 30 },
     cutoffConfidence: 'extrapolated',
-    note: '55 MCQ (50%) and four FRQs worth 12 raw points total (50%).',
+    cutoffBasis: 'pooled',
+    note: "55 MCQ (50%) and four FRQs (50%): conceptual analysis 4 points, quantitative, comparative and argument essay 5 each.",
   },
 
   'AP Computer Science A': {
     label: 'AP Computer Science A',
     slug: 'ap-computer-science-a',
     sections: [
-      { id: 'mcq', label: 'Multiple choice', maxRaw: 40, weight: 50 },
-      { id: 'frq', label: 'Free response (4 questions)', maxRaw: 36, weight: 50 },
+      { id: 'mcq', label: 'Multiple choice', maxRaw: 42, weight: 55 },
+      { id: 'frq', label: 'Free response (7 + 7 + 5 + 6 points)', maxRaw: 25, weight: 45 },
     ],
     compositeMax: 100,
-    cutoffs: { 5: 70, 4: 57, 3: 43, 2: 30 },
+    cutoffs: { 5: 63, 4: 50, 3: 43, 2: 38 },
     cutoffConfidence: 'extrapolated',
-    note: '40 MCQ (50%) and four 9-point FRQs (50%).',
+    cutoffBasis: 'pooled',
+    note: "Revised exam: 42 MCQ (55%) and four FRQs (45%) \u2014 methods and control structures 7, class design 7, ArrayList 5, 2D array 6.",
   },
 
   'AP Computer Science Principles': {
@@ -340,12 +334,13 @@ export const AP_SCORE_MODELS = {
     slug: 'ap-computer-science-principles',
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 70, weight: 70 },
-      { id: 'cpt', label: 'Create performance task', maxRaw: 6, weight: 30 },
+      { id: 'cpt', label: 'Create task + written response', maxRaw: 6, weight: 30 },
     ],
     compositeMax: 100,
-    cutoffs: { 5: 70, 4: 57, 3: 43, 2: 30 },
+    cutoffs: { 5: 74, 4: 59, 3: 45, 2: 33 },
     cutoffConfidence: 'extrapolated',
-    note: '70 MCQ (70%) and the Create performance task, 6 points (30%).',
+    cutoffBasis: 'pooled',
+    note: "70 MCQ (70%) and the Create performance task with its exam-day written response (30%).",
   },
 
   'AP Physics 2': {
@@ -353,12 +348,13 @@ export const AP_SCORE_MODELS = {
     slug: 'ap-physics-2',
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 42, weight: 50 },
-      { id: 'frq', label: 'Free response (4 questions)', maxRaw: 40, weight: 50 },
+      { id: 'frq', label: 'Free response (4 questions, 40 points)', maxRaw: 40, weight: 50 },
     ],
     compositeMax: 100,
-    cutoffs: { 5: 70, 4: 57, 3: 43, 2: 30 },
+    cutoffs: { 5: 66, 4: 51, 3: 40, 2: 24 },
     cutoffConfidence: 'extrapolated',
-    note: '42 MCQ (50%) and four FRQs (50%), each scaled to 50.',
+    cutoffBasis: 'pooled',
+    note: "42 MCQ (50%) and four FRQs (50%): mathematical routines, translation between representations, experimental design, qualitative/quantitative.",
   },
 
   'AP Physics C: Mechanics': {
@@ -366,12 +362,13 @@ export const AP_SCORE_MODELS = {
     slug: 'ap-physics-c-mechanics',
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 42, weight: 50 },
-      { id: 'frq', label: 'Free response (4 questions)', maxRaw: 40, weight: 50 },
+      { id: 'frq', label: 'Free response (4 questions, 40 points)', maxRaw: 40, weight: 50 },
     ],
     compositeMax: 100,
-    cutoffs: { 5: 70, 4: 57, 3: 43, 2: 30 },
+    cutoffs: { 5: 66, 4: 53, 3: 40, 2: 29 },
     cutoffConfidence: 'extrapolated',
-    note: '42 MCQ (50%) and four FRQs (50%), each scaled to 50.',
+    cutoffBasis: 'pooled',
+    note: "42 MCQ (50%) and four FRQs (50%), the same four question types as Physics 1 and 2.",
   },
 
   'AP Physics C: Electricity and Magnetism': {
@@ -379,25 +376,27 @@ export const AP_SCORE_MODELS = {
     slug: 'ap-physics-c-electricity-and-magnetism',
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 42, weight: 50 },
-      { id: 'frq', label: 'Free response (4 questions)', maxRaw: 40, weight: 50 },
+      { id: 'frq', label: 'Free response (4 questions, 40 points)', maxRaw: 40, weight: 50 },
     ],
     compositeMax: 100,
-    cutoffs: { 5: 70, 4: 57, 3: 43, 2: 30 },
+    cutoffs: { 5: 63, 4: 52, 3: 39, 2: 26 },
     cutoffConfidence: 'extrapolated',
-    note: '42 MCQ (50%) and four FRQs (50%), each scaled to 50.',
+    cutoffBasis: 'pooled',
+    note: "42 MCQ (50%) and four FRQs (50%), the same four question types as Physics 1 and 2.",
   },
 
   'AP Precalculus': {
     label: 'AP Precalculus',
     slug: 'ap-precalculus',
     sections: [
-      { id: 'mcq', label: 'Multiple choice', maxRaw: 40, weight: 62.5 },
-      { id: 'frq', label: 'Free response (4 questions)', maxRaw: 24, weight: 37.5 },
+      { id: 'mcq', label: 'Multiple choice', maxRaw: 42, weight: 62.5 },
+      { id: 'frq', label: 'Free response (4 x 6 points)', maxRaw: 24, weight: 37.5 },
     ],
     compositeMax: 100,
-    cutoffs: { 5: 70, 4: 57, 3: 43, 2: 30 },
+    cutoffs: { 5: 61, 4: 47, 3: 34, 2: 24 },
     cutoffConfidence: 'extrapolated',
-    note: '40 MCQ (62.5%) and four 6-point FRQs (37.5%).',
+    cutoffBasis: 'pooled',
+    note: "42 MCQ (62.5%) and four 6-point FRQs (37.5%).",
   },
 
   'AP Art History': {
@@ -405,12 +404,13 @@ export const AP_SCORE_MODELS = {
     slug: 'ap-art-history',
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 80, weight: 50 },
-      { id: 'frq', label: 'Free response (6 questions)', maxRaw: 35, weight: 50 },
+      { id: 'frq', label: 'Free response (8 + 6 + 4 x 5 points)', maxRaw: 34, weight: 50 },
     ],
     compositeMax: 100,
-    cutoffs: { 5: 70, 4: 57, 3: 43, 2: 30 },
+    cutoffs: { 5: 69, 4: 55, 3: 43, 2: 27 },
     cutoffConfidence: 'extrapolated',
-    note: '80 MCQ (50%) and six FRQs worth 35 raw points (50%).',
+    cutoffBasis: 'pooled',
+    note: "80 MCQ (50%) and six FRQs worth 34 raw points (50%): an 8-point comparison essay, a 6-point visual/contextual essay and four 5-point short essays.",
   },
 
   'AP Music Theory': {
@@ -418,31 +418,15 @@ export const AP_SCORE_MODELS = {
     slug: 'ap-music-theory',
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 75, weight: 45 },
-      { id: 'frq', label: 'Free response (written)', maxRaw: 45, weight: 45 },
-      { id: 'sight', label: 'Sight-singing', maxRaw: 18, weight: 10 },
+      { id: 'frq', label: 'Free response (written, 7 questions)', maxRaw: 118, weight: 45 },
+      { id: 'sight', label: 'Sight-singing (2 x 9 points)', maxRaw: 18, weight: 10 },
     ],
     compositeMax: 100,
-    cutoffs: { 5: 70, 4: 57, 3: 43, 2: 30 },
+    cutoffs: { 5: 67, 4: 58, 3: 47, 2: 32 },
     cutoffConfidence: 'extrapolated',
-    note: '75 MCQ (45%), written free response (45%), and sight-singing (10%).',
+    cutoffBasis: 'pooled',
+    note: "75 MCQ (45%), seven written free-response questions (45%) and two sight-singing melodies (10%).",
   },
-
-  // ---- Batch 4: world languages + Latin ----------------------------------
-  // Structures and PERCENTAGE weights verified against apcentral.collegeboard.org.
-  // The redesigned modern-language exams are parallel: Section II is 55 MCQ
-  // (Listening 25 + Reading 30) at 50%, Section I is 3 free-response tasks at
-  // 50% — Project Presentation 20%, Project Q&A 15%, Argumentative Essay 15%.
-  //
-  // The free-response tasks are RUBRIC-scored and College Board does not
-  // publish a raw point total, so maxRaw 5 is the standard AP world-language
-  // rubric band and is an assumption. It only sets the slider range: each task
-  // is weighted by the published percentage regardless.
-  //
-  // Still NOT modelled, because their structures were not verified:
-  // AP Italian and AP Japanese (assumed-parallel is not verified), and the
-  // sub-task split for AP Chinese (which has FOUR free-response tasks, not
-  // three — its Q4 Email Response is 7.5%). Chinese is modelled at section
-  // level only, which is accurate, rather than inventing its sub-weights.
 
   'AP Spanish Language and Culture': {
     label: 'AP Spanish Language',
@@ -454,9 +438,10 @@ export const AP_SCORE_MODELS = {
       { id: 'essay', label: 'Argumentative essay', maxRaw: 5, weight: 15 },
     ],
     compositeMax: 100,
-    cutoffs: { 5: 70, 4: 57, 3: 43, 2: 30 },
+    cutoffs: { 5: 65, 4: 50, 3: 34, 2: 17 },
     cutoffConfidence: 'extrapolated',
-    note: '55 MCQ (50%), project presentation (20%), project Q&A (15%), argumentative essay (15%).',
+    cutoffBasis: 'pooled',
+    note: "55 MCQ (50%), project presentation (20%), project Q&A (15%), argumentative essay (15%).",
   },
 
   'AP French Language and Culture': {
@@ -469,9 +454,10 @@ export const AP_SCORE_MODELS = {
       { id: 'essay', label: 'Argumentative essay', maxRaw: 5, weight: 15 },
     ],
     compositeMax: 100,
-    cutoffs: { 5: 70, 4: 57, 3: 43, 2: 30 },
+    cutoffs: { 5: 69, 4: 56, 3: 41, 2: 23 },
     cutoffConfidence: 'extrapolated',
-    note: '55 MCQ (50%), project presentation (20%), project Q&A (15%), argumentative essay (15%).',
+    cutoffBasis: 'pooled',
+    note: "55 MCQ (50%), project presentation (20%), project Q&A (15%), argumentative essay (15%).",
   },
 
   'AP German Language and Culture': {
@@ -484,25 +470,60 @@ export const AP_SCORE_MODELS = {
       { id: 'essay', label: 'Argumentative essay', maxRaw: 5, weight: 15 },
     ],
     compositeMax: 100,
-    cutoffs: { 5: 70, 4: 57, 3: 43, 2: 30 },
+    cutoffs: { 5: 63, 4: 55, 3: 42, 2: 28 },
     cutoffConfidence: 'extrapolated',
-    note: '55 MCQ (50%), project presentation (20%), project Q&A (15%), argumentative essay (15%).',
+    cutoffBasis: 'pooled',
+    note: "55 MCQ (50%), project presentation (20%), project Q&A (15%), argumentative essay (15%).",
+  },
+
+  'AP Italian Language and Culture': {
+    label: 'AP Italian Language',
+    slug: 'ap-italian-language',
+    sections: [
+      { id: 'mcq', label: 'Multiple choice (listening + reading)', maxRaw: 55, weight: 50 },
+      { id: 'presentation', label: 'Project presentation (spoken)', maxRaw: 5, weight: 20 },
+      { id: 'qa', label: 'Project Q&A (spoken)', maxRaw: 5, weight: 15 },
+      { id: 'essay', label: 'Argumentative essay', maxRaw: 5, weight: 15 },
+    ],
+    compositeMax: 100,
+    cutoffs: { 5: 66, 4: 55, 3: 42, 2: 29 },
+    cutoffConfidence: 'extrapolated',
+    cutoffBasis: 'pooled',
+    note: "55 MCQ (50%), project presentation (20%), project Q&A (15%), argumentative essay (15%).",
   },
 
   'AP Chinese Language and Culture': {
     label: 'AP Chinese Language',
     slug: 'ap-chinese-language',
-    // Four free-response tasks, not three. College Board publishes the section
-    // split (50/50) but not every sub-weight, so this stays at section level
-    // instead of inventing the missing ones.
     sections: [
       { id: 'mcq', label: 'Multiple choice (listening + reading)', maxRaw: 55, weight: 50 },
-      { id: 'frq', label: 'Free response (4 tasks)', maxRaw: 20, weight: 50 },
+      { id: 'presentation', label: 'Project presentation (spoken)', maxRaw: 6, weight: 20 },
+      { id: 'qa', label: 'Project Q&A (spoken)', maxRaw: 6, weight: 15 },
+      { id: 'narration', label: 'Story narration (written)', maxRaw: 6, weight: 7.5 },
+      { id: 'email', label: 'Email response (written)', maxRaw: 6, weight: 7.5 },
     ],
     compositeMax: 100,
-    cutoffs: { 5: 70, 4: 57, 3: 43, 2: 30 },
+    cutoffs: { 5: 52, 4: 43, 3: 32, 2: 27 },
     cutoffConfidence: 'extrapolated',
-    note: '55 MCQ (50%) and four free-response tasks including the email response (50%).',
+    cutoffBasis: 'pooled',
+    note: "55 MCQ (50%), project presentation (20%), project Q&A (15%), story narration (7.5%), email response (7.5%).",
+  },
+
+  'AP Japanese Language and Culture': {
+    label: 'AP Japanese Language',
+    slug: 'ap-japanese-language',
+    sections: [
+      { id: 'mcq', label: 'Multiple choice (listening + reading)', maxRaw: 55, weight: 50 },
+      { id: 'presentation', label: 'Project presentation (spoken)', maxRaw: 6, weight: 20 },
+      { id: 'qa', label: 'Project Q&A (spoken)', maxRaw: 6, weight: 15 },
+      { id: 'narration', label: 'Story narration (written)', maxRaw: 6, weight: 7.5 },
+      { id: 'email', label: 'Email response (written)', maxRaw: 6, weight: 7.5 },
+    ],
+    compositeMax: 100,
+    cutoffs: { 5: 52, 4: 48, 3: 40, 2: 36 },
+    cutoffConfidence: 'extrapolated',
+    cutoffBasis: 'pooled',
+    note: "55 MCQ (50%), project presentation (20%), project Q&A (15%), story narration (7.5%), email response (7.5%).",
   },
 
   'AP Spanish Literature and Culture': {
@@ -511,12 +532,13 @@ export const AP_SCORE_MODELS = {
     sections: [
       { id: 'mcqAudio', label: 'Multiple choice (audio texts)', maxRaw: 15, weight: 10 },
       { id: 'mcqRead', label: 'Multiple choice (written texts)', maxRaw: 50, weight: 40 },
-      { id: 'frq', label: 'Free response (4 questions)', maxRaw: 24, weight: 50 },
+      { id: 'frq', label: 'Free response (6 + 6 + 10 + 10 points)', maxRaw: 32, weight: 50 },
     ],
     compositeMax: 100,
-    cutoffs: { 5: 70, 4: 57, 3: 43, 2: 30 },
+    cutoffs: { 5: 66, 4: 54, 3: 41, 2: 27 },
     cutoffConfidence: 'extrapolated',
-    note: '15 audio MCQ (10%), 50 reading MCQ (40%), and four free-response questions (50%).',
+    cutoffBasis: 'pooled',
+    note: "15 audio MCQ (10%), 50 reading MCQ (40%), and four free-response questions (50%).",
   },
 
   'AP Latin': {
@@ -524,74 +546,58 @@ export const AP_SCORE_MODELS = {
     slug: 'ap-latin',
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 52, weight: 50 },
-      { id: 'frq', label: 'Free response (translation, essays)', maxRaw: 30, weight: 50 },
+      { id: 'frq', label: 'Free response (8 + 15 + 8 + 11 + 11 points)', maxRaw: 53, weight: 50 },
     ],
     compositeMax: 100,
-    cutoffs: { 5: 70, 4: 57, 3: 43, 2: 30 },
+    cutoffs: { 5: 66, 4: 51, 3: 40, 2: 28 },
     cutoffConfidence: 'extrapolated',
-    note: '52 MCQ (50%) and five free-response questions including translation (50%). A small course-project component also contributes.',
-  },
-  'AP Italian Language and Culture': {
-    label: 'AP Italian Language',
-    slug: 'ap-italian-language',
-    // Verified: same three-task shape as Spanish/French/German.
-    sections: [
-      { id: 'mcq', label: 'Multiple choice (listening + reading)', maxRaw: 55, weight: 50 },
-      { id: 'presentation', label: 'Project presentation (spoken)', maxRaw: 5, weight: 20 },
-      { id: 'qa', label: 'Project Q&A (spoken)', maxRaw: 5, weight: 15 },
-      { id: 'essay', label: 'Argumentative essay', maxRaw: 5, weight: 15 },
-    ],
-    compositeMax: 100,
-    cutoffs: { 5: 70, 4: 57, 3: 43, 2: 30 },
-    cutoffConfidence: 'extrapolated',
-    note: '55 MCQ (50%), project presentation (20%), project Q&A (15%), argumentative essay (15%).',
+    cutoffBasis: 'pooled',
+    note: "52 MCQ (50%) and five free-response questions including translation (48%), plus course-project checkpoints (2%, counted with free response here).",
   },
 
-  'AP Japanese Language and Culture': {
-    label: 'AP Japanese Language',
-    slug: 'ap-japanese-language',
-    // Verified: FOUR free-response tasks (presentation, Q&A, story narration,
-    // email response), like Chinese rather than the three-task European exams.
-    // Section split is published; the per-task weights are not, so this stays
-    // at section level instead of inventing them.
+  'AP African American Studies': {
+    label: 'AP African American Studies',
+    slug: 'ap-african-american-studies',
     sections: [
-      { id: 'mcq', label: 'Multiple choice (listening + reading)', maxRaw: 55, weight: 50 },
-      { id: 'frq', label: 'Free response (4 tasks)', maxRaw: 20, weight: 50 },
+      { id: 'mcq', label: 'Multiple choice', maxRaw: 60, weight: 60 },
+      { id: 'saq', label: 'Short answer (4 + 3 + 3 points)', maxRaw: 10, weight: 18 },
+      { id: 'dbq', label: 'Document-based question', maxRaw: 7, weight: 12 },
+      { id: 'project', label: 'Individual student project + exam-day validation', maxRaw: 10, weight: 10 },
     ],
     compositeMax: 100,
-    cutoffs: { 5: 70, 4: 57, 3: 43, 2: 30 },
+    cutoffs: { 5: 66, 4: 51, 3: 38, 2: 23 },
     cutoffConfidence: 'extrapolated',
-    note: '55 MCQ (50%) and four free-response tasks including story narration and the email response (50%).',
+    cutoffBasis: 'pooled',
+    note: "60 MCQ (60%), three short-answer questions (18%), a document-based question (12%), and the individual project with its exam-day validation question (10%).",
   },
+
   'AP Business with Personal Finance': {
     label: 'AP Business with Personal Finance',
     slug: 'ap-business-personal-finance',
-    // Weights are the CED's published percentages (60 / 15 / 25), so unlike the
-    // extrapolated subjects these section splits are exact. Only the cutoffs
-    // are estimated — this course is new enough that no curve has been released.
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 60, weight: 60 },
       { id: 'canvas', label: 'Business Canvas Project validation', maxRaw: 6, weight: 15 },
       { id: 'frq', label: 'Free response (3 questions)', maxRaw: 18, weight: 25 },
     ],
     compositeMax: 100,
-    cutoffs: { 5: 70, 4: 57, 3: 43, 2: 30 },
+    cutoffs: { 5: 68, 4: 54, 3: 41, 2: 28 },
     cutoffConfidence: 'extrapolated',
-    note: '60 MCQ (60%), the Business Canvas Project exam-day validation question (15%), and three free-response questions (25%).',
+    cutoffBasis: 'typical',
+    note: "60 MCQ (60%), the Business Canvas Project exam-day validation question (15%), and three free-response questions (25%).",
   },
+
   'AP Cybersecurity': {
     label: 'AP Cybersecurity',
     slug: 'ap-cybersecurity',
-    // 70/30 split is published, so these weights are exact. Only the cutoffs are
-    // estimated — the course launches 2026-27 and has no released curve.
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 60, weight: 70 },
       { id: 'frq', label: 'Device Security Analysis', maxRaw: 10, weight: 30 },
     ],
     compositeMax: 100,
-    cutoffs: { 5: 70, 4: 57, 3: 43, 2: 30 },
+    cutoffs: { 5: 68, 4: 54, 3: 41, 2: 28 },
     cutoffConfidence: 'extrapolated',
-    note: '60 MCQ (70%) and one free-response Device Security Analysis question (30%).',
+    cutoffBasis: 'typical',
+    note: "60 MCQ (70%) and one free-response Device Security Analysis question (30%).",
   },
 };
 

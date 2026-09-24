@@ -54,7 +54,7 @@ import { apexSiteBrief } from '../constants/apexFeatures';
 import { languageDirective } from '../constants/languageDirective';
 import { getScoreModel } from '../constants/apScoreModels';
 import { subjects } from '../constants/subjects';
-import { getCurriculumData, getSubjectName } from '../constants/comprehensiveCurriculum';
+import { getCurriculumData, getSubjectName, resolveSubjectKey } from '../constants/comprehensiveCurriculum';
 import {
   collection,
   addDoc,
@@ -90,6 +90,7 @@ import { nextSessionNumber } from './conversationNaming';
 import { promptBudget, briefCurriculum } from '../services/promptBudget';
 import { parseSingleMcq } from '../services/ai/mcqGenerator';
 import errorLogger from '../utils/errorLogger';
+import { recordTutorMessage } from '../services/activityTracker';
 
 /**
  * Tutor answer modes.
@@ -118,10 +119,20 @@ const AITutors = () => {
   const { user, loading, isGuest } = useAuth();
   const { toast } = useToast();
   const confirm = useConfirm();
-  const [selectedSubject, setSelectedSubject] = useState(urlSubject || null);
+  // Canonical key from the start: seeding with a raw display name ("AP
+  // Biology") loaded that name's separate conversation list before the URL
+  // redirect below could correct it.
+  const [selectedSubject, setSelectedSubject] = useState(
+    () => (urlSubject ? resolveSubjectKey(urlSubject) || urlSubject : null)
+  );
   const [conversations, setConversations] = useState([]);
   const [activeConversationId, setActiveConversationId] = useState(null);
   const [messages, setMessages] = useState([]);
+  // Which conversation `messages` belongs to. When the active chat changes
+  // there is one render where `messages` still holds the OLD thread; gating on
+  // this keeps that thread off screen (it used to linger for seconds playing
+  // exit animations) and out of the AI's conversation history.
+  const [messagesOwner, setMessagesOwner] = useState(null);
   const [currentMessage, setCurrentMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [editingConversationId, setEditingConversationId] = useState(null);
@@ -215,6 +226,7 @@ const AITutors = () => {
     // Guest thread — read straight from localStorage, no Firestore listener.
     if (isGuestConversationId(conversationId)) {
       setMessages(getGuestMessages(subjectFromGuestId(conversationId)));
+      setMessagesOwner(conversationId);
       return () => {};
     }
     try {
@@ -231,6 +243,7 @@ const AITutors = () => {
 
         console.log('Messages loaded for conversation', conversationId, ':', messagesList.length, 'messages');
         setMessages(messagesList);
+        setMessagesOwner(conversationId);
       }, (error) => {
         // A28/A30: Firestore TERMINATES a listener that errors. Previously this
         // branch only logged, so a transient permission-denied during an auth
@@ -386,14 +399,17 @@ const AITutors = () => {
         console.log('Loaded conversations for subject:', subject, 'Count:', conversationsList.length);
         setConversations(conversationsList);
 
-        // If conversations exist, open the most recent one
+        // Open the most recent conversation only when nothing valid is open.
+        // This listener fires on EVERY change to any conversation, and it used
+        // to force-select the newest one each time — so renaming or deleting a
+        // chat you weren't in yanked you into it, and the empty-chat cleanup
+        // then deleted the chat you had just been in.
         if (conversationsList.length > 0) {
-          console.log('Existing conversations found, opening the most recent one...');
-          const mostRecentConversation = conversationsList[0];
-          console.log('Opening most recent conversation:', mostRecentConversation.name);
-
-          // Always open the most recent conversation when switching subjects
-          setActiveConversationId(mostRecentConversation.id);
+          setActiveConversationId((current) =>
+            current && conversationsList.some((c) => c.id === current)
+              ? current
+              : conversationsList[0].id
+          );
         } else {
           // No conversations exist, create a new one
           console.log('No conversations found, creating new one...');
@@ -551,7 +567,6 @@ const AITutors = () => {
     let cancelled = false;
 
     if (activeConversationId) {
-      console.log('Loading messages for conversation:', activeConversationId);
       const handleDetach = () => {
         // Bounded: an auth transition resolves in well under a second, so a
         // handful of tries is recovery. More than that is a real permission
@@ -590,6 +605,8 @@ const AITutors = () => {
   useEffect(() => {
     messagesRetryRef.current = 0;
   }, [activeConversationId]);
+
+  const activeMessages = messagesOwner === activeConversationId ? messages : [];
 
   // Keyboard-first shortcuts
   useEffect(() => {
@@ -916,23 +933,28 @@ const AITutors = () => {
       setCurrentMessage('');
       setUploadedFiles([]);
       
+      // The [user, selectedSubject] effect attaches the conversations listener.
+      // This used to call loadConversations too and discard the unsubscribe,
+      // leaking a listener per switch that kept overwriting the conversation
+      // list with the PREVIOUS subject's threads.
       setSelectedSubject(subjectId);
-      
-      // Load conversations from Firebase (user is guaranteed to exist due to auth protection)
-      if (user) {
-        const unsubscribe = await loadConversations(user.uid, subjectId);
-        return unsubscribe;
-      }
     } finally {
       // Clear the flag after subject switching is complete
       setTimeout(() => setIsSwitchingSubjects(false), 1000);
     }
-  }, [user, loadConversations, activeConversationId, conversations.length, cleanupEmptyConversation]);
+  }, [activeConversationId, conversations.length, cleanupEmptyConversation]);
 
   // Handle URL subject parameter — sync selectedSubject with the route
   useEffect(() => {
+    // One URL per subject. Links built from a display name ("/ai-tutors/AP
+    // Biology", e.g. Diagnostics' "Ask a Tutor") opened conversations keyed
+    // by that name — a separate history the subject picker never shows.
+    const canonical = urlSubject ? resolveSubjectKey(urlSubject) : null;
+    if (canonical && canonical !== urlSubject) {
+      navigate(`/ai-tutors/${encodeURIComponent(canonical)}`, { replace: true });
+      return;
+    }
     if (urlSubject && urlSubject !== selectedSubject) {
-      console.log('URL subject detected:', urlSubject);
       handleSubjectSelect(urlSubject);
     } else if (!urlSubject && selectedSubject) {
       // Navigated back to /AITutors (no subject in URL) — show subject selector
@@ -943,7 +965,7 @@ const AITutors = () => {
       setCurrentMessage('');
       setUploadedFiles([]);
     }
-  }, [urlSubject, selectedSubject, handleSubjectSelect]);
+  }, [urlSubject, selectedSubject, handleSubjectSelect, navigate]);
 
   // Redirect to login if not authenticated
   if (loading) {
@@ -1109,8 +1131,10 @@ const AITutors = () => {
       if (activeConversationId === conversationId) {
         const remainingConversations = conversations.filter(c => c.id !== conversationId);
         if (remainingConversations.length > 0) {
+          // The messages effect attaches the listener. Calling
+          // loadConversationMessages here too leaked a second, never-unsubscribed
+          // listener that kept overwriting `messages` after later switches.
           setActiveConversationId(remainingConversations[0].id);
-          loadConversationMessages(remainingConversations[0].id);
         } else {
           setActiveConversationId(null);
           setMessages([]);
@@ -1311,15 +1335,10 @@ const AITutors = () => {
               }
             }
             if (parsedChoices.length >= 2 && questionLines.length > 0) {
-              const mcq = {
-                question: questionLines.join(' ').replace(/^\*+|\*+$/g, '').trim(),
-                choices: parsedChoices,
-                correctIndex: 0, // unknown from plain text
-                explanations: parsedChoices.map(() => '')
-              };
-              aiMessage.responseType = 'mcq';
-              aiMessage.mcq = mcq;
-              aiMessage.content = mcq.question;
+              // A plain-text question has no machine-readable answer key. It
+              // used to become an MCQ card with correctIndex 0 ("unknown"), so
+              // the card graded A as correct. Show it as text instead.
+              aiMessage.content = response.replace(/```(?:json)?\s*[\s\S]*?```/g, '').trim() || response;
             } else {
               // Try to strip the JSON envelope. The previous regex required
               // both "question" AND "choices" keys to be present — but a
@@ -1395,7 +1414,7 @@ const AITutors = () => {
     // IMPORTANT: Only include images from the LATEST message to save tokens.
     // Older images are replaced with text descriptions.
     const hasFiles = Array.isArray(uploadedFiles) && uploadedFiles.length > 0;
-    const conversationHistory = messages.slice(-6).map((msg, idx, arr) => {
+    const conversationHistory = activeMessages.slice(-6).map((msg, idx, arr) => {
       const sanitizedContent = msg.type === 'user' ? sanitizeUserInput(msg.content) : msg.content;
       // Truncate older assistant responses to save input tokens
       const isOldMessage = idx < arr.length - 2;
@@ -1532,7 +1551,7 @@ other than an estimate.` : '';
   // Anti-repeat: feed the model the questions it already asked this session
   // so a vague follow-up ("continue") produces a NEW question instead of
   // reproducing the last one.
-  const priorMcqQuestions = (Array.isArray(messages) ? messages : [])
+  const priorMcqQuestions = activeMessages
     .filter(m => m && m.responseType === 'mcq' && m.mcq && m.mcq.question)
     .map(m => String(m.mcq.question).replace(/\s+/g, ' ').trim().slice(0, 140))
     .filter(Boolean);
@@ -1856,6 +1875,9 @@ ${retrySpec}
         if (!user) {
           const used = incrementGuestUsage();
           setGuestRemaining(Math.max(0, GUEST_MESSAGE_LIMIT - used));
+        } else {
+          // Feeds the tutor achievements, which nothing tracked before.
+          recordTutorMessage(user.uid, selectedSubject || '');
         }
         // Generate AI response with file data
         console.log('Generating AI response for:', messageContent, 'with files:', filesToSend);
@@ -2449,7 +2471,7 @@ ${retrySpec}
       <div ref={chatContainerRef} className="relative flex-1 overflow-y-auto scroll-touch">
         <div className="max-w-4xl mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
           {/* Welcome Message */}
-          {messages.length === 1 && messages[0].suggestions && (
+          {activeMessages.length === 1 && activeMessages[0].suggestions && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -2477,9 +2499,11 @@ ${retrySpec}
             </motion.div>
           )}
 
-          {/* Messages */}
-          <AnimatePresence>
-            {messages.map((message, index) => (
+          {/* Messages. Keyed by conversation so switching chats swaps the list
+              outright; otherwise the old thread's messages lingered on screen
+              playing exit animations after the new chat was already active. */}
+          <AnimatePresence key={activeConversationId || 'none'}>
+            {activeMessages.map((message, index) => (
               <motion.div
                 key={message.id}
                 initial={{ opacity: 0, y: 12 }}

@@ -253,15 +253,10 @@ export default function SmartScheduler() {
         }
       } catch (error) {
         console.error("Error loading user data:", error);
-        // On error, still set defaults to prevent infinite loading
-        const defaultPrefs = getDefaultSchedulerPreferences();
-        setUserPreferences(defaultPrefs);
-        // Try to save defaults even on error
-        try {
-          await saveUserPreferencesToFirebase(defaultPrefs);
-        } catch (saveError) {
-          console.error("Failed to save default preferences:", saveError);
-        }
+        // Use defaults for this session so the page still works, but do NOT
+        // persist them: a failed READ says nothing about what is stored, and
+        // saving here overwrote the user's real preferences and blackouts.
+        setUserPreferences(getDefaultSchedulerPreferences());
       } finally {
         setIsLoadingPreferences(false);
         debugLog("Finished loading preferences");
@@ -678,7 +673,7 @@ export default function SmartScheduler() {
               {Array.isArray(aiSchedule) && aiSchedule.length > 0 && (
                 <>
                   <span className="text-xs sm:text-sm text-content-muted mr-2">
-                    {aiSchedule.filter(item => !item.completed).length} sessions
+                    {(() => { const n = aiSchedule.filter(item => !item.completed).length; return `${n} ${n === 1 ? 'session' : 'sessions'}`; })()}
                   </span>
                   <div className="flex rounded-md border border-border overflow-hidden">
                     {['list', 'week', 'month'].map(mode => (
@@ -765,7 +760,7 @@ export default function SmartScheduler() {
                       <h4 className="font-medium text-content-primary mb-2 sm:mb-3 flex items-center text-sm sm:text-base">
                         <Calendar strokeWidth={1.5} size={14} className="sm:w-4 sm:h-4 mr-2"/>
                         {format(date, 'EEEE, MMM d')}
-                        <span className="ml-2 text-xs text-content-muted">({daySchedule.length} sessions)</span>
+                        <span className="ml-2 text-xs text-content-muted">({daySchedule.length} {daySchedule.length === 1 ? 'session' : 'sessions'})</span>
                       </h4>
 
                       {daySchedule.length === 0 ? (

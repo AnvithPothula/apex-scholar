@@ -26,7 +26,7 @@ import { formatDue, intervalLabel, suggestedGrade, keyAction, buildSession } fro
 import { retryAfterFrom, formatWait } from '../services/aiRetry';
 import { buildWhyWrongPrompt, buildExplainAllPrompt, looksLikeReasoningLeak } from '../utils/whyWrong';
 import geminiService from '../services/geminiService';
-import { recordReviewSession } from '../services/activityTracker';
+import { recordReviewSession, recordReviewEvent } from '../services/activityTracker';
 import { logResponse } from '../services/responseLog';
 
 const GRADE_BUTTONS = [
@@ -106,24 +106,36 @@ export default function Review() {
     setWhyLoading(false);
   }, []);
 
+  // One grade per card. Key-repeat or a double click used to grade the same
+  // card twice (compounding its interval) and then skip the next card.
+  const gradingRef = useRef(false);
   const grade = useCallback(async (key) => {
-    if (!card || !user) return;
-    const updated = await srs.gradeCard(user.uid, card.id, GRADE[key]);
+    if (!card || !user || gradingRef.current) return;
+    gradingRef.current = true;
+    let updated;
+    try {
+      updated = await srs.gradeCard(user.uid, card.id, GRADE[key]);
+    } finally {
+      gradingRef.current = false;
+    }
     setLastInterval(updated ? updated.due : null);
     // Append-only response log. `picked` is the distractor actually chosen,
     // which is four times the information of a correctness bit. On a card with
     // no options to pick from, the student's own SM-2 grade is the only signal
     // there is, so fall back to it.
+    const correct = Number.isInteger(picked) && Number.isInteger(card.correctIndex)
+      ? picked === card.correctIndex
+      : GRADE[key] >= GRADE.good;
     logResponse(user.uid, {
       itemId: card.id,
       subject: card.subject,
       source: 'review',
       chosen: Number.isInteger(picked) ? picked : null,
-      correct: Number.isInteger(picked) && Number.isInteger(card.correctIndex)
-        ? picked === card.correctIndex
-        : GRADE[key] >= GRADE.good,
+      correct,
       msToAnswer: Date.now() - shownAtRef.current,
     });
+    // "Comeback Kid": right at last, after missing this card 3+ times.
+    if (correct && (Number(card.lapses) || 0) >= 3) recordReviewEvent(user.uid, 'comeback');
     // Reviewing is studying — it has to count toward the streak. Fire-and-forget
     // so a logging hiccup never blocks the next card.
     recordReviewSession(user.uid, { cardsReviewed: 1, subject: card.subject || '' });
@@ -131,6 +143,16 @@ export default function Review() {
     setIndex((i) => i + 1);
     resetCardState();
   }, [card, user, picked, resetCardState]);
+
+  // "Inbox Zero": this session worked through every card that was due.
+  const clearedRef = useRef(false);
+  useEffect(() => {
+    if (!user || !started || card || clearedRef.current) return;
+    if (completed > 0 && completed >= totalDue) {
+      clearedRef.current = true;
+      recordReviewEvent(user.uid, 'queue_cleared');
+    }
+  }, [user, started, card, completed, totalDue]);
 
   const choose = (i) => {
     if (revealed) return;

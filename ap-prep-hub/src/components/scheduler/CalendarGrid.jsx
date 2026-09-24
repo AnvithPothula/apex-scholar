@@ -25,6 +25,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../config/firestore';
 import { useAuth } from '../../contexts/AuthContext';
 import { examTopRem } from '../../utils/examTime';
+import { insertBreaks } from '../../utils/scheduleBreaks';
 
 const getDifficultyColor = (difficulty) => {
     switch (difficulty) {
@@ -34,6 +35,23 @@ const getDifficultyColor = (difficulty) => {
       default: return "bg-base-900/50 text-content-muted border-base-800";
     }
 };
+
+/**
+ * A gap the scheduler left on purpose. Rendered flat and dashed so it reads as
+ * "nothing happens here", and deliberately not interactive — there is no task
+ * behind it to open.
+ */
+const WeekViewBreak = ({ item, top, height }) => (
+  <div
+    style={{ position: 'absolute', top: `${top}rem`, height: `${height}rem`,
+             left: '0.25rem', right: '0.25rem', zIndex: 15 }}
+    className="px-2 flex items-center rounded-sm text-xs font-medium
+               bg-accent-900/30 border border-dashed border-accent-500/50 text-accent-400"
+    aria-label={item.name}
+  >
+    <span className="truncate">☕ {item.name}</span>
+  </div>
+);
 
 const WeekViewTask = ({ task, onTaskClick }) => {
     const parseTaskDate = (value) => {
@@ -54,6 +72,12 @@ const WeekViewTask = ({ task, onTaskClick }) => {
     
     const topPosition = startHour * 4; // Each hour is 4rem (h-16) high
     const heightDuration = (endHour - startHour) * 4;
+
+    // A break is short by definition, so it gets a smaller floor than a session
+    // (2rem would make a 10-minute break look the same size as an hour of work).
+    if (task.isBreak) {
+      return <WeekViewBreak item={task} top={topPosition} height={Math.max(1.25, heightDuration)} />;
+    }
 
     return (
         <div
@@ -301,7 +325,7 @@ export default function CalendarGrid({
                     </div>
                   ))}
 
-                  {getTasksForDate(day).map((task) => (
+                  {insertBreaks(getTasksForDate(day)).map((task) => (
                       <WeekViewTask
                         key={task.id}
                         task={task}

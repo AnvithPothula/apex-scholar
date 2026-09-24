@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { staggerContainer, staggerItem } from '../../utils/animations';
 import { ArrowLeft, Clock } from 'lucide-react';
 import { Button, Card, Badge } from '../ui/UIComponents';
+import { estimateForSavedTest } from '../../utils/testToScore';
 
 const HistoryPanel = ({
   testHistory,
@@ -59,7 +60,12 @@ const HistoryPanel = ({
               </Button>
             </Card>
           ) : (
-            testHistory.map((test) => (
+            testHistory.map((test) => {
+              // Same score the results page and calculator show (older tests
+              // were stored with the retired one-size curve).
+              const apScore = estimateForSavedTest(test.subject, test.results, test.questions)?.score
+                ?? test.results?.apScore ?? 'N/A';
+              return (
               <motion.div
                 key={test.id}
                 layout
@@ -107,7 +113,7 @@ const HistoryPanel = ({
                         </div>
                         <div>
                           <span className="text-content-muted">AP Score: </span>
-                          <span className="text-content-primary font-bold">{test.results?.apScore || 'N/A'}</span>
+                          <span className="text-content-primary font-bold">{apScore}</span>
                         </div>
                         <div>
                           <span className="text-content-muted">Questions: </span>
@@ -125,14 +131,15 @@ const HistoryPanel = ({
                     </div>
                     <div className="text-center ml-6">
                       <div className="text-3xl font-bold text-content-primary mb-1">
-                        {test.results?.apScore || 'N/A'}
+                        {apScore}
                       </div>
                       <p className="text-xs text-content-muted">AP Score</p>
                     </div>
                   </div>
                 </Card>
               </motion.div>
-            ))
+              );
+            })
           )}
         </motion.div>
       </div>

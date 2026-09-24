@@ -103,8 +103,11 @@ function buildMessage(scope, resetAt) {
   return `You've reached your AI usage limit for now. It resets in ${humanizeUntil(resetAt)}.`;
 }
 
+// LOCAL calendar day. This was toISOString() (UTC), so the "1 test per day"
+// rolled over at 8pm Eastern while the limit message promised midnight.
 function todayStr() {
-  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 /** Reset a rolling window if its duration has elapsed. Returns a live bucket. */
@@ -235,6 +238,19 @@ export async function consumeTestDaily() {
   saveLocal({ ...state, testDay });
 }
 
+/**
+ * Throw AiUsageLimitError if today's practice test is already used, WITHOUT
+ * spending it. Callers check before generating and consumeTestDaily() after a
+ * test actually exists, so a failed generation doesn't cost the day's test.
+ */
+export async function assertTestDailyAvailable() {
+  if (bypass) return;
+  const status = await getUsageStatus();
+  if (status?.test && status.test.remaining <= 0) {
+    throw new AiUsageLimitError('testDaily', status.test.resetAt || Date.now());
+  }
+}
+
 /** Build a UI snapshot from a normalized state object. */
 function snapshotFrom(state, now) {
   const fiveHour = rollWindow(state.fiveHour, FIVE_HOURS_MS, now);
@@ -304,6 +320,7 @@ const aiUsageLimiter = {
   isExempt,
   consume,
   consumeTestDaily,
+  assertTestDailyAvailable,
   getUsageStatus,
   peekGeneral,
   humanizeUntil,

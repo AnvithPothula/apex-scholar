@@ -5,7 +5,6 @@ import { db } from '../config/firestore';
 import { collection, addDoc, serverTimestamp, query, where, orderBy, onSnapshot, doc, setDoc, getDoc, deleteDoc } from 'firebase/firestore';
 import { AP_SUBJECTS } from '../constants/subjects';
 import apiKeyManager from '../services/APIKeyManager';
-import apiManager from '../services/apiManager';
 import geminiService, { RateLimitError } from '../services/geminiService';
 import { retryAfterFrom } from '../services/aiRetry';
 import aiUsageLimiter from '../services/aiUsageLimiter';
@@ -18,6 +17,7 @@ import { getDefaultModel } from '../components/ui/ModelSelector';
 import { Button } from '../components/ui/UIComponents';
 import { TEST_CONFIGURATIONS, DEFAULT_CONFIG } from '../constants/testConfigurations';
 import { parseAIResponse, fixLaTeXInQuestions, isQuestionDuplicate } from '../utils/testUtils';
+import { estimateFromTest } from '../utils/testToScore';
 import useMobile from '../hooks/useMobile';
 import ScoringScreen from '../components/practice/ScoringScreen';
 import HistoryPanel from '../components/practice/HistoryPanel';
@@ -93,25 +93,15 @@ const PracticeTests = () => {
   const isMobile = forceMobile || autoMobile;
   const [showSettings, setShowSettings] = useState(false);
   const timerRef = useRef(null);
+  // Every question accepted so far in the test being generated, for
+  // cross-batch de-duplication (see generateQuestionBatch).
+  const generatedThisTestRef = useRef([]);
 
   // Prepare dropdown options (AP_SUBJECTS is a static import, so this only computes once)
   const subjectOptions = useMemo(() => Object.keys(AP_SUBJECTS).map(key => ({
     value: key,
     label: AP_SUBJECTS[key].name
   })), []);
-
-  // Helper function for AP score conversion
-  // ⚠️ ONE curve for all 36 subjects. Real AP cut points vary by subject and are
-  // re-set every year, so this is a rough indicator only — never present it as a
-  // predicted College Board score (see ResultsPanel). Replacing this with
-  // per-subject cut points is tracked as A6 in the plan.
-  const convertToAPScore = useCallback((percentage) => {
-    if (percentage >= 75) return 5;
-    if (percentage >= 50) return 4;
-    if (percentage >= 40) return 3;
-    if (percentage >= 30) return 2;
-    return 1;
-  }, []);
 
   // Helper functions first
   const handleAnswerSelect = (questionId, answer) => {
@@ -573,29 +563,23 @@ Format as JSON:
     } catch (error) {
       console.error('Error scoring response:', error);
       
-      // Check for rate limit error
-      if (error instanceof RateLimitError || error.isRateLimit ||
-          (error.message && (error.message.includes('rate') || error.message.includes('quota') || error.message.includes('429')))) {
-        const waitTime = error.retryAfter || 60;
-        return {
-          score: 0,
-          maxPoints: maxPoints,
-          feedback: `⏳ **AI Scoring Temporarily Unavailable**\n\nThe AI service is experiencing high demand. Please wait ${waitTime} seconds and try again.\n\nYour response has been saved and you can re-submit for scoring later.`,
-          breakdown: {},
-          strengths: [],
-          improvements: ["Please retry scoring after the cooldown period"]
-        };
-      }
-      
-      // Fallback scoring - provide some points for reasonable effort
-      const estimatedScore = userAnswer.length > 100 ? Math.floor(maxPoints * 0.4) : 0;
+      // Grading failed. Report the response as UNGRADED and keep it out of the
+      // totals. This used to either score it 0 (rate limit) or invent 40% with
+      // canned "shows some understanding" feedback (any other error) — both
+      // are fabricated grades that then fed the history, leaderboards and the
+      // review queue as if the AI had actually read the answer.
+      const isRateLimit = error instanceof RateLimitError || error.isRateLimit ||
+        (error.message && (error.message.includes('rate') || error.message.includes('quota') || error.message.includes('429')));
       return {
-        score: estimatedScore,
-        maxPoints: maxPoints,
-        feedback: "This response shows some understanding of the topic. For detailed feedback, please try again.",
+        score: 0,
+        maxPoints: 0,
+        ungraded: true,
+        feedback: isRateLimit
+          ? `⏳ **Not graded.** The AI grader was at capacity, so this response was left out of your score rather than marked wrong. Your answer is saved in this result.`
+          : `**Not graded.** The AI grader couldn't be reached, so this response was left out of your score rather than marked wrong. Your answer is saved in this result.`,
         breakdown: {},
-        strengths: ["Shows some understanding of basic concepts"],
-        improvements: ["Provide more specific examples", "Include more detailed analysis"]
+        strengths: [],
+        improvements: []
       };
     }
   }, []); // Deps intentionally empty: this callback captures only the AI service (singleton) and stable helpers. Adding state deps would cause stale-closure issues in the scoring pipeline. eslint-disable-line react-hooks/exhaustive-deps
@@ -627,6 +611,10 @@ Format as JSON:
   // Keyboard shortcuts for test navigation
   useEffect(() => {
     const handleKeyPress = (e) => {
+      // Never hijack typing: arrow keys in an FRQ answer move the caret, they
+      // must not flip to another question mid-sentence.
+      const el = e.target;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
       if (currentView === 'test' && !testPaused) {
         if (e.key === 'ArrowLeft' && currentQuestionIndex > 0) {
           setCurrentQuestionIndex(prev => prev - 1);
@@ -657,49 +645,6 @@ Format as JSON:
     let totalPoints = 0;
     const questionResults = [];
     
-    // Subject-specific scoring weights (based on official AP exam formats)
-    const getSubjectWeights = (subject) => {
-      if (subject.includes('History')) {
-        return { mcq: 0.40, saq: 0.20, dbq: 0.25, leq: 0.15 };
-      } else if (subject.includes('English Literature')) {
-        return { mcq: 0.45, frq: 0.55, 'poetry-analysis': 0.183, 'prose-analysis': 0.183, 'open-question': 0.183 };
-      } else if (subject.includes('English Language')) {
-        return { mcq: 0.45, frq: 0.55, synthesis: 0.183, 'rhetorical-analysis': 0.183, argumentative: 0.183 };
-      } else if (subject.includes('Calculus')) {
-        return { mcq: 0.50, frq: 0.50, 'calculator-frq': 0.25, 'no-calculator-frq': 0.25 };
-      } else if (subject.includes('Statistics')) {
-        return { mcq: 0.50, frq: 0.50 };
-      } else if (subject.includes('Biology') || subject.includes('Chemistry')) {
-        return { mcq: 0.50, frq: 0.50, 'long-frq': 0.30, 'short-frq': 0.20 };
-      } else if (subject.includes('Physics')) {
-        return { mcq: 0.50, frq: 0.50 };
-      } else if (subject.includes('Economics')) {
-        return { mcq: 0.66, frq: 0.34, 'long-frq': 0.20, 'short-frq': 0.14 };
-      } else if (subject.includes('Psychology')) {
-        return { mcq: 0.67, frq: 0.33 };
-      } else if (subject.includes('Environmental Science')) {
-        return { mcq: 0.60, frq: 0.40 };
-      } else if (subject.includes('Computer Science')) {
-        return { mcq: 0.75, frq: 0.25 };
-      } else if (subject.includes('Art History')) {
-        return { mcq: 0.50, frq: 0.50, 'long-essay': 0.30, 'short-essay': 0.20 };
-      } else if (subject.includes('Human Geography')) {
-        return { mcq: 0.50, frq: 0.50 };
-      } else if (subject.includes('Government') || subject.includes('Comparative')) {
-        return { mcq: 0.50, frq: 0.50 };
-      } else if (subject.includes('Spanish') || subject.includes('French') || subject.includes('German') || 
-                 subject.includes('Italian') || subject.includes('Japanese') || subject.includes('Chinese')) {
-        return { mcq: 0.50, frq: 0.50 };
-      } else if (subject.includes('Latin')) {
-        return { mcq: 0.50, frq: 0.50, translation: 0.20, 'short-answer': 0.15, essay: 0.15 };
-      } else {
-        // Default weights
-        return { mcq: 0.50, frq: 0.50 };
-      }
-    };
-    
-    const weights = getSubjectWeights(selectedSubject);
-    
     setIsGeneratingTest(true); // Show loading while scoring
 
     for (const question of questions) {
@@ -712,7 +657,10 @@ Format as JSON:
         
         questionResults.push({
           questionId: question.id,
-          correct: result.score === result.maxPoints,
+          // An ungraded response is 0/0; without this guard 0 === 0 would
+          // record it as a perfect answer.
+          correct: !result.ungraded && result.score === result.maxPoints,
+          ungraded: Boolean(result.ungraded),
           score: result.score,
           maxPoints: result.maxPoints,
           userAnswer: userAnswer,
@@ -724,52 +672,27 @@ Format as JSON:
         });
       } catch (error) {
         console.error('Error scoring question:', error);
-        // Fallback scoring with proper points
-        let questionScore = 0;
-        let maxPoints = 1;
-        const hasTextAnswer = userAnswer && String(userAnswer).trim().length > 0;
-
-        if (question.type === 'mcq') {
-          maxPoints = 1;
-          questionScore = userAnswer === question.correctAnswer ? 1 : 0;
-        } else if (question.type === 'saq') {
-          maxPoints = 3;
-          questionScore = hasTextAnswer ? Math.floor(maxPoints * 0.6) : 0;
-        } else if (question.type === 'dbq') {
-          maxPoints = 7;
-          questionScore = hasTextAnswer ? Math.floor(maxPoints * 0.6) : 0;
-        } else if (question.type === 'leq') {
-          maxPoints = 6;
-          questionScore = hasTextAnswer ? Math.floor(maxPoints * 0.6) : 0;
-        } else if (
-          question.type === 'frq' ||
-          question.type === 'calculator-frq' ||
-          question.type === 'no-calculator-frq'
-        ) {
-          maxPoints = 9;
-          questionScore = hasTextAnswer ? Math.floor(maxPoints * 0.6) : 0;
-        } else if (question.type === 'long-frq') {
-          maxPoints = 10;
-          questionScore = hasTextAnswer ? Math.floor(maxPoints * 0.6) : 0;
-        } else if (question.type === 'short-frq') {
-          maxPoints = 4;
-          questionScore = hasTextAnswer ? Math.floor(maxPoints * 0.6) : 0;
-        } else {
-          maxPoints = question.points || question.rubric?.totalPoints || 6;
-          questionScore = hasTextAnswer ? Math.floor(maxPoints * 0.6) : 0;
-        }
+        // MCQs can still be scored locally. A written response that couldn't be
+        // graded is reported as ungraded — this branch used to hand out a flat
+        // 60% for any non-empty text.
+        const isMcq = question.type === 'mcq';
+        const questionScore = isMcq && userAnswer === question.correctAnswer ? 1 : 0;
+        const maxPoints = isMcq ? 1 : 0;
 
         score += questionScore;
         totalPoints += maxPoints;
-        
+
         questionResults.push({
           questionId: question.id,
-          correct: questionScore === maxPoints,
+          correct: isMcq && questionScore === 1,
+          ungraded: !isMcq,
           score: questionScore,
           maxPoints: maxPoints,
           userAnswer: userAnswer,
           correctAnswer: question.correctAnswer || question.sampleAnswer,
-          feedback: question.explanation || "Basic scoring applied.",
+          feedback: isMcq
+            ? (question.explanation || '')
+            : '**Not graded.** Scoring failed for this response, so it was left out of your score rather than marked wrong.',
           breakdown: {},
           strengths: [],
           improvements: []
@@ -777,47 +700,27 @@ Format as JSON:
       }
     }
 
-    // Calculate weighted percentage for AP subjects
-    const sectionScores = {};
-    questionResults.forEach(result => {
-      const question = questions.find(q => q.id === result.questionId);
-      if (question) {
-        const type = question.type;
-        if (!sectionScores[type]) {
-          sectionScores[type] = { score: 0, maxPoints: 0 };
-        }
-        sectionScores[type].score += result.score;
-        sectionScores[type].maxPoints += result.maxPoints;
-      }
-    });
-
-    // Calculate weighted overall percentage
-    let weightedScore = 0;
-    let totalWeight = 0;
-    
-    Object.entries(sectionScores).forEach(([type, data]) => {
-      const weight = weights[type] || (weights.frq || 0.50); // Default to FRQ weight if not found
-      if (data.maxPoints > 0) {
-        const sectionPercentage = (data.score / data.maxPoints);
-        weightedScore += sectionPercentage * weight;
-        totalWeight += weight;
-      }
-    });
-
-    const weightedPercentage = totalWeight > 0 ? (weightedScore / totalWeight) * 100 : 0;
     const rawPercentage = totalPoints > 0 ? (score / totalPoints) * 100 : 0;
-    
-    // Use weighted percentage for AP score calculation
-    const apScore = convertToAPScore(weightedPercentage);
+
+    // The estimated AP score comes from the SAME per-exam model as the score
+    // calculator (section weights + estimated cut points), not one universal
+    // 75/50/40/30 curve. Exam sections this test didn't cover are predicted
+    // from the parts it did — see utils/testToScore.
+    const typeById = new Map(questions.map((q) => [q.id, q.type]));
+    const estimate = estimateFromTest(
+      selectedSubject,
+      questionResults.map((r) => ({ ...r, type: typeById.get(r.questionId) }))
+    );
+    const apScore = estimate ? estimate.score : null;
 
     // Calculate breakdown by question type with weighted scores
     const breakdown = {
-      mcq: { correct: 0, total: 0, percentage: 0, weight: weights.mcq || 0 },
-      frq: { correct: 0, total: 0, percentage: 0, weight: weights.frq || 0 },
-      saq: { correct: 0, total: 0, percentage: 0, weight: weights.saq || 0 },
-      dbq: { correct: 0, total: 0, percentage: 0, weight: weights.dbq || 0 },
-      leq: { correct: 0, total: 0, percentage: 0, weight: weights.leq || 0 },
-      writing: { correct: 0, total: 0, percentage: 0, weight: 0 }
+      mcq: { correct: 0, total: 0, percentage: 0 },
+      frq: { correct: 0, total: 0, percentage: 0 },
+      saq: { correct: 0, total: 0, percentage: 0 },
+      dbq: { correct: 0, total: 0, percentage: 0 },
+      leq: { correct: 0, total: 0, percentage: 0 },
+      writing: { correct: 0, total: 0, percentage: 0 }
     };
 
     questionResults.forEach(result => {
@@ -848,15 +751,20 @@ Format as JSON:
       score,
       totalPoints,
       percentage: Math.round(rawPercentage),
-      weightedPercentage: Math.round(weightedPercentage),
       apScore,
+      // Composite on the real exam scale, plus which sections were predicted,
+      // so the results page can link into the calculator with these sliders.
+      scoreEstimate: estimate ? {
+        raws: estimate.raws,
+        predicted: estimate.predicted,
+        composite: estimate.composite,
+        compositeMax: estimate.compositeMax,
+      } : null,
       questionResults,
       timeSpent: getTimeSpent(),
-      breakdown,
-      weights: weights,
-      sectionScores: sectionScores
+      breakdown
     };
-  }, [questions, userAnswers, getTimeSpent, convertToAPScore, scoreQuestion, selectedSubject, cleanBreakdownObject]);
+  }, [questions, userAnswers, getTimeSpent, scoreQuestion, selectedSubject, cleanBreakdownObject]);
 
   const handleSubmitTest = useCallback(async () => {
     setTestStarted(false);
@@ -969,7 +877,7 @@ Format as JSON:
           // is no honest per-item duration to record. Only the whole-test
           // timeSpent is meaningful, and that is already stored on the test doc.
           logResponses(user.uid, (emergencyCleanedResults?.questionResults || [])
-            .filter((r) => !wasSkipped(r.userAnswer))
+            .filter((r) => !wasSkipped(r.userAnswer) && !r.ungraded)
             .map((r) => {
               const q = (questions || []).find((x) => x.id === r.questionId) || {};
               return {
@@ -987,7 +895,7 @@ Format as JSON:
           try {
             const qById = new Map((questions || []).map((q) => [q.id, q]));
             const misses = (emergencyCleanedResults?.questionResults || [])
-              .filter((r) => !r.correct)
+              .filter((r) => !r.correct && !r.ungraded)
               .map((r) => {
                 const q = qById.get(r.questionId) || {};
                 // missFromResult resolves MCQ option *indices* into "C) text".
@@ -1018,7 +926,7 @@ Format as JSON:
           // same as answering wrong (A18) — and never blocks the results screen.
           try {
             const attempted = (emergencyCleanedResults?.questionResults || [])
-              .filter((r) => !wasSkipped(r.userAnswer));
+              .filter((r) => !wasSkipped(r.userAnswer) && !r.ungraded);
             if (attempted.length) {
               await recordTestForClasses(user.uid, {
                 questionsAnswered: attempted.length,
@@ -1036,13 +944,17 @@ Format as JSON:
           // no matter how much work the student actually did.
           try {
             const attemptedForStreak = (emergencyCleanedResults?.questionResults || [])
-              .filter((r) => !wasSkipped(r.userAnswer));
+              .filter((r) => !wasSkipped(r.userAnswer) && !r.ungraded);
             await recordPracticeTest(user.uid, {
               subject: selectedSubject,
               questionsAnswered: attemptedForStreak.length,
               correctAnswers: attemptedForStreak.filter((r) => r.correct).length,
-              durationMinutes: Math.round((getTimeSpent() || 0) / 60),
+              // getTimeSpent() is already minutes (ResultsPanel labels it
+              // "Minutes Used"); dividing by 60 again logged a 45-minute test
+              // as 1 minute of study time.
+              durationMinutes: Math.round(getTimeSpent() || 0),
               scorePercent: emergencyCleanedResults?.percentage ?? null,
+              fullLength: selectedSection === 'full',
             });
           } catch (error) {
             console.error('Error recording activity:', error);
@@ -1072,7 +984,7 @@ Format as JSON:
         totalQuestions: totalQ,
         correctAnswers: 0,
         percentage: 0,
-        apScore: 1,
+        apScore: null,
         timeSpent: getTimeSpent() || 0,
         breakdown: {},
         scoreBreakdown: {},
@@ -1158,6 +1070,8 @@ Format as JSON:
     if (!resumable) return;
     setSelectedSubject(resumable.subject || '');
     setSelectedSection(resumable.section || '');
+    setSelectedSubSection(resumable.subsection || '');
+    setSelectedUnits(Array.isArray(resumable.units) ? resumable.units : []);
     setQuestions(resumable.questions || []);
     setUserAnswers(resumable.userAnswers || {});
     setCurrentQuestionIndex(resumable.currentQuestionIndex || 0);
@@ -1171,7 +1085,7 @@ Format as JSON:
   // in its dependency array.
   const autoSaveState = useRef({});
   autoSaveState.current = {
-    selectedSubject, selectedSection, questions, userAnswers,
+    selectedSubject, selectedSection, selectedSubSection, selectedUnits, questions, userAnswers,
     currentQuestionIndex, timeRemaining,
   };
 
@@ -1229,6 +1143,10 @@ Format as JSON:
             userId: user.uid,
             subject: live.selectedSubject || '',
             section: live.selectedSection || '',
+            // Needed on resume: the FRQ subsection sets the time limit and the
+            // units label the results.
+            subsection: live.selectedSubSection || '',
+            units: live.selectedUnits || [],
             // Difficulty removed from schema
             questions: live.questions || [],
             userAnswers: live.userAnswers || {},
@@ -1327,11 +1245,15 @@ Format as JSON:
     }
 
     setIsGeneratingTest(true);
+    generatedThisTestRef.current = [];
 
     try {
       // Practice tests have their own budget: 1 generated test per day (separate
-      // from the general AI usage limit). Admins bypass. Throws if over.
-      await aiUsageLimiter.consumeTestDaily();
+      // from the general AI usage limit). Admins bypass. CHECK here, SPEND only
+      // after a test was actually generated — consuming up front meant a failed
+      // generation burned the day's only test while the toast said "try again
+      // in a few moments".
+      await aiUsageLimiter.assertTestDailyAvailable();
 
       const canonicalSubject = getCanonicalSubjectName(selectedSubject);
       const config = TEST_CONFIGURATIONS[canonicalSubject] || DEFAULT_CONFIG;
@@ -1420,6 +1342,8 @@ Format as JSON:
       if (!generatedQuestions || generatedQuestions.length === 0) {
         throw new Error('No questions were generated');
       }
+
+      await aiUsageLimiter.consumeTestDaily();
 
       setQuestions(generatedQuestions);
       setCurrentQuestionIndex(0);
@@ -1519,6 +1443,7 @@ Format as JSON:
             console.error(`❌ ${sectionInfo.type.toUpperCase()} batch ${batchNumber}, attempt ${retryCount} failed:`, error.message);
             
             // Check if all API keys are rate limited
+            if (error instanceof RateLimitError || error?.isRateLimit || error?.code === 'ai_usage_limit') throw error;
             if (error.message.includes('All') && error.message.includes('API keys are rate limited')) {
               console.error('🚫 All API keys are rate limited. Stopping APUSH generation.');
               // Return what we have so far
@@ -1626,6 +1551,7 @@ Format as JSON:
             retryCount++;
             console.error(`❌ ${sectionInfo.type.toUpperCase()} batch ${batchNumber}, attempt ${retryCount} failed:`, error.message);
             
+            if (error instanceof RateLimitError || error?.isRateLimit || error?.code === 'ai_usage_limit') throw error;
             if (error.message.includes('All') && error.message.includes('API keys are rate limited')) {
               console.error('🚫 All API keys are rate limited. Stopping generation.');
               throw new Error('We\'ve reached our daily usage limit for AI question generation. Please try again tomorrow or in a few hours when the limits reset.');
@@ -1770,6 +1696,7 @@ Format as JSON:
             retryCount++;
             console.error(`❌ ${sectionInfo.type.toUpperCase()} batch ${batchNumber}, attempt ${retryCount} failed:`, error.message);
             
+            if (error instanceof RateLimitError || error?.isRateLimit || error?.code === 'ai_usage_limit') throw error;
             if (error.message.includes('All') && error.message.includes('API keys are rate limited')) {
               console.error('🚫 All API keys are rate limited. Stopping generation.');
               throw new Error('We\'ve reached our daily usage limit for AI question generation. Please try again tomorrow or in a few hours when the limits reset.');
@@ -1873,6 +1800,7 @@ Format as JSON:
             retryCount++;
             console.error(`❌ ${sectionInfo.type.toUpperCase()} batch ${batchNumber}, attempt ${retryCount} failed:`, error.message);
             
+            if (error instanceof RateLimitError || error?.isRateLimit || error?.code === 'ai_usage_limit') throw error;
             if (error.message.includes('All') && error.message.includes('API keys are rate limited')) {
               console.error('🚫 All API keys are rate limited. Stopping generation.');
               throw new Error('We\'ve reached our daily usage limit for AI question generation. Please try again tomorrow or in a few hours when the limits reset.');
@@ -2000,6 +1928,7 @@ Format as JSON:
             retryCount++;
             console.error(`❌ ${sectionInfo.type.toUpperCase()} batch ${batchNumber}, attempt ${retryCount} failed:`, error.message);
             
+            if (error instanceof RateLimitError || error?.isRateLimit || error?.code === 'ai_usage_limit') throw error;
             if (error.message.includes('All') && error.message.includes('API keys are rate limited')) {
               console.error('🚫 All API keys are rate limited. Stopping generation.');
               throw new Error('We\'ve reached our daily usage limit for AI question generation. Please try again tomorrow or in a few hours when the limits reset.');
@@ -2161,7 +2090,8 @@ Format as JSON:
           retryCount++;
           console.error(`❌ ${section} batch ${batchNumber} attempt ${retryCount} failed:`, error.message);
           
-          if (error.message.includes('All') && error.message.includes('API keys are rate limited')) {
+          if (error instanceof RateLimitError || error?.isRateLimit || error?.code === 'ai_usage_limit') throw error;
+            if (error.message.includes('All') && error.message.includes('API keys are rate limited')) {
             throw error; // Propagate rate limiting errors
           }
           
@@ -2175,8 +2105,10 @@ Format as JSON:
       
       batchNumber++;
       
-      // Safety check
-      if (batchNumber > 10) {
+      // Safety check. Was a flat 10 batches (= 60 questions at 6 per batch), so
+      // every 70-100 question section (Psychology, APES, Art History, the world
+      // languages...) silently came back short. Scale with the request.
+      if (batchNumber > Math.ceil(numQuestions / batchSize) + 5) {
         console.warn(`⚠️ Breaking after ${batchNumber} batch attempts for ${section}`);
         break;
       }
@@ -2215,15 +2147,12 @@ Format as JSON:
 
   // Helper function to filter out duplicate questions
   const removeDuplicateQuestions = (newQuestions, existingQuestions) => {
-    // Get all questions from current session to check against
-    const allExistingQuestions = [
-      ...(existingQuestions || []),
-      ...(questions || []) // Include questions from current test
-    ];
-    
-    return newQuestions.filter(newQuestion => 
-      !isQuestionDuplicate(newQuestion, allExistingQuestions)
-    );
+    const kept = [];
+    for (const q of newQuestions) {
+      // Also checks against earlier questions in the same batch.
+      if (!isQuestionDuplicate(q, [...(existingQuestions || []), ...kept])) kept.push(q);
+    }
+    return kept;
   };
 
   const generateQuestionBatch = async (subject, section, difficulty, numQuestions, startId, apiKey, apiUrl, selectedUnits = []) => {
@@ -3154,21 +3083,16 @@ Generate ${numQuestions} questions now:`;
     }
 
     try {
-      let generatedText = '';
-      try {
-        // Route generation through centralized service with free Puter model
-        generatedText = await geminiService.generateContent(prompt, { timeoutMs: 45000, temperature: 0.7, maxTokens, usageCategory: 'practiceTest', task: 'practiceTest' });
-        if (!generatedText) {
-          throw new Error('No text generated by AI');
-        }
-      } catch (puterErr) {
-        console.warn('Puter generation failed, falling back to Google Gemini via API Manager:', puterErr.message);
-        // Fallback to legacy Google API via apiManager
-        const requestData = { subject, section, difficulty, numQuestions, selectedUnits, startId };
-        const userId = (typeof user !== 'undefined' && user && user.uid) ? user.uid : 'anon';
-        const questions = await apiManager.makeRequest(userId, requestData, 'high');
-        // apiManager returns parsed questions array directly
-        return questions;
+      // generateContent already falls back Puter -> Google proxy internally.
+      // There used to be a second fallback here through apiManager, which hit
+      // the SAME proxy and, when that failed too, resolved with placeholder
+      // questions ("AP Biology practice question 1 (Generated offline)",
+      // choices "A) Option A"..., key always A, ids restarting at 1 each batch
+      // so answers collided across questions). A failure now throws, and the
+      // batch retry loops in the callers handle it.
+      const generatedText = await geminiService.generateContent(prompt, { timeoutMs: 45000, temperature: 0.7, maxTokens, usageCategory: 'practiceTest', task: 'practiceTest' });
+      if (!generatedText) {
+        throw new Error('No text generated by AI');
       }
       
       console.log(`Batch parsing: Received ${generatedText.length} characters from AI`);
@@ -3258,18 +3182,9 @@ Generate ${numQuestions} questions now:`;
             }
           }
 
-          if (correctCount !== 1) {
-            if (correctCount === 0 && q.options.length > 0) {
-              q.options[0].correct = true;
-              q.correctAnswer = 0;
-            } else if (correctCount > 1) {
-              let foundCorrect = false;
-              q.options.forEach((opt, index) => {
-                if (opt.correct && foundCorrect) opt.correct = false;
-                else if (opt.correct && !foundCorrect) { foundCorrect = true; q.correctAnswer = index; }
-              });
-            }
-          }
+          // Zero or several options marked correct: leave as-is so validation
+          // below rejects the question. This used to mark option A correct (or
+          // keep the first of several), i.e. ship an invented answer key.
 
           // Ensure all options have required fields
           q.options.forEach(opt => {
@@ -3332,7 +3247,12 @@ Generate ${numQuestions} questions now:`;
             (opt.hasOwnProperty('text') || typeof opt === 'string') && opt.hasOwnProperty('correct')
           ) : false;
           
-          const isValid = hasValidOptions && hasOneCorrectAnswer && hasValidAnswerFields;
+          // The repair step above fills gaps with "Option A" / "Option text";
+          // a question whose choices are placeholders is not a question.
+          const hasPlaceholderOption = hasValidOptions && q.options.some(opt =>
+            /^(Option [A-E]|Option text)$/i.test(String(opt?.text ?? opt).trim())
+          );
+          const isValid = hasValidOptions && hasOneCorrectAnswer && hasValidAnswerFields && !hasPlaceholderOption;
           
           if (!isValid) {
             console.log('Invalid MCQ detected:', {
@@ -3511,22 +3431,26 @@ Generate ${numQuestions} questions now:`;
       }
       
       // Remove duplicate questions by comparing with existing questions of the same type from same section
-      const existingSameTypeQuestions = questions.filter(q => 
-        q.type === section && q.section === section
-      );
-      const uniqueQuestions = removeDuplicateQuestions(limitedQuestions, existingSameTypeQuestions);
+      // Compare against everything generated so far in THIS test. `questions`
+      // state is a stale closure during generation (it still holds the
+      // previous test), and the old `q.section === section` filter matched
+      // nothing because questions never carry a `section` field — so batches
+      // were never de-duplicated against each other.
+      const uniqueQuestions = removeDuplicateQuestions(limitedQuestions, generatedThisTestRef.current);
       
       console.log(`Batch validation: ${limitedQuestions.length} valid questions, ${uniqueQuestions.length} unique questions`);
       
       // If all questions were filtered as duplicates, return the valid questions anyway to avoid infinite loops
-      if (uniqueQuestions.length === 0 && limitedQuestions.length > 0) {
-        console.warn('⚠️ All questions were filtered as duplicates. Returning valid questions to prevent infinite generation loop.');
-        return limitedQuestions;
-      }
-      
-      return uniqueQuestions;
+      const accepted = uniqueQuestions.length === 0 && limitedQuestions.length > 0
+        ? limitedQuestions // all duplicates: accept rather than loop forever
+        : uniqueQuestions;
+      generatedThisTestRef.current = [...generatedThisTestRef.current, ...accepted];
+      return accepted;
     } catch (error) {
       console.error('Error generating questions with AI:', error);
+      // Keep the type: a rate limit must reach handleStartTest as a rate limit
+      // so the student gets "wait N seconds", not a generic failure.
+      if (error instanceof RateLimitError || error?.isRateLimit || error?.code === 'ai_usage_limit') throw error;
       throw new Error(`Failed to generate questions: ${error.message}`);
     }
   };

@@ -38,24 +38,27 @@ describe('computeComposite', () => {
 describe('compositeToScore', () => {
   it('maps each band for AP Biology', () => {
     const m = getScoreModel('AP Biology');
-    expect(compositeToScore(m, 120)).toBe(5);
-    expect(compositeToScore(m, 93)).toBe(5);
-    expect(compositeToScore(m, 92)).toBe(4);
-    expect(compositeToScore(m, 74)).toBe(4);
-    expect(compositeToScore(m, 73)).toBe(3);
-    expect(compositeToScore(m, 51)).toBe(3);
-    expect(compositeToScore(m, 50)).toBe(2);
-    expect(compositeToScore(m, 28)).toBe(2);
-    expect(compositeToScore(m, 27)).toBe(1);
+    // Boundaries follow the model, so a re-estimated curve doesn't need this
+    // test rewritten — it checks that every cut is inclusive and ordered.
+    const { 5: c5, 4: c4, 3: c3, 2: c2 } = m.cutoffs;
+    expect(compositeToScore(m, m.compositeMax)).toBe(5);
+    expect(compositeToScore(m, c5)).toBe(5);
+    expect(compositeToScore(m, c5 - 1)).toBe(4);
+    expect(compositeToScore(m, c4)).toBe(4);
+    expect(compositeToScore(m, c4 - 1)).toBe(3);
+    expect(compositeToScore(m, c3)).toBe(3);
+    expect(compositeToScore(m, c3 - 1)).toBe(2);
+    expect(compositeToScore(m, c2)).toBe(2);
+    expect(compositeToScore(m, c2 - 1)).toBe(1);
     expect(compositeToScore(m, 0)).toBe(1);
   });
 
   it('is subject-specific — the same percentage differs by exam (this is A6)', () => {
     const bio = getScoreModel('AP Biology');
     const bc = getScoreModel('AP Calculus BC');
-    // 60% of the composite: a 4 in BC's generous curve, only a 3 in Biology.
-    expect(compositeToScore(bc, 0.60 * bc.compositeMax)).toBe(4);
-    expect(compositeToScore(bio, 0.60 * bio.compositeMax)).toBe(3);
+    // 52% of the composite: a 4 on BC's generous curve, only a 3 in Biology.
+    expect(compositeToScore(bc, 0.52 * bc.compositeMax)).toBe(4);
+    expect(compositeToScore(bio, 0.52 * bio.compositeMax)).toBe(3);
   });
 });
 
@@ -79,7 +82,8 @@ describe('scoreFor', () => {
 describe('pointsToNextScore', () => {
   it('reports the gap to the next band', () => {
     const m = getScoreModel('AP Biology');
-    expect(pointsToNextScore(m, 70)).toEqual({ nextScore: 4, pointsNeeded: 4 });
+    const c4 = m.cutoffs[4];
+    expect(pointsToNextScore(m, c4 - 5)).toEqual({ nextScore: 4, pointsNeeded: 5 });
   });
 
   it('returns null at a 5 — there is nothing above it', () => {
@@ -105,8 +109,8 @@ describe('curveRows', () => {
 
 describe('percentToApScore (A6 back-compat shim)', () => {
   it('uses the subject model rather than one universal curve', () => {
-    expect(percentToApScore(60, 'AP Calculus BC')).toBe(4);
-    expect(percentToApScore(60, 'AP Biology')).toBe(3);
+    expect(percentToApScore(52, 'AP Calculus BC')).toBe(4);
+    expect(percentToApScore(52, 'AP Biology')).toBe(3);
   });
 
   it('clamps out-of-range percentages', () => {

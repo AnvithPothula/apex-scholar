@@ -1,5 +1,12 @@
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../config/firestore';
+import { getUpcomingExamsSync } from '../constants/apExamDates';
+
+/** Local calendar day as YYYY-MM-DD (streak-style checks are about the student's day, not UTC). */
+export function localDay(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 
 class AchievementsService {
   constructor() {
@@ -324,8 +331,20 @@ class AchievementsService {
     }
   }
 
-  // Track an activity and check for achievements
-  async trackActivity(userId, activity, data = {}) {
+  // Track an activity and check for achievements.
+  //
+  // Serialized: every call is a read-modify-write of the WHOLE activityCounters
+  // map, and callers fire several at once (a finished test tracks
+  // complete_practice_test, study_session and study_subject in parallel). Run
+  // concurrently, the last write won and the other increments were lost.
+  trackActivity(userId, activity, data = {}) {
+    const run = () => this._trackActivity(userId, activity, data);
+    const next = (this._trackChain || Promise.resolve()).then(run, run);
+    this._trackChain = next.catch(() => {});
+    return next;
+  }
+
+  async _trackActivity(userId, activity, data = {}) {
     try {
       const userAchievements = await this.getUserAchievements(userId);
       const updates = {
@@ -336,10 +355,23 @@ class AchievementsService {
       const activityCounters = userAchievements.activityCounters || {};
       
       switch (activity) {
-        case 'study_session':
+        case 'study_session': {
           activityCounters.study_session = (activityCounters.study_session || 0) + 1;
           updates.studyStreaks = this.updateStudyStreak(userAchievements.studyStreaks || {});
+          // Weekend Warrior = a Saturday AND the Sunday right after it. The old
+          // check unlocked on any single weekend day.
+          const now = new Date();
+          if (now.getDay() === 6) activityCounters.last_saturday = localDay(now);
+          if (now.getDay() === 0 && activityCounters.last_saturday === localDay(addDays(now, -1))) {
+            activityCounters.weekend_both = (activityCounters.weekend_both || 0) + 1;
+          }
+          // Exam Eve: studying the day before one of YOUR AP exams.
+          if (!(userAchievements.unlockedAchievements || []).includes('exam_eve')
+              && await this.isExamEve(userId, now)) {
+            activityCounters.exam_eve = (activityCounters.exam_eve || 0) + 1;
+          }
           break;
+        }
           
         case 'create_flashcard_deck':
           activityCounters.create_flashcard_deck = (activityCounters.create_flashcard_deck || 0) + 1;
@@ -351,9 +383,13 @@ class AchievementsService {
           
         case 'complete_practice_test':
           activityCounters.complete_practice_test = (activityCounters.complete_practice_test || 0) + 1;
-          if (data.score >= 90) {
-            await this.unlockAchievement(userId, 'HIGH_SCORER');
-          }
+          // HIGH_SCORER is a 'score' requirement, unlocked by checkAchievements
+          // below. A separate unlockAchievement() here was then overwritten by
+          // this function's own (stale) unlockedAchievements list.
+          break;
+
+        case 'review_card':
+          activityCounters.review_card = (activityCounters.review_card || 0) + (data.count || 1);
           break;
           
         case 'ai_chat_message':
@@ -364,7 +400,16 @@ class AchievementsService {
           activityCounters.solve_problem = (activityCounters.solve_problem || 0) + 1;
           break;
           
-        case 'study_subject':
+        case 'study_subject': {
+          if (!data.subject) break;
+          // Polyglot: distinct subjects studied TODAY (local day).
+          const today = localDay();
+          const inDay = activityCounters.subjects_in_day?.day === today
+            ? activityCounters.subjects_in_day.subjects : [];
+          activityCounters.subjects_in_day = {
+            day: today,
+            subjects: inDay.includes(data.subject) ? inDay : [...inDay, data.subject],
+          };
           if (!activityCounters.study_subjects) {
             activityCounters.study_subjects = new Set();
           }
@@ -374,6 +419,14 @@ class AchievementsService {
           activityCounters.study_subjects.add(data.subject);
           // Convert Set back to Array for Firestore
           activityCounters.study_subjects = Array.from(activityCounters.study_subjects);
+          break;
+        }
+
+        // One-off events from Review: a card finally answered right after
+        // three or more misses, and a review queue worked down to empty.
+        case 'comeback':
+        case 'queue_cleared':
+          activityCounters[activity] = (activityCounters[activity] || 0) + 1;
           break;
 
         default:
@@ -408,6 +461,38 @@ class AchievementsService {
     } catch (error) {
       console.error('Error tracking activity:', error);
       throw error;
+    }
+  }
+
+  /**
+   * The streak as of TODAY. `current` is only recomputed when the student
+   * studies, so read raw it kept showing "5 day streak" weeks after it lapsed.
+   * Alive if the last study day was today or yesterday; otherwise 0.
+   */
+  effectiveStreak(streaks, now = new Date()) {
+    const current = Number(streaks?.current) || 0;
+    const raw = streaks?.lastStudyDate;
+    if (!current || !raw) return 0;
+    const last = typeof raw.toDate === 'function' ? raw.toDate()
+      : raw.seconds != null ? new Date(raw.seconds * 1000)
+      : new Date(raw);
+    if (Number.isNaN(last.getTime())) return 0;
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const day = last.toDateString();
+    return day === now.toDateString() || day === yesterday.toDateString() ? current : 0;
+  }
+
+  /** True when tomorrow (local) is one of this student's AP exam dates. */
+  async isExamEve(userId, now = new Date()) {
+    try {
+      const snap = await getDoc(doc(db, 'users', userId));
+      const data = snap.exists() ? snap.data() : {};
+      const tomorrow = localDay(addDays(now, 1));
+      return getUpcomingExamsSync(data.subjects || [], data.lateTestingSubjects || [])
+        .some((e) => e.date === tomorrow);
+    } catch {
+      return false;
     }
   }
 
@@ -470,12 +555,18 @@ class AchievementsService {
           if (req.activity === 'study_subject') {
             const subjects = activityCounters.study_subjects || [];
             shouldUnlock = subjects.length >= req.target;
+          } else if (req.activity === 'subjects_in_day') {
+            const d = activityCounters.subjects_in_day;
+            shouldUnlock = !!d && d.day === localDay() && (d.subjects || []).length >= req.target;
           }
           break;
           
         case 'score':
           if (req.activity === 'practice_test_score' && activityData.score) {
-            shouldUnlock = activityData.score >= req.target;
+            // "Flawless" (100%) is for a FULL-LENGTH test; a perfect 5-question
+            // quiz shouldn't count. High Scorer (90%) takes any test.
+            const needsFull = req.target >= 100;
+            shouldUnlock = activityData.score >= req.target && (!needsFull || activityData.fullLength === true);
           }
           break;
           
@@ -486,16 +577,19 @@ class AchievementsService {
               shouldUnlock = true;
             } else if (req.target === 'after_10pm' && hour >= 22) {
               shouldUnlock = true;
+            } else if (req.target === 'small_hours' && hour >= 2 && hour < 4) {
+              // Midnight Oil had no branch at all, so it could never unlock.
+              shouldUnlock = true;
             }
           }
           break;
           
         case 'weekend_study':
-          // This would need more complex tracking - simplified for now
-          const day = new Date().getDay();
-          if (day === 0 || day === 6) { // Sunday or Saturday
-            shouldUnlock = true;
-          }
+          shouldUnlock = (activityCounters.weekend_both || 0) >= 1;
+          break;
+
+        case 'exam_eve':
+          shouldUnlock = (activityCounters.exam_eve || 0) >= 1;
           break;
           
         case 'achievement':

@@ -14,6 +14,9 @@ const SchoologyCallback = lazy(retryingImport(() =>
   import('./components/auth/SchoologyCallback').then((m) => ({ default: m.SchoologyCallback }))
 ));
 import GuestGate from './components/GuestGate';
+import { metaFor } from './constants/routeMeta';
+import { canonicalFor } from './utils/pageMeta';
+import useDocumentMeta from './hooks/useDocumentMeta';
 import { Calendar, FileQuestion, Zap, Calculator, Settings as SettingsIcon, Activity, GraduationCap, Brain, TrendingUp, Users } from 'lucide-react';
 import ErrorBoundary from './components/ErrorBoundary';
 import PageSkeleton from './components/ui/PageSkeleton';
@@ -54,6 +57,27 @@ const NotFound = lazy(retryingImport(() => import('./pages/NotFound')));
 import { createPageUrl } from './utils/helpers';
 import { initializeBackgroundSync } from './services/backgroundSync';
 import { initAnalytics, trackPageView } from './utils/analytics';
+
+/**
+ * Sets title / description / canonical for routes that do not manage their own.
+ *
+ * Without this every SPA route kept index.html's head, which canonicalises to
+ * the homepage — so Google folded nine distinct pages into one and indexed two
+ * pages total. Score-calculator routes return null from metaFor() because
+ * ScoreCalculator.jsx is their single writer.
+ */
+function RouteMeta() {
+  const { pathname } = useLocation();
+  const meta = metaFor(pathname);
+  useDocumentMeta({
+    title: meta?.title,
+    description: meta?.description,
+    // Canonicalise to the path itself. Passing undefined when there is no entry
+    // leaves whatever the owning page set, rather than stamping the homepage.
+    canonical: meta ? canonicalFor(pathname) : undefined,
+  });
+  return null;
+}
 
 // Per-feature copy shown to guests on the sign-in upsell (GuestGate).
 // AI Tutors is intentionally absent — it's open to guests.
@@ -97,6 +121,9 @@ function App() {
           <Route path="/schoology-callback" element={<Suspense fallback={<PageSkeleton />}><SchoologyCallback /></Suspense>} />
           <Route path="/*" element={<ProtectedRoute><MainApp /></ProtectedRoute>} />
         </Routes>
+        {/* Sits beside AnalyticsRouteTracker: both are route-change side
+            effects that need to run for every page, including /login. */}
+        <RouteMeta />
         <AnalyticsRouteTracker />
         <ToastContainer />
         <AiDowngradeNotice />

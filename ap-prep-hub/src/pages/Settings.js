@@ -16,6 +16,16 @@ import MultiSelectDropdown from '../components/ui/MultiSelectDropdown';
 import HelpTooltip from '../components/ui/HelpTooltip';
 import { clampPreferences } from '../constants/studyPreferenceBounds';
 
+/** The browser's timezone, with Central only as a genuine last resort. */
+const detectTimezone = () => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Chicago';
+  } catch {
+    return 'America/Chicago';
+  }
+};
+
+
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 
 const Settings = () => {
@@ -44,8 +54,16 @@ const Settings = () => {
     difficultTasksInMorning: true, // Peak cognitive hours
     avoidPostLunchDip: true, // Skip 1-3 PM for difficult tasks
 
-    // Timezone preference (defaults to Central Time)
-    timezone: 'America/Chicago', // CST/CDT timezone
+    // Timezone preference — detected, not assumed.
+    //
+    // This was hardcoded to 'America/Chicago'. getUserTimezone() checks the
+    // saved preference FIRST and only falls back to browser detection when
+    // none is set, so the moment a user opened Settings their scheduler was
+    // pinned to Central regardless of where they actually are. A student in
+    // California then had "now" read two hours late: sessions were pushed off
+    // today's schedule, and on the east coast the reverse — slots booked in
+    // the past. Chicago stays as the last-resort fallback only.
+    timezone: detectTimezone(),
 
     // Advanced features
     procrastinationBuffer: 0.2 // 20% time buffer
@@ -95,6 +113,7 @@ const Settings = () => {
   const isGoogleOnly = auth.currentUser?.providerData?.every(p => p.providerId === 'google.com');
   const [isInitialized, setIsInitialized] = useState(false); // Track if initial load is complete
   const saveTimeoutRef = useRef(null); // For debouncing auto-save
+  const emailOptInLoadedRef = useRef(null); // last persisted opt-in, for the consent stamp
   const AUTO_SAVE_DELAY = 1000; // 1 second debounce
 
   const fetchSettings = useCallback(async () => {
@@ -104,6 +123,10 @@ const Settings = () => {
     }
 
     setIsLoading(true);
+    // Only a successful load may enable auto-save. On a failed load the state
+    // below is DEFAULTS, and the auto-save that fires when isInitialized flips
+    // used to write them over the user's real subjects and blackouts.
+    let loaded = false;
 
     try {
       // Fix: Remove timeout that could cause race conditions
@@ -121,6 +144,7 @@ const Settings = () => {
         // `=== true` the toggle would show "off" for a user who is in fact
         // receiving mail — the toggle must never lie about that.
         setEmailOptIn(data.emailOptIn !== false);
+        emailOptInLoadedRef.current = data.emailOptIn !== false;
         // Merge user data with defaults to ensure all fields have values, then
         // clamp — otherwise a stored out-of-range value (see PREFERENCE_BOUNDS)
         // is displayed as-is and the user is shown a number the scheduler will
@@ -132,8 +156,9 @@ const Settings = () => {
           setAiPersonalization(prev => ({ ...prev, ...data.aiPersonalization }));
         }
 
-        // Set user's timezone preference
-        setUserTimezonePreference(mergedPrefs.timezone || 'America/Chicago');
+        // Set user's timezone preference. Falls back to detection, not to
+        // Central, for users whose saved preferences predate the timezone field.
+        setUserTimezonePreference(mergedPrefs.timezone || detectTimezone());
       } else {
         // Set empty defaults if no document exists
         const emptySchedule = getDefaultBlackoutSchedule();
@@ -160,9 +185,10 @@ const Settings = () => {
         }
         console.log("New user detected in settings, using empty blackout schedule with customizable templates");
       }
+      loaded = true;
     } catch (error) {
       console.error("Error fetching user settings:", error);
-      setMessage('Error: Could not load your settings. Using defaults.');
+      setMessage("Error: Couldn't load your settings. Changes won't be saved until you reload.");
       setTimeout(() => setMessage(''), 5000);
       // Set defaults on error
       const defaultPrefs = getDefaultStudyPreferences();
@@ -172,7 +198,7 @@ const Settings = () => {
     } finally {
       setIsLoading(false);
       // Mark as initialized after a short delay to prevent immediate auto-save
-      setTimeout(() => setIsInitialized(true), 100);
+      if (loaded) setTimeout(() => setIsInitialized(true), 100);
     }
   }, [user?.uid]);
 
@@ -237,12 +263,14 @@ const Settings = () => {
           customInstructions: (aiPersonalization.customInstructions || '').substring(0, 500)
         },
         emailOptIn: emailOptIn === true,
-        // Stamped so there is a record of when consent was given, which is what
-        // an unsubscribe complaint would need to be answered honestly.
-        ...(emailOptIn ? { emailOptInAt: new Date().toISOString() } : {}),
+        // Stamped when consent is GIVEN (off -> on), which is what an
+        // unsubscribe complaint would need. It used to be re-stamped on every
+        // auto-save, i.e. whenever the user opened Settings.
+        ...(emailOptIn && !emailOptInLoadedRef.current ? { emailOptInAt: new Date().toISOString() } : {}),
         settingsLastUpdated: new Date().toISOString()
       }, { merge: true });
 
+      emailOptInLoadedRef.current = emailOptIn === true;
       if (showMessage) {
         setMessage('Settings saved!');
         setTimeout(() => setMessage(''), 2000);

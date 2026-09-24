@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Search, Play, Trash2, Clock, BookOpen, CheckCircle, X, Edit3, Save, ChevronDown, Globe, Lock, Copy, Users, User, Upload } from 'lucide-react';
 import QuizletImport from '../components/flashcards/QuizletImport';
-import { recordFlashcardStudy } from '../services/activityTracker';
+import { recordFlashcardStudy, recordDeckCreated } from '../services/activityTracker';
 import { Button, Card, Input } from '../components/ui/UIComponents';
 import ProgressIndicator from '../components/ui/ProgressIndicator';
 import { useAuth } from '../contexts/AuthContext';
@@ -150,6 +150,7 @@ const FlashcardsPage = () => {
         creatorName: user.displayName || 'Anonymous',
       };
       const deckId = await dataService.saveFlashcardDeck(user.uid, newCollection);
+      recordDeckCreated(user.uid); // fire-and-forget; never blocks the deck
       setUserCollections((prev) => [
         { ...newCollection, id: deckId, lastStudied: 'Never', createdAt: new Date() },
         ...prev,
@@ -193,6 +194,7 @@ const FlashcardsPage = () => {
 
       // Save to Firebase
       const deckId = await dataService.saveFlashcardDeck(user.uid, newCollection);
+      recordDeckCreated(user.uid); // fire-and-forget; never blocks the deck
       
       // Add to local state
       setUserCollections(prev => [{
@@ -236,19 +238,23 @@ const FlashcardsPage = () => {
     });
   };
 
-  const handleNextCard = () => {
+  // `correct` is 1 when this advance comes from "Got It Right". Computing the
+  // next session from one value (instead of a functional update in
+  // handleCardAnswer plus a stale-closure copy here) is what stops the LAST
+  // card's "Got It Right" being dropped — a 1-card deck answered correctly
+  // used to report "Accuracy: 0%".
+  const handleNextCard = (correct = 0) => {
+    const next = {
+      ...studySession,
+      cardsStudied: studySession.cardsStudied + 1,
+      correctAnswers: studySession.correctAnswers + correct,
+    };
+    setStudySession(next);
     if (currentCardIndex < studyingDeck.cards.length - 1) {
       setCurrentCardIndex(currentCardIndex + 1);
       setShowAnswer(false);
-      setStudySession(prev => ({
-        ...prev,
-        cardsStudied: prev.cardsStudied + 1
-      }));
     } else {
-      // End of deck - count last card and finish study session
-      const finalSession = { ...studySession, cardsStudied: studySession.cardsStudied + 1 };
-      setStudySession(finalSession);
-      finishStudySession(finalSession);
+      finishStudySession(next);
     }
   };
 
@@ -260,13 +266,7 @@ const FlashcardsPage = () => {
   };
 
   const handleCardAnswer = (isCorrect) => {
-    if (isCorrect) {
-      setStudySession(prev => ({
-        ...prev,
-        correctAnswers: prev.correctAnswers + 1
-      }));
-    }
-    handleNextCard();
+    handleNextCard(isCorrect ? 1 : 0);
   };
 
   const finishStudySession = async (sessionOverride) => {
@@ -278,35 +278,34 @@ const FlashcardsPage = () => {
         ? Math.round((session.correctAnswers / session.cardsStudied) * 100)
         : 0;
 
-      // Save study session
-      await dataService.saveStudySession(user.uid, {
-        type: 'flashcards',
-        deckId: session.deckId,
-        subject: studyingDeck.subject,
-        duration,
-        cardsStudied: session.cardsStudied,
-        accuracy,
-        completedAt: endTime
-      });
+      // Deck progress lives on the deck doc, which only its owner may write.
+      // Studying someone else's PUBLIC deck used to attempt it anyway, hit
+      // permission-denied, and skip everything below (streak, achievements,
+      // the success toast).
+      const ownsDeck = studyingDeck.userId === user.uid;
+      const newProgress = Math.min(100, (Number(studyingDeck.progress) || 0) + 10);
+      if (ownsDeck) {
+        await dataService.updateFlashcardProgress(studyingDeck.id, {
+          progress: newProgress
+        });
+        setUserCollections(prev => prev.map(deck => 
+          deck.id === studyingDeck.id 
+            ? { ...deck, progress: newProgress, lastStudied: 'Just now' }
+            : deck
+        ));
+      }
 
-      // Update deck progress
-      const newProgress = Math.min(100, studyingDeck.progress + 10);
-      await dataService.updateFlashcardProgress(studyingDeck.id, {
-        progress: newProgress
-      });
-
-      // Update local state
-      setUserCollections(prev => prev.map(deck => 
-        deck.id === studyingDeck.id 
-          ? { ...deck, progress: newProgress, lastStudied: 'Just now' }
-          : deck
-      ));
-
-      // Streak + achievements. Previously only *creating* a deck recorded a
-      // study session, so actually studying one counted for nothing.
+      // One study-session record, written by the tracker. This page used to
+      // write its own session AND call the tracker, which wrote a second one
+      // (duration 0), so every run counted twice.
       await recordFlashcardStudy(user.uid, {
         subject: studyingDeck?.subject || '',
-        cardsStudied: studyingDeck?.cards?.length || 0,
+        cardsStudied: session.cardsStudied,
+        durationMinutes: duration,
+        accuracy,
+        deckId: session.deckId,
+        // Every card answered, all of them right.
+        perfect: accuracy === 100 && session.cardsStudied >= (studyingDeck?.cards?.length || Infinity),
       });
 
       toast.success(`Study session complete! Accuracy: ${accuracy}%`);
@@ -341,6 +340,7 @@ const FlashcardsPage = () => {
 
       // Save to Firebase
       const deckId = await dataService.saveFlashcardDeck(user.uid, newCollection);
+      recordDeckCreated(user.uid); // fire-and-forget; never blocks the deck
       
       // Add to local state
       setUserCollections(prev => [{
@@ -625,7 +625,7 @@ const FlashcardsPage = () => {
                   Previous
                 </Button>
                 <Button
-                  onClick={handleNextCard}
+                  onClick={() => handleNextCard()}
                   variant="outline"
                   size="sm"
                 >

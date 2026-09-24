@@ -1,5 +1,4 @@
 import { db } from '../config/firestore';
-import errorLogger from '../utils/errorLogger';
 import { 
   collection,
   doc,
@@ -149,26 +148,10 @@ class DataService {
       const snapshot = await getDocs(q);
       let decks = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 
-      // Batch-fetch creator display names for decks missing creatorName
-      const missingUserIds = [...new Set(decks.filter(d => !d.creatorName && d.userId).map(d => d.userId))];
-      if (missingUserIds.length > 0) {
-        const nameMap = {};
-        // Firestore 'in' queries support up to 30 items
-        for (let i = 0; i < missingUserIds.length; i += 30) {
-          const batch = missingUserIds.slice(i, i + 30);
-          try {
-            const usersSnapshot = await getDocs(query(collection(this.db, 'users'), where('__name__', 'in', batch)));
-            usersSnapshot.docs.forEach(doc => {
-              const data = doc.data();
-              nameMap[doc.id] = data.displayName || data.name || 'Anonymous';
-            });
-          } catch (e) { errorLogger.debug('Batch user name fetch failed', { error: e?.message }); }
-        }
-        decks = decks.map(d => ({
-          ...d,
-          creatorName: d.creatorName || nameMap[d.userId] || 'Anonymous'
-        }));
-      }
+      // Other users' profiles are not readable (firestore.rules), so a deck
+      // without a stored creatorName stays anonymous. This used to query the
+      // users collection for them, which was always permission-denied.
+      decks = decks.map(d => ({ ...d, creatorName: d.creatorName || 'Anonymous' }));
 
       // Client-side filtering for search term and subject
       if (searchTerm) {

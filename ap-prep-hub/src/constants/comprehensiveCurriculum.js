@@ -6,6 +6,7 @@ export {
   getCurriculumData,
   getCurriculumDataSync,
   getSubjectName,
+  resolveSubjectKey,
   getAvailableSubjects,
   getSubjectUnits,
   getSubjectTopics,

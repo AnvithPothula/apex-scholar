@@ -77,7 +77,6 @@ geminiService.js (orchestrator)
 - `services/geminiService.js` — Central AI class with prompt sanitization, Puter→Google fallback
 - `services/ai/jsonParser.js` — JSON extraction/repair pipeline for AI responses (extracted from geminiService)
 - `services/APIKeyManager.js` — Manages 11 Google API keys with rotation and rate limit tracking
-- `services/apiManager.js` — Higher-level API orchestration
 
 **JSON repair pipeline:** AI responses often have issues (LaTeX escape sequences, truncation, malformed structure). `services/ai/jsonParser.js` implements a multi-strategy repair pipeline: clean artifacts → direct parse → brace-matching → incremental repairs → truncation repair.
 

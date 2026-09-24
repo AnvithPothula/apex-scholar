@@ -125,7 +125,6 @@ const processAchievements = (achievements, uid) => {
       points: raw.points,
       secret: !!achievement.secret,
       earned: isUnlocked,
-      earnedDate: isUnlocked ? new Date().toLocaleDateString() : null,
       // A secret achievement's progress is part of the surprise — hide it.
       progress: achievement.secret ? 0 : current,
       target: achievement.secret ? 1 : target,
@@ -165,8 +164,11 @@ const processWeeklyActivity = (studySessions) => {
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const weekData = days.map(day => ({ day, questions: 0, time: 0 }));
 
+  // Seven calendar days including today, from midnight. "Now minus 7 days"
+  // spanned 8 weekdays, so today and the same weekday last week shared a bar.
   const oneWeekAgo = new Date();
-  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+  oneWeekAgo.setHours(0, 0, 0, 0);
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 6);
 
   studySessions.forEach(session => {
     const sessionDate = session.timestamp?.toDate() || new Date();
@@ -328,7 +330,7 @@ const ProgressPage = () => {
       const masteries = masteryBySubject(currentTests);
       const processedData = {
         overall: {
-          studyStreak: achievements.studyStreaks?.current || 0,
+          studyStreak: achievementsService.effectiveStreak(achievements.studyStreaks),
           // stats.totalStudyTime sums `duration`, which only the practice-test
           // path ever wrote, so this read "0 minutes" for everyone else.
           totalStudyTime: formatStudyTime(
@@ -1104,7 +1106,8 @@ const ProgressPage = () => {
                           <p className="text-sm text-content-muted mb-3">{achievement.description}</p>
                           {achievement.earned ? (
                             <Badge variant="default" className="bg-warning-600">
-                              Earned {achievement.earnedDate}
+                              {/* No earned date is stored; this used to print today's date for every achievement. */}
+                              Earned
                             </Badge>
                           ) : achievement.secret ? (
                             // Progress on a mystery achievement would give the

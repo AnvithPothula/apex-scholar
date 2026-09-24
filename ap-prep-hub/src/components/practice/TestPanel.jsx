@@ -158,7 +158,7 @@ const TestPanel = ({
                   <label className="flex items-center gap-3">
                     <input
                       type="checkbox"
-                      checked={isMobile}
+                      checked={forceMobile}
                       onChange={(e) => setForceMobile(e.target.checked)}
                       className="w-4 h-4 rounded border-border-strong bg-base-800 text-content-primary focus:ring-content-muted focus:ring-2"
                     />

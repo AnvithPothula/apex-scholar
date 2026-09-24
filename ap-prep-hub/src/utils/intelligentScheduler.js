@@ -1,9 +1,36 @@
 import { format, isWeekend, addDays, differenceInDays, startOfDay } from 'date-fns';
+
 import { 
   getUserTimezone, 
   formatDateTimeInUserTimezone, 
   getCurrentTimeInUserTimezone
 } from './timezone';
+
+/**
+ * The study window defaults, in one place.
+ *
+ * These were previously inlined three times as `|| 7` / `|| 23` / `|| 21`, so
+ * the same user with no saved preference got a day ending at 9 PM or 11 PM
+ * depending on which code path produced the schedule — and neither matched the
+ * documented default of 22. `??` rather than `||` so a legitimate 0 survives.
+ */
+export const DEFAULT_STUDY_START_HOUR = 7;   // matches scientificDefaults.studyStartTime
+export const DEFAULT_STUDY_END_HOUR = 22;    // matches scientificDefaults.studyEndTime
+
+/**
+ * The instant the study window closes on `date`.
+ *
+ * Built by adding minutes to local midnight rather than calling
+ * setHours(endHour): `studyEndTime` is clamped to a maximum of 24, and
+ * setHours(24) is not midnight-tomorrow in every engine, while adding 24*60
+ * minutes always is.
+ */
+export function studyWindowEnd(date, endHour) {
+  const end = new Date(date);
+  end.setHours(0, 0, 0, 0);
+  end.setMinutes(Math.max(0, Number(endHour) || DEFAULT_STUDY_END_HOUR) * 60);
+  return end;
+}
 
 // Gate debug logging behind development mode to avoid console spam in production
 const IS_DEV = process.env.NODE_ENV === 'development';
@@ -796,10 +823,10 @@ class IntelligentScheduler {
       checkDate.setDate(checkDate.getDate() + i);
       
       const dayStart = new Date(checkDate);
-      dayStart.setHours(this.userPreferences.studyStartTime || 7, 0, 0, 0);
+      dayStart.setHours(this.userPreferences.studyStartTime ?? DEFAULT_STUDY_START_HOUR, 0, 0, 0);
       
       const dayEnd = new Date(checkDate);
-      dayEnd.setHours(this.userPreferences.studyEndTime || 23, 0, 0, 0);
+      dayEnd.setHours(this.userPreferences.studyEndTime ?? DEFAULT_STUDY_END_HOUR, 0, 0, 0);
       
       // Calculate available hours for this day
       const dayAvailableHours = this.calculateAvailableHours(checkDate, dayStart, dayEnd, conflictingBlackouts);
@@ -979,8 +1006,8 @@ class IntelligentScheduler {
     debugLog(`🕐 Current time in ${userTimezone}: ${formatDateTimeInUserTimezone(now)}`);
     
     // Time window boundaries — respect user's study time preferences
-    let startHour = this.userPreferences.studyStartTime || 7;
-    let endHour = this.userPreferences.studyEndTime || 23;
+    let startHour = this.userPreferences.studyStartTime ?? DEFAULT_STUDY_START_HOUR;
+    let endHour = this.userPreferences.studyEndTime ?? DEFAULT_STUDY_END_HOUR;
     
     let adjustedStartMinute = 0;
     if (isToday) {
@@ -1037,8 +1064,15 @@ class IntelligentScheduler {
         const slotEnd = new Date(slotStart);
         slotEnd.setMinutes(slotEnd.getMinutes() + durationMinutes);
         
-        // Check if slot goes past end time (ending exactly at endHour:00 is valid)
-        if (slotEnd.getHours() > endHour || (slotEnd.getHours() === endHour && slotEnd.getMinutes() > 0)) {
+        // Check if slot goes past end time (ending exactly at the window end is valid).
+        //
+        // Compared against an absolute instant, not getHours(). The wall-clock
+        // version wrapped: a session running 23:15 -> 01:15 reported hour 1,
+        // which is not greater than an endHour of 22 (let alone the 24 the
+        // preference clamp permits), so the check passed and the scheduler
+        // booked study time after midnight. Verified before the fix — a
+        // 120-minute task on a full day landed at 23:15-01:15 the next day.
+        if (slotEnd > studyWindowEnd(date, endHour)) {
           continue;
         }
         
@@ -1051,7 +1085,9 @@ class IntelligentScheduler {
         const hasBlackoutConflict = this.checkBlackoutConflict(slotStartTime, slotEndTime, dayBlackouts);
         
         // Check for existing schedule conflicts
-        const hasScheduleConflict = this.checkScheduleConflict(slotStart, slotEnd, existingSchedule);
+        const hasScheduleConflict = this.checkScheduleConflict(
+          slotStart, slotEnd, existingSchedule, this.userPreferences.breakLength
+        );
         
         if (!hasBlackoutConflict && !hasScheduleConflict) {
           debugLog(`✅ Found available slot: ${slotStartTime}-${slotEndTime}`);
@@ -1180,22 +1216,43 @@ class IntelligentScheduler {
    * FIXED: Helper method to check if two time ranges overlap
    */
   hasTimeOverlap(startTime1, endTime1, startTime2, endTime2) {
-    const [start1Hour, start1Min] = startTime1.split(':').map(Number);
-    const [end1Hour, end1Min] = endTime1.split(':').map(Number);
-    const [start2Hour, start2Min] = startTime2.split(':').map(Number);
-    const [end2Hour, end2Min] = endTime2.split(':').map(Number);
-    
-    // Convert times to minutes for easier comparison
-    const start1Minutes = start1Hour * 60 + start1Min;
-    const end1Minutes = end1Hour * 60 + end1Min;
-    const start2Minutes = start2Hour * 60 + start2Min;
-    const end2Minutes = end2Hour * 60 + end2Min;
-    
+    const toMinutes = (t) => {
+      const [h, m] = String(t ?? '').split(':').map(Number);
+      return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : NaN;
+    };
+    const start1Minutes = toMinutes(startTime1);
+    const end1Minutes = toMinutes(endTime1);
+    const start2Minutes = toMinutes(startTime2);
+    const end2Minutes = toMinutes(endTime2);
+
+    // Fail closed. Every comparison against NaN is false, so an unparseable
+    // blackout used to return "no overlap" and get silently skipped — the
+    // scheduler would book study time straight through someone's blocked
+    // hours and say nothing. All stored blackouts are currently 24h
+    // zero-padded so this is insurance, not a live fix, but the failure it
+    // guards is silent and lands on the user's actual commitments.
+    // "9:00 AM" is the shape that breaks it: Number("00 AM") is NaN.
+    if ([start1Minutes, end1Minutes, start2Minutes, end2Minutes].some(Number.isNaN)) {
+      debugLog('⚠️ Unparseable time range — treating as a conflict rather than ignoring it');
+      return true;
+    }
+
     // Two time ranges overlap if one starts before the other ends AND one ends after the other starts
     return start1Minutes < end2Minutes && end1Minutes > start2Minutes;
   }
 
-  checkScheduleConflict(slotStart, slotEnd, existingSchedule) {
+  /**
+   * @param bufferMinutes  Minimum gap to keep either side of an existing
+   *   session. Defaults to 0 so existing callers are unchanged.
+   *
+   *   `breakLength` has always been a real user preference — clamped to 5-30,
+   *   defaulted to 10 with a Pomodoro citation, surfaced as
+   *   OPTIMAL_BREAK_MINUTES — and nothing ever read it. Overlap was tested with
+   *   strict inequalities, so a session starting at the exact minute the
+   *   previous one ended did not conflict, and the scheduler packed study
+   *   blocks back to back for hours. The setting existed; the break did not.
+   */
+  checkScheduleConflict(slotStart, slotEnd, existingSchedule, bufferMinutes = 0) {
     debugLog(`🔍 Checking schedule conflict: ${formatDateTimeInUserTimezone(slotStart, { hour: '2-digit', minute: '2-digit' })}-${formatDateTimeInUserTimezone(slotEnd, { hour: '2-digit', minute: '2-digit' })} (${getUserTimezone()})`);
     debugLog(`📋 Existing schedule items to check:`, existingSchedule?.length || 0);
     
@@ -1231,8 +1288,10 @@ class IntelligentScheduler {
       const scheduledStartTime = scheduledStart.getTime();
       const scheduledEndTime = scheduledEnd.getTime();
       
-      // Check for any time overlap
-      const overlaps = (slotStartTime < scheduledEndTime && slotEndTime > scheduledStartTime);
+      // Grow the existing block by the break on both sides, so "no overlap"
+      // also means "not jammed up against it".
+      const buffer = Math.max(0, Number(bufferMinutes) || 0) * 60000;
+      const overlaps = (slotStartTime < scheduledEndTime + buffer && slotEndTime > scheduledStartTime - buffer);
       
       if (overlaps) {
         debugLog(`❌ Schedule conflict found with: ${scheduled.taskName || scheduled.task}`);
@@ -2342,8 +2401,8 @@ class IntelligentScheduler {
     debugLog(`🧠 Task cognitive load: ${cognitiveLoad.toFixed(2)}, preferred hours: [${preferredTimeSlots.join(', ')}]`);
     
     // Time window boundaries — respect user's study time preferences
-    let startHour = this.userPreferences.studyStartTime || 7;
-    let endHour = this.userPreferences.studyEndTime || 21;
+    let startHour = this.userPreferences.studyStartTime ?? DEFAULT_STUDY_START_HOUR;
+    let endHour = this.userPreferences.studyEndTime ?? DEFAULT_STUDY_END_HOUR;
     
     let adjustedCogStartMinute = 0;
     
@@ -2383,8 +2442,15 @@ class IntelligentScheduler {
         // Recalculate actual duration based on aligned times
         const actualDuration = Math.round((slotEnd - slotStart) / (1000 * 60));
         
-        // Check if slot goes past end time (ending exactly at endHour:00 is valid)
-        if (slotEnd.getHours() > endHour || (slotEnd.getHours() === endHour && slotEnd.getMinutes() > 0)) {
+        // Check if slot goes past end time (ending exactly at the window end is valid).
+        //
+        // Compared against an absolute instant, not getHours(). The wall-clock
+        // version wrapped: a session running 23:15 -> 01:15 reported hour 1,
+        // which is not greater than an endHour of 22 (let alone the 24 the
+        // preference clamp permits), so the check passed and the scheduler
+        // booked study time after midnight. Verified before the fix — a
+        // 120-minute task on a full day landed at 23:15-01:15 the next day.
+        if (slotEnd > studyWindowEnd(date, endHour)) {
           continue;
         }
         
@@ -2393,7 +2459,9 @@ class IntelligentScheduler {
         
         // Check for conflicts
         const hasBlackoutConflict = this.checkBlackoutConflict(slotStartTime, slotEndTime, dayBlackouts);
-        const hasScheduleConflict = this.checkScheduleConflict(slotStart, slotEnd, existingSchedule);
+        const hasScheduleConflict = this.checkScheduleConflict(
+          slotStart, slotEnd, existingSchedule, this.userPreferences.breakLength
+        );
         
         if (!hasBlackoutConflict && !hasScheduleConflict) {
           // Calculate cognitive optimization score

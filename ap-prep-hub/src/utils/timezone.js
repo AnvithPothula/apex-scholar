@@ -205,50 +205,6 @@ export const getCurrentTimeInUserTimezone = () => {
   return new Date();
 };
 
-/**
- * Convert a time string to the user's timezone
- * @param {string} timeString - Time in format "HH:MM" or "HH:MM AM/PM"
- * @param {Date} date - Optional date to use (defaults to today)
- * @returns {Date} Date object in user's timezone
- */
-export const parseTimeInUserTimezone = (timeString, date = new Date()) => {
-  try {
-    // Parse time string
-    let hours, minutes;
-    
-    if (timeString.includes('AM') || timeString.includes('PM')) {
-      // 12-hour format
-      const [time, period] = timeString.split(' ');
-      const [h, m] = time.split(':').map(Number);
-      
-      // Handle 12-hour format correctly:
-      // 12:00 AM = 0:00 (midnight)
-      // 12:00 PM = 12:00 (noon)
-      // 1:00 AM = 1:00
-      // 1:00 PM = 13:00
-      if (period === 'AM') {
-        hours = h === 12 ? 0 : h;  // 12 AM is midnight (0)
-      } else {  // PM
-        hours = h === 12 ? 12 : h + 12;  // 12 PM is noon (12), others add 12
-      }
-      minutes = m || 0;
-    } else {
-      // 24-hour format
-      const [h, m] = timeString.split(':').map(Number);
-      hours = h;
-      minutes = m || 0;
-    }
-    
-    // Create date in user's timezone
-    const targetDate = new Date(date);
-    targetDate.setHours(hours, minutes, 0, 0);
-    
-    return targetDate;
-  } catch (error) {
-    console.warn('Error parsing time in user timezone:', error);
-    return new Date(date);
-  }
-};
 
 /**
  * Check if daylight saving time is currently active in the user's timezone
