@@ -262,40 +262,38 @@ export async function getLeaderboard(code) {
 
 /**
  * Add one finished test to this student's row in every class they're in.
+ *
+ * The scoring happens server-side (netlify/functions/class-record-test.js): the
+ * browser only names the saved test. It used to send its own counts and write
+ * them to the roster directly, which let a console one-liner top any
+ * leaderboard; firestore.rules now refuses those writes.
+ *
  * Best-effort and non-blocking: a leaderboard that misses a test is a far
- * smaller problem than a results screen that fails to render.
+ * smaller problem than a results screen that fails to render. Functions do not
+ * run under `npm start`, so locally this quietly does nothing.
+ *
+ * @param {object} user   Firebase user (needs getIdToken)
+ * @param {string} testId id of the practiceTests doc just saved
+ * @returns {Promise<number>} classes credited
  */
-export async function recordTestForClasses(uid, { questionsAnswered = 0, correctAnswers = 0, subject = null } = {}) {
-  if (!uid || questionsAnswered <= 0) return 0;
+export async function recordTestForClasses(user, testId) {
+  if (!user?.uid || !testId) return 0;
   try {
-    // Live, not the raw pointers: after an owner deletes a class, the stale
-    // pointer made this re-create the member row under the deleted code.
-    const all = await getMyClassesLive(uid);
-    // A class with a subject list only counts tests in those subjects; a class
-    // with none counts everything. Without this an AP Bio class leaderboard
-    // could be topped by someone grinding a different subject entirely.
-    const classes = all.filter((c) => {
-      const scope = Array.isArray(c.subjects) ? c.subjects.filter(Boolean) : [];
-      return scope.length === 0 || (subject && scope.includes(subject));
+    // Most students are in no class; skip the function call entirely for them.
+    const pointers = await getMyClasses(user.uid);
+    if (!pointers.length) return 0;
+    const token = await user.getIdToken();
+    const res = await fetch('/.netlify/functions/class-record-test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ testId }),
     });
-    if (!classes.length) return 0;
-    const { db, doc, setDoc, increment, serverTimestamp } = await loadFirestore();
-    await Promise.all(
-      classes.map((c) =>
-        setDoc(
-          doc(db, 'classes', c.id, 'members', uid),
-          {
-            userId: uid,
-            questionsAnswered: increment(questionsAnswered),
-            correctAnswers: increment(correctAnswers),
-            testsTaken: increment(1),
-            lastActive: serverTimestamp(),
-          },
-          { merge: true }
-        ).catch((e) => console.warn(`[classes] stat update failed for ${c.id}`, e))
-      )
-    );
-    return classes.length;
+    if (!res.ok) {
+      console.warn(`[classes] leaderboard credit failed: HTTP ${res.status}`);
+      return 0;
+    }
+    const body = await res.json().catch(() => ({}));
+    return Number(body.classes) || 0;
   } catch (e) {
     console.error('[classes] recordTestForClasses failed', e);
     return 0;
@@ -342,9 +340,11 @@ export async function deleteClass(uid, code) {
 /**
  * Leave a class (removes the roster row and the pointer).
  *
- * The owner cannot leave: a class with no owner can never be deleted or
+ * A sole owner cannot leave: a class with no owner can never be deleted or
  * administered again, and silently orphaning a roster of students is worse than
- * refusing. They delete it instead.
+ * refusing. They delete it instead. A co-owner can leave, and gives up
+ * ownership in the same write — otherwise they would stay in `ownerIds`, able to
+ * delete a class they no longer belong to.
  *
  * @returns {true|'owner'|false}
  */
@@ -354,19 +354,29 @@ export async function leaveClass(uid, code) {
   try {
     const { db, doc, getDoc, deleteDoc, updateDoc, increment } = await loadFirestore();
 
-    const snap = await getDoc(doc(db, 'classes', id));
-    // A sole owner may not leave — an ownerless class could never be deleted or
-    // administered again. A co-owner may, because someone is still in charge.
-    if (snap.exists() && isOwnerOf(snap.data(), uid) && ownerIdsOf(snap.data()).length <= 1) {
-      return 'owner';
+    const classRef = doc(db, 'classes', id);
+    const snap = await getDoc(classRef);
+    const owners = snap.exists() ? ownerIdsOf(snap.data()) : [];
+    const isOwner = snap.exists() && isOwnerOf(snap.data(), uid);
+    if (isOwner && owners.length <= 1) return 'owner';
+
+    // Both writes happen BEFORE the member row goes: the rules let a plain
+    // member touch only memberCount, and only while they are still a member.
+    if (isOwner) {
+      // Not optional: if this fails, stop, rather than leave a ghost owner.
+      await updateDoc(classRef, {
+        ownerIds: owners.filter((o) => o !== uid),
+        memberCount: increment(-1),
+      });
+    } else {
+      try {
+        await updateDoc(classRef, { memberCount: increment(-1) });
+      } catch (e) {
+        console.warn('[classes] memberCount decrement failed (non-fatal)', e);
+      }
     }
     await deleteDoc(doc(db, 'classes', id, 'members', uid));
     await deleteDoc(doc(db, 'users', uid, 'classes', id));
-    try {
-      await updateDoc(doc(db, 'classes', id), { memberCount: increment(-1) });
-    } catch (e) {
-      console.warn('[classes] memberCount decrement failed (non-fatal)', e);
-    }
     return true;
   } catch (e) {
     console.error('[classes] leaveClass failed', e);

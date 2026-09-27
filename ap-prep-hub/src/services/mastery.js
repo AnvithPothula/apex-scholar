@@ -94,6 +94,10 @@ export function subjectMastery(subject, tests = []) {
   let total = 0;
   const apScores = [];
   let lastAt = null;
+  // Tracked by date, not array position: callers pass tests newest-first
+  // (getUserPracticeTests orders by createdAt desc), so the last element was
+  // the OLDEST score.
+  let latestAPScore = null;
 
   for (const t of tests) {
     if (isAbandoned(t)) continue;
@@ -104,7 +108,10 @@ export function subjectMastery(subject, tests = []) {
     // question scores 0 on the exam, but it says nothing about what they know —
     // counting it as "wrong" is how answering 4 of 66 produced a confident
     // "you're weak at multiple choice, 0% across 60 questions".
-    const qrs = all.filter((q) => wasAttempted(t, q));
+    // Ungraded responses (the AI grader was down) are excluded for the same
+    // reason: PracticeTests leaves them out of the score, and counting them
+    // here as 0/1 turned a grader outage into a "weak at free response" verdict.
+    const qrs = all.filter((q) => wasAttempted(t, q) && !q.ungraded);
 
     // Per-question truth is the most reliable signal; fall back to the summary
     // only when there are no per-question records at all.
@@ -117,8 +124,11 @@ export function subjectMastery(subject, tests = []) {
       total += 100;
     }
 
-    if (typeof r.apScore === 'number') apScores.push(r.apScore);
     const at = toMillis(t.createdAt);
+    if (typeof r.apScore === 'number') {
+      apScores.push(r.apScore);
+      if (latestAPScore === null || (at && (!lastAt || at > lastAt))) latestAPScore = r.apScore;
+    }
     if (at && (!lastAt || at > lastAt)) lastAt = at;
 
     // Prefer joining questionResults to questions: that yields a real per-type
@@ -164,7 +174,7 @@ export function subjectMastery(subject, tests = []) {
     questionsAnswered: total,
     accuracy,
     level: levelFor(accuracy, total),
-    latestAPScore: apScores.length ? apScores[apScores.length - 1] : null,
+    latestAPScore,
     bestAPScore: apScores.length ? Math.max(...apScores) : null,
     lastStudied: lastAt,
     areas: scored.sort((a, b) => a.accuracy - b.accuracy),

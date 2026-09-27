@@ -75,6 +75,30 @@ export const ROUTE_META = {
     description:
       'The terms that apply to using Apex Scholar, including acceptable use, account responsibilities and limits of liability.',
   },
+
+  // Signed-in pages. Not in the sitemap, but useDocumentMeta never resets, so
+  // without an entry a client-side hop from /flashcards to /progress left the
+  // tab titled "AP Flashcards…" (and GA logged the page view under that title).
+  '/progress': {
+    title: 'Your Progress — Apex Scholar',
+    description: 'Accuracy, streaks, weekly activity and measured weak spots across every AP subject you practise.',
+  },
+  '/review': {
+    title: 'Review Queue — Apex Scholar',
+    description: 'Spaced-repetition review of every practice question you missed, scheduled to come back before you forget it.',
+  },
+  '/classes': {
+    title: 'Classes — Apex Scholar',
+    description: 'Join a class or club with a link and compare practice-test accuracy on a shared leaderboard.',
+  },
+  '/diagnostics': {
+    title: 'Diagnostics — Apex Scholar',
+    description: 'A short diagnostic per AP subject that pinpoints which units you already know and which need work.',
+  },
+  '/settings': {
+    title: 'Settings — Apex Scholar',
+    description: 'Choose your AP subjects, personalise the AI tutor, and manage email preferences and integrations.',
+  },
 };
 
 /** Meta for a path, or null when the route manages its own. */

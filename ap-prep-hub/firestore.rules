@@ -212,7 +212,10 @@ service cloud.firestore {
         return signedIn() && progressId == request.auth.uid + '_inprogress';
       }
       allow read: if ownsById() || ownsExisting();
-      allow create: if ownsIncoming();
+      // Create only at your OWN derived id. `ownsIncoming()` alone let any
+      // signed-in user plant {victim}_inprogress, which the victim's next
+      // Practice Tests load then offered to resume.
+      allow create: if ownsIncoming() && ownsById();
       allow update: if ownsIncoming() && (ownsById() || ownsExisting());
       allow delete: if ownsById() || ownsExisting();
     }
@@ -257,8 +260,11 @@ service cloud.firestore {
     // `||` short-circuits, so pattern 1 never touches the null resource.
     match /userAchievements/{achievementId} {
       allow read: if signedIn() && (request.auth.uid == achievementId || ownsExisting());
-      allow create: if ownsIncoming();
-      allow update: if ownsIncoming();
+      // Create/update must also be YOUR doc. With `ownsIncoming()` alone, anyone
+      // who knew a uid (every class roster exposes them) could overwrite that
+      // user's achievements just by writing their own uid into `userId`.
+      allow create: if ownsIncoming() && request.auth.uid == achievementId;
+      allow update: if ownsIncoming() && (request.auth.uid == achievementId || ownsExisting());
       allow delete: if signedIn() && (request.auth.uid == achievementId || ownsExisting());
     }
 
@@ -327,9 +333,22 @@ service cloud.firestore {
         );
         // You may only ever write your OWN row. This is what stops a student
         // editing a classmate's score, and stops userId being spoofed.
-        allow create, update: if signedIn()
-                              && request.auth.uid == memberId
-                              && request.resource.data.userId == request.auth.uid;
+        //
+        // The score fields are NOT client-writable, not even on your own row:
+        // a row starts at zero and only netlify/functions/class-record-test
+        // (admin SDK, bypasses rules) ever raises it, from a re-scored test.
+        // Before this, one console line could put any student at the top.
+        allow create: if signedIn()
+                      && request.auth.uid == memberId
+                      && request.resource.data.userId == request.auth.uid
+                      && request.resource.data.get('questionsAnswered', 0) == 0
+                      && request.resource.data.get('correctAnswers', 0) == 0
+                      && request.resource.data.get('testsTaken', 0) == 0;
+        allow update: if signedIn()
+                      && request.auth.uid == memberId
+                      && request.resource.data.userId == request.auth.uid
+                      && request.resource.data.diff(resource.data).affectedKeys()
+                           .hasOnly(['displayName', 'lastActive']);
         // Students can leave; any owner can remove anyone.
         allow delete: if signedIn() && (
           request.auth.uid == memberId ||

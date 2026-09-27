@@ -134,8 +134,10 @@ export default function CalendarGrid({
           const userData = userDocSnap.data();
           const subjects = userData.subjects || [];
           
-          // Get upcoming exams for user's subjects
-          const exams = getUpcomingExamsSync(subjects);
+          // Get upcoming exams for user's subjects. Late testers must see the
+          // late sitting here too, or the calendar marks a different day than
+          // the exam dashboard and countdown on the same screen.
+          const exams = getUpcomingExamsSync(subjects, userData.lateTestingSubjects || []);
           setUpcomingExams(exams);
         }
       } catch (error) {

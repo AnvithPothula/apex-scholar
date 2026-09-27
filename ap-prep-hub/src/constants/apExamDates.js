@@ -424,6 +424,7 @@ export const getUpcomingExamsSync = (userSubjects = [], lateTestingSubjects = []
   }
 
   const lateSet = new Set(lateTestingSubjects);
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
   return Object.entries(currentExamDates)
     .filter(([examName]) => userExamNames.includes(examName))
@@ -471,7 +472,10 @@ export const getUpcomingExamsSync = (userSubjects = [], lateTestingSubjects = []
         reviewSchedule
       };
     })
-    .filter(exam => exam.examDate >= today && exam.examDate <= oneYearFromNow)
+    // examDate is local MIDNIGHT of exam day, so comparing it with `today`
+    // (now) dropped every exam from the dashboard and calendar on the morning
+    // of the exam itself. Compare against the start of today instead.
+    .filter(exam => exam.examDate >= startOfToday && exam.examDate <= oneYearFromNow)
     .sort((a, b) => a.examDate - b.examDate);
 };
 

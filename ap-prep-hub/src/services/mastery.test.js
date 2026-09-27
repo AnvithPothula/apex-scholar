@@ -175,3 +175,34 @@ describe('abandoned tests', () => {
     expect(weakestArea(masteryBySubject([mostlySkipped]))).toBeNull();
   });
 });
+
+describe('ungraded responses and score ordering', () => {
+  it('leaves ungraded responses out of accuracy and areas', () => {
+    // The grader was down for the FRQ: PracticeTests records it as 0/0 and
+    // ungraded. It is evidence of nothing, so it must not read as a miss.
+    const t = {
+      ...test1,
+      userAnswers: { ...test1.userAnswers, 7: 'my essay' },
+      questions: [...test1.questions, { id: 7, type: 'frq' }],
+      results: {
+        ...test1.results,
+        questionResults: [
+          ...test1.results.questionResults,
+          { questionId: 7, correct: false, ungraded: true, score: 0, maxPoints: 0 },
+        ],
+      },
+    };
+    const m = subjectMastery('AP Biology', [t]);
+    expect(m.questionsAnswered).toBe(6);
+    expect(m.accuracy).toBe(33);
+    expect(m.areas.find((a) => a.key === 'type:frq')).toBeUndefined();
+  });
+
+  it('reports the most recent AP score whatever order tests arrive in', () => {
+    // getUserPracticeTests returns newest first.
+    const newer = { ...test1, createdAt: 2000, results: { ...test1.results, apScore: 4 } };
+    const older = { ...test1, createdAt: 1000, results: { ...test1.results, apScore: 2 } };
+    expect(subjectMastery('AP Biology', [newer, older]).latestAPScore).toBe(4);
+    expect(subjectMastery('AP Biology', [older, newer]).latestAPScore).toBe(4);
+  });
+});

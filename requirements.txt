@@ -1,0 +1,18 @@
+# Python requirements for Apex Scholar's helper scripts.
+#
+# The web app is JavaScript (see ap-prep-hub/package.json). Python is only used
+# by a few offline maintenance scripts:
+#   - .claude/skills/ap-year-rollover/scripts/*.py   (CED extraction and curriculum audit;
+#     .agents/skills/ holds the same scripts for other agents)
+#   - ap-prep-hub/docs/research/ap-score-curves/final.py   (score-curve research)
+#
+# They use only the standard library, so there is nothing to pip install.
+# Python 3.8 or newer is required (statistics.NormalDist).
+#
+# One system tool is needed by the CED scripts, and pip can't install it:
+#   pdftotext, from poppler
+#     macOS:          brew install poppler
+#     Debian/Ubuntu:  sudo apt-get install poppler-utils
+#
+# `pip install -r requirements.txt` succeeds and installs nothing. If a script
+# ever gains a third-party import, pin it below.

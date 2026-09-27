@@ -456,6 +456,9 @@ exports.handler = async (event) => {
   // Walk the chain: per (key, model) cooldown on 429, per-model dead-mark on
   // "model not found", bounded total attempts to keep latency sane.
   let lastErr = 'Service temporarily unavailable';
+  // Counted for the "exhausted" log line below, which threw a ReferenceError
+  // (and turned the intended 429/503 into a bare 502) while this was undeclared.
+  let attempts = 0;
   // Up to 5 keys per model for KEY-scoped failures (403/404/429 — a flaky
   // project). A 5xx is model-scoped and abandons the model immediately. Every
   // chain now floors on a deep pool (Gemma 14,400 RPD or flash-lite 500), never
@@ -472,6 +475,7 @@ exports.handler = async (event) => {
       const keyIdx = (currentKeyIndex + k) % API_KEYS.length;
       if ((modelKeyCooldown.get(`${keyIdx}:${m}`) || 0) > Date.now()) continue;
       tried++;
+      attempts++;
       const url = `https://generativelanguage.googleapis.com/${versionFor(m)}/models/${m}:generateContent?key=${API_KEYS[keyIdx]}`;
       try {
         const resp = await fetch(url, {

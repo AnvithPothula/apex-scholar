@@ -127,3 +127,21 @@ describe('every course a student can enrol in maps to an exam', () => {
     expect(unresolved).toEqual([]);
   });
 });
+
+describe('getUpcomingExamsSync on exam day', () => {
+  afterEach(() => jest.useRealTimers());
+
+  it('still lists an exam on the morning it is taken', () => {
+    // 7am on the Biology exam day (noon start). The exam used to vanish from
+    // the dashboard and calendar at midnight, hours before the student sat it.
+    jest.useFakeTimers().setSystemTime(new Date(2027, 4, 3, 7, 0));
+    const exams = getUpcomingExamsSync(['biology']);
+    expect(exams.map((e) => e.subject)).toEqual(['AP Biology']);
+    expect(exams[0].daysUntilExam).toBeLessThanOrEqual(0);
+  });
+
+  it('drops it the day after', () => {
+    jest.useFakeTimers().setSystemTime(new Date(2027, 4, 4, 7, 0));
+    expect(getUpcomingExamsSync(['biology'])).toEqual([]);
+  });
+});

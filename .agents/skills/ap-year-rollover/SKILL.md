@@ -116,7 +116,7 @@ header in "Course at a Glance" is `Unit N: Title` followed within two lines by a
 exam-weighting percentage — topic numbering and running headers never are:
 
 ```bash
-python3 .Codex/skills/ap-year-rollover/scripts/ced_units.py \
+python3 .agents/skills/ap-year-rollover/scripts/ced_units.py \
   ap-prep-hub/public/ced/ap-<slug>-course-and-exam-description.pdf
 ```
 
@@ -173,7 +173,7 @@ them mid-phrase ("Introduction to", "Resource Allocation and"). The topic-page
 source yields complete titles with zero fragments.
 
 ```bash
-python3 .Codex/skills/ap-year-rollover/scripts/ced_topics.py \
+python3 .agents/skills/ap-year-rollover/scripts/ced_topics.py \
   ap-prep-hub/public/ced/ap-<slug>-course-and-exam-description.pdf
 ```
 
@@ -241,7 +241,7 @@ It cannot check the dates themselves. Read them off the page.
 cd ap-prep-hub
 CI=true npx react-scripts test --silent   # all suites must pass
 CI=true npm run build                     # must compile
-python3 .Codex/skills/ap-year-rollover/scripts/audit_curriculum.py
+python3 .agents/skills/ap-year-rollover/scripts/audit_curriculum.py
 ```
 
 `apExamDates.test.js` failing on "has a hand-verified table for the year
