@@ -1,12 +1,19 @@
 import React, { memo, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 import { preprocessContent } from '../utils/latexPreprocess';
 import InlineScoreCalculator from './tutors/InlineScoreCalculator';
 import RetryCountdown from './tutors/RetryCountdown';
+import GraphWidget from './tutors/GraphWidget';
+import StepReveal from './tutors/StepReveal';
+import CodeBlock from './markdown/CodeBlock';
+import {
+  MarkdownTable, MarkdownThead, MarkdownTbody, MarkdownTr, MarkdownTh, MarkdownTd,
+} from './markdown/MarkdownTable';
 
 // Re-export so existing imports keep working without churn.
 export { preprocessContent };
@@ -31,7 +38,12 @@ const KATEX_MACROS = {
 
 // Stable plugin arrays — defined once at module scope so React.memo
 // and ReactMarkdown don't re-parse on every render.
-const remarkPlugins = [remarkMath];
+//
+// remark-gfm is what makes tables parse at all. It was missing (it had been
+// installed into the repo-root package.json, which the app never sees), so
+// every tutor table rendered as one paragraph of pipes. `singleTilde: false`
+// keeps "~5 points" from striking through the rest of the line.
+const remarkPlugins = [[remarkGfm, { singleTilde: false }], remarkMath];
 const rehypePlugins = [[rehypeKatex, {
   strict: false,        // don't crash on unknown commands, render with errorColor
   trust: false,         // SECURITY: disallow \href/\htmlClass/etc. so AI- or
@@ -48,48 +60,65 @@ const rehypePlugins = [[rehypeKatex, {
 
 // Stable component overrides — same reason.
 const mdComponents = {
-  h1: ({ children }) => <h1 className="text-xl font-display font-bold mb-3 text-content-primary">{children}</h1>,
-  h2: ({ children }) => <h2 className="text-lg font-display font-bold mb-2 text-content-primary">{children}</h2>,
-  h3: ({ children }) => <h3 className="text-base font-display font-semibold mb-2 text-content-primary">{children}</h3>,
-  p: ({ children }) => <div className="mb-2 leading-relaxed">{children}</div>,
-  ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
-  ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
-  li: ({ children }) => <li className="ml-2">{children}</li>,
+  h1: ({ children }) => <h1 className="text-xl font-display font-bold mt-4 mb-3 first:mt-0 text-content-primary">{children}</h1>,
+  h2: ({ children }) => <h2 className="text-lg font-display font-bold mt-4 mb-2 first:mt-0 text-content-primary">{children}</h2>,
+  h3: ({ children }) => <h3 className="text-base font-display font-semibold mt-3 mb-2 first:mt-0 text-content-primary">{children}</h3>,
+  h4: ({ children }) => <h4 className="text-sm font-display font-semibold mt-3 mb-1.5 first:mt-0 text-content-primary">{children}</h4>,
+  p: ({ children }) => <div className="mb-2 last:mb-0 leading-relaxed">{children}</div>,
+  // Outside markers, not `list-inside`: inside markers made a wrapped line
+  // start under the bullet instead of under the text, so every multi-line item
+  // read as a ragged block.
+  ul: ({ children }) => <ul className="list-disc pl-5 mb-2 space-y-1 marker:text-content-muted">{children}</ul>,
+  ol: ({ children }) => <ol className="list-decimal pl-5 mb-2 space-y-1 marker:text-content-muted">{children}</ol>,
+  li: ({ children }) => <li className="pl-1 [&>ul]:mt-1 [&>ol]:mt-1">{children}</li>,
   strong: ({ children }) => <strong className="font-semibold text-content-primary">{children}</strong>,
   em: ({ children }) => <em className="italic text-content-primary">{children}</em>,
+  del: ({ children }) => <del className="text-content-muted">{children}</del>,
+  hr: () => <hr className="my-4 border-border" />,
   blockquote: ({ children }) => (
-    <blockquote className="border-l-2 border-content-muted pl-4 italic my-2 text-content-secondary">
+    <blockquote className="border-l-2 border-primary-500/60 pl-4 my-3 text-content-secondary">
       {children}
     </blockquote>
   ),
-  code: ({ inline, className, children }) => {
-    if (inline) {
-      return <code className="bg-base-800 px-1 py-0.5 rounded-sm text-sm font-mono text-content-muted">{children}</code>;
+  // react-markdown 10 no longer tells `code` whether it is inline (the
+  // `inline` prop was removed), so the old override rendered every inline
+  // `snippet` as a full <pre> block in the middle of a sentence. Blocks are
+  // now handled by `pre` below, which only ever wraps fenced code, and `code`
+  // is always the inline chip.
+  code: ({ className, children }) => (
+    <code className={`bg-base-800 border border-border px-1 py-0.5 rounded text-[0.9em] font-mono text-content-primary ${className || ''}`}>
+      {children}
+    </code>
+  ),
+  pre: ({ children }) => {
+    const child = React.Children.toArray(children).find(React.isValidElement);
+    const className = child?.props?.className || '';
+    const text = String(child?.props?.children ?? '').replace(/\n$/, '');
+    const language = (/language-([\w+#-]+)/.exec(className) || [])[1] || '';
+
+    // Fenced apex-* blocks are live widgets, not source code.
+    // ```apex-score: the same model the standalone calculator uses, pre-filled
+    // with whatever the tutor worked out. Malformed specs render nothing (see
+    // parseScoreSpec) rather than a confidently wrong score.
+    if (language === 'apex-score') return <InlineScoreCalculator spec={text} />;
+    // ```apex-retry: a live countdown. A static "try again in 60 seconds"
+    // baked into a chat message is stale the moment it renders.
+    if (language === 'apex-retry') return <RetryCountdown spec={text} />;
+    // ```apex-graph: a function plot with parameter sliders.
+    if (language === 'apex-graph') return <GraphWidget spec={text} />;
+    // ```apex-steps: a worked solution revealed one step at a time. If the
+    // JSON cannot be read, the raw block is still shown so nothing is lost.
+    if (language === 'apex-steps') {
+      return (
+        <StepReveal
+          spec={text}
+          renderMarkdown={(md) => <MarkdownRenderer content={md} />}
+          fallback={<CodeBlock language="" code={text} />}
+        />
+      );
     }
-    // A ```apex-score fence is a live widget, not source code. It renders the
-    // same model the standalone calculator uses, pre-filled with whatever the
-    // tutor worked out, so the student can drag the sliders instead of
-    // re-reading arithmetic. Malformed specs render nothing (see parseScoreSpec)
-    // rather than a confidently wrong score.
-    if (/language-apex-score/.test(className || '')) {
-      return <InlineScoreCalculator spec={String(children)} />;
-    }
-    // A ```apex-retry fence is a live countdown. A static "try again in 60
-    // seconds" baked into a chat message is stale the moment it renders.
-    if (/language-apex-retry/.test(className || '')) {
-      return <RetryCountdown spec={String(children)} />;
-    }
-    return (
-      <pre className="bg-base-900 p-3 rounded-sm overflow-x-auto my-2 border border-border">
-        <code className="text-success-300 font-mono text-sm">{children}</code>
-      </pre>
-    );
+    return <CodeBlock language={language} code={text} />;
   },
-  // react-markdown wraps fenced blocks in <pre>, and the `code` override above
-  // already emits its own <pre>. Passing through avoids nesting one inside the
-  // other (invalid — <pre> takes phrasing content) and lets the widget escape
-  // the monospace/overflow styling entirely.
-  pre: ({ children }) => <>{children}</>,
   // Internal links must stay in the app. The tutor is told to link to Apex
   // Scholar pages ("take a [practice test](/practice-tests)"), and sending
   // those through target="_blank" would spawn a second copy of the SPA in a new
@@ -105,26 +134,23 @@ const mdComponents = {
       );
     }
     return (
-      <a href={href} className="text-content-muted hover:text-content-primary underline" target="_blank" rel="noopener noreferrer">
+      <a href={href} className="text-primary-400 hover:text-primary-500 underline underline-offset-2 break-words" target="_blank" rel="noopener noreferrer">
         {children}
       </a>
     );
   },
-  // Table styling
-  table: ({ children }) => (
-    <div className="overflow-x-auto my-3 rounded-lg border border-border">
-      <table className="min-w-full divide-y divide-border text-sm">{children}</table>
-    </div>
-  ),
-  thead: ({ children }) => <thead className="bg-base-800/80">{children}</thead>,
-  tbody: ({ children }) => <tbody className="divide-y divide-border/50">{children}</tbody>,
-  tr: ({ children }) => <tr className="hover:bg-base-800/30 transition-colors">{children}</tr>,
-  th: ({ children }) => (
-    <th className="px-3 py-2 text-left text-xs font-semibold text-content-primary uppercase tracking-wider">
-      {children}
-    </th>
-  ),
-  td: ({ children }) => <td className="px-3 py-2 text-content-secondary whitespace-normal">{children}</td>,
+  // Tables — see markdown/MarkdownTable.jsx. A table with a points column is
+  // rendered as an interactive scoring rubric.
+  table: MarkdownTable,
+  thead: MarkdownThead,
+  tbody: MarkdownTbody,
+  tr: MarkdownTr,
+  th: MarkdownTh,
+  td: MarkdownTd,
+  // GFM task lists ("- [ ] thesis"): read-only checkboxes that match the theme.
+  input: ({ type, checked }) => (type === 'checkbox'
+    ? <input type="checkbox" checked={Boolean(checked)} readOnly disabled className="mr-1.5 align-middle accent-primary-500" />
+    : null),
 };
 
 const MarkdownRenderer = memo(({ content, className = "" }) => {
