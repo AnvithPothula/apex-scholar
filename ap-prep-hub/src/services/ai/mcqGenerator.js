@@ -115,7 +115,9 @@ export async function generateMcqs({
   const resp = await geminiService.generateContent(prompt, { temperature: 0.4, maxOutputTokens, task: 'mcqGenerate' });
   const mcqs = parseMcqArray(String(resp || ''));
   if (!verify || !mcqs.length) return mcqs;
-  return verifyMcqs({ subjectName, mcqs });
+  // Whatever wrote the questions must not also be the one checking them.
+  const author = geminiService.getLastResolvedModel?.()?.model || null;
+  return verifyMcqs({ subjectName, mcqs, avoidModel: author });
 }
 
 /**
@@ -123,16 +125,15 @@ export async function generateMcqs({
  * keep only the ones it agrees on.
  *
  * A wrong answer key is the worst failure this app can have — it teaches the
- * student the wrong thing and they trust it. Generation runs on the `bulk`
- * chain (Gemma 31B) and this check runs on `verifyMcq` (Gemma 26B, a different
- * architecture), so an idiosyncratic mistake by one model doesn't survive.
+ * student the wrong thing and they trust it. The router is asked to avoid the
+ * model that generated the batch (`avoidModel`), so an idiosyncratic mistake by
+ * one model doesn't survive.
  *
- * Cheap by design: both Gemma models are 1,500 requests/day/project (~15k/day
- * across the 10 projects), and this is one extra call per BATCH, not per
- * question. Fails open — if the check itself errors we return the unverified
- * batch rather than blocking content.
+ * Cheap by design: one extra call per BATCH, not per question. Fails open — if
+ * the check itself errors we return the unverified batch rather than blocking
+ * content.
  */
-export async function verifyMcqs({ subjectName, mcqs }) {
+export async function verifyMcqs({ subjectName, mcqs, avoidModel = null }) {
   try {
     const roster = mcqs
       .map((m, i) => `${i}. ${m.question}\n${m.choices.map((c, j) => `   ${j}) ${c}`).join('\n')}`)
@@ -154,6 +155,9 @@ ${roster}`;
       temperature: 0,
       maxOutputTokens: 2000,
       task: 'verifyMcq',
+      // Both chains lead with the same flash-lite models, so without this the
+      // "second opinion" was usually the same model grading its own work.
+      avoidModel,
     });
 
     const verdicts = parser.parse(String(resp || ''), true);

@@ -228,3 +228,58 @@ describe('the client can actually read the wait', () => {
     }
   });
 });
+
+describe('model ordering agrees across all three runtimes', () => {
+  // Slice named declarations out of the worker source (it is ESM inside a CJS
+  // package; see the rate-limit block above) and evaluate them together.
+  const slice = (src, name) => {
+    const start = src.search(new RegExp(`export (function|const) ${name}\\b`));
+    if (start === -1) throw new Error(`${name} not found in the worker`);
+    if (src.startsWith('export const', start)) return src.slice(start, src.indexOf(';', start) + 1).replace('export ', '');
+    // The body starts at ") {" — a plain "{" could be a destructured parameter.
+    let depth = 0;
+    for (let i = src.indexOf(') {', start) + 2; i < src.length; i++) {
+      if (src[i] === '{') depth++;
+      else if (src[i] === '}' && --depth === 0) return src.slice(start, i + 1).replace('export ', '');
+    }
+    throw new Error(`${name} is unbalanced`);
+  };
+  const w = new Function(
+    `${['LITE_HEAD', 'balanceHead', 'orderModels', 'isDailyQuota', 'secondsUntilPacificMidnight'].map((n) => slice(worker, n)).join('\n')}
+     return { orderModels, isDailyQuota, secondsUntilPacificMidnight };`
+  )();
+  const { orderModels: clientOrder, MODEL_CHAINS: chains } = require('../constants/modelChains');
+
+  it('worker and client order models identically', () => {
+    for (const rand of [() => 0.1, () => 0.9]) {
+      for (const opts of [{}, { requested: 'gemini-2.0-flash' }, { requested: 'gemini-3.7-flash' }, { avoid: 'gemini-3.1-flash-lite' }]) {
+        expect(w.orderModels(chains.interactive, { ...opts, rand })).toEqual(clientOrder(chains.interactive, { ...opts, rand }));
+      }
+    }
+  });
+
+  it('the worker never leads with a model outside the chain', () => {
+    expect(w.orderModels(chains.interactive, { requested: 'gemini-2.0-flash', rand: () => 1 })[0]).toBe('gemini-3.1-flash-lite');
+  });
+
+  it('the proxy routes through the same rules, and nothing jumps the chain unchecked', () => {
+    expect(proxy).toMatch(/function orderModels\(/);
+    expect(proxy).toMatch(/models = orderModels\(models/);
+    expect(proxy).not.toMatch(/const preferred/);
+    expect(worker).not.toMatch(/const preferred/);
+  });
+
+  it('parks a spent daily quota until midnight Pacific', () => {
+    expect(w.isDailyQuota('GenerateRequestsPerDayPerProjectPerModel')).toBe(true);
+    expect(w.isDailyQuota('GenerateRequestsPerMinutePerProjectPerModel')).toBe(false);
+    // 10:00 PDT -> 14h left.
+    expect(w.secondsUntilPacificMidnight(Date.parse('2026-09-29T17:00:00Z'))).toBe(14 * 3600);
+    expect(worker).toMatch(/isDailyQuota\(errBody\) \? secondsUntilPacificMidnight\(\)/);
+    expect(proxy).toMatch(/secondsUntilPacificMidnight\(\)/);
+  });
+
+  it('the proxy starts on a random key, not key 1 after every cold start', () => {
+    expect(proxy).not.toMatch(/currentKeyIndex/);
+    expect(proxy).toMatch(/Math\.floor\(Math\.random\(\) \* API_KEYS\.length\)/);
+  });
+});

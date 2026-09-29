@@ -30,16 +30,13 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
+import { createPool } from './lib/geminiPool.mjs';
 
 const require = createRequire(import.meta.url);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-const GENERATE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
-/**
- * Free-tier RPM is the binding constraint, not RPD (Gemma allows 14,400/day but
- * only 30/min). With keys rotating, the pause between calls can be short.
- */
-const DELAY_MS = 1500;
+/** Per-(key, model) request counts for today, shared by every batch script run. */
+const USAGE_FILE = path.join(path.dirname(fileURLToPath(import.meta.url)), '.gemini-usage.json');
 
 /**
  * Seeding uses a gemini-* chain with a response schema, NOT the app's `bulk`
@@ -127,89 +124,36 @@ results can be grouped by it.`;
 }
 
 /**
- * Walk the seeding chain, rotating keys within each model.
+ * One generation call through the shared paced pool (scripts/lib/geminiPool.mjs).
  *
- * Two failures are the KEY's fault, not the model's, and must advance the key
- * rather than give up on the model:
- *   429 — this key is out of quota for now.
- *   403 "Requests from referer <empty> are blocked" — the key is restricted to
- *        an HTTP referrer, which is correct hardening for a browser key and
- *        makes it permanently unusable from a server script. Those get parked
- *        for the rest of the run instead of being retried on every bundle.
- * Anything else is the model's problem and moves down the chain.
- *
- * `cursor` and `blocked` are shared across calls so the run keeps spreading
- * load and never re-tries a key it has already proven cannot work here.
+ * The pool paces each (key, model) pair to its per-minute limit, spreads work
+ * over both flash-lite pools and every key, parks a pair whose daily quota is
+ * spent until midnight Pacific, drops keys that 403 (referrer-restricted
+ * browser keys cannot be used from a script), and stops at 70% of each daily
+ * limit so a seeding run never starves students using the app. Set
+ * GEMINI_SCRIPT_RESERVE=0 to let a run use everything.
  */
 async function generate(keys, chain, prompt, state) {
-  const { cursor, blocked } = state;
-  let lastError;
-
-  for (const model of chain) {
-    for (let attempt = 0; attempt < keys.length; attempt++) {
-      const idx = cursor.i % keys.length;
-      cursor.i++;
-      if (blocked.has(idx)) continue;
-
-      try {
-        const res = await fetch(`${GENERATE_URL}/${model}:generateContent?key=${keys[idx]}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            generationConfig: {
-              temperature: 0.8,
-              maxOutputTokens: 16384,
-              responseMimeType: 'application/json',
-              responseSchema: QUESTION_SCHEMA,
-            },
-          }),
-        });
-
-        if (res.status === 429) {
-          lastError = new Error(`${model}: key ${idx + 1} rate limited`);
-          continue;
-        }
-        if (res.status === 403) {
-          // Park it for the whole run. A 403 on an API key is a configuration
-          // fact, not a transient failure — retrying it on every bundle just
-          // burns a round trip per bundle for the rest of the run.
-          const detail = await res.text();
-          blocked.add(idx);
-          const why = /referer/i.test(detail)
-            ? 'restricted to an HTTP referrer'
-            : /API_KEY_SERVICE_BLOCKED/.test(detail)
-              ? 'not permitted to call the Generative Language API'
-              : 'forbidden';
-          console.log(`  note   key ${idx + 1} ${why}; skipping it for this run`);
-          lastError = new Error(`${model}: key ${idx + 1} forbidden`);
-          continue;
-        }
-        if (!res.ok) {
-          lastError = new Error(`${model}: HTTP ${res.status} ${(await res.text()).slice(0, 160)}`);
-          break;
-        }
-
-        const body = await res.json();
-        const text = body?.candidates?.[0]?.content?.parts?.map((p) => p.text).join('') || '';
-        if (!text) {
-          lastError = new Error(`${model}: empty response (${body?.candidates?.[0]?.finishReason})`);
-          break;
-        }
-        return { text, model, key: idx + 1 };
-      } catch (err) {
-        lastError = err;
-      }
-    }
+  if (!state.pool) {
+    state.pool = createPool({
+      keys,
+      models: chain,
+      usageFile: USAGE_FILE,
+      log: (msg) => process.stdout.write(`\r  ${msg}            `),
+    });
   }
-
-  if (blocked.size === keys.length) {
-    throw new Error(
-      'every key was rejected with 403. Server-side seeding needs a key with no ' +
-        'HTTP-referrer restriction and the Generative Language API allowed.'
-    );
-  }
-  throw lastError || new Error('no model produced a response');
+  const { json, model, key } = await state.pool.call({
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: {
+      temperature: 0.8,
+      maxOutputTokens: 16384,
+      responseMimeType: 'application/json',
+      responseSchema: QUESTION_SCHEMA,
+    },
+  });
+  const text = json?.candidates?.[0]?.content?.parts?.map((p) => p.text).join('') || '';
+  if (!text) throw new Error(`${model}: empty response (${json?.candidates?.[0]?.finishReason})`);
+  return { text, model, key };
 }
 
 function loadCredentials() {
@@ -254,7 +198,7 @@ async function main() {
   if (!keys.length && !args.dryRun) {
     throw new Error('No Gemini keys. Set GEMINI_API_KEYS (comma-separated) in .env.');
   }
-  const state = { cursor: { i: 0 }, blocked: new Set() };
+  const state = { pool: null };
 
   console.log(
     `${args.dryRun ? '[dry run] ' : ''}${subjects.length} subject(s) x ${args.bundles} bundle(s) ` +
@@ -348,7 +292,7 @@ async function main() {
         console.warn(`  FAIL   ${id}: ${err.message}`);
       }
 
-      await new Promise((r) => setTimeout(r, DELAY_MS));
+      // No fixed sleep: the pool paces each key to its per-minute limit.
     }
 
     // Count only the unbroken run from 0. The reader picks a random index below

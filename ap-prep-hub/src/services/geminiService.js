@@ -1101,17 +1101,17 @@ class GeminiService {
    * server-side key and forwards to Google. Returns Google's JSON response.
    * Throws on any proxy/transport failure so callers can dev-fallback.
    */
-  async _requestViaProxy(body, model, context = 'AI proxy', task = '') {
+  async _requestViaProxy(body, model, context = 'AI proxy', task = '', avoidModel = null) {
     // Serialised through the shared queue. Generating one practice test is ~13
     // calls; firing those alongside the tutor and the solver is how a single
     // student exhausts a key's requests-per-minute without any help from
     // anyone else. The queue also remembers a 429, so the first refusal parks
     // the remaining twelve instead of collecting twelve more.
     const { enqueue } = await import('./aiQueue');
-    return enqueue(() => this._requestViaProxyNow(body, model, context, task));
+    return enqueue(() => this._requestViaProxyNow(body, model, context, task, avoidModel));
   }
 
-  async _requestViaProxyNow(body, model, context = 'AI proxy', task = '') {
+  async _requestViaProxyNow(body, model, context = 'AI proxy', task = '', avoidModel = null) {
     const url = this._aiProxyUrl();
     const headers = { 'Content-Type': 'application/json' };
     const appToken = (process.env.REACT_APP_AI_PROXY_APP_TOKEN || '').trim();
@@ -1140,9 +1140,21 @@ class GeminiService {
     // default like gemini-2.5-flash would pin all traffic to one model's 20 RPD
     // and silently defeat task routing. Puter-style ids (claude-*, gpt-*) are
     // also dropped — they'd 404 on the Gemini API.
+    //
+    // "gemini-2.0-flash" is the picker's generic "Gemini Flash" entry, which
+    // means "let the server choose". Forwarding it pinned every request to a
+    // model whose free-tier quota is 0/0, so each one started with a 429 per
+    // key tried. The router now ignores models outside the task's chain too.
     const picked = this._userModel;
-    const googleModel = picked && /^(models\/)?(google\/)?(gemini-|gemma-)/i.test(picked) ? picked : undefined;
-    const payload = { ...(googleModel ? { model: googleModel } : {}), ...(task ? { task } : {}), ...body };
+    const googleModel = picked && picked !== 'gemini-2.0-flash'
+      && /^(models\/)?(google\/)?(gemini-|gemma-)/i.test(picked) ? picked : undefined;
+    const payload = {
+      ...(googleModel ? { model: googleModel } : {}),
+      ...(task ? { task } : {}),
+      // Ask the router to start on a different model (MCQ verification).
+      ...(avoidModel ? { avoidModel } : {}),
+      ...body,
+    };
     let res;
     try {
       res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(payload) });
@@ -1191,12 +1203,12 @@ class GeminiService {
     return data;
   }
 
-  async _requestGoogleWithRotation(body, { context = 'Google API', maxAttempts = 4, model, task } = {}) {
+  async _requestGoogleWithRotation(body, { context = 'Google API', maxAttempts = 4, model, task, avoidModel = null } = {}) {
     // Primary transport: server-side Netlify proxy. Keys live in Netlify env
     // (GEMINI_API_KEY*), never in the client bundle.
     if (this._useProxyFirst()) {
       try {
-        return await this._requestViaProxy(body, model, context, task);
+        return await this._requestViaProxy(body, model, context, task, avoidModel);
       } catch (e) {
         if (e instanceof RateLimitError) throw e;
         const canDevFallback = process.env.NODE_ENV !== 'production' && apiKeyManager.getTotalKeys() > 0;
@@ -1212,7 +1224,7 @@ class GeminiService {
 
     // Attempts must cover the model chain too, not just the key ring: a model
     // outage consumes an attempt without ever touching a second key.
-    const chain = chainFor(task, model, JSON.stringify(body || '').length);
+    const chain = chainFor(task, model, JSON.stringify(body || '').length, { avoid: avoidModel });
     const attempts = Math.max(1, Math.min(maxAttempts, totalKeys) + chain.length - 1);
     let lastError = null;
     let onlyRateLimitFailures = true;
@@ -1327,7 +1339,8 @@ class GeminiService {
     const data = await this._requestGoogleWithRotation(body, {
       context: 'Google API',
       maxAttempts: 4,
-      task: options.task
+      task: options.task,
+      avoidModel: options.avoidModel || null,
     });
     const candidate = data?.candidates?.[0];
     const finishReason = candidate?.finishReason;
