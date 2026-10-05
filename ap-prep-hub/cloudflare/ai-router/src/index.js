@@ -40,15 +40,15 @@ export const MODEL_CHAINS = {
   // ("* Subject: AP Biology. * Question: ...") and calls that the answer. Every
   // prompt in this app is an instruction list. It still absorbs overflow at the
   // tail, where a 2-in-3 answer beats none.
-  bulk:        ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
-  interactive: ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
+  bulk:        ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
+  interactive: ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
   // FRQ grading is the one place output quality is worth the scarce pool, so
   // the newest -flash models lead and the lites catch the overflow.
-  premium:     ['gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
+  premium:     ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
   // No Gemma. Gemma 4 is documented to accept images, but that is unverified
   // here and the solver is not the place to find out.
-  vision:      ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'],
-  verify:      ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
+  vision:      ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'],
+  verify:      ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
 };
 
 // Gemma's TPM ceiling is 16K against flash-lite's 250K. A prompt over roughly
@@ -126,6 +126,63 @@ export function retryDelaySeconds(headerValue, bodyText) {
   return 0;
 }
 
+/** A 429 whose body names a per-day quota (RPD), not a per-minute one. */
+export function isDailyQuota(bodyText) {
+  return /PerDay|per day/i.test(String(bodyText || ''));
+}
+
+/**
+ * Seconds until midnight Pacific, when Google resets per-day quotas.
+ *
+ * A pair that has spent its daily requests is dead until then. Re-testing it
+ * every hour (the old flat 3600s) cost a doomed round trip per pair per hour on
+ * every isolate, and each of those is latency a student sits through.
+ */
+export function secondsUntilPacificMidnight(now = Date.now()) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Los_Angeles', hourCycle: 'h23', hour: '2-digit', minute: '2-digit', second: '2-digit',
+  }).formatToParts(new Date(now));
+  const get = (t) => Number((parts.find((p) => p.type === t) || {}).value || 0);
+  const elapsed = (get('hour') % 24) * 3600 + get('minute') * 60 + get('second');
+  return Math.max(60, 86400 - elapsed);
+}
+
+/**
+ * The two flash-lite models have IDENTICAL free-tier limits (15 RPM, 500 RPD
+ * per project), but every chain listed 3.1 first — so 3.1 took all the
+ * traffic and hit its caps (peak 23/15 RPM, 620/500 RPD) while 3.5 idled at
+ * 106 RPD. Splitting the head evenly doubles the headroom before the first
+ * 429 instead of waiting to fail over.
+ */
+export const LITE_HEAD = ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite'];
+
+export function balanceHead(models, rand = Math.random) {
+  if (models[0] === LITE_HEAD[0] && models[1] === LITE_HEAD[1] && rand() < 0.5) {
+    return [models[1], models[0], ...models.slice(2)];
+  }
+  return models;
+}
+
+/**
+ * Final model order for one request.
+ *   requested — honoured only when the task's chain would use it anyway. The
+ *               app's picker sends "gemini-2.0-flash", whose free quota is
+ *               0/0; putting it first made every request collect a 429 on up
+ *               to five keys before real routing even began.
+ *   avoid     — a model to push off the head (MCQ verification asks for a
+ *               DIFFERENT model than the one that wrote the questions).
+ */
+export function orderModels(chain, { requested = null, avoid = null, rand = Math.random } = {}) {
+  let models = balanceHead(chain.slice(), rand);
+  if (requested && models.includes(requested)) {
+    models = [requested, ...models.filter((m) => m !== requested)];
+  }
+  if (avoid && models.length > 1 && models[0] === avoid) {
+    models = [models[1], avoid, ...models.slice(2)];
+  }
+  return models;
+}
+
 export function pairIsCooling(map, keyIdx, model, now) {
   return (map.get(`${keyIdx}:${model}`) || 0) > now;
 }
@@ -135,7 +192,7 @@ export function coolPair(map, keyIdx, model, now, retryAfterSeconds) {
   // Google only tells us via retry-after, so trust it when present and use a
   // short default otherwise — a still-dead pair simply re-cools on next touch.
   const secs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
-    ? Math.min(retryAfterSeconds, 6 * 3600)
+    ? Math.min(retryAfterSeconds, 24 * 3600) // a spent daily quota waits for the Pacific-midnight reset
     : 60;
   if (map.size > PAIR_COOLDOWN_MAX) map.clear();
   map.set(`${keyIdx}:${model}`, now + secs * 1000);
@@ -403,11 +460,11 @@ export default {
 
     // ---- Task -> model chain, with an explicit Google model jumping the queue ----
     const chainName = hasImage ? 'vision' : (TASK_TO_CHAIN[task] || 'interactive');
-    let models = MODEL_CHAINS[chainName].slice();
-    // Only an *explicit* client-chosen Google model jumps the chain. (An env
-    // default must NOT — it would override task routing for every request.)
-    const preferred = isGoogleModel(norm(payload.model)) ? norm(payload.model) : null;
-    if (preferred) models = [preferred, ...models.filter((m) => m !== preferred)];
+    // A client-chosen model jumps the queue only if this chain would use it
+    // anyway (see orderModels), and the flash-lite head is load-balanced.
+    const requested = isGoogleModel(norm(payload.model)) ? norm(payload.model) : null;
+    const avoid = isGoogleModel(norm(payload.avoidModel)) ? norm(payload.avoidModel) : null;
+    let models = orderModels(MODEL_CHAINS[chainName], { requested, avoid });
 
     let lastErr = 'Service temporarily unavailable';
     // Random start spreads load across the ~10 key/projects (Worker isolates
@@ -463,8 +520,12 @@ export default {
               // This project is out of quota for THIS model only. Remember it so
               // the next request spends its attempts on models this key can
               // still serve, and drop straight to the next key here.
-              const secs = retryDelaySeconds(resp.headers.get('retry-after'), await resp.text());
-              coolPair(pairCooldown, keyIdx, m, Date.now(), secs);
+              const errBody = await resp.text();
+              const secs = retryDelaySeconds(resp.headers.get('retry-after'), errBody);
+              // A spent daily quota stays spent until midnight Pacific. The
+              // student-facing wait below still uses the short delay, since
+              // another pair usually answers long before then.
+              coolPair(pairCooldown, keyIdx, m, Date.now(), isDailyQuota(errBody) ? secondsUntilPacificMidnight() : secs);
               // Soonest moment ANY attempted pair frees up. This is what the
               // client counts down; without it the UI invents a number.
               const wait = secs > 0 ? secs : 60;

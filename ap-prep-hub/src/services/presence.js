@@ -43,9 +43,12 @@ export async function recordPresence(uid, existing, deps) {
   const now = Date.now();
   if (!shouldStamp(now)) return false;
   const patch = { lastSeenAt: serverTimestamp() };
-  // Only stamp createdAt if the document genuinely lacks one. A user who
-  // signed up in March must not be relabelled as a September arrival.
-  if (!existing || !existing.createdAt) {
+  // Only backfill createdAt on an EXISTING document that lacks one. A user who
+  // signed up in March must not be relabelled as a September arrival — and a
+  // brand-new account (existing === null) gets its real createdAt from the
+  // creation write in AuthContext; stamping it here as a "backfill" mislabelled
+  // every genuine sign-up and hid them from the new-user count.
+  if (existing && !existing.createdAt) {
     patch.createdAt = serverTimestamp();
     patch.createdAtIsBackfill = true;
   }

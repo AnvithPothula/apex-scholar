@@ -136,13 +136,15 @@ export function sampleQuestions(bundles, count, rand = Math.random) {
   const seen = new Set();
   const pool = [];
   for (const b of bundles || []) {
-    for (const q of (b && b.questions) || []) {
-      if (!isUsableQuestion(q)) continue;
+    ((b && b.questions) || []).forEach((q, i) => {
+      if (!isUsableQuestion(q)) return;
       const key = q.question.trim().toLowerCase();
-      if (seen.has(key)) continue;
+      if (seen.has(key)) return;
       seen.add(key);
-      pool.push(q);
-    }
+      // A stable item id (bundle doc + position) so the response log can tell
+      // the same question apart across students. Banked items carry none.
+      pool.push(q.id || !b.id ? q : { ...q, id: `${b.id}#${i}` });
+    });
   }
   for (let i = pool.length - 1; i > 0; i--) {
     const j = Math.floor(rand() * (i + 1));
@@ -189,7 +191,7 @@ export async function getBankQuestions(subject, { unit = GENERAL_UNIT, count = 1
     const snaps = await Promise.all(
       picks.map((i) => getDoc(doc(db, 'questionBank', bundleId(subject, unit, i))))
     );
-    const bundles = snaps.filter((s) => s.exists()).map((s) => s.data());
+    const bundles = snaps.filter((s) => s.exists()).map((s) => ({ ...s.data(), id: s.id }));
     return sampleQuestions(bundles, count);
   } catch (err) {
     const { default: errorLogger } = await import('../utils/errorLogger');

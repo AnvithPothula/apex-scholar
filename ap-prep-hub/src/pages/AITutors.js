@@ -41,7 +41,7 @@ import {
   Scroll,
   PenTool
 } from 'lucide-react';
-import { Card, CardContent, Button, Badge, Input } from '../components/ui/UIComponents';
+import { Card, CardContent, Button, Input } from '../components/ui/UIComponents';
 import MCQCard from '../components/tutors/MCQCard.jsx';
 import CalculatorPad from '../components/tools/CalculatorPad.jsx';
 import { cedSearch } from '../services/cedSearch';
@@ -91,6 +91,8 @@ import { promptBudget, briefCurriculum } from '../services/promptBudget';
 import { parseSingleMcq } from '../services/ai/mcqGenerator';
 import errorLogger from '../utils/errorLogger';
 import { recordTutorMessage } from '../services/activityTracker';
+import { widgetDirective, WALKTHROUGH_DIRECTIVE } from '../services/tutorWidgets';
+import { GENERAL_5H_LIMIT } from '../services/aiUsageLimiter';
 
 /**
  * Tutor answer modes.
@@ -825,6 +827,14 @@ const AITutors = () => {
     }
   };
 
+  // Plain-text formats whose CONTENT should reach the tutor. JSON used to fall
+  // through to the binary branch (its MIME type has no "text" in it), so the
+  // tutor got "[Document uploaded: data.json]" and never saw a byte of it.
+  const isTextFile = (file) =>
+    file.type.startsWith('text/') ||
+    file.type === 'application/json' ||
+    /\.(txt|csv|json|md|markdown|tsv)$/i.test(file.name);
+
   // Process individual file based on type
   const processFile = (file) => {
     return new Promise((resolve, reject) => {
@@ -861,7 +871,7 @@ const AITutors = () => {
             processedFile.data = result.split(',')[1];
             processedFile.mimeType = file.type;
             processedFile.category = 'document';
-          } else if (file.type.includes('text') || file.name.endsWith('.txt') || file.name.endsWith('.csv')) {
+          } else if (isTextFile(file)) {
             // For text files, store as text content
             processedFile.content = result;
             processedFile.category = 'text';
@@ -890,11 +900,10 @@ const AITutors = () => {
 
       // Read file based on type
       try {
-        if (file.type.startsWith('image/') || file.type === 'application/pdf' || 
-            (!file.type.includes('text') && !file.name.endsWith('.txt'))) {
-          reader.readAsDataURL(file);
-        } else {
+        if (isTextFile(file)) {
           reader.readAsText(file);
+        } else {
+          reader.readAsDataURL(file);
         }
       } catch (error) {
         clearTimeout(timeout);
@@ -905,7 +914,10 @@ const AITutors = () => {
 
   // Remove uploaded file
   const handleFileRemove = (file) => {
-    setUploadedFiles(prev => prev.filter(f => !(f.name === file.name && f.size === file.size && f.lastModified === file.lastModified)));
+    // By id. The old name+size+lastModified match compared lastModified, which
+    // processed files never carry (undefined === undefined), so removing one
+    // copy of a re-attached file removed every copy.
+    setUploadedFiles(prev => prev.filter(f => f.id !== file.id));
   };
 
   const handleSubjectSelect = useCallback(async (subjectId) => {
@@ -1191,15 +1203,18 @@ const AITutors = () => {
         `Explain ${unit.name.toLowerCase()}`
       );
       
-      const topicSuggestions = curriculumData.units.slice(0, 2).flatMap(unit => 
-        unit.topics.slice(0, 1).map(topic => `Help me understand ${topic.toLowerCase()}`)
+      const topicSuggestions = curriculumData.units.slice(0, 2).flatMap(unit =>
+        (Array.isArray(unit.topics) ? unit.topics : []).slice(0, 1).map(topic => `Help me understand ${String(topic).toLowerCase()}`)
       );
-      
+
+      // "Create a study schedule" used to be offered here, but a subject tutor
+      // is told to refuse anything outside its subject, so clicking it got a
+      // refusal. The scheduler lives on its own page.
       return [
         ...unitBasedSuggestions,
         ...topicSuggestions,
+        `Show me the scoring rubric for the ${curriculumData.name} free-response questions`,
         `Prepare for the ${curriculumData.name} exam`,
-        'Create a study schedule'
       ].slice(0, 6);
     }
     
@@ -1414,7 +1429,13 @@ const AITutors = () => {
     // IMPORTANT: Only include images from the LATEST message to save tokens.
     // Older images are replaced with text descriptions.
     const hasFiles = Array.isArray(uploadedFiles) && uploadedFiles.length > 0;
-    const conversationHistory = activeMessages.slice(-6).map((msg, idx, arr) => {
+    // Outage notices ("I couldn't reach the AI service…" + a retry countdown)
+    // and error placeholders are the app talking, not the tutor. Sent back as
+    // model turns they taught the model to apologise for outages that were
+    // over, and crowded real context out of the 6-message window.
+    const isAppNotice = (msg) =>
+      msg.responseType === 'error' || /```apex-retry/.test(String(msg.content || ''));
+    const conversationHistory = activeMessages.filter((m) => !isAppNotice(m)).slice(-6).map((msg, idx, arr) => {
       const sanitizedContent = msg.type === 'user' ? sanitizeUserInput(msg.content) : msg.content;
       // Truncate older assistant responses to save input tokens
       const isOldMessage = idx < arr.length - 2;
@@ -1570,13 +1591,7 @@ Make the question AP exam-level difficulty. Include plausible distractors that t
 LATEX INSIDE JSON STRINGS: Every backslash in a LaTeX command MUST be doubled. Write \\\\text{CH}_3 not \\text{CH}_3. Write \\\\frac{a}{b} not \\frac{a}{b}. Use $...$ for math; never \\\\( or \\\\[. A single backslash inside a JSON string is interpreted as an escape (\\t → tab, \\n → newline), which corrupts LaTeX.
 YOUR ENTIRE RESPONSE MUST BE VALID JSON. NO OTHER TEXT.`
     : mode === 'Walkthrough'
-    ? `MODE: Step-by-step walkthrough.
-Break the solution into clear, numbered steps. Each step should:
-1. State what you're doing and why
-2. Show the work with $LaTeX$ for any math
-3. Be concise — one key action per step
-End with a brief summary of the approach and the final answer.
-Use $$display math$$ for important equations and $inline$ for references.`
+    ? WALKTHROUGH_DIRECTIVE
     : mode === 'Summarize Attachment'
     ? `MODE: Summarize the attached files.
 First provide a structured summary:
@@ -1643,6 +1658,7 @@ ${langDirective ? `\n${langDirective}\n` : ''}
 ${calculatorDirective}
 
 ${modeDirective}
+${widgetDirective({ mode })}
 ${critiqueDirective}
 ${citationsBlock}
 
@@ -1931,17 +1947,19 @@ ${retrySpec}
   };
 
   const handleKeyPress = (e) => {
-    console.log('Key pressed:', e.key, 'shiftKey:', e.shiftKey);
-    
+    // An Enter that confirms an IME composition (Chinese, Japanese, Korean
+    // input) is choosing a character, not sending. Without this the Chinese and
+    // Japanese tutors sent half-typed messages. keyCode 229 covers Safari,
+    // which reports isComposing=false on that keydown.
+    if (e.nativeEvent?.isComposing || e.keyCode === 229) return;
+
     if (e.key === 'Enter') {
       if (e.shiftKey) {
         // Allow Shift+Enter for new line (don't prevent default)
-        console.log('Shift+Enter pressed, allowing new line');
         return;
       } else {
         // Enter without Shift sends the message
         e.preventDefault();
-        console.log('Enter pressed, sending message');
         handleSendMessage();
       }
     }
@@ -2207,7 +2225,7 @@ ${retrySpec}
                 className={`group relative p-3 rounded-lg cursor-pointer transition-all duration-200 ${
                   activeConversationId === conversation.id
                     ? 'bg-base-800 border border-border-strong'
-                    : 'bg-base-800 hover:bg-base-800'
+                    : 'border border-transparent hover:bg-base-800/60'
                 }`}
                 onClick={() => {
                   if (!editingConversationId) {
@@ -2301,7 +2319,7 @@ ${retrySpec}
                           );
                         }}
                         aria-label={`Options for ${conversation.name || 'conversation'}`}
-                        className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity h-6 w-6 p-0 text-content-muted hover:text-content-primary"
+                        className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity h-6 w-6 p-0 text-content-muted hover:text-content-primary"
                       >
                         <MoreVertical strokeWidth={1.5} className="w-3 h-3" />
                       </Button>
@@ -2403,9 +2421,6 @@ ${retrySpec}
               </div>
               
               <div className="flex items-center gap-2 sm:gap-6 flex-shrink-0">
-                <Badge variant="primary" className="bg-base-800 text-content-secondary border-border text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1 hidden sm:inline-flex">
-                  Active Session
-                </Badge>
                 {/* Mobile back button */}
                 <Button
                   variant="ghost"
@@ -2706,7 +2721,9 @@ ${retrySpec}
             ref={fileInputRef}
             type="file"
             multiple
-            accept="image/*,.pdf,.doc,.docx,.txt,.csv,.json"
+            // No .doc/.docx: nothing here can read Word files, so the tutor only
+            // ever saw the file name while the student assumed it read the essay.
+            accept="image/*,.pdf,.txt,.csv,.tsv,.json,.md"
             onChange={handleFileInputChange}
             className="hidden"
             aria-hidden="true"
@@ -2745,7 +2762,9 @@ ${retrySpec}
                       ({Math.round(file.size / 1024)}KB)
                     </span>
                     <button
+                      type="button"
                       onClick={() => handleFileRemove(file)}
+                      aria-label={`Remove ${file.name}`}
                       className="ml-1 sm:ml-2 text-content-muted hover:text-error-400"
                     >
                       <X strokeWidth={1.5} className="w-3 h-3" />
@@ -2825,7 +2844,7 @@ ${retrySpec}
                 >
                   Sign in
                 </button>
-                <span>for unlimited.</span>
+                <span>for {GENERAL_5H_LIMIT} messages every 5 hours.</span>
               </div>
             ) : (
               <div className="mt-2.5 p-2.5 rounded-md bg-base-800 border border-border flex items-center justify-between gap-3">
@@ -2842,15 +2861,6 @@ ${retrySpec}
             )
           )}
 
-          <div className="hidden sm:flex items-center justify-between mt-3 sm:mt-4 text-xs text-content-muted">
-            <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
-              <span>Enter to send • Shift+Enter for new line</span>
-              <span className="flex items-center gap-1">
-                <TrendingUp strokeWidth={1.5} className="w-3 h-3" />
-                Powered by AI
-              </span>
-            </div>
-          </div>
         </div>
       </motion.div>
       {showCalculator && (

@@ -66,4 +66,15 @@ export function trackPageView(path) {
   });
 }
 
+/**
+ * Report a named event (sign_up, first_run_complete, test_completed). Mark the
+ * ones that matter as key events in GA → Admin → Events, or GA can count visits
+ * but never which channel produced a student. Params must never carry personal
+ * data: no names, emails or free text.
+ */
+export function trackEvent(name, params = {}) {
+  if (!loaded || typeof window === 'undefined' || !window.gtag) return;
+  window.gtag('event', name, params);
+}
+
 export const analyticsEnabled = () => Boolean(GA_ID);

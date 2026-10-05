@@ -1,5 +1,8 @@
 # The original-data post — measured, and blocked
 
+> **Still blocked, 2026-09-25:** 0 practice tests in the last 30 days, 0 rows in the
+> `responses` log. Revisit only once the thresholds below are met.
+
 Plan §5.4 calls this the highest-value asset available: *"We AI-graded N
 thousand AP free-response answers. Here are the 10 mistakes students make
 most."* It is simultaneously a linkable asset, a journalist pitch, a
@@ -52,7 +55,7 @@ and nobody can be identified.
 Data about the **exams**, which you already have and which carries zero privacy
 risk, rather than data about students, which you don't.
 
-**The composite curves for all 36 subjects.** You researched section weights
+**The composite curves for all 37 subjects.** You researched section weights
 from each CED and estimated cut points from released exams. Nobody publishes
 the full curve — that is already the score calculator's stated differentiator,
 and it is currently buried behind a "Show the curve used" toggle. As a standing

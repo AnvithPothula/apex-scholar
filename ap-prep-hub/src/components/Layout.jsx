@@ -307,7 +307,9 @@ export function Layout({ children }) {
 
             {/* Onboarding walkthrough — signed-in users only (it writes
                 completion state to Firestore and tours member-only pages) */}
-            {user && (
+            {/* Not on /start: the first-run check asks for a subject itself
+                and marks onboarding done when it saves. */}
+            {user && location.pathname !== '/start' && (
                 <Suspense fallback={null}>
                     <OnboardingWalkthrough />
                 </Suspense>

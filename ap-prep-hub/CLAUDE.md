@@ -100,6 +100,7 @@ All user data is scoped under `users/{userId}/`:
 
 | Route | Component | Description |
 |-------|-----------|-------------|
+| `/start` | `Start.jsx` | First-run 10-question check → predicted score + today's plan (`/` routes here until done) |
 | `/ai-tutors` | `AITutors.js` | Subject-specific AI chat tutors |
 | `/smart-scheduler` | `SmartScheduler.js` | Intelligent study scheduler |
 | `/practice-tests` | `PracticeTests.js` | AI-generated AP practice tests |

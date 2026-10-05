@@ -23,6 +23,24 @@ import errorLogger from '../utils/errorLogger';
 import { hasUnlimitedUsage } from '../constants/unlimitedUsers';
 import aiUsageLimiter from '../services/aiUsageLimiter';
 import { readPendingConsent, clearPendingConsent } from '../constants/consent';
+import { trackEvent } from '../utils/analytics';
+
+// Two paths can create the same account's document (the email form and the
+// auth listener race), so sign_up is reported once per uid per page load.
+const reportedSignUps = new Set();
+function reportSignUp(uid, method) {
+    if (!uid || reportedSignUps.has(uid)) return;
+    reportedSignUps.add(uid);
+    trackEvent('sign_up', { method });
+}
+
+// Written on account creation. Presence (services/presence.js) only backfills
+// accounts that predate these fields, so a real sign-up is never mislabelled.
+const creationStamps = (serverTimestamp) => ({
+    createdAt: serverTimestamp(),
+    createdAtIsBackfill: false,
+    lastSeenAt: serverTimestamp(),
+});
 
 const AVATAR_GRADIENTS = [
   'linear-gradient(135deg, #14b8a6, #2dd4bf)',  // Teal
@@ -148,7 +166,7 @@ export const AuthProvider = ({ children }) => {
                 const fetchUserData = async () => {
                     try {
 
-                        const { db, doc, getDoc, setDoc, updateDoc } = await loadFirestore();
+                        const { db, doc, getDoc, setDoc, updateDoc, serverTimestamp } = await loadFirestore();
                         const userDocRef = doc(db, "users", firebaseUser.uid);
                         const userDocSnap = await getDoc(userDocRef);
                         
@@ -160,13 +178,13 @@ export const AuthProvider = ({ children }) => {
                             recordPresence(
                                 firebaseUser.uid,
                                 userDocSnap.exists() ? userDocSnap.data() : null,
-                                { db, doc, setDoc, serverTimestamp: (await import('firebase/firestore')).serverTimestamp }
+                                { db, doc, setDoc, serverTimestamp }
                             );
                         } catch (e) { /* presence is never worth breaking auth over */ }
 
                         if (userDocSnap.exists()) {
                             const userData = userDocSnap.data();
-                            setUser(prev => ({ ...prev, ...userData }));
+                            setUser(prev => ({ ...prev, ...userData, profileLoaded: true }));
                             // Backfill avatarGradient for existing users who don't have one
                             if (!userData.avatarGradient) {
                                 const gradient = generateAvatarGradient();
@@ -194,8 +212,10 @@ export const AuthProvider = ({ children }) => {
                                 emailOptIn: consent?.emailOptIn === true,
                                 ...(consent?.emailOptIn ? { emailOptInAt: consent.at || new Date().toISOString() } : {}),
                                 ...(consent?.acceptedTerms ? { termsAcceptedAt: consent.at || new Date().toISOString() } : {}),
+                                ...creationStamps(serverTimestamp),
                             });
-                            setUser(prev => ({ ...prev, avatarGradient: gradient }));
+                            setUser(prev => ({ ...prev, avatarGradient: gradient, profileLoaded: true }));
+                            reportSignUp(firebaseUser.uid, firebaseUser.providerData?.[0]?.providerId === 'password' ? 'email' : 'google');
 
                         }
                         // Consumed either way — a stale stash must not leak into
@@ -204,6 +224,8 @@ export const AuthProvider = ({ children }) => {
                     } catch (error) {
                         console.error("❌ Error fetching/creating user data:", error);
                         setConnectionError(getFirebaseErrorMessage(error));
+                        // Never leave "/" waiting on a profile that won't arrive.
+                        setUser(prev => (prev ? { ...prev, profileLoaded: true } : prev));
                     }
                 };
                 
@@ -331,7 +353,7 @@ export const AuthProvider = ({ children }) => {
 
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const gradient = generateAvatarGradient();
-            const { db, doc, setDoc } = await loadFirestore();
+            const { db, doc, setDoc, serverTimestamp } = await loadFirestore();
             await setDoc(doc(db, "users", userCredential.user.uid), {
                 fullName,
                 email,
@@ -346,7 +368,9 @@ export const AuthProvider = ({ children }) => {
                 ...(emailOptIn === true ? { emailOptInAt: new Date().toISOString() } : {}),
                 // Recorded so we can show when this account accepted the terms.
                 termsAcceptedAt: new Date().toISOString(),
+                ...creationStamps(serverTimestamp),
             });
+            reportSignUp(userCredential.user.uid, 'email');
 
             return userCredential;
         } catch (error) {

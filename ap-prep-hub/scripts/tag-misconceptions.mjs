@@ -39,12 +39,11 @@ try { process.loadEnvFile(path.join(ROOT, '.env')); } catch { /* real env expect
 const loadEsm = async (rel) =>
   import(`data:text/javascript;base64,${Buffer.from(await readFile(path.join(ROOT, rel), 'utf8')).toString('base64')}`);
 const { TAGS, MISCONCEPTIONS, isTag, ruleTags } = await loadEsm('src/constants/misconceptions.js');
-// Reuse the router's parser rather than writing a third copy: Google sends the
-// wait in the response BODY as a RetryInfo `retryDelay: "26s"`, not in a header
-// (Round 53). It is already tested over there.
-const { retryDelaySeconds } = await loadEsm('cloudflare/ai-router/src/index.js');
-
-const GENERATE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
+// Paced key pool shared with the seeder: per-key RPM pacing, both flash-lite
+// pools used evenly, daily quota tracked in scripts/.gemini-usage.json, and a
+// 30% share of each daily limit left for the live app (GEMINI_SCRIPT_RESERVE).
+const { createPool, BudgetExhaustedError } = await import('./lib/geminiPool.mjs');
+const USAGE_FILE = path.join(ROOT, 'scripts', '.gemini-usage.json');
 // Same chain the seeder uses. Gemma leads the `bulk` chain in the app, but
 // Round 53 measured it at 2/3 on JSON and it ignores responseSchema on the free
 // tier — unusable for a task whose entire output is a constrained label set.
@@ -67,67 +66,30 @@ const keys = (process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || '')
   .split(',').map((s) => s.trim()).filter(Boolean);
 if (!keys.length) { console.error('No GEMINI_API_KEYS in .env.'); exit(1); }
 
-// Minimal copy of the seeder's rotation. Deliberately duplicated rather than
-// refactoring scripts/seed-question-bank.mjs, which is working production
-// tooling and not worth destabilising for forty lines.
-// Rotation with per-key cooldowns. The first version walked every key once and
-// gave up, so a transient 429 or 503 killed the item outright — 28 failures in
-// the first 120 of a full-bank run, none of them permanent conditions. Keys are
-// now parked until the moment Google says they are free again, and the walk
-// waits rather than burning through the chain.
-const state = { i: 0, coolUntil: new Map(), blocked: new Set() };
-
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const TRANSIENT = new Set([429, 500, 502, 503, 504]);
+// Requests go through the shared pool. The loop here used to fire ~8 calls/s
+// across 11 keys — about 43 requests/minute per key against a 15 RPM limit —
+// and always led with gemini-3.1-flash-lite, which is what pushed that model
+// past its per-minute and per-day caps while students were using the app.
+const pool = createPool({
+  keys,
+  models: CHAIN,
+  usageFile: USAGE_FILE,
+  log: (msg) => process.stdout.write(`\r  ${msg}            `),
+});
+let lastModel = CHAIN[0];
 
 async function callModel(prompt) {
-  let lastErr = 'no attempt';
-  // Each pass tries every live key on every model. Between passes, wait for the
-  // soonest key to come back rather than declaring failure.
-  // Six passes, not four: under sustained throttling four still gave up on
-  // ~10% of items. Costs nothing when the keys are healthy — a pass only waits
-  // when every key is cooling, and then only until the soonest one frees.
-  for (let pass = 0; pass < 6; pass++) {
-    for (const model of CHAIN) {
-      for (let a = 0; a < keys.length; a++) {
-        const idx = state.i++ % keys.length;
-        if (state.blocked.has(idx)) continue;
-        if ((state.coolUntil.get(idx) || 0) > Date.now()) continue;
-        try {
-          const res = await fetch(`${GENERATE_URL}/${model}:generateContent?key=${keys[idx]}`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ role: 'user', parts: [{ text: prompt }] }],
-              generationConfig: {
-                temperature: 0, maxOutputTokens: 2048,
-                responseMimeType: 'application/json', responseSchema: SCHEMA,
-              },
-            }),
-          });
-          // 403 is a key restriction, not a blip — park it for the whole run.
-          if (res.status === 403) { state.blocked.add(idx); lastErr = '403'; continue; }
-          if (TRANSIENT.has(res.status)) {
-            const secs = retryDelaySeconds(res.headers.get('retry-after'), await res.text()) || 20;
-            state.coolUntil.set(idx, Date.now() + secs * 1000);
-            lastErr = `HTTP ${res.status} (cooling key ${idx + 1} for ${secs}s)`;
-            continue;
-          }
-          if (!res.ok) { lastErr = `${model}: HTTP ${res.status}`; continue; }
-          const body = await res.json();
-          const text = body?.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (!text) { lastErr = `empty candidate (${body?.candidates?.[0]?.finishReason || 'no reason'})`; continue; }
-          return JSON.parse(text);
-        } catch (e) { lastErr = e.message; }
-      }
-    }
-    // Everything is cooling or failing. Wait for the earliest key to free up.
-    const soonest = Math.min(...[...state.coolUntil.values()].filter((t) => t > Date.now()), Infinity);
-    if (!Number.isFinite(soonest)) break;                  // nothing cooling -> real failure
-    const waitMs = Math.min(Math.max(soonest - Date.now(), 1000), 70000);
-    process.stdout.write(`\r  waiting ${Math.ceil(waitMs / 1000)}s for a key…            `);
-    await sleep(waitMs);
-  }
-  throw new Error(lastErr);
+  const { json, model } = await pool.call({
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: {
+      temperature: 0, maxOutputTokens: 2048,
+      responseMimeType: 'application/json', responseSchema: SCHEMA,
+    },
+  });
+  const text = json?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error(`empty candidate (${json?.candidates?.[0]?.finishReason || 'no reason'})`);
+  lastModel = model;
+  return JSON.parse(text);
 }
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
@@ -211,7 +173,7 @@ async function flush() {
     // merge:true deep-merges the `items` map, so repeated partial flushes
     // accumulate instead of overwriting earlier ones in the same bundle.
     await flushDb.collection('questionBankTags').doc(bundle).set(
-      { items: items_, taggedAt: new Date(), model: CHAIN[0], taxonomyVersion: 1 },
+      { items: items_, taggedAt: new Date(), model: lastModel, taxonomyVersion: 1 },
       { merge: true }
     );
     applied += Object.keys(items_).length;
@@ -227,6 +189,12 @@ for (let n = 0; n < items.length; n++) {
     const tags = (await callModel(buildPrompt(item))).filter((t) => isTag(t.tag));
     results.push({ id: item.id, subject: item.subject, tags });
   } catch (e) {
+    if (e instanceof BudgetExhaustedError) {
+      // Today's share is spent. Stop here; everything tagged so far is saved
+      // by the final flush, and --resume picks up the rest tomorrow.
+      console.log(`\n  stopping: ${e.message}`);
+      break;
+    }
     failed++;
     results.push({ id: item.id, subject: item.subject, tags: [], error: e.message });
   }
@@ -243,8 +211,9 @@ for (let n = 0; n < items.length; n++) {
   if ((n + 1) % 10 === 0 || n === items.length - 1) {
     process.stdout.write(`\r  ${n + 1}/${items.length} (${failed} failed, ${applied} saved)          `);
   }
-  await sleep(120); // ~8/s ceiling across 11 keys; politeness, not correctness
+  // No fixed sleep: the pool paces each key to its per-minute limit.
 }
+console.log(`\n  quota used today: ${pool.summary()}`);
 console.log('\n');
 
 // ---- Score against the rule tagger, where it is confident ----

@@ -10,6 +10,7 @@ study scheduler. Live at **[apex-scholar.com](https://apex-scholar.com)**.
 
 | Route | What it does |
 |---|---|
+| `/start` | First-run check: 10 banked questions → predicted AP score with an honest range and today's plan. **Open to guests.** `/` sends anyone who hasn't done it here, everyone else to the tutors. |
 | `/ai-tutors` | Subject-specific AI chat tutors. **Open to guests** — no account needed. |
 | `/practice` | Hub for Practice Tests, Review, Flashcards and Classes. |
 | `/practice-tests` | AI-generated exam-format tests (MCQ, SAQ, DBQ, LEQ, FRQ) with timing, AI rubric grading, and auto-save/resume. |
@@ -42,8 +43,8 @@ These are deliberate and worth preserving:
   with the Netlify function `ai-proxy` as fallback. Task→model chains route bulk work to Gemma and
   reserve scarce Flash quota for FRQ grading.
 - **Hosting/serverless:** Netlify (`netlify/functions/*`)
-- **Email:** Cloudflare Email Routing inbound, SMTP2GO outbound
-- **Analytics:** GA4, env-gated so dev and previews send nothing
+- **Email:** Cloudflare Email Routing inbound, SMTP2GO outbound. `email-weekly` (scheduled daily, 14:00 UTC) sends the Sunday digest and the daily final-week email; it is a dry run until `WEEKLY_EMAIL_ENABLED=true`. Every email links to a no-login preferences page (`email-unsubscribe`) with per-category opt-outs (weekly digest, exam-week reminders, announcements) and "unsubscribe from all"; the same toggles are in Settings
+- **Analytics:** GA4, env-gated so dev and previews send nothing. Events: `sign_up`, `first_run_complete`, `test_completed`
 
 > ⚠️ **AI keys are server-side.** Anything named `REACT_APP_*` is inlined into the public browser
 > bundle by CRA — used or not. Never put a secret in one.
@@ -51,12 +52,17 @@ These are deliberate and worth preserving:
 ## 🚀 Getting started
 
 ```bash
-git clone https://github.com/yourusername/apex-scholar.git
+git clone https://github.com/AnvithPothula/apex-scholar.git
 cd apex-scholar/ap-prep-hub
-npm install
+npm ci                    # needs npm 11 — see below
 cp .env.example .env      # fill in Firebase web config at minimum
 npm start                 # http://localhost:3000
 ```
+
+The lockfile was written by npm 11. With npm 10 (the version bundled with Node 20 and 22),
+`npm ci` refuses to install and reports that package.json and package-lock.json are out of
+sync. They aren't; npm 10 just reads the lockfile differently. Run `npm install -g npm@11`
+first, or use `npx npm@11 ci`. CI does the same thing.
 
 ### Running with serverless functions
 Functions do **not** run under `npm start`. To exercise `ai-proxy`, `admin-stats`, or the email
@@ -85,9 +91,9 @@ apex-scholar/
 ├── ap-prep-hub/
 │   ├── firestore.rules           # security rules — user-scoped, default deny
 │   ├── netlify/
-│   │   ├── functions/            # ai-proxy, admin-stats, email-broadcast, email-unsubscribe,
-│   │   │                         # cors-proxy, schoology-oauth
-│   │   └── lib/                  # shared function code (firebase-admin bootstrap)
+│   │   ├── functions/            # ai-proxy, admin-stats, class-record-test, email-broadcast,
+│   │   │                         # email-weekly, email-unsubscribe, cors-proxy, schoology-oauth
+│   │   └── lib/                  # shared function code (firebase-admin, class scoring, weekly digest, exam dates)
 │   ├── cloudflare/ai-router/     # the Cloudflare Worker that fronts Gemini
 │   └── src/
 │       ├── pages/                # one file per route above
@@ -95,15 +101,34 @@ apex-scholar/
 │       ├── services/             # geminiService, srs, mastery, classes, activityTracker, …
 │       ├── utils/                # apScore, whyWrong, quizletImport, examTime, analytics, …
 │       └── constants/            # apScoreModels, testConfigurations, apExamDates, admins
-└── AP Course and Exam Descriptions/
+├── ap-prep-hub/public/ced/        # College Board CED PDFs, one per course
+├── .claude/skills/ap-year-rollover/  # yearly course/exam-date update, incl. Python helpers
+└── requirements.txt              # Python helper scripts (standard library only)
 ```
+
+### Python helpers
+The app itself needs no Python. The yearly rollover scripts and the score-curve research script
+(`ap-prep-hub/docs/research/ap-score-curves/final.py`) use only the standard library, so
+`requirements.txt` has no packages in it; it records the Python version (3.8+) and the one system
+tool the CED scripts call, `pdftotext` from poppler (`brew install poppler` or
+`apt-get install poppler-utils`).
 
 ## 🔒 Security notes
 
 - Firestore rules are **deny-by-default** and user-scoped. Reads of a document by a *derived id*
   need an id branch in the rule — `resource.data` is `null` for a document that does not exist yet,
   so an ownership check alone denies the first read.
-- The AI proxy requires an app token; without it the endpoint returns 401.
+- The AI endpoints (the Cloudflare Worker and the `ai-proxy` fallback) are origin-locked by CORS.
+  Signed-in users are identified by their Firebase ID token and get a per-user quota; guests can
+  only use tutor chat, with no images. An app token is optional: set `APP_TOKEN` on the Worker or
+  `AI_PROXY_APP_TOKEN` in Netlify and requests without it get a 401. It ships in the public bundle,
+  so it slows down casual bots and is not a secret.
+- Class leaderboard scores are written only by the `class-record-test` function. The browser sends
+  the id of the test it just saved; the function re-marks the multiple-choice answers against the
+  test's answer key, credits each test once, and only within 24 hours of it being saved. Rules stop
+  students writing score fields themselves. The limit: the test doc (answer key included) is still
+  saved by the browser, so a student who forges a whole fake test can still inflate their score.
+  Closing that means generating and grading tests on the server.
 - Admin UIDs are duplicated across `src/constants/admins.js`, `firestore.rules`, and the functions
   (three runtimes that cannot import each other). `src/constants/admins.test.js` fails if they drift.
 - Server-only secrets live in Netlify **without** the `REACT_APP_` prefix.

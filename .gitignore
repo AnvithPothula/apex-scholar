@@ -62,6 +62,10 @@ jspm_packages/
 # Yarn Integrity file
 .yarn-integrity
 
+# Python bytecode (the rollover-skill scripts generate these when run)
+__pycache__/
+*.py[cod]
+
 # Firebase
 .firebase/
 firebase-debug.log
@@ -76,3 +80,6 @@ temp/
 
 # Local Claude settings
 .claude/settings.local.json
+
+# Per-day Gemini request counts written by the batch scripts (scripts/lib/geminiPool.mjs)
+ap-prep-hub/scripts/.gemini-usage.json

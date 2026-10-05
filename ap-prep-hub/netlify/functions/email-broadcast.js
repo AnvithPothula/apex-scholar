@@ -20,6 +20,7 @@
 
 const crypto = require('crypto');
 const { getAdminApp } = require('../lib/firebaseAdmin');
+const { wants } = require('../lib/emailPrefs');
 
 const ADMIN_UIDS = ['b0eUycwZDHcmrkoeSEiD69QSbK32', 'A0yRGP86ZTahByzS0ALYeKAXOn52'];
 
@@ -299,7 +300,8 @@ exports.handler = async (event) => {
     let optedOut = 0;
     snap.forEach((d) => {
       const data = d.data() || {};
-      if (data.emailOptIn === false) { optedOut += 1; return; }
+      // Broadcasts are the 'announcements' category; see netlify/lib/emailPrefs.js.
+      if (!wants(data, 'announcements')) { optedOut += 1; return; }
       const email = data.email;
       if (email && typeof email === 'string' && email.includes('@')) {
         recipients.push({ uid: d.id, email });
@@ -421,3 +423,6 @@ async function sendBatch(apiKey, from, to, subject, bodyText, unsubUrl) {
 // Exported for tests; the handler above is the only production caller.
 module.exports.bodyToHtml = bodyToHtml;
 module.exports.buildHtml = buildHtml;
+// Shared with email-weekly.js so both send the same email the same way.
+module.exports.sendBatch = sendBatch;
+module.exports.unsubscribeToken = unsubscribeToken;

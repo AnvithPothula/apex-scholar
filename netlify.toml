@@ -6,6 +6,10 @@
 [functions]
   directory = "netlify/functions"
 
+# Daily 14:00 UTC (9:00 CT). Sends only when WEEKLY_EMAIL_ENABLED=true; see the function.
+[functions."email-weekly"]
+  schedule = "0 14 * * *"
+
 # Without this, `netlify dev` reports "No app server detected" and serves the
 # stale contents of ap-prep-hub/build as a static site — so source edits appear
 # to do nothing and chunk hashes stop matching. Pin the CRA dev server instead.

@@ -49,7 +49,6 @@ if (API_KEYS.length && !process.env.GEMINI_API_KEY) {
   console.warn('[ai-proxy] Using REACT_APP_GEMINI_API_KEY* fallback — set unprefixed GEMINI_API_KEY* and remove the REACT_APP_ copies.');
 }
 
-let currentKeyIndex = 0;
 // Per-(key,model) 429 cooldowns and per-model "not found" sidelining. Each key
 // is a separate GCP project, and Gemini free limits are per project per model —
 // so a 429 on (key3, gemma-4-31b-it) must not sideline key3 for other models.
@@ -241,6 +240,36 @@ function isAuthorized(event) {
  * about half a minute) sidelined that key+model pair for a full hour. Under load
  * that walks the whole ring out of service one pair at a time.
  */
+/** Seconds until midnight Pacific, when per-day quotas reset (see the worker). */
+function secondsUntilPacificMidnight(now = Date.now()) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Los_Angeles', hourCycle: 'h23', hour: '2-digit', minute: '2-digit', second: '2-digit',
+  }).formatToParts(new Date(now));
+  const get = (t) => Number((parts.find((p) => p.type === t) || {}).value || 0);
+  const elapsed = (get('hour') % 24) * 3600 + get('minute') * 60 + get('second');
+  return Math.max(60, 86400 - elapsed);
+}
+
+/**
+ * Model order for one request — same rules as the worker's orderModels:
+ * split the identical flash-lite pools 50/50, honour a requested model only
+ * if the chain uses it (the picker's gemini-2.0-flash has a 0/0 free quota),
+ * and push `avoid` off the head for MCQ verification.
+ */
+function orderModels(chain, { requested = null, avoid = null, rand = Math.random } = {}) {
+  let models = chain.slice();
+  if (models[0] === 'gemini-3.1-flash-lite' && models[1] === 'gemini-3.5-flash-lite' && rand() < 0.5) {
+    models = [models[1], models[0], ...models.slice(2)];
+  }
+  if (requested && models.includes(requested)) {
+    models = [requested, ...models.filter((m) => m !== requested)];
+  }
+  if (avoid && models.length > 1 && models[0] === avoid) {
+    models = [models[1], avoid, ...models.slice(2)];
+  }
+  return models;
+}
+
 function retryDelaySeconds(headerValue, bodyText) {
   const fromHeader = parseInt(headerValue || '', 10);
   if (Number.isFinite(fromHeader) && fromHeader > 0) return fromHeader;
@@ -394,15 +423,15 @@ exports.handler = async (event) => {
   // ("* Subject: AP Biology. * Question: ...") and calls that the answer. Every
   // prompt in this app is an instruction list. It still absorbs overflow at the
   // tail, where a 2-in-3 answer beats none.
-  bulk:        ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
-  interactive: ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
+  bulk:        ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
+  interactive: ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
   // FRQ grading is the one place output quality is worth the scarce pool, so
   // the newest -flash models lead and the lites catch the overflow.
-  premium:     ['gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
+  premium:     ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
   // No Gemma. Gemma 4 is documented to accept images, but that is unverified
   // here and the solver is not the place to find out.
-  vision:      ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'],
-  verify:      ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
+  vision:      ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'],
+  verify:      ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
 };
 
   const TASK_TO_CHAIN = {
@@ -445,8 +474,11 @@ exports.handler = async (event) => {
   // Only an *explicit* client-chosen Google model jumps the chain — never an
   // env default, which would override task routing for every request.
   const requested = normModel(payload.model);
-  const preferred = isGoogleModel(requested) ? requested : null;
-  if (preferred) models = [preferred, ...models.filter((m) => m !== preferred)];
+  const avoid = normModel(payload.avoidModel);
+  models = orderModels(models, {
+    requested: isGoogleModel(requested) ? requested : null,
+    avoid: isGoogleModel(avoid) ? avoid : null,
+  });
 
   // Tracked across the walk so a total failure can tell the client how long to
   // wait rather than leaving the UI to invent a number.
@@ -456,6 +488,9 @@ exports.handler = async (event) => {
   // Walk the chain: per (key, model) cooldown on 429, per-model dead-mark on
   // "model not found", bounded total attempts to keep latency sane.
   let lastErr = 'Service temporarily unavailable';
+  // Counted for the "exhausted" log line below, which threw a ReferenceError
+  // (and turned the intended 429/503 into a bare 502) while this was undeclared.
+  let attempts = 0;
   // Up to 5 keys per model for KEY-scoped failures (403/404/429 — a flaky
   // project). A 5xx is model-scoped and abandons the model immediately. Every
   // chain now floors on a deep pool (Gemma 14,400 RPD or flash-lite 500), never
@@ -466,12 +501,17 @@ exports.handler = async (event) => {
   const usableModels = models.filter((m) => !(m.startsWith('gemma-') && payloadChars > 48_000));
   if (usableModels.length) models = usableModels;
 
+  // A random first key per request, like the worker. A module-level cursor
+  // restarted at key 1 on every cold start, so key 1 took most of the traffic
+  // and hit its per-minute cap while the other ten idled.
+  const keyStart = Math.floor(Math.random() * API_KEYS.length);
   for (const m of models) {
     let modelDown = false;
     for (let tried = 0, k = 0; tried < 5 && k < API_KEYS.length && !modelDown; k++) {
-      const keyIdx = (currentKeyIndex + k) % API_KEYS.length;
+      const keyIdx = (keyStart + k) % API_KEYS.length;
       if ((modelKeyCooldown.get(`${keyIdx}:${m}`) || 0) > Date.now()) continue;
       tried++;
+      attempts++;
       const url = `https://generativelanguage.googleapis.com/${versionFor(m)}/models/${m}:generateContent?key=${API_KEYS[keyIdx]}`;
       try {
         const resp = await fetch(url, {
@@ -495,16 +535,19 @@ exports.handler = async (event) => {
           }
           let cooldown = 60;
           if (resp.status === 429) {
-            cooldown = retryDelaySeconds(resp.headers.get('retry-after'), await resp.text());
+            const errBody = await resp.text();
+            cooldown = retryDelaySeconds(resp.headers.get('retry-after'), errBody);
             // Soonest moment any attempted pair frees up — what the client
             // counts down instead of guessing.
             if (soonestRetry === null || cooldown < soonestRetry) soonestRetry = cooldown;
             rateLimited = true;
+            // A spent daily quota stays spent until the Pacific-midnight reset;
+            // re-testing it hourly only buys doomed round trips.
+            if (/PerDay|per day/i.test(errBody)) cooldown = secondsUntilPacificMidnight();
           }
           modelKeyCooldown.set(`${keyIdx}:${m}`, Date.now() + cooldown * 1000);
           continue; // next key
         }
-        currentKeyIndex = (keyIdx + 1) % API_KEYS.length; // spread load
         console.log(`[ai-proxy] task=${task || 'default'} chain=${chainName} model=${m} key=${keyIdx + 1} ok`);
         return {
           statusCode: 200,

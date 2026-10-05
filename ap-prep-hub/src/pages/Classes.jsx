@@ -244,7 +244,9 @@ function ClassDetail({ code }) {
   const leave = async () => {
     const ok = await confirm({
       title: 'Leave this class?',
-      message: "Your scores stay in your own account, but you'll drop off this leaderboard.",
+      message: classesService.isOwnerOf(klass, user?.uid)
+        ? "You'll stop being an owner and drop off this leaderboard. The other owners keep the class."
+        : "Your scores stay in your own account, but you'll drop off this leaderboard.",
       confirmText: 'Leave',
     });
     if (!ok) return;
@@ -254,7 +256,7 @@ function ClassDetail({ code }) {
       // An ownerless class could never be deleted or administered again, so
       // the owner is asked to delete it instead of orphaning the roster.
       if (done === 'owner') {
-        return toast.error('You created this class — delete it instead of leaving.');
+        return toast.error("You're the only owner. Make someone else an owner first, or delete the class.");
       }
       if (!done) return toast.error("Couldn't leave. Try again.");
       navigate(createPageUrl('Classes'));
@@ -323,7 +325,11 @@ function ClassDetail({ code }) {
         <div>
           <h2 className="text-h3 font-display text-content-primary">{klass.name}</h2>
           <p className="text-caption text-content-muted">
-            {isOwner ? 'You created this class' : `Created by ${klass.ownerName || 'a teacher'}`}
+            {/* ownerId is the creator; ownerIds also holds promoted co-owners,
+                who did not create it and were told they had. */}
+            {klass.ownerId === user?.uid
+              ? 'You created this class'
+              : `Created by ${klass.ownerName || 'a teacher'}${isOwner ? ' · you co-own it' : ''}`}
           </p>
           {Array.isArray(klass.subjects) && klass.subjects.length > 0 && (
             <p className="text-caption text-content-muted mt-1">
@@ -401,16 +407,19 @@ function ClassDetail({ code }) {
             Accuracy across every practice test taken since joining. Ties break toward more questions answered.
           </p>
 
-          <div className="mt-6">
-            {isOwner ? (
-              <Button variant="ghost" onClick={destroy} disabled={busy} className="text-error-400">
-                <Trash2 className="w-4 h-4 mr-2" strokeWidth={1.5} />
-                Delete class
-              </Button>
-            ) : (
+          <div className="mt-6 flex flex-wrap gap-2">
+            {/* A co-owner can walk away without taking the class with them;
+                only the last owner is limited to deleting it. */}
+            {(!isOwner || owners.length > 1) && (
               <Button variant="ghost" onClick={leave} disabled={busy} className="text-content-muted">
                 <LogOut className="w-4 h-4 mr-2" strokeWidth={1.5} />
                 Leave class
+              </Button>
+            )}
+            {isOwner && (
+              <Button variant="ghost" onClick={destroy} disabled={busy} className="text-error-400">
+                <Trash2 className="w-4 h-4 mr-2" strokeWidth={1.5} />
+                Delete class
               </Button>
             )}
           </div>

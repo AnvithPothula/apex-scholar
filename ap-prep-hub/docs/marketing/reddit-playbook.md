@@ -1,5 +1,8 @@
 # Reddit playbook — disclosed founder, no alt accounts
 
+> **Status 2026-09-25:** Phase 2 modmail **not sent**. Do Phase 1 first. Overview and
+> channel priorities: [README.md](README.md).
+
 Every template here says "I built this." That is not a compliance formality, it
 is the thing that makes the post work. Reddit's escalation ladder for
 undisclosed promotion ends at a **site-wide domain shadowban**, and per the
@@ -55,7 +58,7 @@ and if they say no, that is the end of it for that subreddit.
 >
 > I'm a high school student and I built a free AP prep site called Apex Scholar
 > (apex-scholar.com) — AI tutors, practice tests, spaced-repetition review, and
-> score calculators for all 36 subjects. It's free with no ads, no paywall, and
+> score calculators for 37 AP subjects. It's free with no ads, no paywall, and
 > no trial; I built it because I was studying for my own APs and wanted the
 > tools in one place.
 >
@@ -95,14 +98,14 @@ Rules for all of them:
 > released FRQs and grading them against the actual rubric rather than doing
 > more multiple choice — [specific unit/skill advice for their subject].
 >
-> Tool-wise: Knowt is good for flashcards, Fiveable's unit guides are solid for
-> content review, and the College Board's own released FRQs are free and
+> Tool-wise: Knowt is good for flashcards and is free, Fiveable's unit guides are
+> solid for content review but it's now paid ($79/yr), and the College Board's own released FRQs are free and
 > underused.
 >
 > Full disclosure, I built one of these myself — Apex Scholar
-> (apex-scholar.com). It's free, no ads, no paywall. It does AI tutors, practice
-> tests with rubric-based FRQ grading, and spaced repetition on the questions
-> you miss. Obviously I'm biased so take it with that in mind, but it's free so
+> (apex-scholar.com). It's free, no ads, no paywall. It scores practice tests
+> against each exam's own curve (and says which parts are estimates), grades FRQs
+> against the rubric, and brings back the questions you miss. Obviously I'm biased so take it with that in mind, but it's free so
 > there's nothing to lose by trying it.
 
 ### Template B — "does anyone know a good AP score calculator?"
@@ -118,8 +121,8 @@ a free thing rather than a signup pitch.
 > don't. Mine shows the whole composite range behind each score and says
 > outright that it's an estimate.
 >
-> apscorecalculator.org and apcurve.org are the other decent ones if you want
-> to cross-check.
+> Knowt's calculator, apscorecalculator.org and apcurve.org are the other decent
+> ones if you want to cross-check.
 
 ### Template C — someone else mentions Apex Scholar first
 

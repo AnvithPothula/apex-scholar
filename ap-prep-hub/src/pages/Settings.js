@@ -15,6 +15,7 @@ import CustomDropdown from '../components/ui/CustomDropdown';
 import MultiSelectDropdown from '../components/ui/MultiSelectDropdown';
 import HelpTooltip from '../components/ui/HelpTooltip';
 import { clampPreferences } from '../constants/studyPreferenceBounds';
+import { EMAIL_CATEGORIES } from '../constants/emailCategories';
 
 /** The browser's timezone, with Central only as a genuine last resort. */
 const detectTimezone = () => {
@@ -87,6 +88,8 @@ const Settings = () => {
   // Email consent. Defaults to false and is never inferred from anything else:
   // consent has to be an explicit act, and most of these users are minors.
   const [emailOptIn, setEmailOptIn] = useState(false);
+  // Per-category opt-outs (constants/emailCategories.js). Missing = on.
+  const [emailPrefs, setEmailPrefs] = useState({});
   const [showGradientPicker, setShowGradientPicker] = useState(false);
   const gradientPickerRef = useRef(null);
   const [studyPreferences, setStudyPreferences] = useState(getDefaultStudyPreferences());
@@ -145,6 +148,7 @@ const Settings = () => {
         // receiving mail — the toggle must never lie about that.
         setEmailOptIn(data.emailOptIn !== false);
         emailOptInLoadedRef.current = data.emailOptIn !== false;
+        setEmailPrefs(data.emailPrefs && typeof data.emailPrefs === 'object' ? data.emailPrefs : {});
         // Merge user data with defaults to ensure all fields have values, then
         // clamp — otherwise a stored out-of-range value (see PREFERENCE_BOUNDS)
         // is displayed as-is and the user is shown a number the scheduler will
@@ -263,6 +267,7 @@ const Settings = () => {
           customInstructions: (aiPersonalization.customInstructions || '').substring(0, 500)
         },
         emailOptIn: emailOptIn === true,
+        emailPrefs: Object.fromEntries(Object.keys(EMAIL_CATEGORIES).map((k) => [k, emailPrefs[k] !== false])),
         // Stamped when consent is GIVEN (off -> on), which is what an
         // unsubscribe complaint would need. It used to be re-stamped on every
         // auto-save, i.e. whenever the user opened Settings.
@@ -282,7 +287,7 @@ const Settings = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [user?.uid, studyPreferences, blackoutDates, userSubjects, aiPersonalization, emailOptIn]);
+  }, [user?.uid, studyPreferences, blackoutDates, userSubjects, aiPersonalization, emailOptIn, emailPrefs]);
 
   // Auto-save when settings change (debounced)
   useEffect(() => {
@@ -594,15 +599,28 @@ const Settings = () => {
                 />
                 <span>
                   <span className="block text-sm text-content-primary">
-                    Send me occasional Apex Scholar emails
+                    Send me Apex Scholar emails
                   </span>
                   <span className="block text-xs text-content-muted mt-0.5">
-                    Exam-season study reminders, new subjects, and feature announcements. A few
-                    per year at most — never sold or shared. Untick this any time to stop them;
-                    it does the same thing as the unsubscribe link in an email.
+                    Your address is never sold or shared. Untick this to stop everything; it does
+                    the same thing as "Unsubscribe from all" in an email.
                   </span>
                 </span>
               </label>
+              <div className={`mt-3 ml-7 space-y-2 ${emailOptIn ? '' : 'opacity-50'}`}>
+                {Object.entries(EMAIL_CATEGORIES).map(([key, label]) => (
+                  <label key={key} className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      disabled={!emailOptIn}
+                      checked={emailOptIn && emailPrefs[key] !== false}
+                      onChange={(e) => setEmailPrefs((p) => ({ ...p, [key]: e.target.checked }))}
+                      className="h-4 w-4 mt-0.5 text-content-primary bg-base-800 border-border-strong rounded focus:ring-content-muted"
+                    />
+                    <span className="text-xs text-content-secondary">{label}</span>
+                  </label>
+                ))}
+              </div>
               <p className="text-xs text-content-muted mt-3">
                 Account and security messages (like a password reset) are always sent, because
                 they are about your account rather than marketing.

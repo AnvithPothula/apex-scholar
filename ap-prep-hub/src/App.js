@@ -3,7 +3,8 @@ import React, { useEffect, Suspense, lazy } from 'react';
 import { retryingImport, clearChunkReloadFlag } from './utils/lazyWithRetry';
 import { BrowserRouter as Router, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
 import AnimatedOutlet from './components/ui/AnimatedOutlet';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { homePath, FIRST_RUN_DONE_KEY } from './utils/firstRun';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Layout } from './components/Layout.jsx';
@@ -38,6 +39,8 @@ const Flashcards = lazy(retryingImport(() => import('./pages/Flashcards')));
 const Solver = lazy(retryingImport(() => import('./pages/Solver')));
 // eslint-disable-next-line import/first
 const Diagnostics = lazy(retryingImport(() => import('./pages/Diagnostics')));
+// eslint-disable-next-line import/first
+const Start = lazy(retryingImport(() => import('./pages/Start')));
 // eslint-disable-next-line import/first
 const LearnHub = lazy(retryingImport(() => import('./pages/LearnHub')));
 // eslint-disable-next-line import/first
@@ -170,6 +173,19 @@ function AnalyticsRouteTracker() {
   return null;
 }
 
+/**
+ * "/" sends anyone who hasn't done the first-run check there, and everyone else
+ * to the tutors. Renders nothing until that's known, so a returning student is
+ * never bounced through /start while their profile loads.
+ */
+function HomeRedirect() {
+  const { user, isGuest } = useAuth();
+  let localDone = false;
+  try { localDone = localStorage.getItem(FIRST_RUN_DONE_KEY) === 'true'; } catch { /* private window */ }
+  const to = homePath({ user, isGuest, localDone });
+  return to ? <Navigate to={to} replace /> : null;
+}
+
 function LegacyRedirect({ to }) {
   const params = useParams();
   const splat = params['*'] || '';
@@ -183,7 +199,8 @@ function MainApp() {
     <Suspense fallback={<PageSkeleton />}>
       <Routes>
         <Route element={<Layout><ErrorBoundary><Suspense fallback={<PageSkeleton />}><AnimatedOutlet /></Suspense></ErrorBoundary></Layout>}>
-          <Route index element={<Navigate to={createPageUrl("AITutors")} replace />} />
+          <Route index element={<HomeRedirect />} />
+          <Route path="/start" element={<Start />} />
           <Route path={createPageUrl("AITutors")} element={<AITutors />} />
           <Route path={createPageUrl("AITutors", ":subject")} element={<AITutors />} />
           <Route path={createPageUrl("SmartScheduler")} element={<GuestGate feature={FEATURES.scheduler}><SmartScheduler /></GuestGate>} />

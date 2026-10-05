@@ -30,12 +30,21 @@ describe('shouldStamp', () => {
 });
 
 describe('recordPresence', () => {
-  it('sets createdAt only when the document has none', async () => {
+  it('backfills createdAt only on an existing document that has none', async () => {
     const d = deps();
-    await recordPresence('u1', null, d);
+    await recordPresence('u1', { email: 'x' }, d);
     const [, patch] = d.setDoc.mock.calls[0];
     expect(patch.createdAt).toBe('__ts');
     expect(patch.createdAtIsBackfill).toBe(true);
+    expect(patch.lastSeenAt).toBe('__ts');
+  });
+
+  it('leaves a brand-new account to the creation write (not a backfill)', async () => {
+    const d = deps();
+    await recordPresence('u1', null, d);
+    const [, patch] = d.setDoc.mock.calls[0];
+    expect(patch).not.toHaveProperty('createdAt');
+    expect(patch).not.toHaveProperty('createdAtIsBackfill');
     expect(patch.lastSeenAt).toBe('__ts');
   });
 

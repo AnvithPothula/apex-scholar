@@ -61,7 +61,29 @@ describe('chainFor', () => {
   });
 
   it('ignores a non-Google model instead of injecting a bad id', () => {
-    expect(chainFor('tutorChat', 'claude-sonnet-4')[0]).toBe('gemini-3.1-flash-lite');
+    expect(chainFor('tutorChat', 'claude-sonnet-4', 0, { rand: () => 1 })[0]).toBe('gemini-3.1-flash-lite');
+  });
+
+  it('ignores a requested model the chain would never use', () => {
+    // The picker's generic "Gemini Flash" entry is gemini-2.0-flash, whose
+    // free-tier quota is 0/0. Leading with it was a guaranteed 429 per key.
+    const c = chainFor('tutorChat', 'gemini-2.0-flash', 0, { rand: () => 1 });
+    expect(c).not.toContain('gemini-2.0-flash');
+    expect(c[0]).toBe('gemini-3.1-flash-lite');
+  });
+
+  it('splits the two equal flash-lite pools instead of always leading with 3.1', () => {
+    expect(chainFor('tutorChat', null, 0, { rand: () => 0.9 })[0]).toBe('gemini-3.1-flash-lite');
+    expect(chainFor('tutorChat', null, 0, { rand: () => 0.1 })[0]).toBe('gemini-3.5-flash-lite');
+    const heads = new Set(Array.from({ length: 50 }, () => chainFor('practiceTest')[0]));
+    expect(heads).toEqual(new Set(['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite']));
+  });
+
+  it('moves an avoided model off the head (MCQ verification)', () => {
+    const c = chainFor('verifyMcq', null, 0, { avoid: 'gemini-3.1-flash-lite', rand: () => 1 });
+    expect(c.slice(0, 2)).toEqual(['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite']);
+    const d = chainFor('verifyMcq', null, 0, { avoid: 'gemini-3.5-flash-lite', rand: () => 0 });
+    expect(d[0]).toBe('gemini-3.1-flash-lite');
   });
 
   it('drops Gemma when the prompt exceeds its 16K TPM ceiling', () => {
@@ -79,6 +101,6 @@ describe('chainFor', () => {
   });
 
   it('falls back to interactive for an unknown task', () => {
-    expect(chainFor('somethingNew')).toEqual(MODEL_CHAINS.interactive);
+    expect(chainFor('somethingNew', null, 0, { rand: () => 1 })).toEqual(MODEL_CHAINS.interactive);
   });
 });

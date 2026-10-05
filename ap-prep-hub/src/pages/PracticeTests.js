@@ -18,6 +18,7 @@ import { Button } from '../components/ui/UIComponents';
 import { TEST_CONFIGURATIONS, DEFAULT_CONFIG } from '../constants/testConfigurations';
 import { parseAIResponse, fixLaTeXInQuestions, isQuestionDuplicate } from '../utils/testUtils';
 import { estimateFromTest } from '../utils/testToScore';
+import { trackEvent } from '../utils/analytics';
 import useMobile from '../hooks/useMobile';
 import ScoringScreen from '../components/practice/ScoringScreen';
 import HistoryPanel from '../components/practice/HistoryPanel';
@@ -865,7 +866,7 @@ Format as JSON:
               explanation: (q.explanation || '').substring(0, 400),
             }));
           }
-          await addDoc(collection(db, 'practiceTests'), sanitizedData);
+          const savedTest = await addDoc(collection(db, 'practiceTests'), sanitizedData);
           console.log('Test saved to history successfully');
 
           // Append-only response log, one row per attempted item. `userAnswer`
@@ -922,19 +923,11 @@ Format as JSON:
           }
 
           // Roll this test into the leaderboard of every class the student is
-          // in. Counts only questions actually attempted — skipping is not the
-          // same as answering wrong (A18) — and never blocks the results screen.
+          // in. The server re-scores the saved test (attempted questions only —
+          // skipping is not answering wrong, A18) and applies subject scopes;
+          // it never blocks the results screen.
           try {
-            const attempted = (emergencyCleanedResults?.questionResults || [])
-              .filter((r) => !wasSkipped(r.userAnswer) && !r.ungraded);
-            if (attempted.length) {
-              await recordTestForClasses(user.uid, {
-                questionsAnswered: attempted.length,
-                correctAnswers: attempted.filter((r) => r.correct).length,
-                // Classes scoped to specific subjects only count matching tests.
-                subject: selectedSubject,
-              });
-            }
+            await recordTestForClasses(user, savedTest.id);
           } catch (error) {
             console.error('Error updating class leaderboards:', error);
           }
@@ -956,6 +949,7 @@ Format as JSON:
               scorePercent: emergencyCleanedResults?.percentage ?? null,
               fullLength: selectedSection === 'full',
             });
+            trackEvent('test_completed', { subject: selectedSubject, full_length: selectedSection === 'full' });
           } catch (error) {
             console.error('Error recording activity:', error);
           }
