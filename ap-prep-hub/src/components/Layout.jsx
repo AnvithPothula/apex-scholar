@@ -2,7 +2,7 @@ import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { overlayVariants, modalVariants } from '../utils/animations';
-import { Brain, Calendar, Settings, LogOut, Award, Shield, X, MessageSquare, Send, FileQuestion, Calculator, Star, Code2, Sun, Moon, Lock, LogIn, GraduationCap, FileText } from 'lucide-react';
+import { Brain, Calendar, Settings, LogOut, Award, Shield, X, MessageSquare, Send, Bug, FileQuestion, Calculator, Star, Code2, Sun, Moon, Lock, LogIn, GraduationCap, FileText } from 'lucide-react';
 import { Button, Avatar, AvatarFallback, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from './ui/UIComponents';
 import { useAuth } from '../contexts/AuthContext';
 import { createPageUrl, cn } from '../utils/helpers';
@@ -17,6 +17,7 @@ import { useTheme } from '../contexts/ThemeContext';
 const OnboardingWalkthrough = lazy(() => import('./OnboardingWalkthrough'));
 const ReviewModal = lazy(() => import('./ReviewModal'));
 const DeveloperSettings = lazy(() => import('./DeveloperSettings'));
+const BugReportModal = lazy(() => import('./BugReportModal'));
 
 export function Layout({ children }) {
     const location = useLocation();
@@ -24,13 +25,18 @@ export function Layout({ children }) {
     const { user, isGuest, logout } = useAuth();
     const [showCreditsModal, setShowCreditsModal] = useState(false);
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+    const [showBugModal, setShowBugModal] = useState(false);
     const [showReviewModal, setShowReviewModal] = useState(false);
     const [showDevSettings, setShowDevSettings] = useState(false);
     const { toggleTheme, isDark } = useTheme();
     const isActiveTab = (pageName) => location.pathname.startsWith(createPageUrl(pageName));
     // The Practice tab owns its three child destinations, so it stays lit while
     // the user is inside any of them.
-    const isPracticeTab = ['Practice', 'PracticeTests', 'Flashcards', 'Review'].some(isActiveTab);
+    const isPracticeTab = ['Practice', 'PracticeTests', 'Flashcards', 'Review'].some(isActiveTab)
+        || location.pathname.startsWith('/study');
+    // The first-run check (at "/" for new visitors, and /start) is a focused
+    // flow: no navigation bars, so the only ways out are finishing or "Skip".
+    const focusMode = location.pathname === '/' || location.pathname === '/start';
     const [scrolled, setScrolled] = useState(false);
     useEffect(() => {
         const onScroll = () => setScrolled(window.scrollY > 10);
@@ -44,7 +50,7 @@ export function Layout({ children }) {
             <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-[60] focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:bg-base-800 focus:text-content-primary focus:rounded-md focus:border focus:border-border-strong">
                 Skip to main content
             </a>
-            <header className={`sticky top-0 z-50 border-b border-border transition-all duration-200 ${scrolled ? 'bg-base-900/98 backdrop-blur-md shadow-subtle' : 'bg-base-900/95 backdrop-blur-sm'}`}>
+            {!focusMode && <header className={`sticky top-0 z-50 border-b border-border transition-all duration-200 ${scrolled ? 'bg-base-900/98 backdrop-blur-md shadow-subtle' : 'bg-base-900/95 backdrop-blur-sm'}`}>
                 <div className="max-w-screen-xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
                     <div className={`flex items-center justify-between transition-all duration-200 ${scrolled ? 'h-12 sm:h-14' : 'h-14 sm:h-16'}`}>
                                                 <Link
@@ -157,7 +163,7 @@ export function Layout({ children }) {
                             ) : (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" className="flex items-center space-x-1 sm:space-x-2 p-0.5 sm:p-1 rounded-full hover:bg-base-850 transition-all duration-200">
+                                    <Button variant="ghost" aria-label="Account menu" className="flex items-center space-x-1 sm:space-x-2 p-0.5 sm:p-1 rounded-full hover:bg-base-850 transition-all duration-200">
                                         <Avatar className="w-7 h-7 sm:w-8 sm:h-8 ring-2 ring-border-strong">
                                             <AvatarFallback
                                                 className="text-content-primary font-semibold text-sm"
@@ -174,6 +180,9 @@ export function Layout({ children }) {
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onSelect={() => setShowFeedbackModal(true)} className="flex items-center text-content-primary hover:bg-base-800 hover:text-content-primary">
                                         <MessageSquare strokeWidth={1.5} size={14} className="mr-2"/>Feedback
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => setShowBugModal(true)} className="flex items-center text-content-primary hover:bg-base-800 hover:text-content-primary">
+                                        <Bug strokeWidth={1.5} size={14} className="mr-2"/>Report bug
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onSelect={() => setShowCreditsModal(true)} className="flex items-center text-content-primary hover:bg-base-800 hover:text-content-primary">
                                         <Award strokeWidth={1.5} size={14} className="mr-2"/>Credits
@@ -205,11 +214,11 @@ export function Layout({ children }) {
                         </div>
                     </div>
                 </div>
-            </header>
-            <main id="main-content" className="relative pb-16 md:pb-0">{children}</main>
+            </header>}
+            <main id="main-content" className={`relative ${focusMode ? '' : 'pb-16 md:pb-0'}`}>{children}</main>
 
             {/* Mobile Bottom Tab Bar */}
-            <nav aria-label="Mobile navigation" className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-base-900/95 backdrop-blur-md border-t border-border">
+            {!focusMode && <nav aria-label="Mobile navigation" className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-base-900/95 backdrop-blur-md border-t border-border">
                 <div className="flex items-stretch justify-around">
                     {[
                         // 4 destinations. Apple's HIG collapses iPhone tab bars past
@@ -243,7 +252,7 @@ export function Layout({ children }) {
                         </Link>
                     ))}
                 </div>
-            </nav>
+            </nav>}
 
             {/* Feedback Modal */}
             <AnimatePresence>
@@ -251,7 +260,16 @@ export function Layout({ children }) {
                 <FeedbackModal
                     user={user}
                     onClose={() => setShowFeedbackModal(false)}
+                    onReportBug={() => { setShowFeedbackModal(false); setShowBugModal(true); }}
                 />
+            )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+            {showBugModal && (
+                <Suspense fallback={null}>
+                    <BugReportModal user={user} page={location.pathname} onClose={() => setShowBugModal(false)} />
+                </Suspense>
             )}
             </AnimatePresence>
 
@@ -322,7 +340,7 @@ export function Layout({ children }) {
 }
 
 // Feedback Modal Component
-function FeedbackModal({ user, onClose }) {
+function FeedbackModal({ user, onClose, onReportBug }) {
     const [feedbackType, setFeedbackType] = useState('');
     const [title, setTitle] = useState('');
     const [message, setMessage] = useState('');
@@ -340,6 +358,8 @@ function FeedbackModal({ user, onClose }) {
     const handleSubmit = async (e) => {
         e.preventDefault();
         
+        // Bugs have their own form (steps, expected vs actual, browser details).
+        if (feedbackType === 'bug') return;
         if (!feedbackType || !title || !message) {
             setSubmitStatus('Please fill in all fields');
             return;
@@ -417,6 +437,14 @@ function FeedbackModal({ user, onClose }) {
                                 </option>
                             ))}
                         </select>
+                        {feedbackType === 'bug' && (
+                            <div role="alert" className="mt-3 p-3 rounded-lg text-sm bg-warning-900/30 border border-warning-500 text-content-secondary">
+                                Please use <strong className="text-content-primary">Report bug</strong> instead. It asks the questions we need to fix it and attaches your browser details.
+                                <button type="button" onClick={onReportBug} className="mt-2 flex items-center gap-1.5 text-primary-400 underline">
+                                    <Bug strokeWidth={1.5} className="w-4 h-4" />Open Report bug
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     {/* Title */}
@@ -473,7 +501,7 @@ function FeedbackModal({ user, onClose }) {
                         </button>
                         <button
                             type="submit"
-                            disabled={isSubmitting}
+                            disabled={isSubmitting || feedbackType === 'bug'}
                             className="flex-1 px-4 py-2 bg-content-primary text-base-950 rounded-sm transition-colors hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {isSubmitting ? (

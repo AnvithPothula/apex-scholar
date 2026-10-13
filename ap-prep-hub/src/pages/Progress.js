@@ -10,12 +10,13 @@ import dataService from '../services/dataService';
 import { buildActivityMap, totalStudyMinutes } from '../services/activityMap';
 import { currentWorkOnly } from '../services/academicYear';
 import geminiService from '../services/geminiService';
-import { masteryBySubject, weakestArea } from '../services/mastery';
+import { masteryBySubject, weakestArea, topicsFromResponses } from '../services/mastery';
+import { getMyResponses } from '../services/responseLog';
 import srs, { dueCards } from '../services/srs';
 import StreakCalendar from '../components/ui/StreakCalendar';
 import ExamCountdown from '../components/ui/ExamCountdown';
 import { SUBJECT_KEY_TO_EXAM_NAME } from '../constants/apExamDates';
-import { SUBJECT_KEY_BY_DISPLAY_NAME } from '../constants/curriculum';
+import { SUBJECT_KEY_BY_DISPLAY_NAME, resolveSubjectKey } from '../constants/curriculum';
 
 /**
  * Stored subject name → curriculum key, for ExamCountdown.
@@ -41,8 +42,13 @@ const formatStudyTime = (minutes) => {
   return hours > 0 ? `${hours}.${Math.round(mins/6)} hours` : `${mins} minutes`;
 };
 
-const processSubjectProgress = (progressData, studySessions, practiceTests = [], mySubjects = []) => {
+const processSubjectProgress = (progressData, studySessions, practiceTests = [], mySubjects = [], topicsBySubject = new Map()) => {
   const subjectMap = new Map();
+  // Subjects measured only through the response log (the first-run check,
+  // diagnostics, review) still get a card.
+  topicsBySubject.forEach((_, subject) => {
+    if (!subjectMap.has(subject)) subjectMap.set(subject, { name: subject, sessions: [] });
+  });
 
   // Real strengths/weaknesses, measured from graded practice questions. Subjects
   // with too little data get empty lists — the card then says "not enough data"
@@ -85,13 +91,16 @@ const processSubjectProgress = (progressData, studySessions, practiceTests = [],
       strongTopics: m ? m.strongAreas.slice(0, 3).map((a) => a.label) : [],
       weakTopics: m ? m.weakAreas.slice(0, 3).map((a) => a.label) : [],
       masteryLevel: m ? m.level : 'insufficient',
+      // Per-topic accuracy with its honest range, weakest first.
+      topics: (topicsBySubject.get(subject.name) || []).slice(0, 4),
       lastStudied: allSessions.length > 0 || (m && m.attempts) ? 'Recently' : 'Never',
       streak: Math.min(10, allSessions.length)
     };
   })
     // Show only the subjects the user actually picked in Settings. If they
     // haven't chosen any yet, fall back to everything rather than an empty page.
-    .filter((s) => (mySubjects.length ? mySubjects.includes(s.name) : true))
+    // mySubjects are curriculum keys; card names are display names.
+    .filter((s) => (mySubjects.length ? mySubjects.includes(s.name) || mySubjects.includes(resolveSubjectKey(s.name)) : true))
     .slice(0, 5);
 };
 
@@ -298,7 +307,8 @@ const ProgressPage = () => {
         stats,
         practiceTests,
         mySubjects,
-        lateSubjects
+        lateSubjects,
+        responses
       ] = await Promise.all([
         dataService.getUserProgress(user.uid),
         dataService.getUserStudySessions(user.uid, 30),
@@ -306,7 +316,8 @@ const ProgressPage = () => {
         dataService.getUserStats(user.uid),
         dataService.getUserPracticeTests(user.uid),
         dataService.getUserSubjects(user.uid),
-        dataService.getLateTestingSubjects(user.uid).catch(() => [])
+        dataService.getLateTestingSubjects(user.uid).catch(() => []),
+        getMyResponses(user.uid)
       ]);
 
       // Build activity heatmap data for StreakCalendar.
@@ -342,7 +353,7 @@ const ProgressPage = () => {
           rank: getRankInfo(achievements.totalPoints || 0).rank,
           totalPoints: achievements.totalPoints || 0
         },
-        subjects: processSubjectProgress(overallProgress, studySessions, practiceTests, mySubjects),
+        subjects: processSubjectProgress(overallProgress, studySessions, practiceTests, mySubjects, topicsFromResponses(responses)),
         masteries,
         weeklyActivity: processWeeklyActivity(studySessions),
         achievements: processAchievements(achievements, user.uid),
@@ -1058,12 +1069,35 @@ const ProgressPage = () => {
                                     {topic}
                                   </Badge>
                                 ))}
-                                {subject.strongTopics.length === 0 && subject.weakTopics.length === 0 && (
+                                {subject.strongTopics.length === 0 && subject.weakTopics.length === 0 && !subject.topics?.length && (
                                   <span className="text-caption text-content-muted">
                                     Take a practice test to see your strengths and weak spots.
                                   </span>
                                 )}
                               </div>
+
+                              {/* Per-topic accuracy from every graded answer, with the range
+                                  the evidence supports. The bar spans that range. */}
+                              {subject.topics?.length > 0 && (
+                                <ul className="mt-3 space-y-1.5" aria-label={`${subject.name} topics`}>
+                                  {subject.topics.map((t) => (
+                                    <li key={t.unit} className="text-caption">
+                                      <div className="flex justify-between gap-3">
+                                        <span className="text-content-secondary truncate">{t.unit}</span>
+                                        <span className="text-content-muted shrink-0">
+                                          {t.right} of {t.total} · likely {t.low}–{t.high}%
+                                        </span>
+                                      </div>
+                                      <div className="relative h-1 mt-1 rounded-full bg-base-800" aria-hidden="true">
+                                        <div
+                                          className="absolute h-1 rounded-full"
+                                          style={{ left: `${t.low}%`, width: `${Math.max(2, t.high - t.low)}%`, background: levelToVar(t.level === 'insufficient' ? 'yellow' : t.level) }}
+                                        />
+                                      </div>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
 
                               {/* Exam countdown */}
                               {EXAM_NAME_TO_KEY[subject.name] && (

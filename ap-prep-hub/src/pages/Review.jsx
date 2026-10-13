@@ -22,7 +22,7 @@ import MarkdownRenderer from '../components/MarkdownRenderer';
 import { useAuth } from '../contexts/AuthContext';
 import { createPageUrl } from '../utils/helpers';
 import srs, { GRADE, dueCards } from '../services/srs';
-import { formatDue, intervalLabel, suggestedGrade, keyAction, buildSession } from '../services/reviewSession';
+import { formatDue, intervalLabel, suggestedGrade, keyAction, buildSession, easeAfterMiss } from '../services/reviewSession';
 import { retryAfterFrom, formatWait } from '../services/aiRetry';
 import { buildWhyWrongPrompt, buildExplainAllPrompt, looksLikeReasoningLeak } from '../utils/whyWrong';
 import geminiService from '../services/geminiService';
@@ -86,10 +86,14 @@ export default function Review() {
 
   const totalDue = useMemo(() => dueBySubject.reduce((n, [, c]) => n + c, 0), [dueBySubject]);
 
-  const session = useMemo(
+  const baseSession = useMemo(
     () => buildSession(dueCards(cards, Date.now(), 9999), { subjects: chosen, order, seed, limit: 30 }),
     [cards, chosen, order, seed]
   );
+  // Reordered in place after a miss (easeAfterMiss); reset whenever the session itself changes.
+  const [reordered, setReordered] = useState(null);
+  useEffect(() => { setReordered(null); }, [baseSession]);
+  const session = reordered || baseSession;
 
   const card = session[index];
 
@@ -129,6 +133,7 @@ export default function Review() {
     logResponse(user.uid, {
       itemId: card.id,
       subject: card.subject,
+      unit: card.unit, // feeds per-topic mastery on Progress
       source: 'review',
       chosen: Number.isInteger(picked) ? picked : null,
       correct,
@@ -139,10 +144,11 @@ export default function Review() {
     // Reviewing is studying — it has to count toward the streak. Fire-and-forget
     // so a logging hiccup never blocks the next card.
     recordReviewSession(user.uid, { cardsReviewed: 1, subject: card.subject || '' });
+    if (!correct) setReordered(easeAfterMiss(session, index + 1));
     setCompleted((n) => n + 1);
     setIndex((i) => i + 1);
     resetCardState();
-  }, [card, user, picked, resetCardState]);
+  }, [card, user, picked, resetCardState, session, index]);
 
   // "Inbox Zero": this session worked through every card that was due.
   const clearedRef = useRef(false);

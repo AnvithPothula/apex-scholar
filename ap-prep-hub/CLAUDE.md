@@ -101,6 +101,9 @@ All user data is scoped under `users/{userId}/`:
 | Route | Component | Description |
 |-------|-----------|-------------|
 | `/start` | `Start.jsx` | First-run 10-question check → predicted score + today's plan (`/` routes here until done) |
+| `/study` | `StudyIndex.jsx` | Study packs grouped by class, the student's subjects first |
+| `/study/:subject` | `StudyIndex.jsx` | One class's units with saved progress (`services/packProgress.js`) and the next unit |
+| `/study/:subject/:unit` | `StudyPack.jsx` | Authored study packs (`src/data/packs/`, validated by `utils/studyPack.validatePack` in tests) |
 | `/ai-tutors` | `AITutors.js` | Subject-specific AI chat tutors |
 | `/smart-scheduler` | `SmartScheduler.js` | Intelligent study scheduler |
 | `/practice-tests` | `PracticeTests.js` | AI-generated AP practice tests |

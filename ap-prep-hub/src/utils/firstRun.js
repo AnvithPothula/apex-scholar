@@ -8,6 +8,9 @@
 import { AP_EXAM_DATES_2027, SUBJECT_KEY_TO_EXAM_NAME } from '../constants/apExamDates';
 import { AP_SCORE_MODELS, canonicalSubject } from '../constants/apScoreModels';
 import { estimateFromTest } from './testToScore';
+import { wilson } from '../services/mastery';
+
+export { wilson };
 
 export const FIRST_RUN_QUESTIONS = 10;
 /** Below this the bank can't support a score claim; send them elsewhere. */
@@ -45,19 +48,6 @@ export function daysToExam(examName, now = new Date()) {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const days = Math.round((exam - today) / 86400000);
   return days >= 0 ? days : null;
-}
-
-/**
- * Wilson score interval for k of n. z = 1.28 is an 80% interval: wide enough to
- * be honest about ten questions, narrow enough to still say something.
- */
-export function wilson(k, n, z = 1.28) {
-  if (!n) return [0, 1];
-  const p = k / n;
-  const z2 = z * z;
-  const centre = (p + z2 / (2 * n)) / (1 + z2 / n);
-  const half = (z * Math.sqrt((p * (1 - p)) / n + z2 / (4 * n * n))) / (1 + z2 / n);
-  return [Math.max(0, centre - half), Math.min(1, centre + half)];
 }
 
 const scoreAt = (subject, fraction) =>

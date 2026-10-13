@@ -4,8 +4,24 @@
     {
       "name": "dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["start"],
+      "runtimeArgs": [
+        "start"
+      ],
       "port": 3000,
+      "cwd": "/Users/anvit/Documents/Projects/Apex_Scholar/ap-prep-hub"
+    },
+    {
+      "name": "functions",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "AI_PROXY_APP_TOKEN=",
+        "netlify",
+        "functions:serve",
+        "--port",
+        "8888",
+        "--offline"
+      ],
+      "port": 8888,
       "cwd": "/Users/anvit/Documents/Projects/Apex_Scholar/ap-prep-hub"
     }
   ]

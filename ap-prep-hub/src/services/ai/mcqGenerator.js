@@ -187,5 +187,30 @@ ${roster}`;
   }
 }
 
-const mcqGenerator = { coerceMcq, parseSingleMcq, parseMcqArray, buildBatchMcqPrompt, generateMcqs, verifyMcqs };
+/**
+ * Run practice-test questions (options: [{ text, correct }]) through the same
+ * blind second-model check. Non-MCQ questions pass through untouched.
+ *
+ * Practice tests skipped this, so an answer key the generator got wrong went
+ * straight to students: one marked "20.0 µmol/min" correct for
+ * v = 100·2/(5+2) ≈ 28.6 while its own explanation said 28.6.
+ *
+ * The source passage goes in with the question (trimmed), or the checker can't
+ * answer stimulus-based items and would drop them as "not confident".
+ */
+export async function verifyOptionMcqs({ subjectName, questions = [], avoidModel = null, verify = verifyMcqs }) {
+  const mcqs = questions
+    .map((q, i) => (q && q.type === 'mcq' && Array.isArray(q.options) ? {
+      i,
+      question: `${q.stimulus ? `Source: ${String(q.stimulus).slice(0, 1200)}\n\n` : ''}${q.question}`,
+      choices: q.options.map((o) => String(o?.text ?? o)),
+      correctIndex: q.options.findIndex((o) => o && o.correct === true),
+    } : null))
+    .filter(Boolean);
+  if (!mcqs.length) return questions;
+  const kept = new Set((await verify({ subjectName, mcqs, avoidModel })).map((m) => m.i));
+  return questions.filter((q, i) => !(q && q.type === 'mcq' && Array.isArray(q.options)) || kept.has(i));
+}
+
+const mcqGenerator = { coerceMcq, parseSingleMcq, parseMcqArray, buildBatchMcqPrompt, generateMcqs, verifyMcqs, verifyOptionMcqs };
 export default mcqGenerator;

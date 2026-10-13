@@ -26,10 +26,10 @@
  * A response is a record of something that happened; there is no legitimate
  * reason to edit one, and an editable history is not evidence.
  */
-import { collection, doc, writeBatch, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, writeBatch, serverTimestamp, query, where, limit, getDocs } from 'firebase/firestore';
 import { db } from '../config/firestore';
 
-export const SOURCES = ['practiceTest', 'diagnostic', 'flashcard', 'review'];
+export const SOURCES = ['practiceTest', 'diagnostic', 'flashcard', 'review', 'lesson'];
 
 // Firestore caps a batch at 500 writes. A practice test is ~60 items, so this
 // only ever bites if a caller passes something pathological — chunk anyway
@@ -97,3 +97,22 @@ export async function logResponses(uid, rows) {
 
 /** Single-row convenience for the review and flashcard paths. */
 export const logResponse = (uid, row) => logResponses(uid, [row]);
+
+/**
+ * This student's own logged answers, for per-topic mastery. [] on failure:
+ * a read error must never blank the Progress page.
+ *
+ * ponytail: no orderBy (that needs a userId+at composite index), so past the
+ * cap it's an arbitrary 2,000 rather than the newest. Add the index and
+ * orderBy('at', 'desc') once anyone answers that many.
+ */
+export async function getMyResponses(uid, max = 2000) {
+  if (!uid) return [];
+  try {
+    const snap = await getDocs(query(collection(db, 'responses'), where('userId', '==', uid), limit(max)));
+    return snap.docs.map((d) => d.data());
+  } catch (e) {
+    console.debug('[responseLog] read failed (non-fatal)', e?.message || e);
+    return [];
+  }
+}

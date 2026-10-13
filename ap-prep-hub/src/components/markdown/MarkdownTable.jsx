@@ -211,7 +211,9 @@ const RUBRIC_CELL = {
   body: 'max-sm:p-0 max-sm:col-span-2',
 };
 
-export function MarkdownTd({ style, rubricPoints, rubricRole, children }) {
+const hastText = (n) => (n.type === 'text' ? n.value : (n.children || []).map(hastText).join(''));
+
+export function MarkdownTd({ node, style, rubricPoints, rubricRole, children }) {
   if (rubricPoints) {
     return (
       <td style={style} className="px-3 py-2.5 whitespace-nowrap max-sm:p-0 max-sm:col-start-2 max-sm:row-start-1 max-sm:text-right">
@@ -221,8 +223,13 @@ export function MarkdownTd({ style, rubricPoints, rubricRole, children }) {
       </td>
     );
   }
+  // On phones a sentence-long cell squeezed into a 3–4 column table wrapped one
+  // word per line. Long cells get a minimum width (7rem, capped at 28vw so three
+  // columns still fit a 360px phone; four or more scroll); short and numeric
+  // cells keep their natural width so compact tables still fit.
+  const long = !rubricRole && node && hastText(node).length > 24;
   return (
-    <td style={style} className={`px-3 py-2.5 text-content-secondary align-top [&_strong]:text-content-primary ${RUBRIC_CELL[rubricRole] || ''}`}>
+    <td style={style} className={`px-3 py-2.5 text-content-secondary align-top max-sm:hyphens-auto [&_strong]:text-content-primary ${long ? 'max-sm:min-w-[min(7rem,28vw)]' : ''} ${RUBRIC_CELL[rubricRole] || ''}`}>
       {children}
     </td>
   );

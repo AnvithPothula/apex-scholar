@@ -34,6 +34,416 @@ export const ROUTE_META = {
     description:
       'Answer 10 AP-style questions in your subject and get a predicted AP score, the honest range around it, and what to study today. Free, no account needed.',
   },
+  '/study': {
+    title: 'Free AP Study Packs — Apex Scholar',
+    description:
+      'Free AP unit study packs: short lessons, flashcards, worked steps, simulations and checkpoints after every topic. AP Biology, Calculus AB and Psychology.',
+  },
+  '/study/ap-biology': {
+    title: 'AP Biology Study Packs by Unit — Apex Scholar',
+    description:
+      'Free AP Biology unit study packs: chemistry of life and cells, with lessons, simulations and checkpoints that save your progress and adapt to you.',
+  },
+  '/study/ap-calculus-ab': {
+    title: 'AP Calculus AB Study Packs by Unit — Apex Scholar',
+    description:
+      'Free AP Calculus AB unit study packs: limits, continuity and derivatives, with worked steps, interactive graphs and checkpoints that adapt to you.',
+  },
+  '/study/ap-psychology': {
+    title: 'AP Psychology Study Packs by Unit — Apex Scholar',
+    description:
+      'Free AP Psychology unit study packs: biological bases and cognition, with flashcards, live experiments and checkpoints that adapt to you.',
+  },
+  '/study/ap-biology/unit-1': {
+    title: 'AP Biology Unit 1: Chemistry of Life — Free Study Pack',
+    description:
+      'Water, elements of life, macromolecules, carbohydrates, lipids, nucleic acids and proteins: short lessons, flashcards, simulations and checkpoints. Free.',
+  },
+  '/study/ap-calculus-ab/unit-1': {
+    title: 'AP Calculus AB Unit 1: Limits and Continuity — Study Pack',
+    description:
+      'Limits from graphs, tables and algebra, the squeeze theorem, continuity, asymptotes and the IVT: worked steps, interactive graphs and checkpoints. Free.',
+  },
+  '/study/ap-psychology/unit-1': {
+    title: 'AP Psychology Unit 1: Biological Bases — Study Pack',
+    description:
+      'Heredity, the nervous system, neurons and neurotransmitters, the brain, sleep and sensation: flashcards, a neuron simulation and scenario checkpoints. Free.',
+  },
+  '/study/ap-biology/unit-2': {
+    title: 'AP Biology Unit 2: Cells — Free Study Pack',
+    description:
+      'Organelles, cell size and SA:V, the fluid mosaic membrane, transport, tonicity and water potential, and endosymbiosis: lessons, simulations and checkpoints.',
+  },
+  '/study/ap-calculus-ab/unit-2': {
+    title: 'AP Calculus AB Unit 2: Derivatives — Study Pack',
+    description:
+      'The derivative definition, tangent lines, estimating from tables, differentiability, power, product and quotient rules, and trig derivatives. Free.',
+  },
+  '/study/ap-calculus-bc': {
+    title: 'AP Calculus BC Study Packs by Unit — Apex Scholar',
+    description:
+      'Free AP Calculus BC unit study packs: limits and continuity, with worked steps, interactive graphs and checkpoints that save your progress and adapt to you.',
+  },
+  '/study/ap-calculus-bc/unit-1': {
+    title: 'AP Calculus BC Unit 1: Limits and Continuity — Study Pack',
+    description:
+      'Limits from graphs, tables and algebra, the squeeze theorem, continuity, asymptotes and the IVT for AP Calculus BC: worked steps and checkpoints. Free.',
+  },
+  '/study/ap-psychology/unit-2': {
+    title: 'AP Psychology Unit 2: Cognition — Study Pack',
+    description:
+      'Perception, heuristics and decisions, memory encoding, storage, retrieval and forgetting, and intelligence testing, with a live memory experiment. Free.',
+  },
+  '/study/ap-physics-1': {
+    title: 'AP Physics 1 Study Packs by Unit — Apex Scholar',
+    description:
+      'Free AP Physics 1 unit study packs: kinematics, with worked steps, motion graphs, a projectile simulation and checkpoints that save your progress and adapt.',
+  },
+  '/study/ap-physics-1/unit-1': {
+    title: 'AP Physics 1 Unit 1: Kinematics — Free Study Pack',
+    description:
+      'Vectors, displacement, velocity and acceleration, motion graphs, the kinematic equations, relative motion and projectiles, with a projectile launcher. Free.',
+  },
+  '/study/ap-environmental-science': {
+    title: 'AP Environmental Science Study Packs by Unit — Apex Scholar',
+    description:
+      'Free AP Environmental Science unit study packs: ecosystems, cycles and energy flow, with simulations and checkpoints that save your progress and adapt.',
+  },
+  '/study/ap-environmental-science/unit-1': {
+    title: 'APES Unit 1: The Living World: Ecosystems — Study Pack',
+    description:
+      'Species interactions, biomes, the carbon, nitrogen, phosphorus and water cycles, productivity and the 10% rule, with an energy pyramid simulation. Free.',
+  },
+  '/study/ap-human-geography': {
+    title: 'AP Human Geography Study Packs by Unit — Apex Scholar',
+    description:
+      'Free AP Human Geography unit study packs: maps, data, spatial concepts, scale and regions, with checkpoints that save your progress and adapt to you.',
+  },
+  '/study/ap-human-geography/unit-1': {
+    title: 'AP Human Geography Unit 1: Thinking Geographically — Study Pack',
+    description:
+      'Map types and projections, geographic data and GIS, spatial concepts, possibilism, scales of analysis and regions, with a map distortion simulation. Free.',
+  },
+  '/study/ap-chemistry': {
+    title: 'AP Chemistry Study Packs by Unit — Apex Scholar',
+    description:
+      'Free AP Chemistry unit study packs: atomic structure, PES and periodic trends, with worked steps, simulations and checkpoints that adapt to you.',
+  },
+  '/study/ap-chemistry/unit-1': {
+    title: 'AP Chemistry Unit 1: Atomic Structure and Properties — Study Pack',
+    description:
+      'Moles, mass spectra, empirical formulas, electron configurations, photoelectron spectroscopy and periodic trends, with a PES simulation. Free.',
+  },
+  '/study/ap-statistics': {
+    title: 'AP Statistics Study Packs by Unit — Apex Scholar',
+    description:
+      'Free AP Statistics unit study packs for the revised 2026 course: data, sampling and experiments, with checkpoints that save your progress and adapt.',
+  },
+  '/study/ap-statistics/unit-1': {
+    title: 'AP Statistics Unit 1: Exploring Data and Sampling — Study Pack',
+    description:
+      'Variables, graphs, summary statistics, outliers, z-scores, sampling, bias and experimental design for the 2026 AP Statistics course, with a simulation. Free.',
+  },
+  '/study/ap-precalculus': {
+    title: 'AP Precalculus Study Packs by Unit — Apex Scholar',
+    description:
+      'Free AP Precalculus unit study packs: polynomial and rational functions, with worked steps, interactive graphs and checkpoints that adapt to you.',
+  },
+  '/study/ap-precalculus/unit-1': {
+    title: 'AP Precalculus Unit 1: Polynomial and Rational Functions — Pack',
+    description:
+      'Rates of change, polynomial zeros and end behavior, rational asymptotes and holes, transformations and modeling, with interactive graphs. Free.',
+  },
+  '/study/ap-physics-2': {
+    title: 'AP Physics 2 Study Packs by Unit — Apex Scholar',
+    description:
+      'Free AP Physics 2 unit study packs: thermodynamics, with worked steps, a PV diagram simulation and checkpoints that save your progress and adapt.',
+  },
+  '/study/ap-physics-2/unit-9': {
+    title: 'AP Physics 2 Unit 9: Thermodynamics — Free Study Pack',
+    description:
+      'Kinetic theory, the ideal gas law, heat transfer, the first law and PV diagrams, specific heat, conduction and entropy, with a PV simulation. Free.',
+  },
+  '/study/ap-physics-c-mechanics': {
+    title: 'AP Physics C: Mechanics Study Packs by Unit — Apex Scholar',
+    description:
+      'Free AP Physics C: Mechanics unit study packs: calculus-based kinematics, with worked steps, simulations and checkpoints that save progress and adapt.',
+  },
+  '/study/ap-physics-c-mechanics/unit-1': {
+    title: 'AP Physics C: Mechanics Unit 1: Kinematics — Study Pack',
+    description:
+      'Calculus-based kinematics: unit vectors, derivatives and integrals of motion, graphs, relative motion and projectiles, with interactive simulations. Free.',
+  },
+  '/study/ap-physics-c-electricity-and-magnetism': {
+    title: 'AP Physics C: E&M Study Packs by Unit — Apex Scholar',
+    description:
+      'Free AP Physics C: Electricity and Magnetism study packs: charges, fields and Gauss’s law, with worked steps, simulations and adaptive checkpoints.',
+  },
+  '/study/ap-physics-c-electricity-and-magnetism/unit-8': {
+    title: 'AP Physics C: E&M Unit 8: Charges, Fields and Gauss’s Law — Pack',
+    description:
+      'Coulomb’s law, charging, electric fields, fields of charge distributions by integration, flux and Gauss’s law, with a field map simulation. Free.',
+  },
+  '/study/ap-macroeconomics': {
+    title: 'AP Macroeconomics Study Packs by Unit — Apex Scholar',
+    description:
+      'Free AP Macroeconomics unit study packs: basic economic concepts, with graphs, a PPC simulation and checkpoints that save your progress and adapt.',
+  },
+  '/study/ap-macroeconomics/unit-1': {
+    title: 'AP Macroeconomics Unit 1: Basic Economic Concepts — Study Pack',
+    description:
+      'Scarcity, opportunity cost and the PPC, comparative advantage and terms of trade, supply, demand and equilibrium, with a PPC simulation. Free.',
+  },
+  '/study/ap-microeconomics': {
+    title: 'AP Microeconomics Study Packs by Unit — Apex Scholar',
+    description:
+      'Free AP Microeconomics unit study packs: basic economic concepts and marginal thinking, with a PPC simulation and checkpoints that adapt to you.',
+  },
+  '/study/ap-microeconomics/unit-1': {
+    title: 'AP Microeconomics Unit 1: Basic Economic Concepts — Study Pack',
+    description:
+      'Scarcity, economic systems, the PPC, comparative advantage, cost-benefit analysis, marginal analysis and MU per dollar, with a PPC simulation. Free.',
+  },
+  '/study/ap-us-history': {
+    title: 'AP U.S. History Study Packs by Period — Apex Scholar',
+    description:
+      'Free AP U.S. History study packs by period: Period 1 (1491–1607) with flashcards, a timeline activity and checkpoints that save your progress and adapt.',
+  },
+  '/study/ap-us-history/unit-1': {
+    title: 'AP U.S. History Period 1 (1491–1607) — Study Pack',
+    description:
+      'Native societies before contact, European exploration, the Columbian Exchange, encomienda and caste, and cultural interactions, with a timeline activity. Free.',
+  },
+  '/study/ap-world-history-modern': {
+    title: 'AP World History: Modern Study Packs by Unit — Apex Scholar',
+    description:
+      'Free AP World History: Modern unit study packs: the Global Tapestry, with flashcards, a timeline activity and checkpoints that save your progress and adapt.',
+  },
+  '/study/ap-world-history-modern/unit-1': {
+    title: 'AP World History Unit 1: The Global Tapestry — Study Pack',
+    description:
+      'Song China, Dar al-Islam, South and Southeast Asia, the Americas, Africa and Europe from c. 1200 to 1450, with flashcards and a timeline. Free.',
+  },
+  '/study/ap-european-history': {
+    title: 'AP European History Study Packs by Unit — Apex Scholar',
+    description:
+      'Free AP European History unit study packs: Renaissance and Exploration, with flashcards, a timeline activity and checkpoints that save your progress.',
+  },
+  '/study/ap-european-history/unit-1': {
+    title: 'AP Euro Unit 1: Renaissance and Exploration — Study Pack',
+    description:
+      'Italian and Northern Renaissance, printing, new monarchies, exploration, the Columbian Exchange, the slave trade and the Commercial Revolution. Free.',
+  },
+  '/study/ap-us-government-and-politics': {
+    title: 'AP U.S. Government Study Packs by Unit — Apex Scholar',
+    description:
+      'Free AP U.S. Government and Politics unit study packs: Foundations of American Democracy, with activities and checkpoints that save your progress.',
+  },
+  '/study/ap-us-government-and-politics/unit-1': {
+    title: 'AP Gov Unit 1: Foundations of American Democracy — Study Pack',
+    description:
+      'Democratic ideals, the Articles, ratification compromises, Federalist 10 and 51, Brutus 1, federalism, McCulloch and Lopez, with activities. Free.',
+  },
+  '/study/ap-comparative-government-and-politics': {
+    title: 'AP Comparative Government Study Packs by Unit — Apex Scholar',
+    description:
+      'Free AP Comparative Government and Politics unit study packs: political systems and regimes, with sorting activities and checkpoints that save progress.',
+  },
+  '/study/ap-comparative-government-and-politics/unit-1': {
+    title: 'AP Comp Gov Unit 1: Political Systems and Regimes — Study Pack',
+    description:
+      'Data and methods, states vs. regimes, democracy vs. authoritarianism, democratization, legitimacy and stability across the six course countries. Free.',
+  },
+  '/study/ap-computer-science-a': {
+    title: 'AP Computer Science A Study Packs by Unit — Apex Scholar',
+    description:
+      'Free AP Computer Science A unit study packs: Using Objects and Methods, with live Java labs and checkpoints that save your progress and adapt.',
+  },
+  '/study/ap-computer-science-a/unit-1': {
+    title: 'AP CSA Unit 1: Using Objects and Methods — Study Pack',
+    description:
+      'Java types, int vs. double arithmetic, casting and overflow, methods, the Math class, objects and String methods, with two live Java labs. Free.',
+  },
+  '/study/ap-computer-science-principles': {
+    title: 'AP Computer Science Principles Study Packs — Apex Scholar',
+    description:
+      'Free AP Computer Science Principles study packs by Big Idea: Creative Development, with sorting activities and checkpoints that save your progress.',
+  },
+  '/study/ap-computer-science-principles/unit-1': {
+    title: 'AP CSP Big Idea 1: Creative Development — Study Pack',
+    description:
+      'Collaboration, program purpose, inputs, events and outputs, iterative and incremental development, documentation, and finding errors with tests. Free.',
+  },
+  '/study/ap-english-language-and-composition': {
+    title: 'AP English Language Study Packs by Unit — Apex Scholar',
+    description:
+      'Free AP English Language and Composition unit study packs: the rhetorical situation, claims and evidence, with activities and saved progress.',
+  },
+  '/study/ap-english-language-and-composition/unit-1': {
+    title: 'AP English Language Unit 1: Rhetorical Situation — Study Pack',
+    description:
+      'Exigence, purpose, audience and context, claims vs. facts, types of evidence, and embedding quotes in a claim-and-evidence paragraph. Free.',
+  },
+  '/study/ap-english-literature-and-composition': {
+    title: 'AP English Literature Study Packs by Unit — Apex Scholar',
+    description:
+      'Free AP English Literature and Composition unit study packs: Short Fiction I, with activities and checkpoints that save your progress and adapt.',
+  },
+  '/study/ap-english-literature-and-composition/unit-1': {
+    title: 'AP English Literature Unit 1: Short Fiction I — Study Pack',
+    description:
+      'Character, setting, plot, narrator and point of view, and claim-and-evidence paragraphs, taught through Chopin and Poe, with activities. Free.',
+  },
+  '/study/ap-cybersecurity': {
+    title: 'AP Cybersecurity Study Packs by Unit — Apex Scholar',
+    description:
+      'Free AP Cybersecurity unit study packs: Introduction to Security, with a password simulation, sorting activities and checkpoints that save progress.',
+  },
+  '/study/ap-cybersecurity/unit-1': {
+    title: 'AP Cybersecurity Unit 1: Introduction to Security — Study Pack',
+    description:
+      'Social engineering, password attacks and MFA, public Wi-Fi risks, AI-powered attacks and AI in defense, with a password search-space sim. Free.',
+  },
+  '/study/ap-business-with-personal-finance': {
+    title: 'AP Business with Personal Finance Study Packs — Apex Scholar',
+    description:
+      'Free AP Business with Personal Finance unit study packs: Businesses, Competition, and New Ideas, with sorting activities and saved progress.',
+  },
+  '/study/ap-business-with-personal-finance/unit-1': {
+    title: 'AP Business with Personal Finance Unit 1 — Study Pack',
+    description:
+      'Value creation and capture, markets and competitive advantage, PESTEL, design thinking and MVPs, ethics, business types and supply chains. Free.',
+  },
+  '/study/ap-art-history': {
+    title: 'AP Art History Study Packs by Unit — Apex Scholar',
+    description:
+      'Free AP Art History unit study packs: Global Prehistory, with every required work, a timeline and region sort, and checkpoints that save progress.',
+  },
+  '/study/ap-art-history/unit-1': {
+    title: 'AP Art History Unit 1: Global Prehistory — Study Pack',
+    description:
+      'Prehistoric art worldwide: culture, materials and theories, with all eleven required works from the Apollo 11 stones to Stonehenge. Free.',
+  },
+  '/study/ap-music-theory': {
+    title: 'AP Music Theory Study Packs by Unit — Apex Scholar',
+    description:
+      'Free AP Music Theory unit study packs: Music Fundamentals I, with a playable scale builder, a meter lab and checkpoints that save progress.',
+  },
+  '/study/ap-music-theory/unit-1': {
+    title: 'AP Music Theory Unit 1: Music Fundamentals I — Study Pack',
+    description:
+      'Clefs, rhythm values, half and whole steps, major scales, key signatures, meter and time signatures, tempo and dynamics, with audio sims. Free.',
+  },
+  '/study/ap-latin': {
+    title: 'AP Latin Study Packs by Unit — Apex Scholar',
+    description:
+      'Free AP Latin unit study packs: Teacher’s Choice Latin prose grammar, with a case lab, a case-use sort and checkpoints that save your progress.',
+  },
+  '/study/ap-latin/unit-1': {
+    title: 'AP Latin Unit 1: Latin Prose Grammar Review — Study Pack',
+    description:
+      'Cases and their uses, verb tenses and voice, pronouns, adjectives, participles, subjunctive and imperative, and citing Latin evidence. Free.',
+  },
+  '/study/ap-african-american-studies': {
+    title: 'AP African American Studies Study Packs — Apex Scholar',
+    description:
+      'Free AP African American Studies unit study packs: Origins of the African Diaspora, with activities and checkpoints that save your progress.',
+  },
+  '/study/ap-african-american-studies/unit-1': {
+    title: 'AP African American Studies Unit 1: Origins — Study Pack',
+    description:
+      'The field, Africa’s geography, the Bantu expansion, Nubia, Aksum, Nok, Ghana, Mali, Songhai, Great Zimbabwe, Kongo, Queens Idia and Njinga. Free.',
+  },
+  '/study/ap-spanish-language-and-culture': {
+    title: 'AP Spanish Language Study Packs by Unit — Apex Scholar',
+    description:
+      'Free AP Spanish Language and Culture unit study packs: Families and Communities, with activities and checkpoints that save your progress and adapt.',
+  },
+  '/study/ap-spanish-language-and-culture/unit-1': {
+    title: 'AP Spanish Unit 1: Families and Communities — Study Pack',
+    description:
+      'Spanish family and community vocabulary, reading articles and charts, Project Presentation and Q&A strategies, and cultural practices. Free.',
+  },
+  '/study/ap-french-language-and-culture': {
+    title: 'AP French Language Study Packs by Unit — Apex Scholar',
+    description:
+      'Free AP French Language and Culture unit study packs: Families and Communities, with activities and checkpoints that save your progress and adapt.',
+  },
+  '/study/ap-french-language-and-culture/unit-1': {
+    title: 'AP French Unit 1: Families and Communities — Study Pack',
+    description:
+      'French family and community vocabulary, reading articles and charts, Project Presentation and Q&A strategies, and cultural practices. Free.',
+  },
+  '/study/ap-german-language-and-culture': {
+    title: 'AP German Language Study Packs by Unit — Apex Scholar',
+    description:
+      'Free AP German Language and Culture unit study packs: Families and Communities, with activities and checkpoints that save your progress and adapt.',
+  },
+  '/study/ap-german-language-and-culture/unit-1': {
+    title: 'AP German Unit 1: Families and Communities — Study Pack',
+    description:
+      'German family and community vocabulary, reading articles and charts, Project Presentation and Q&A strategies, and cultural practices. Free.',
+  },
+  '/study/ap-italian-language-and-culture': {
+    title: 'AP Italian Language Study Packs by Unit — Apex Scholar',
+    description:
+      'Free AP Italian Language and Culture unit study packs: Families and Communities, with activities and checkpoints that save your progress and adapt.',
+  },
+  '/study/ap-italian-language-and-culture/unit-1': {
+    title: 'AP Italian Unit 1: Families and Communities — Study Pack',
+    description:
+      'Italian family and community vocabulary, reading articles and charts, Project Presentation and Q&A strategies, and cultural practices. Free.',
+  },
+  '/study/ap-japanese-language-and-culture': {
+    title: 'AP Japanese Language Study Packs by Unit — Apex Scholar',
+    description:
+      'Free AP Japanese Language and Culture unit study packs: Families and Communities, with activities and checkpoints that save your progress and adapt.',
+  },
+  '/study/ap-japanese-language-and-culture/unit-1': {
+    title: 'AP Japanese Unit 1: Families and Communities — Study Pack',
+    description:
+      'Japanese family and community vocabulary, reading articles and charts, Project Presentation and Q&A strategies, and cultural practices. Free.',
+  },
+  '/study/ap-chinese-language-and-culture': {
+    title: 'AP Chinese Language Study Packs by Unit — Apex Scholar',
+    description:
+      'Free AP Chinese Language and Culture unit study packs: Families and Communities, with activities and checkpoints that save your progress and adapt.',
+  },
+  '/study/ap-chinese-language-and-culture/unit-1': {
+    title: 'AP Chinese Unit 1: Families and Communities — Study Pack',
+    description:
+      'Chinese family and community vocabulary, reading articles and charts, Project Presentation and Q&A strategies, and cultural practices. Free.',
+  },
+  '/study/ap-spanish-literature-and-culture': {
+    title: 'AP Spanish Literature Study Packs by Unit — Apex Scholar',
+    description:
+      'Free AP Spanish Literature and Culture unit study packs: La época medieval, with a literary-terms activity and checkpoints that save progress.',
+  },
+  '/study/ap-spanish-literature-and-culture/unit-1': {
+    title: 'AP Spanish Literature Unit 1: La época medieval — Study Pack',
+    description:
+      'El conde Lucanor (Exemplo XXXV) and the Romance de la pérdida de Alhama: context, themes, literary terms and essay practice. Free.',
+  },
+  '/study/ap-seminar': {
+    title: 'AP Seminar Study Packs by Big Idea — Apex Scholar',
+    description:
+      'Free AP Seminar study packs by Big Idea: Question and Explore, with a database search sandbox, sorting activities and saved progress.',
+  },
+  '/study/ap-seminar/unit-1': {
+    title: 'AP Seminar Big Idea 1: Question and Explore — Study Pack',
+    description:
+      'Contextualizing issues, research questions, prior knowledge, Boolean searching, primary vs. secondary sources and source credibility. Free.',
+  },
+  '/study/ap-research': {
+    title: 'AP Research Study Packs by Big Idea — Apex Scholar',
+    description:
+      'Free AP Research study packs by Big Idea: Question and Explore, with a database search sandbox, a methods sort and checkpoints that save progress.',
+  },
+  '/study/ap-research/unit-1': {
+    title: 'AP Research Big Idea 1: Question and Explore — Study Pack',
+    description:
+      'Topic and purpose, refining a research question, sources and credibility, methods, sampling, coding, perseverance and IRB ethics. Free.',
+  },
   '/ai-tutors': {
     title: 'AI Tutors for Every AP Subject — Apex Scholar',
     description:

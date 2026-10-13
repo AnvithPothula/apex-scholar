@@ -14,10 +14,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { FileQuestion, Zap, RotateCcw, ChevronRight, Target, Users, Calculator, Stethoscope, TrendingUp } from 'lucide-react';
+import { FileQuestion, Zap, RotateCcw, ChevronRight, Target, Users, Calculator, Stethoscope, TrendingUp, BookOpen } from 'lucide-react';
 import { Card, Badge } from '../components/ui/UIComponents';
 import { useAuth } from '../contexts/AuthContext';
 import { createPageUrl } from '../utils/helpers';
+import { PACKS } from '../data/packs';
 import srs, { dueCards } from '../services/srs';
 import dataService from '../services/dataService';
 import { masteryBySubject, weakestArea } from '../services/mastery';
@@ -64,6 +65,14 @@ export default function Practice() {
       body: 'Full-length, exam-format tests with AI scoring and FRQ grading.',
       to: createPageUrl('PracticeTests'),
       meta: null,
+    },
+    {
+      key: 'study',
+      icon: BookOpen,
+      title: 'Study Packs',
+      body: 'Short lessons with flashcards, simulations and checkpoints. You choose how long.',
+      to: '/study',
+      meta: `${Object.keys(PACKS).length} units`,
     },
     {
       key: 'review',

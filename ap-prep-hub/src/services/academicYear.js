@@ -17,6 +17,8 @@
  * Pure: no firebase, testable in jsdom.
  */
 
+import { resolveSubjectKey } from '../constants/curriculum';
+
 /**
  * The AP year runs with the school year. College Board labels the year by its
  * MAY exam, so August 2026 through July 2027 is all "AP 2027".
@@ -53,8 +55,12 @@ export function isCurrentWork(record, { enrolledSubjects, now = new Date() } = {
 
   // Only apply the enrolment filter when the student actually has a list.
   if (Array.isArray(enrolledSubjects) && enrolledSubjects.length > 0) {
+    // Saved subjects are curriculum KEYS ("biology"); records carry NAMES
+    // ("AP Biology"). Comparing them raw dropped every record for anyone with
+    // subjects set, which left their Progress page empty.
     const subject = record.subject || record.subjectName || '';
-    if (subject && !enrolledSubjects.includes(subject)) return false;
+    if (subject && !enrolledSubjects.includes(subject)
+      && !enrolledSubjects.includes(resolveSubjectKey(subject))) return false;
   }
   return true;
 }

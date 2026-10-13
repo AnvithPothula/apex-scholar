@@ -116,3 +116,30 @@ export function buildSession(due = [], { subjects = [], order = 'scheduled', see
   const ordered = order === 'random' ? shuffle(filtered, seed) : filtered;
   return ordered.slice(0, limit);
 }
+
+/**
+ * How hard a card has been for this student so far: higher = harder.
+ * SM-2 ease falls on every miss, lapses count them, reps count successes.
+ */
+const hardness = (c) => -(Number(c?.ease) || 2.5) * 10 + (Number(c?.lapses) || 0) - (Number(c?.reps) || 0) * 0.5;
+
+/**
+ * After a miss, bring the easiest remaining card forward to `at`.
+ *
+ * Misses predict quitting: in Math Garden one error roughly doubled the odds
+ * of ending the session, and a streak of them more (ten Broeke et al.). An
+ * easier card next restores momentum. Only moves a card that is strictly
+ * easier than the one already next, so a session of equally new cards keeps
+ * its scheduled order. Returns the same array when nothing moves.
+ */
+export function easeAfterMiss(session = [], at = 0) {
+  if (at >= session.length - 1) return session;
+  let best = at;
+  for (let j = at + 1; j < session.length; j++) {
+    if (hardness(session[j]) < hardness(session[best])) best = j;
+  }
+  if (best === at) return session;
+  const out = [...session];
+  [out[at], out[best]] = [out[best], out[at]];
+  return out;
+}

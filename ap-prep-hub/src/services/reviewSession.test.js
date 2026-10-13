@@ -149,3 +149,19 @@ describe('buildSession', () => {
     expect(buildSession(many, { limit: 30 })).toHaveLength(30);
   });
 });
+
+describe('easeAfterMiss', () => {
+  const { easeAfterMiss } = require('./reviewSession');
+  const c = (id, ease = 2.5, lapses = 0, reps = 0) => ({ id, ease, lapses, reps });
+
+  it('brings the easiest remaining card forward after a miss', () => {
+    const s = [c('a'), c('hard', 1.3, 4), c('mid', 2.0, 1), c('easy', 2.8, 0, 3)];
+    expect(easeAfterMiss(s, 1).map((x) => x.id)).toEqual(['a', 'easy', 'mid', 'hard']);
+  });
+
+  it('keeps the scheduled order when nothing remaining is easier', () => {
+    const s = [c('a'), c('b'), c('c')];
+    expect(easeAfterMiss(s, 1)).toBe(s);
+    expect(easeAfterMiss(s, 2)).toBe(s); // last card: nothing to swap with
+  });
+});

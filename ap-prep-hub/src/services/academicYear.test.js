@@ -87,3 +87,14 @@ describe('currentApYear', () => {
     expect(currentApYear(at(2026, 8, 18))).toBe(2027);
   });
 });
+
+describe('enrolment matching with saved subject keys', () => {
+  const { isCurrentWork } = require('./academicYear');
+  const now = new Date(2026, 9, 7);
+  const at = new Date(2026, 8, 20);
+  it('matches a record named "AP Biology" against the saved key "biology"', () => {
+    expect(isCurrentWork({ subject: 'AP Biology', createdAt: at }, { enrolledSubjects: ['biology'], now })).toBe(true);
+    expect(isCurrentWork({ subject: 'AP U.S. History', createdAt: at }, { enrolledSubjects: ['usHistory'], now })).toBe(true);
+    expect(isCurrentWork({ subject: 'AP Chemistry', createdAt: at }, { enrolledSubjects: ['biology'], now })).toBe(false);
+  });
+});

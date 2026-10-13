@@ -206,3 +206,27 @@ describe('ungraded responses and score ordering', () => {
     expect(subjectMastery('AP Biology', [older, newer]).latestAPScore).toBe(4);
   });
 });
+
+describe('topicsFromResponses', () => {
+  const { topicsFromResponses } = require('./mastery');
+  const r = (unit, correct, subject = 'AP Biology') => ({ subject, unit, correct });
+
+  it('gives each topic an honest range, weakest first, hiding thin evidence', () => {
+    const rows = [
+      r('Genetics', true), r('Genetics', true), r('Genetics', true), r('Genetics', false),
+      r('Ecology', false), r('Ecology', false), r('Ecology', true),
+      r('Cells', true), r('Cells', true), // only 2 answers: not shown
+      r('Kinematics', true, 'AP Physics 1'), r('Kinematics', true, 'AP Physics 1'), r('Kinematics', true, 'AP Physics 1'),
+    ];
+    const bio = topicsFromResponses(rows).get('AP Biology');
+    expect(bio.map((t) => t.unit)).toEqual(['Ecology', 'Genetics']);
+    expect(bio[0]).toMatchObject({ right: 1, total: 3, accuracy: 33, level: 'insufficient' });
+    expect(bio[0].low).toBeLessThan(33);
+    expect(bio[0].high).toBeGreaterThan(33);
+    expect(topicsFromResponses(rows).get('AP Physics 1')[0].high).toBe(100);
+  });
+
+  it('ignores rows without a subject, unit or correctness bit', () => {
+    expect(topicsFromResponses([{ unit: 'x', correct: true }, { subject: 's', correct: true }, { subject: 's', unit: 'u' }]).size).toBe(0);
+  });
+});

@@ -145,6 +145,60 @@ async function main() {
   }
 
   console.log(`prerendered ${pages.length} score-calculator pages`);
+
+  // Every other route with its own meta. Without a file here, Netlify's SPA
+  // fallback serves index.html, whose <head> says canonical = "/" and carries
+  // the homepage title. Google read /start as a duplicate of "/" for exactly
+  // that reason ("Google chose different canonical than user", Oct 2026).
+  // Netlify serves /start from start.html before the /* fallback applies.
+  const { ROUTE_META } = await loadEsm('src/constants/routeMeta.js');
+  const { PACKS } = await loadEsm('src/data/packs/index.js');
+  let routes = 0;
+  for (const [route, m] of Object.entries(ROUTE_META)) {
+    if (route === '/') continue;
+    const canonical = meta.canonicalFor(route, ORIGIN);
+    let html = template.replace(/<title>[\s\S]*?<\/title>/i, `<title>${esc(m.title)}</title>`);
+    html = setTag(html, 'name="description"', 'content', m.description);
+    html = setTag(html, 'property="og:title"', 'content', m.title);
+    html = setTag(html, 'property="og:description"', 'content', m.description);
+    html = setTag(html, 'property="og:url"', 'content', canonical);
+    html = setTag(html, 'name="twitter:title"', 'content', m.title);
+    html = setTag(html, 'name="twitter:description"', 'content', m.description);
+    html = setTag(html, 'rel="canonical"', 'href', canonical);
+    // Study packs: crawlers get the topic list and summaries, like the
+    // calculators get their curve tables.
+    const packEntry = route.startsWith('/study/') && PACKS[route.slice('/study/'.length)];
+    if (packEntry) {
+      const pack = { ...(await loadEsm(`src/data/packs/${packEntry.file}.js`)).default, ...packEntry.overrides };
+      html = html.replace(FALLBACK, `
+      <div style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;">
+        <h1>${esc(pack.subject)} ${esc(pack.unit)}</h1>
+        <p>${esc(pack.intro)}</p>
+        ${pack.sections.map((s) => `<h2>${esc(s.id)} ${esc(s.title)}</h2><p>${esc(s.summary)}</p>`).join('\n        ')}
+      </div>`);
+    }
+    const classPacks = Object.entries(PACKS).filter(([slug]) => slug.startsWith(`${route.slice('/study/'.length)}/`));
+    if (route.startsWith('/study/') && !packEntry && classPacks.length) {
+      html = html.replace(FALLBACK, `
+      <div style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;">
+        <h1>${esc(classPacks[0][1].subject)} study packs</h1>
+        <ul>${classPacks.map(([slug, p]) => `<li><a href="/study/${slug}">${esc(p.title)}</a></li>`).join('')}</ul>
+      </div>`);
+    }
+    if (route === '/study') {
+      html = html.replace(FALLBACK, `
+      <div style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;">
+        <h1>Study packs</h1>
+        <ul>${[...new Set(Object.keys(PACKS).map((slug) => slug.split('/')[0]))].map((id) => `<li><a href="/study/${id}">${esc(Object.entries(PACKS).find(([slug]) => slug.startsWith(`${id}/`))[1].subject)}</a></li>`).join('')}</ul>
+        <ul>${Object.entries(PACKS).map(([slug, p]) => `<li><a href="/study/${slug}">${esc(p.subject)} ${esc(p.title)}</a></li>`).join('')}</ul>
+      </div>`);
+    }
+    const file = path.join(BUILD, `${route.slice(1)}.html`);
+    await mkdir(path.dirname(file), { recursive: true });
+    await writeFile(file, html, 'utf8');
+    routes += 1;
+  }
+  console.log(`prerendered ${routes} route heads`);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

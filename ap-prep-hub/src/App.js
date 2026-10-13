@@ -42,6 +42,10 @@ const Diagnostics = lazy(retryingImport(() => import('./pages/Diagnostics')));
 // eslint-disable-next-line import/first
 const Start = lazy(retryingImport(() => import('./pages/Start')));
 // eslint-disable-next-line import/first
+const StudyPack = lazy(retryingImport(() => import('./pages/StudyPack')));
+// eslint-disable-next-line import/first
+const StudyIndex = lazy(retryingImport(() => import('./pages/StudyIndex')));
+// eslint-disable-next-line import/first
 const LearnHub = lazy(retryingImport(() => import('./pages/LearnHub')));
 // eslint-disable-next-line import/first
 const Review = lazy(retryingImport(() => import('./pages/Review')));
@@ -174,15 +178,20 @@ function AnalyticsRouteTracker() {
 }
 
 /**
- * "/" sends anyone who hasn't done the first-run check there, and everyone else
- * to the tutors. Renders nothing until that's known, so a returning student is
- * never bounced through /start while their profile loads.
+ * "/" shows the first-run check to anyone who hasn't done it, and sends
+ * everyone else to the tutors. Renders nothing until that's known, so a
+ * returning student is never shown the check while their profile loads.
+ *
+ * The check renders IN PLACE rather than redirecting to /start: Google renders
+ * "/" as a new visitor, and a redirect made it index the homepage under the
+ * /start title and description. Staying on "/" keeps the homepage's own meta.
  */
 function HomeRedirect() {
   const { user, isGuest } = useAuth();
   let localDone = false;
   try { localDone = localStorage.getItem(FIRST_RUN_DONE_KEY) === 'true'; } catch { /* private window */ }
   const to = homePath({ user, isGuest, localDone });
+  if (to === '/start') return <Start />;
   return to ? <Navigate to={to} replace /> : null;
 }
 
@@ -201,6 +210,9 @@ function MainApp() {
         <Route element={<Layout><ErrorBoundary><Suspense fallback={<PageSkeleton />}><AnimatedOutlet /></Suspense></ErrorBoundary></Layout>}>
           <Route index element={<HomeRedirect />} />
           <Route path="/start" element={<Start />} />
+          <Route path="/study" element={<StudyIndex />} />
+          <Route path="/study/:subject" element={<StudyIndex />} />
+          <Route path="/study/:subject/:unit" element={<StudyPack />} />
           <Route path={createPageUrl("AITutors")} element={<AITutors />} />
           <Route path={createPageUrl("AITutors", ":subject")} element={<AITutors />} />
           <Route path={createPageUrl("SmartScheduler")} element={<GuestGate feature={FEATURES.scheduler}><SmartScheduler /></GuestGate>} />

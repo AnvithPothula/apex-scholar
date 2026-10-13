@@ -220,6 +220,56 @@ export function weakestArea(masteries = []) {
   return worst;
 }
 
+/**
+ * Wilson score interval for k of n. z = 1.28 is an 80% interval: wide enough to
+ * be honest about a handful of answers, narrow enough to still say something.
+ */
+export function wilson(k, n, z = 1.28) {
+  if (!n) return [0, 1];
+  const p = k / n;
+  const z2 = z * z;
+  const centre = (p + z2 / (2 * n)) / (1 + z2 / n);
+  const half = (z * Math.sqrt((p * (1 - p)) / n + z2 / (4 * n * n))) / (1 + z2 / n);
+  return [Math.max(0, centre - half), Math.min(1, centre + half)];
+}
+
+/** A topic needs this many answers before it's shown at all. */
+const MIN_TOPIC_ANSWERS = 3;
+
+/**
+ * Per-topic accuracy from the response log, with the range the answers can
+ * actually support. "62% on Unit 4" off six questions is noise presented as
+ * measurement; "likely 37–82%" is the honest version of the same data.
+ *
+ * @param {Array<{subject, unit, correct}>} responses rows from `responses`
+ * @returns {Map<string, Array>} subject -> topics, weakest first
+ */
+export function topicsFromResponses(responses = []) {
+  const bySubject = new Map();
+  for (const r of responses) {
+    if (!r || !r.subject || !r.unit || typeof r.correct !== 'boolean') continue;
+    const topics = bySubject.get(r.subject) || new Map();
+    const t = topics.get(r.unit) || { unit: r.unit, right: 0, total: 0 };
+    t.total += 1;
+    if (r.correct) t.right += 1;
+    topics.set(r.unit, t);
+    bySubject.set(r.subject, topics);
+  }
+  const out = new Map();
+  bySubject.forEach((topics, subject) => {
+    const list = [...topics.values()]
+      .filter((t) => t.total >= MIN_TOPIC_ANSWERS)
+      .map((t) => {
+        const [lo, hi] = wilson(t.right, t.total);
+        const accuracy = pct(t.right, t.total);
+        return { ...t, accuracy, low: Math.round(lo * 100), high: Math.round(hi * 100), level: levelFor(accuracy, t.total) };
+      })
+      .sort((a, b) => a.high - b.high || b.total - a.total);
+    if (list.length) out.set(subject, list);
+  });
+  return out;
+}
+
 /** Firestore Timestamp | Date | number -> epoch ms (or null). */
 function toMillis(v) {
   if (!v) return null;
@@ -230,5 +280,5 @@ function toMillis(v) {
   return Number.isNaN(t) ? null : t;
 }
 
-const mastery = { levelFor, subjectMastery, masteryBySubject, weakestArea, isAbandoned, MIN_SAMPLES };
+const mastery = { levelFor, subjectMastery, masteryBySubject, weakestArea, isAbandoned, topicsFromResponses, wilson, MIN_SAMPLES };
 export default mastery;

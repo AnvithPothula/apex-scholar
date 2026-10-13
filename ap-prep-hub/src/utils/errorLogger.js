@@ -9,7 +9,24 @@ import * as Sentry from '@sentry/react';
 const isDev = process.env.NODE_ENV === 'development';
 const sentryEnabled = !isDev && !!process.env.REACT_APP_SENTRY_DSN;
 
+// The last few errors this visit, attached to bug reports (utils/bugReport).
+// Messages only, never stacks or request bodies, and capped in length.
+const recent = [];
+function remember(message, source) {
+  recent.push({ at: new Date().toISOString(), source, message: String(message || 'Unknown error').slice(0, 300) });
+  if (recent.length > 10) recent.shift();
+}
+if (typeof window !== 'undefined') {
+  window.addEventListener('error', (e) => remember(e.message, 'window'));
+  window.addEventListener('unhandledrejection', (e) => remember(e.reason?.message || e.reason, 'promise'));
+}
+
 const errorLogger = {
+  /** Recent errors this visit, oldest first. */
+  recentErrors() {
+    return [...recent];
+  },
+
   /**
    * Report an error with context (always logged, even in production).
    * @param {Error|string} error - The error object or message
@@ -22,6 +39,7 @@ const errorLogger = {
       stack: error instanceof Error ? error.stack : undefined,
       ...context,
     };
+    remember(entry.message, context.component || 'app');
 
     if (isDev) {
       console.error('[ErrorLogger]', entry.message, entry);

@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Check, X, RotateCcw, Brain, Calculator, FileQuestion, Search } from 'lucide-react';
+import { ArrowRight, Check, X, RotateCcw, Brain, Calculator, FileQuestion, Search, BookOpen } from 'lucide-react';
 import { Button, Card } from '../components/ui/UIComponents';
+import ApexScholarLogo from '../components/ui/ApexScholarLogo';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import { useAuth } from '../contexts/AuthContext';
 import { getBankQuestions } from '../services/questionBank';
@@ -11,6 +12,7 @@ import { recordPracticeTest } from '../services/activityTracker';
 import { completionRecord } from '../components/onboarding/onboardingState';
 import { calculatorUrl } from '../utils/testToScore';
 import { trackEvent } from '../utils/analytics';
+import { packForSubject } from '../data/packs';
 import errorLogger from '../utils/errorLogger';
 import {
   FIRST_RUN_QUESTIONS, FIRST_RUN_MIN_QUESTIONS, FIRST_RUN_SUBJECTS,
@@ -192,6 +194,7 @@ export default function Start() {
     const answered = picked !== undefined;
     return (
       <div className="max-w-2xl mx-auto px-4 py-8">
+        <Brand />
         <div className="flex items-center justify-between mb-3 text-body-sm text-content-muted">
           <span>{subject}</span>
           <span>Question {index + 1} of {questions.length}</span>
@@ -260,9 +263,11 @@ export default function Start() {
       ? `I just missed questions on ${concepts[0]} in ${subject}. Can you explain it simply, then give me one practice question?`
       : `I just took a 10-question ${subject} check. What should I focus on first?`;
     const curve = prediction && calculatorUrl(subject, prediction.estimate);
+    const pack = packForSubject(subject);
 
     return (
       <div className="max-w-2xl mx-auto px-4 py-8">
+        <Brand />
         <Card className="p-6 text-center">
           <p className="text-label text-content-muted uppercase tracking-wide">{subject} · predicted AP score</p>
           <p className="text-display font-bold text-content-primary my-2">{prediction ? prediction.estimate.score : '—'}</p>
@@ -298,6 +303,9 @@ export default function Start() {
             body="It starts with the question already written; edit it or just send."
             onClick={() => navigate(tutorPath, { state: { prefill: askAbout } })}
           />
+          {pack && (
+            <PlanRow icon={BookOpen} title={`Study ${pack.title}`} body="Short lessons, simulations and checkpoints. You choose how long." onClick={() => navigate(`/study/${pack.slug}`)} />
+          )}
           {user && (
             <PlanRow icon={FileQuestion} title="Take a practice test" body="Longer, timed, with free response, for a tighter score estimate." onClick={() => navigate('/practice-tests')} />
           )}
@@ -317,6 +325,7 @@ export default function Start() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
+      <Brand />
       <h1 className="text-h1 font-bold text-content-primary">Where do you stand?</h1>
       <p className="text-body text-content-secondary mt-2 mb-6">
         10 AP-style questions, about 8 minutes. You'll get a predicted score, the range it could really be,
@@ -368,5 +377,15 @@ function PlanRow({ icon: Icon, title, body, onClick }) {
       </span>
       <ArrowRight className="w-4 h-4 text-content-muted shrink-0" aria-hidden="true" />
     </button>
+  );
+}
+
+/** The navigation bars are hidden on this screen (Layout focusMode), so the brand sits here instead. */
+function Brand() {
+  return (
+    <div className="flex items-center gap-2 mb-6" aria-hidden="true">
+      <ApexScholarLogo className="w-7 h-7" />
+      <span className="text-body font-semibold text-content-primary">Apex Scholar</span>
+    </div>
   );
 }

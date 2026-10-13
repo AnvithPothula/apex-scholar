@@ -580,3 +580,23 @@ body {
   overflow-x: auto;
   overscroll-behavior-x: contain;
 }
+
+/* Study packs: highlight-to-ask (components/study/SelectionAsk). Our own
+   selection colour and highlight, and no iOS long-press callout, so the pack's
+   Ask / Explain / Copy menu replaces the device's. */
+.apex-ask-zone {
+  -webkit-touch-callout: none;
+}
+/* Charts and sim graphics aren't text: dragging across them (or slipping off a
+   slider) shouldn't select axis labels and pop up the Ask menu. */
+.apex-ask-zone svg,
+.apex-ask-zone input[type='range'] {
+  -webkit-user-select: none;
+  user-select: none;
+}
+.apex-ask-zone ::selection {
+  background: color-mix(in srgb, var(--color-primary-500) 35%, transparent);
+}
+::highlight(apex-ask) {
+  background-color: color-mix(in srgb, var(--color-primary-500) 35%, transparent);
+}

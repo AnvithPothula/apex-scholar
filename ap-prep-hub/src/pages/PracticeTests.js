@@ -6,6 +6,7 @@ import { collection, addDoc, serverTimestamp, query, where, orderBy, onSnapshot,
 import { AP_SUBJECTS } from '../constants/subjects';
 import apiKeyManager from '../services/APIKeyManager';
 import geminiService, { RateLimitError } from '../services/geminiService';
+import { verifyOptionMcqs } from '../services/ai/mcqGenerator';
 import { retryAfterFrom } from '../services/aiRetry';
 import aiUsageLimiter from '../services/aiUsageLimiter';
 import srs from '../services/srs';
@@ -3408,8 +3409,19 @@ Generate ${numQuestions} questions now:`;
         throw new Error('No valid questions generated from AI response');
       }
       
+      // A different model re-answers every multiple-choice question blind and
+      // any it disagrees with is dropped. One extra call per batch.
+      const verifiedQuestions = await verifyOptionMcqs({
+        subjectName: subject,
+        questions: validQuestions,
+        avoidModel: geminiService.getLastResolvedModel?.()?.model || null,
+      });
+      if (verifiedQuestions.length < validQuestions.length) {
+        console.warn(`Answer-key check dropped ${validQuestions.length - verifiedQuestions.length} of ${validQuestions.length} questions`);
+      }
+
       // For batch generation, limit to the exact number requested to prevent overshooting
-      const limitedQuestions = validQuestions.slice(0, numQuestions);
+      const limitedQuestions = verifiedQuestions.slice(0, numQuestions);
       
       // Be more lenient with fewer questions - accept any positive number
       if (limitedQuestions.length < Math.max(1, numQuestions * 0.3)) {
