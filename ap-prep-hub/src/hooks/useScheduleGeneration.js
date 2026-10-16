@@ -100,8 +100,14 @@ export default function useScheduleGeneration({
       setOverdueTasksDialog({ show: true, tasks: overdueTasks });
       return true;
     }
+    setOverdueTasksDialog((d) => (d.show ? { show: false, tasks: [] } : d));
     return false;
   }, []);
+
+  // Show the overdue banner whenever the task list has overdue work, not only
+  // after a Generate click — otherwise it vanished on the next page load
+  // while the task still read "Due: 5 months ago".
+  useEffect(() => { handleOverdueTasks(tasks); }, [tasks, handleOverdueTasks]);
 
   // --- Process overdue task action (reschedule / delete) ---
   const processOverdueTaskAction = useCallback(async (task, action, newDeadline = null) => {
@@ -192,6 +198,8 @@ export default function useScheduleGeneration({
       // when the user isn't there to dismiss a dialog.
       if (!isAutoTrigger && handleOverdueTasks(tasks)) {
         debugLog("⏸ Schedule generation paused — overdue tasks need attention");
+        toast.warning("Some tasks are past their deadline. Reschedule or remove them first, then generate again.");
+        setTimeout(() => document.getElementById('overdue-tasks')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
         updateIsGenerating(false);
         return;
       }

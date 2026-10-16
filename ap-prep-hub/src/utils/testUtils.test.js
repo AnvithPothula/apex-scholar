@@ -66,6 +66,12 @@ describe('fixLaTeXInText', () => {
 // ─── fixLaTeXInQuestions ─────────────────────────────────────────
 
 describe('fixLaTeXInQuestions', () => {
+  it('keeps which option is correct', () => {
+    const [q] = fixLaTeXInQuestions([{ type: 'mcq', question: 'Q', options: [
+      { text: 'right', correct: true }, { text: 'wrong', correct: false }] }]);
+    expect(q.options.map((o) => o.correct)).toEqual([true, false]);
+  });
+
   it('fixes LaTeX in question text and options', () => {
     const qs = [{
       id: 1,
@@ -164,6 +170,12 @@ describe('parseAIResponse', () => {
 // ─── buildRubricItems ────────────────────────────────────────────
 
 describe('buildRubricItems', () => {
+  it('labels parts from (A)…(D) in the prompt text', () => {
+    const r = buildRubricItems({ type: 'short-frq', points: 4, question: '(A) Explain. (B) Propose. (C) Justify. (D) Predict.' });
+    expect(r.items.map((i) => i.label)).toEqual(['Part A', 'Part B', 'Part C', 'Part D']);
+    expect(r.totalPoints).toBe(4);
+  });
+
   it('returns default rubric for DBQ question', () => {
     const question = { type: 'dbq' };
     const rubric = buildRubricItems(question);

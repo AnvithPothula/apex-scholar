@@ -1,29 +1,39 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ChevronDown, Cpu, Sparkles, Zap, Crown, LogIn } from 'lucide-react';
-import geminiService from '../../services/geminiService';
+import geminiService, { DEFAULT_PUTER_MODEL } from '../../services/geminiService';
 import errorLogger from '../../utils/errorLogger';
 
 /**
- * AI model definitions — Puter models (free, unlimited) plus Google Gemini fallback.
+ * Models a student can pick. Puter models run on the student's own Puter
+ * account (ids from developer.puter.com/ai/models, vendor-prefixed; the
+ * bare ids used before 2026-10 had been retired, so every request failed
+ * over to the proxy). The standard model is Apex Scholar's own Gemini proxy
+ * and is always offered, connected or not.
  * Each entry: { value, label, provider, icon, description }
  */
 const PUTER_MODELS = [
-  { value: 'claude-sonnet-4',          label: 'Claude Sonnet 4',          provider: 'Puter', icon: Crown,     description: 'Best for education — deep reasoning' },
-  { value: 'gpt-4.1',                  label: 'GPT-4.1',                  provider: 'Puter', icon: Sparkles,  description: 'Excellent quality and speed' },
-  { value: 'gpt-4o',                   label: 'GPT-4o',                   provider: 'Puter', icon: Sparkles,  description: 'Strong multimodal model' },
-  { value: 'google/gemini-2.5-flash',  label: 'Gemini 2.5 Flash',        provider: 'Puter', icon: Zap,       description: 'Fast and reliable' },
-  { value: 'claude-haiku-4-5',         label: 'Claude Haiku 4.5',        provider: 'Puter', icon: Zap,       description: 'Very fast responses' },
-  { value: 'gpt-4.1-mini',            label: 'GPT-4.1 Mini',            provider: 'Puter', icon: Zap,       description: 'Lightweight and quick' },
-  { value: 'google/gemini-2.0-flash',  label: 'Gemini 2.0 Flash',        provider: 'Puter', icon: Zap,       description: 'Efficient and cost-effective' },
+  { value: DEFAULT_PUTER_MODEL,          label: 'Claude Sonnet 5.5', provider: 'Puter', icon: Crown,    description: 'Careful, step-by-step explanations' },
+  { value: 'openai/gpt-5.5',             label: 'GPT-5.5',           provider: 'Puter', icon: Sparkles, description: 'Strong all-round model' },
+  { value: 'google/gemini-3.8-flash',    label: 'Gemini 3.8 Flash',  provider: 'Puter', icon: Zap,      description: 'Fast, good with images' },
+  { value: 'anthropic/claude-haiku-5-5', label: 'Claude Haiku 5.5',  provider: 'Puter', icon: Zap,      description: 'Very fast' },
+  { value: 'openai/gpt-5.4-mini',        label: 'GPT-5.4 Mini',      provider: 'Puter', icon: Zap,      description: 'Light and quick' },
 ];
 
-const GEMINI_ONLY = [
-  { value: 'gemini-2.0-flash',  label: 'Gemini Flash',  provider: 'Google', icon: Zap, description: 'Free tier — works without Puter' },
-];
+// The proxy decides which Gemini model serves each task; this value means
+// "Apex Scholar's choice" (see geminiService's proxy note).
+const STANDARD = { value: 'gemini-2.0-flash', label: 'Standard', provider: 'Apex Scholar', icon: Zap, description: "Apex Scholar's own AI (Gemini)" };
+const KNOWN = new Set([...PUTER_MODELS, STANDARD].map((m) => m.value));
+// Only a pick from the current list counts; older saved ids don't.
+const savedPick = () => {
+  try {
+    const v = localStorage.getItem('apex.ai.userModel');
+    return KNOWN.has(v) ? v : null;
+  } catch (e) { return null; }
+};
 
 /**
  * ModelSelector — compact dropdown for choosing an AI model.
- * Detects Puter SDK availability and shows full list or just Gemini Flash.
+ * Shows the standard model, plus the Puter models once a Puter account is connected.
  *
  * Props:
  *   value    — currently selected model value (string)
@@ -50,34 +60,30 @@ export default function ModelSelector({ value, onChange, compact = false, classN
       if (puter) {
         if (!cancelled) {
           setHasPuter(true);
-          // getDefaultModel() ran before the Puter token finished restoring from
-          // localStorage, so it fell back to Gemini. The poll finding Puter used
-          // to flip `hasPuter` only — leaving the picker showing "Gemini Flash"
-          // while requests were actually served by claude-sonnet-4. Correct the
-          // displayed value too, same as the auth-complete path does.
+          // getDefaultModel() ran before the Puter token finished restoring, so
+          // it showed the standard model while requests went to Puter. Correct
+          // it, unless the student actually picked the standard model.
           const { value: v, onChange: cb } = latest.current;
-          if (v === 'gemini-2.0-flash' && cb) cb('claude-sonnet-4');
+          if (v === STANDARD.value && !savedPick() && cb) cb(DEFAULT_PUTER_MODEL);
         }
         return true;
       }
       return false;
     };
     if (check()) return;
-    // Poll for up to 6s (token may take a moment to restore from localStorage)
-    let attempts = 0;
-    const iv = setInterval(() => {
-      if (check() || ++attempts >= 6) clearInterval(iv);
-    }, 1000);
-    return () => { cancelled = true; clearInterval(iv); };
+    // The SDK loads at idle (public/index.html) and announces itself; a fixed
+    // 6-second poll used to miss it on slow networks.
+    window.addEventListener('apex:puterReady', check);
+    return () => { cancelled = true; window.removeEventListener('apex:puterReady', check); };
   }, []);
 
   // Re-check Puter availability when auth completes
   useEffect(() => {
     const handleAuthComplete = () => {
       setHasPuter(true);
-      // If current model is Gemini fallback, switch to the best Puter model
-      if (value === 'gemini-2.0-flash' && onChange) {
-        onChange('claude-sonnet-4');
+      // Just connected: start on the default Puter model unless they picked the standard one.
+      if (value === STANDARD.value && !savedPick() && onChange) {
+        onChange(DEFAULT_PUTER_MODEL);
       }
     };
     window.addEventListener('apex:puterAuthComplete', handleAuthComplete);
@@ -90,7 +96,7 @@ export default function ModelSelector({ value, onChange, compact = false, classN
       setHasPuter(false);
       // Force switch to Gemini fallback since Puter models are no longer available
       if (onChange) {
-        onChange('gemini-2.0-flash');
+        onChange(STANDARD.value);
       }
     };
     window.addEventListener('apex:puterAuthCleared', handleAuthCleared);
@@ -107,7 +113,7 @@ export default function ModelSelector({ value, onChange, compact = false, classN
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  const models = hasPuter ? PUTER_MODELS : GEMINI_ONLY;
+  const models = hasPuter ? [...PUTER_MODELS, STANDARD] : [STANDARD];
   const selected = models.find(m => m.value === value) || models[0];
 
   const handleSelect = useCallback((model) => {
@@ -123,6 +129,7 @@ export default function ModelSelector({ value, onChange, compact = false, classN
         className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg bg-base-800 hover:bg-base-750 border border-border text-xs sm:text-sm text-content-primary transition-colors"
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-label={`AI model: ${selected.label}`}
       >
         <Cpu className="w-3.5 h-3.5 text-content-muted flex-shrink-0" strokeWidth={1.5} />
         {/* lg, not sm. The only compact caller (AI Tutors) gains a 320px inline
@@ -136,7 +143,7 @@ export default function ModelSelector({ value, onChange, compact = false, classN
         <div className={`absolute right-0 z-50 w-72 bg-base-800 border border-border rounded-md shadow-floating overflow-hidden animate-in fade-in duration-150 ${dropUp ? 'bottom-full mb-1 slide-in-from-bottom-2' : 'mt-1 slide-in-from-top-2'}`}>
           <div className="px-3 py-2 border-b border-border-subtle">
             <p className="text-xs font-medium text-content-muted">
-              {hasPuter ? 'AI Models (via Puter — free & unlimited)' : 'AI Model'}
+              {hasPuter ? 'AI model (Puter models use your Puter account)' : 'AI model'}
             </p>
           </div>
           <ul className="py-1 max-h-64 overflow-y-auto" role="listbox">
@@ -169,18 +176,13 @@ export default function ModelSelector({ value, onChange, compact = false, classN
           </ul>
           {!hasPuter && (
             <div className="px-3 py-2.5 border-t border-border-subtle bg-base-850 space-y-2">
-              <p className="text-xs text-warning-400/80">
-                Connect Puter for 7+ free AI models including Claude & GPT-4
+              <p className="text-xs text-content-muted">
+                Connect your own Puter account to choose Claude, GPT and other models.
               </p>
               <button
                 type="button"
                 onClick={() => {
                   setOpen(false);
-                  // Trigger Puter auth by clearing the skip flag and dispatching a custom event
-                  try {
-                    localStorage.removeItem('apex.puter.skipped');
-                    localStorage.removeItem('apex.puter.skippedAt');
-                  } catch (e) { errorLogger.debug('localStorage write failed (puter skip clear)', { error: e?.message }); }
                   window.dispatchEvent(new CustomEvent('apex:requestPuterAuth'));
                 }}
                 className="w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-base-800 hover:bg-content-primary/30 border border-content-muted/40 rounded-lg text-xs text-content-muted font-medium transition-colors"
@@ -203,27 +205,17 @@ export default function ModelSelector({ value, onChange, compact = false, classN
  */
 export function getModelLabel(value) {
   if (!value) return null;
-  const known = [...PUTER_MODELS, ...GEMINI_ONLY].find(m => m.value === value);
+  const known = [...PUTER_MODELS, STANDARD].find(m => m.value === value);
   return known ? known.label : String(value).replace(/^(models\/|google\/)/, '');
 }
 
 /** Utility: get default model value */
 export function getDefaultModel() {
-  try {
-    const saved = localStorage.getItem('apex.ai.userModel');
-    if (saved) {
-      // If saved model is a Puter model but Puter isn't authenticated, fall back to Gemini
-      const isPuterModel = PUTER_MODELS.some(m => m.value === saved);
-      if (isPuterModel) {
-        const hasPuter = !!geminiService.getPuter();
-        if (!hasPuter) return 'gemini-2.0-flash';
-      }
-      return saved;
-    }
-  } catch (e) { errorLogger.debug('localStorage read failed (model selector)', { error: e?.message }); }
-  // Default: only offer Puter models if user is authenticated (not just SDK loaded)
   const hasPuter = !!geminiService.getPuter();
-  return hasPuter ? 'claude-sonnet-4' : 'gemini-2.0-flash';
+  const saved = savedPick();
+  // A saved Puter pick only applies while the account is connected.
+  if (saved && (hasPuter || saved === STANDARD.value)) return saved;
+  return hasPuter ? DEFAULT_PUTER_MODEL : STANDARD.value;
 }
 
 /** Utility: persist selected model */

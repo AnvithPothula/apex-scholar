@@ -531,6 +531,7 @@ Paving land with impervious surfaces (roads, parking lots) cuts infiltration and
 - **Primary productivity**: the rate at which solar energy is converted into organic compounds by photosynthesis.
 - **Gross primary productivity (GPP)**: the **total** rate of photosynthesis in an area.
 - **Net primary productivity (NPP)**: the rate of energy **storage** by producers after subtracting what they use in **respiration (R)**:
+
 $$\text{NPP} = \text{GPP} - R$$
 
 NPP is the energy actually available to consumers. Units: energy per unit area per unit time, e.g. **kcal/m²/yr**.

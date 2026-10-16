@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Lock, ArrowRight } from 'lucide-react';
+import { Lock } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from './ui/UIComponents';
 import GoogleIcon from './ui/GoogleIcon';
@@ -107,12 +107,17 @@ export default function GuestGate({ feature, children }) {
             <Icon className="w-6 h-6 text-content-muted" strokeWidth={1.5} />
           </div>
 
+          <span className="inline-block mb-3 px-2.5 py-0.5 rounded-full bg-success-900 text-success-400 text-xs font-semibold">
+            100% free · No credit card
+          </span>
           <h2 className="text-lg sm:text-xl font-display font-semibold text-content-primary mb-1.5">
-            {feature?.title ? `${feature.title} is for members` : 'Sign in to continue'}
+            {feature?.title ? `Unlock ${feature.title} for free` : 'Sign in free to continue'}
           </h2>
           <p className="text-sm text-content-secondary leading-relaxed mb-6">
-            {feature?.blurb ||
-              'Create a free account to unlock this feature, save your progress, and sync across devices.'}
+            {/* Bold every "free" so it can't be missed in the blurb. */}
+            {(feature?.blurb || 'Create a free account to unlock this feature, save your progress, and sync across devices.')
+              .split(/(for free|free)/)
+              .map((part, i) => (i % 2 ? <strong key={i} className="font-semibold text-content-primary">{part}</strong> : part))}
           </p>
 
           {error && (
@@ -146,14 +151,19 @@ export default function GuestGate({ feature, children }) {
             </Button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => navigate(createPageUrl('AITutors'))}
-            className="mt-5 inline-flex items-center gap-1 text-xs text-content-muted hover:text-content-primary transition-colors"
-          >
-            Keep exploring AI Tutors as a guest
-            <ArrowRight className="w-3 h-3" strokeWidth={1.5} />
-          </button>
+          {/* Learn and the score calculator are public too; the only way out
+              used to be AI Tutors, so guests never found them. */}
+          <p className="mt-5 text-xs text-content-muted">
+            Keep exploring as a guest:{' '}
+            {[['AI Tutors', createPageUrl('AITutors')], ['Learn', '/study'], ['Score calculator', createPageUrl('ApScoreCalculator')]].map(([label, to], i) => (
+              <React.Fragment key={to}>
+                {i > 0 && ' · '}
+                <button type="button" onClick={() => navigate(to)} className="underline hover:text-content-primary transition-colors">
+                  {label}
+                </button>
+              </React.Fragment>
+            ))}
+          </p>
         </motion.div>
       </div>
     </div>

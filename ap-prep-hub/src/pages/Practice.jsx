@@ -69,8 +69,8 @@ export default function Practice() {
     {
       key: 'study',
       icon: BookOpen,
-      title: 'Study Packs',
-      body: 'Short lessons with flashcards, simulations and checkpoints. You choose how long.',
+      title: 'Learn',
+      body: 'Unit lessons with flashcards, simulations and checkpoints, plus interactive timelines.',
       to: '/study',
       meta: `${Object.keys(PACKS).length} units`,
     },
@@ -137,7 +137,7 @@ export default function Practice() {
             Practice
           </h1>
           <p className="text-sm sm:text-base text-content-secondary">
-            Don&apos;t read about it. Get graded on it.
+            Learn a unit, then get graded on it.
           </p>
         </motion.div>
 

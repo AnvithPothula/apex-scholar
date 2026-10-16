@@ -15,6 +15,8 @@ import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../config/firestore';
 
 const MAX_CARDS = 300;
+// Under Firestore's 1 MiB document limit, with room for the other fields.
+const MAX_BYTES = 900000;
 /** Relearning step, in days: 10 minutes. */
 const RELEARN_INTERVAL = 10 / (24 * 60);
 
@@ -133,9 +135,17 @@ export function dueCards(cards = [], now = Date.now(), limit = 20) {
 }
 
 /** Keep the queue inside one Firestore doc: drop the longest-scheduled cards first. */
-export function trim(cards = [], max = MAX_CARDS) {
-  if (cards.length <= max) return cards;
-  return [...cards].sort((a, b) => (a.interval || 0) - (b.interval || 0)).slice(0, max);
+export function trim(cards = [], max = MAX_CARDS, maxBytes = MAX_BYTES) {
+  const byInterval = (list) => [...list].sort((a, b) => (a.interval || 0) - (b.interval || 0));
+  let kept = cards.length > max ? byInterval(cards).slice(0, max) : cards;
+  // A count alone doesn't bound size: cards carry up to ~7 KB of stimulus and
+  // explanation, so 300 long ones would pass Firestore's 1 MiB doc limit and
+  // every save would fail. Drop the best-known cards until it fits.
+  if (JSON.stringify(kept).length > maxBytes) {
+    kept = byInterval(kept);
+    while (kept.length && JSON.stringify(kept).length > maxBytes) kept = kept.slice(0, Math.floor(kept.length * 0.9));
+  }
+  return kept;
 }
 
 // ---- Firestore layer -----------------------------------------------------

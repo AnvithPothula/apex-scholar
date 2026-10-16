@@ -1,3 +1,4 @@
+/* eslint-disable testing-library/no-unnecessary-act -- root.render is react-dom's, not Testing Library's render */
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { format } from 'date-fns';
@@ -25,7 +26,7 @@ describe('CalendarGrid', () => {
   let root;
 
   beforeAll(() => {
-    globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+    global.IS_REACT_ACT_ENVIRONMENT = true;
   });
 
   beforeEach(() => {

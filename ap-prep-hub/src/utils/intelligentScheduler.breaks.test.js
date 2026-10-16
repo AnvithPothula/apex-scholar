@@ -18,7 +18,6 @@ const at = (h, m = 0) => new Date(2026, 8, 22, h, m, 0, 0);
 const existing = [{ taskName: 'Calc', startTime: at(9), endTime: at(10) }];
 
 const make = (prefs) => {
-  const s = Object.create(IntelligentScheduler);
   const inst = typeof IntelligentScheduler === 'function' ? new IntelligentScheduler(prefs) : IntelligentScheduler;
   return inst;
 };
@@ -108,7 +107,7 @@ describe('sessions never run past the study window', () => {
     const busy = [];
     for (let h = 7; h < 23; h++) busy.push({ taskName: `b${h}`, startTime: D(h), endTime: D(h + 1) });
     const slot = s.findAvailableTimeSlot(D(0), 120, { name: 'Late', subject: 'AP Calculus AB' }, busy);
-    if (slot) expect(slot.end.getDate()).toBe(slot.start.getDate());
+    expect(slot ? slot.end.getDate() : null).toBe(slot ? slot.start.getDate() : null);
   });
 
   it('still books a session that fits inside the window', () => {

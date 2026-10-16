@@ -149,52 +149,6 @@ export function appendGuestMessage(subject, message) {
   return serial.id;
 }
 
-/* ------------------------------------------------------------------ *
- * Guest usage cap
- *
- * Guests share the app's client-side Gemini keys, so anonymous usage is
- * rate-limited per browser per day. This is a conversion nudge + casual-
- * abuse bound, NOT real security: clearing site data / incognito resets
- * it. Real protection requires a server-side AI proxy.
- * ------------------------------------------------------------------ */
-
-export const GUEST_MESSAGE_LIMIT = 20; // AI messages per browser per day
-
-const USAGE_KEY = 'apex.guest.usage.v1';
-
-function todayStr() {
-  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD (local-ish, fine for a soft cap)
-}
-
-/** Current day's usage. Auto-resets when the date rolls over. */
-export function getGuestUsage() {
-  try {
-    const raw = JSON.parse(localStorage.getItem(USAGE_KEY) || '{}');
-    if (raw.day !== todayStr()) return { count: 0, day: todayStr() };
-    return { count: raw.count || 0, day: raw.day };
-  } catch (e) {
-    errorLogger.debug('guest usage read failed', { error: e?.message });
-    return { count: 0, day: todayStr() };
-  }
-}
-
-/** How many AI messages the guest has left today (never negative). */
-export function guestMessagesRemaining() {
-  return Math.max(0, GUEST_MESSAGE_LIMIT - getGuestUsage().count);
-}
-
-/** Record one AI message against today's quota. Returns the new count. */
-export function incrementGuestUsage() {
-  const u = getGuestUsage();
-  const next = { count: u.count + 1, day: todayStr() };
-  try {
-    localStorage.setItem(USAGE_KEY, JSON.stringify(next));
-  } catch (e) {
-    errorLogger.debug('guest usage write failed', { error: e?.message });
-  }
-  return next.count;
-}
-
 /** Wipe a subject's guest thread (used when a guest starts a fresh chat). */
 export function clearGuestConversation(subject) {
   const all = readAll();

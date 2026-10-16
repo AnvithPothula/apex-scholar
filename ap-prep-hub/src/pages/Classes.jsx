@@ -13,11 +13,12 @@ import { Users, Plus, Copy, Check, Trophy, LogOut, ArrowLeft, Loader2, Trash2 } 
 import { Card, Button, Badge, Input } from '../components/ui/UIComponents';
 import MultiSelectDropdown from '../components/ui/MultiSelectDropdown';
 import { getAvailableSubjects } from '../constants/comprehensiveCurriculum';
+import { subjectName } from '../constants/subjects';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { createPageUrl } from '../utils/helpers';
-import classesService from '../services/classes';
+import classesService, { MIN_RANKED_ANSWERS } from '../services/classes';
 import { normalizeClassCode } from '../utils/classCode';
 
 function Shell({ children, back }) {
@@ -61,7 +62,9 @@ function ClassList() {
   // `o.label.toLowerCase()`.
   const allSubjects = useMemo(() => {
     try {
-      return (getAvailableSubjects() || []).map((s) => ({ label: s, value: s }));
+      // Saved as the course name, which is what a test records; the raw keys
+      // ("usHistory") used to be both the label and the value.
+      return (getAvailableSubjects() || []).map((s) => ({ label: subjectName(s), value: subjectName(s) }));
     } catch {
       return [];
     }
@@ -333,7 +336,7 @@ function ClassDetail({ code }) {
           </p>
           {Array.isArray(klass.subjects) && klass.subjects.length > 0 && (
             <p className="text-caption text-content-muted mt-1">
-              Counts: {klass.subjects.join(', ')}
+              Counts: {klass.subjects.map(subjectName).join(', ')}
             </p>
           )}
         </div>
@@ -399,6 +402,9 @@ function ClassDetail({ code }) {
                   {r.accuracy === null
                     ? <span className="text-content-muted">No practice yet</span>
                     : `${r.accuracy}% of ${r.questionsAnswered}`}
+                  {r.accuracy !== null && r.questionsAnswered < MIN_RANKED_ANSWERS && (
+                    <span className="text-content-muted"> · ranked after {MIN_RANKED_ANSWERS} answers</span>
+                  )}
                 </span>
               </div>
             ))}

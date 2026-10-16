@@ -139,7 +139,7 @@ export const PACKS = {
     load: () => import('./apUsGovernmentUnit1'),
   },
   'ap-comparative-government-and-politics/unit-1': {
-    subject: 'AP Government and Politics: Comparative',
+    subject: 'AP Comparative Government and Politics',
     title: 'Unit 1: Political Systems, Regimes, and Governments',
     file: 'apComparativeGovernmentUnit1',
     load: () => import('./apComparativeGovernmentUnit1'),
@@ -257,6 +257,78 @@ export const PACKS = {
     title: 'Big Idea 1: Question and Explore',
     file: 'apResearchUnit1',
     load: () => import('./apResearchUnit1'),
+  },
+  'ap-us-history/unit-2': {
+    subject: 'AP U.S. History',
+    title: 'Unit 2: Period 2, 1607–1754',
+    file: 'apUsHistoryUnit2',
+    load: () => import('./apUsHistoryUnit2'),
+  },
+  'ap-us-government-and-politics/unit-2': {
+    subject: 'AP U.S. Government and Politics',
+    title: 'Unit 2: Interactions Among Branches of Government',
+    file: 'apUsGovernmentUnit2',
+    load: () => import('./apUsGovernmentUnit2'),
+  },
+  'ap-world-history-modern/unit-2': {
+    subject: 'AP World History: Modern',
+    title: 'Unit 2: Networks of Exchange',
+    file: 'apWorldHistoryUnit2',
+    load: () => import('./apWorldHistoryUnit2'),
+  },
+  'ap-english-language-and-composition/unit-2': {
+    subject: 'AP English Language and Composition',
+    title: 'Unit 2: Audience, Appeals, Evidence, and Thesis',
+    file: 'apEnglishLanguageUnit2',
+    load: () => import('./apEnglishLanguageUnit2'),
+  },
+  'ap-precalculus/unit-2': {
+    subject: 'AP Precalculus',
+    title: 'Unit 2: Exponential and Logarithmic Functions',
+    file: 'apPrecalculusUnit2',
+    load: () => import('./apPrecalculusUnit2'),
+  },
+  'ap-physics-1/unit-2': {
+    subject: 'AP Physics 1: Algebra-Based',
+    title: 'Unit 2: Force and Translational Dynamics',
+    file: 'apPhysics1Unit2',
+    load: () => import('./apPhysics1Unit2'),
+  },
+  'ap-chemistry/unit-2': {
+    subject: 'AP Chemistry',
+    title: 'Unit 2: Compound Structure and Properties',
+    file: 'apChemistryUnit2',
+    load: () => import('./apChemistryUnit2'),
+  },
+  'ap-environmental-science/unit-2': {
+    subject: 'AP Environmental Science',
+    title: 'Unit 2: The Living World: Biodiversity',
+    file: 'apEnvironmentalScienceUnit2',
+    load: () => import('./apEnvironmentalScienceUnit2'),
+  },
+  'ap-statistics/unit-2': {
+    subject: 'AP Statistics',
+    title: 'Unit 2: Probability, Random Variables, and Probability Distributions',
+    file: 'apStatisticsUnit2',
+    load: () => import('./apStatisticsUnit2'),
+  },
+  'ap-human-geography/unit-2': {
+    subject: 'AP Human Geography',
+    title: 'Unit 2: Population and Migration Patterns and Processes',
+    file: 'apHumanGeographyUnit2',
+    load: () => import('./apHumanGeographyUnit2'),
+  },
+  'ap-macroeconomics/unit-2': {
+    subject: 'AP Macroeconomics',
+    title: 'Unit 2: Economic Indicators and the Business Cycle',
+    file: 'apMacroeconomicsUnit2',
+    load: () => import('./apMacroeconomicsUnit2'),
+  },
+  'ap-microeconomics/unit-2': {
+    subject: 'AP Microeconomics',
+    title: 'Unit 2: Supply and Demand',
+    file: 'apMicroeconomicsUnit2',
+    load: () => import('./apMicroeconomicsUnit2'),
   },
 };
 

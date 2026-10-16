@@ -1,6 +1,6 @@
-// AP Studio Art: Drawing curriculum data
+// AP Drawing curriculum data
 const studioArtDrawing = {
-  name: "AP Studio Art: Drawing",
+  name: "AP Drawing",
   description: "Develop drawing skills and investigate drawing as both a foundation for art-making and as an art form itself.",
   bigIdeas: [
     "Line, Shape, and Mark-Making",

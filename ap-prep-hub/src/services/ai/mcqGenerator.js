@@ -155,6 +155,8 @@ ${roster}`;
       temperature: 0,
       maxOutputTokens: 2000,
       task: 'verifyMcq',
+      // Only practice tests reach this, and they have their own daily budget.
+      usageCategory: 'practiceTest',
       // Both chains lead with the same flash-lite models, so without this the
       // "second opinion" was usually the same model grading its own work.
       avoidModel,

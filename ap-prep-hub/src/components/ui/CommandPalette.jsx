@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Brain, Calendar, FileQuestion, Zap, Calculator, Settings, ArrowRight, Command } from 'lucide-react';
+import { Search, Brain, Calendar, FileQuestion, Zap, Calculator, Settings, ArrowRight, Command, GraduationCap } from 'lucide-react';
 import { createPageUrl } from '../../utils/helpers';
 import { getAvailableSubjects, getSubjectName } from '../../constants/comprehensiveCurriculum';
 import { overlayVariants, modalVariants } from '../../utils/animations';
+import { subjectSlug } from '../../constants/subjects';
 
 const PAGES = [
   { id: 'ai-tutors', name: 'AI Tutors', icon: Brain, path: createPageUrl('AITutors'), category: 'Pages' },
+  { id: 'learn', name: 'Learn', icon: GraduationCap, path: '/study', category: 'Pages' },
   { id: 'scheduler', name: 'Smart Scheduler', icon: Calendar, path: createPageUrl('SmartScheduler'), category: 'Pages' },
   { id: 'practice', name: 'Practice Tests', icon: FileQuestion, path: createPageUrl('PracticeTests'), category: 'Pages' },
   { id: 'flashcards', name: 'Flashcards', icon: Zap, path: createPageUrl('Flashcards'), category: 'Pages' },
@@ -29,7 +31,7 @@ export default function CommandPalette() {
       id: `subject-${key}`,
       name: getSubjectName(key),
       icon: Brain,
-      path: `${createPageUrl('AITutors')}/${key}`,
+      path: `${createPageUrl('AITutors')}/${subjectSlug(key) || key}`,
       category: 'Subjects',
     })),
   []);

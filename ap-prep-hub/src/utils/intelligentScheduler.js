@@ -599,11 +599,14 @@ class IntelligentScheduler {
     let sessionNumber = 1;
     
     while (remainingMinutes > 15) { // Minimum 15-minute sessions
-      const sessionDuration = Math.min(
+      let sessionDuration = Math.min(
         sessionStructure.optimalDuration,
         sessionStructure.maxDuration,
         remainingMinutes
       );
+      // A tail too short for its own session joins this one. It used to be
+      // dropped, so a 60-minute task got one 50-minute session.
+      if (remainingMinutes - sessionDuration <= 15) sessionDuration = remainingMinutes;
       
       sessions.push({
         sessionNumber: sessionNumber,

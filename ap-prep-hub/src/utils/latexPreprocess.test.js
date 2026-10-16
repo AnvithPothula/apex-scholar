@@ -12,6 +12,13 @@ describe('preprocessContent — LaTeX failure modes', () => {
       expect(out).toContain('$\\theta$');
     });
 
+    it('leaves commands that are already inside math alone, even after other math', () => {
+      const src = 'On a slope, $mg\\sin\\theta$ pulls down, so it slips when $\\tan\\theta > \\mu_s$, whatever its mass.';
+      expect(preprocessContent(src)).toBe(src);
+      const prose = 'A vector of size $A$ at angle $\\theta$ above the $+x$ axis goes to $\\infty$, to $-\\infty$.';
+      expect(preprocessContent(prose)).toBe(prose);
+    });
+
     it('wraps bare \\Rightarrow', () => {
       const out = preprocessContent('f(0) = 1 \\Rightarrow correct.');
       expect(out).toContain('$\\Rightarrow$');
@@ -45,14 +52,24 @@ describe('preprocessContent — LaTeX failure modes', () => {
 
     it('converts \\[...\\] to $$...$$', () => {
       const out = preprocessContent('\\[\\int_0^1 x\\,dx\\]');
-      expect(out).toContain('$$\\int_0^1 x\\,dx$$');
+      expect(out).toContain('$$\n\\int_0^1 x\\,dx\n$$');
       expect(out).not.toContain('\\[');
     });
 
     it('handles multiline display math \\[...\\]', () => {
       const input = '\\[\n\\frac{a}{b} + c\n\\]';
       const out = preprocessContent(input);
-      expect(out).toContain('$$\\frac{a}{b} + c$$');
+      expect(out).toContain('$$\n\\frac{a}{b} + c\n$$');
+    });
+  });
+
+  describe('display maths on its own line', () => {
+    it('splits a one-line $$...$$ paragraph onto fence lines so it renders as display maths', () => {
+      expect(preprocessContent('Before.\n\n$$a = \\frac{F}{m}$$\n\nAfter.')).toBe('Before.\n\n$$\na = \\frac{F}{m}\n$$\n\nAfter.');
+    });
+    it('keeps list indentation and leaves inline $$ inside a sentence alone', () => {
+      expect(preprocessContent('- item\n  $$x^2$$')).toBe('- item\n  $$\n  x^2\n  $$');
+      expect(preprocessContent('so $$x$$ here')).toBe('so $$x$$ here');
     });
   });
 
@@ -60,14 +77,14 @@ describe('preprocessContent — LaTeX failure modes', () => {
     it('unwraps ```latex fenced blocks', () => {
       const input = 'Here:\n```latex\n\\frac{a}{b}\n```\nDone.';
       const out = preprocessContent(input);
-      expect(out).toContain('$$\\frac{a}{b}$$');
+      expect(out).toContain('$$\n\\frac{a}{b}\n$$');
       expect(out).not.toMatch(/```latex/i);
     });
 
     it('unwraps ```math fenced blocks', () => {
       const input = '```math\nE = mc^2\n```';
       const out = preprocessContent(input);
-      expect(out).toContain('$$E = mc^2$$');
+      expect(out).toContain('$$\nE = mc^2\n$$');
     });
 
     it('leaves regular code fences alone', () => {
@@ -193,5 +210,12 @@ describe('repairInlineTables', () => {
   it('is safe on non-strings', () => {
     expect(repairInlineTables(null)).toBe(null);
     expect(repairInlineTables(undefined)).toBe(undefined);
+  });
+});
+
+describe('degree marks', () => {
+  it('turns a bare ^{\\circ} in prose into ° but leaves math alone', () => {
+    expect(preprocessContent('activity at 85^{\\circ}C drops')).toBe('activity at 85°C drops');
+    expect(preprocessContent('angle $30^{\\circ}$ here')).toContain('$30^{\\circ}$');
   });
 });

@@ -92,8 +92,8 @@ export const AP_SCORE_MODELS = {
     note: "Same structure as AB; historically a more forgiving curve.",
   },
 
-  'AP US History': {
-    label: 'AP US History',
+  'AP U.S. History': {
+    label: 'AP U.S. History',
     slug: 'ap-us-history',
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 55, weight: 52 },
@@ -110,7 +110,7 @@ export const AP_SCORE_MODELS = {
 
   'AP World History: Modern': {
     label: 'AP World History: Modern',
-    slug: 'ap-world-history',
+    slug: 'ap-world-history-modern',
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 55, weight: 52 },
       { id: 'saq', label: 'Short answer (3 x 3 points)', maxRaw: 9, weight: 26 },
@@ -152,8 +152,8 @@ export const AP_SCORE_MODELS = {
     note: "60 MCQ (50%) and 7 FRQ worth 46 raw points (50%), each scaled to 50.",
   },
 
-  'AP Physics 1': {
-    label: 'AP Physics 1',
+  'AP Physics 1: Algebra-Based': {
+    label: 'AP Physics 1: Algebra-Based',
     slug: 'ap-physics-1',
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 42, weight: 50 },
@@ -181,8 +181,8 @@ export const AP_SCORE_MODELS = {
   },
 
   'AP English Language and Composition': {
-    label: 'AP English Language',
-    slug: 'ap-english-language',
+    label: 'AP English Language and Composition',
+    slug: 'ap-english-language-and-composition',
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 45, weight: 45 },
       { id: 'frq', label: 'Essays (3 x 6 points)', maxRaw: 18, weight: 55 },
@@ -255,8 +255,8 @@ export const AP_SCORE_MODELS = {
   },
 
   'AP English Literature and Composition': {
-    label: 'AP English Literature',
-    slug: 'ap-english-literature',
+    label: 'AP English Literature and Composition',
+    slug: 'ap-english-literature-and-composition',
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 55, weight: 45 },
       { id: 'frq', label: 'Essays (3 x 6 points)', maxRaw: 18, weight: 55 },
@@ -284,9 +284,9 @@ export const AP_SCORE_MODELS = {
     note: "Four separately weighted sections: 40% MCQ, 20% SAQ, 25% DBQ, 15% LEQ.",
   },
 
-  'AP United States Government and Politics': {
-    label: 'AP US Government and Politics',
-    slug: 'ap-gov',
+  'AP U.S. Government and Politics': {
+    label: 'AP U.S. Government and Politics',
+    slug: 'ap-us-government-and-politics',
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 55, weight: 50 },
       { id: 'frqConcept', label: 'Concept application', maxRaw: 3, weight: 12.5 },
@@ -302,8 +302,8 @@ export const AP_SCORE_MODELS = {
   },
 
   'AP Comparative Government and Politics': {
-    label: 'AP Comparative Government',
-    slug: 'ap-comparative-government',
+    label: 'AP Comparative Government and Politics',
+    slug: 'ap-comparative-government-and-politics',
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 55, weight: 50 },
       { id: 'frq', label: 'Free response (4 questions, 19 points)', maxRaw: 19, weight: 50 },
@@ -343,8 +343,8 @@ export const AP_SCORE_MODELS = {
     note: "70 MCQ (70%) and the Create performance task with its exam-day written response (30%).",
   },
 
-  'AP Physics 2': {
-    label: 'AP Physics 2',
+  'AP Physics 2: Algebra-Based': {
+    label: 'AP Physics 2: Algebra-Based',
     slug: 'ap-physics-2',
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 42, weight: 50 },
@@ -372,7 +372,7 @@ export const AP_SCORE_MODELS = {
   },
 
   'AP Physics C: Electricity and Magnetism': {
-    label: 'AP Physics C: E&M',
+    label: 'AP Physics C: Electricity and Magnetism',
     slug: 'ap-physics-c-electricity-and-magnetism',
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 42, weight: 50 },
@@ -429,8 +429,8 @@ export const AP_SCORE_MODELS = {
   },
 
   'AP Spanish Language and Culture': {
-    label: 'AP Spanish Language',
-    slug: 'ap-spanish-language',
+    label: 'AP Spanish Language and Culture',
+    slug: 'ap-spanish-language-and-culture',
     sections: [
       { id: 'mcq', label: 'Multiple choice (listening + reading)', maxRaw: 55, weight: 50 },
       { id: 'presentation', label: 'Project presentation (spoken)', maxRaw: 5, weight: 20 },
@@ -445,8 +445,8 @@ export const AP_SCORE_MODELS = {
   },
 
   'AP French Language and Culture': {
-    label: 'AP French Language',
-    slug: 'ap-french-language',
+    label: 'AP French Language and Culture',
+    slug: 'ap-french-language-and-culture',
     sections: [
       { id: 'mcq', label: 'Multiple choice (listening + reading)', maxRaw: 55, weight: 50 },
       { id: 'presentation', label: 'Project presentation (spoken)', maxRaw: 5, weight: 20 },
@@ -461,8 +461,8 @@ export const AP_SCORE_MODELS = {
   },
 
   'AP German Language and Culture': {
-    label: 'AP German Language',
-    slug: 'ap-german-language',
+    label: 'AP German Language and Culture',
+    slug: 'ap-german-language-and-culture',
     sections: [
       { id: 'mcq', label: 'Multiple choice (listening + reading)', maxRaw: 55, weight: 50 },
       { id: 'presentation', label: 'Project presentation (spoken)', maxRaw: 5, weight: 20 },
@@ -477,8 +477,8 @@ export const AP_SCORE_MODELS = {
   },
 
   'AP Italian Language and Culture': {
-    label: 'AP Italian Language',
-    slug: 'ap-italian-language',
+    label: 'AP Italian Language and Culture',
+    slug: 'ap-italian-language-and-culture',
     sections: [
       { id: 'mcq', label: 'Multiple choice (listening + reading)', maxRaw: 55, weight: 50 },
       { id: 'presentation', label: 'Project presentation (spoken)', maxRaw: 5, weight: 20 },
@@ -493,8 +493,8 @@ export const AP_SCORE_MODELS = {
   },
 
   'AP Chinese Language and Culture': {
-    label: 'AP Chinese Language',
-    slug: 'ap-chinese-language',
+    label: 'AP Chinese Language and Culture',
+    slug: 'ap-chinese-language-and-culture',
     sections: [
       { id: 'mcq', label: 'Multiple choice (listening + reading)', maxRaw: 55, weight: 50 },
       { id: 'presentation', label: 'Project presentation (spoken)', maxRaw: 6, weight: 20 },
@@ -510,8 +510,8 @@ export const AP_SCORE_MODELS = {
   },
 
   'AP Japanese Language and Culture': {
-    label: 'AP Japanese Language',
-    slug: 'ap-japanese-language',
+    label: 'AP Japanese Language and Culture',
+    slug: 'ap-japanese-language-and-culture',
     sections: [
       { id: 'mcq', label: 'Multiple choice (listening + reading)', maxRaw: 55, weight: 50 },
       { id: 'presentation', label: 'Project presentation (spoken)', maxRaw: 6, weight: 20 },
@@ -527,8 +527,8 @@ export const AP_SCORE_MODELS = {
   },
 
   'AP Spanish Literature and Culture': {
-    label: 'AP Spanish Literature',
-    slug: 'ap-spanish-literature',
+    label: 'AP Spanish Literature and Culture',
+    slug: 'ap-spanish-literature-and-culture',
     sections: [
       { id: 'mcqAudio', label: 'Multiple choice (audio texts)', maxRaw: 15, weight: 10 },
       { id: 'mcqRead', label: 'Multiple choice (written texts)', maxRaw: 50, weight: 40 },
@@ -573,7 +573,7 @@ export const AP_SCORE_MODELS = {
 
   'AP Business with Personal Finance': {
     label: 'AP Business with Personal Finance',
-    slug: 'ap-business-personal-finance',
+    slug: 'ap-business-with-personal-finance',
     sections: [
       { id: 'mcq', label: 'Multiple choice', maxRaw: 60, weight: 60 },
       { id: 'canvas', label: 'Business Canvas Project validation', maxRaw: 6, weight: 15 },
@@ -623,33 +623,34 @@ export const GENERIC_MODEL = {
 
 
 /**
- * Alternate names the rest of the app uses for subjects that ARE modelled.
- *
- * `subjects.js` and the curriculum data do not use the same strings as the model
- * keys — "AP U.S. History" vs "AP US History", "AP Physics 1: Algebra-Based" vs
- * "AP Physics 1", "AP English Literature" vs "AP English Literature and
- * Composition". Because getScoreModel did an exact key lookup, every one of
- * those students silently got the GENERIC 50/50 fallback even though a
- * researched model existed. Nothing surfaced it: the calculator just quietly
- * became less accurate.
- *
- * The sitemap/subject drift test below keeps this list honest.
+ * Older and short names for modelled subjects. Model keys are the official
+ * College Board names (the same strings as constants/subjects.js), but stored
+ * tests, links and user docs still carry older forms ("AP US History", "AP
+ * Physics 1", "AP Government and Politics: Comparative"). An exact-key miss
+ * used to drop those students onto the GENERIC curve without any sign, so
+ * every name that can reach getScoreModel must resolve here.
  */
 export const SUBJECT_ALIASES = {
-  'AP U.S. History': 'AP US History',
-  'AP US History ': 'AP US History',
+  'AP US History': 'AP U.S. History',
+  'AP United States History': 'AP U.S. History',
   'AP World History': 'AP World History: Modern',
   'AP English Language': 'AP English Language and Composition',
   'AP English Literature': 'AP English Literature and Composition',
   'AP Comparative Government': 'AP Comparative Government and Politics',
   'AP Government and Politics: Comparative': 'AP Comparative Government and Politics',
-  'AP U.S. Government and Politics': 'AP United States Government and Politics',
-  'AP US Government': 'AP United States Government and Politics',
-  'AP Government and Politics: United States': 'AP United States Government and Politics',
-  'AP Physics 1: Algebra-Based': 'AP Physics 1',
-  'AP Physics 2: Algebra-Based': 'AP Physics 2',
+  'AP United States Government and Politics': 'AP U.S. Government and Politics',
+  'AP US Government and Politics': 'AP U.S. Government and Politics',
+  'AP U.S. Government': 'AP U.S. Government and Politics',
+  'AP US Government': 'AP U.S. Government and Politics',
+  'AP Government and Politics: United States': 'AP U.S. Government and Politics',
+  'AP Physics 1': 'AP Physics 1: Algebra-Based',
+  'AP Physics 2': 'AP Physics 2: Algebra-Based',
   'AP CS Principles': 'AP Computer Science Principles',
   'AP CS A': 'AP Computer Science A',
+  'AP CSA': 'AP Computer Science A',
+  'AP CSP': 'AP Computer Science Principles',
+  'AP Lang': 'AP English Language and Composition',
+  'AP Lit': 'AP English Literature and Composition',
   'AP Physics C: E&M': 'AP Physics C: Electricity and Magnetism',
   'AP Spanish Language': 'AP Spanish Language and Culture',
   'AP Spanish Literature': 'AP Spanish Literature and Culture',
@@ -663,8 +664,6 @@ export const SUBJECT_ALIASES = {
   'AP Cyber': 'AP Cybersecurity',
   'AP Cyber Security': 'AP Cybersecurity',
   'AP Computer Science': 'AP Computer Science A',
-  'AP Environmental Science ': 'AP Environmental Science',
-  'AP Human Geography ': 'AP Human Geography',
 };
 
 /** Resolve any known name (canonical or alias) to a model key. */
@@ -680,6 +679,25 @@ export function getScoreModel(subject) {
 }
 
 export const MODELLED_SUBJECTS = Object.keys(AP_SCORE_MODELS);
+
+/** Calculator slugs used before they matched Learn's (constants/subjects).
+ *  Old links redirect to the current slug (public/_redirects in production,
+ *  ScoreCalculator in the app). */
+export const LEGACY_SLUGS = {
+  'ap-world-history': 'ap-world-history-modern',
+  'ap-english-language': 'ap-english-language-and-composition',
+  'ap-english-literature': 'ap-english-literature-and-composition',
+  'ap-gov': 'ap-us-government-and-politics',
+  'ap-comparative-government': 'ap-comparative-government-and-politics',
+  'ap-spanish-language': 'ap-spanish-language-and-culture',
+  'ap-french-language': 'ap-french-language-and-culture',
+  'ap-german-language': 'ap-german-language-and-culture',
+  'ap-italian-language': 'ap-italian-language-and-culture',
+  'ap-chinese-language': 'ap-chinese-language-and-culture',
+  'ap-japanese-language': 'ap-japanese-language-and-culture',
+  'ap-spanish-literature': 'ap-spanish-literature-and-culture',
+  'ap-business-personal-finance': 'ap-business-with-personal-finance',
+};
 
 /** slug -> subject name, for /ap-score-calculator/:slug deep links. */
 export const SUBJECT_BY_SLUG = Object.fromEntries(

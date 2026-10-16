@@ -18,7 +18,7 @@
  */
 
 const { getAdminApp } = require('../lib/firebaseAdmin');
-const { scoreSavedTest } = require('../lib/classScore');
+const { scoreSavedTest, inScope } = require('../lib/classScore');
 
 const CREDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const TEST_ID = /^[A-Za-z0-9_-]{1,128}$/;
@@ -143,7 +143,7 @@ exports.handler = async (event) => {
         // Classes scoped to specific subjects only count matching tests.
         const subjects = klass.get('subjects');
         const scope = Array.isArray(subjects) ? subjects.filter(Boolean) : [];
-        if (scope.length && !scope.includes(test.subject)) return;
+        if (!inScope(scope, test.subject)) return;
         // "Accuracy across every practice test taken since joining."
         const joinedAt = toMillis(member.get('joinedAt'));
         if (joinedAt && joinedAt > testAt) return;

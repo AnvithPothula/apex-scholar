@@ -25,7 +25,7 @@ export const SUBJECT_KEY_TO_EXAM_NAME = {
   "europeanHistory": "AP European History",
   "frenchLanguage": "AP French Language and Culture",
   "germanLanguage": "AP German Language and Culture",
-  "comparativeGovernment": "AP Government and Politics: Comparative",
+  "comparativeGovernment": "AP Comparative Government and Politics",
   "usGovernmentPolitics": "AP U.S. Government and Politics",
   "humanGeography": "AP Human Geography",
   "italianLanguage": "AP Italian Language and Culture",
@@ -45,9 +45,9 @@ export const SUBJECT_KEY_TO_EXAM_NAME = {
   "spanishLanguage": "AP Spanish Language and Culture",
   "spanishLiterature": "AP Spanish Literature and Culture",
   "statistics": "AP Statistics",
-  "studioArt2D": "AP Studio Art: 2-D Design",
-  "studioArt3D": "AP Studio Art: 3-D Design",
-  "studioArtDrawing": "AP Studio Art: Drawing",
+  "studioArt2D": "AP 2-D Art and Design",
+  "studioArt3D": "AP 3-D Art and Design",
+  "studioArtDrawing": "AP Drawing",
   "usHistory": "AP U.S. History",
   "worldHistory": "AP World History: Modern",
   "africanAmericanStudies": "AP African American Studies",
@@ -115,7 +115,7 @@ export const AP_EXAM_DATES_2027 = {
   "AP Chinese Language and Culture":             { date: "2027-05-13", time: "12:00 PM", lateDate: "2027-05-21", lateTime: "8:00 AM" },
   "AP Environmental Science":                    { date: "2027-05-13", time: "12:00 PM", lateDate: "2027-05-20", lateTime: "8:00 AM" },
   // Friday, May 14
-  "AP Government and Politics: Comparative":     { date: "2027-05-14", time: "8:00 AM",  lateDate: "2027-05-20", lateTime: "12:00 PM" },
+  "AP Comparative Government and Politics":     { date: "2027-05-14", time: "8:00 AM",  lateDate: "2027-05-20", lateTime: "12:00 PM" },
   "AP Computer Science Principles":              { date: "2027-05-14", time: "8:00 AM",  lateDate: "2027-05-21", lateTime: "12:00 PM" },
   "AP Spanish Literature and Culture":           { date: "2027-05-14", time: "8:00 AM",  lateDate: "2027-05-19", lateTime: "12:00 PM" },
   "AP Latin":                                    { date: "2027-05-14", time: "12:00 PM", lateDate: "2027-05-20", lateTime: "8:00 AM" },
@@ -126,9 +126,9 @@ export const AP_EXAM_DATES_2027 = {
   // what College Board publishes now; the three legacy per-portfolio keys stay
   // so older user docs still resolve.
   "AP Art and Design":                           { date: "2027-05-07", time: "11:59 PM", type: "portfolio" },
-  "AP Studio Art: 2-D Design":                   { date: "2027-05-07", time: "11:59 PM", type: "portfolio" },
-  "AP Studio Art: 3-D Design":                   { date: "2027-05-07", time: "11:59 PM", type: "portfolio" },
-  "AP Studio Art: Drawing":                      { date: "2027-05-07", time: "11:59 PM", type: "portfolio" },
+  "AP 2-D Art and Design":                   { date: "2027-05-07", time: "11:59 PM", type: "portfolio" },
+  "AP 3-D Art and Design":                   { date: "2027-05-07", time: "11:59 PM", type: "portfolio" },
+  "AP Drawing":                      { date: "2027-05-07", time: "11:59 PM", type: "portfolio" },
   // AP Research has no exam — the academic paper and presentation are due April 30.
   "AP Research":                                 { date: "2027-04-30", time: "11:59 PM", type: "presentation" },
 };
@@ -271,7 +271,7 @@ export const getCurrentYearExamDates = () => {
     "AP Precalculus": { date: formatDate(week2Tuesday), time: "12:00 PM" },
     "AP Spanish Literature and Culture": { date: formatDate(week1Wednesday), time: "12:00 PM" },
     "AP U.S. Government and Politics": { date: formatDate(week1Monday), time: "12:00 PM" },
-    "AP Government and Politics: Comparative": { date: formatDate(week1Tuesday), time: "12:00 PM" },
+    "AP Comparative Government and Politics": { date: formatDate(week1Tuesday), time: "12:00 PM" },
     "AP African American Studies": { date: formatDate(week1Wednesday), time: "12:00 PM" }
   };
   

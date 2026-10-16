@@ -3,7 +3,6 @@
 
 User-agent: *
 Allow: /
-Disallow: /test-puter.html
 
 # Common AI training crawlers — explicitly allowed.
 # (You can flip any of these to "Disallow: /" if you ever want to opt out

@@ -9,7 +9,7 @@
  * Shape consumed by <TimelineExplorer />:
  *   { id, slug, title, subjectName, cats, periods, unitRanges, unitColors, events }
  *   - subjectName must match a key in cedSearch's SUBJECT_TO_PDF so CED
- *     grounding works (here: "AP US History").
+ *     grounding works (here: "AP U.S. History").
  */
 
 const cats = [
@@ -369,10 +369,12 @@ const events = [
 
 const usHistory = {
   id: 'us-history',
-  slug: 'us-history',
+  slug: 'ap-us-history',
   title: 'AP U.S. History',
   // Must match a cedSearch SUBJECT_TO_PDF key for CED grounding.
-  subjectName: 'AP US History',
+  subjectName: 'AP U.S. History',
+  // The CED and Learn call APUSH's units "Periods".
+  unitLabel: 'Period',
   cats,
   periods,
   unitRanges,

@@ -196,6 +196,27 @@
    ============================================================ */
 
 @layer components {
+  /* Practice-test view styled after College Board's Bluebook app. Its own
+     fixed palette: the real exam looks the same in any theme, so this doesn't
+     follow data-theme (TestPanel also pins data-theme="light" on its root so
+     shared token classes inside it, e.g. LaTeX output, read as ink on white). */
+  .bluebook {
+    --bb-blue: #324dc7;
+    --bb-ink: #1e1e1e;
+    --bb-chrome: #e9edf6;
+    --bb-band: #f0f0f0;
+    --bb-red: #c13145;
+    background: #ffffff;
+    color: var(--bb-ink);
+    color-scheme: light;
+    font-family: Roboto, 'Helvetica Neue', Arial, sans-serif;
+  }
+  .bb-serif { font-family: 'Noto Serif', Georgia, 'Times New Roman', serif; }
+  .bb-dash {
+    height: 2px;
+    background: repeating-linear-gradient(90deg, var(--bb-ink) 0 14px, transparent 14px 20px);
+  }
+
   /* Surface levels */
   .surface-base { background-color: var(--color-base-950); }
   .surface-primary { background-color: var(--color-base-900); }
@@ -579,6 +600,19 @@ body {
 .markdown-content {
   overflow-x: auto;
   overscroll-behavior-x: contain;
+  /* overflow-x:auto turns overflow-y into auto too, and an inline \frac
+     reaches a few px past its line box, so every fraction got its own tiny
+     vertical scrollbar. Hide y and pad so the fraction isn't clipped. */
+  overflow-y: hidden;
+  padding-block: 0.25rem;
+}
+
+/* KaTeX lets inline maths break after = and +, which in a narrow table cell
+   split "+30 + (-50) = -20 m" across two lines. Keep it whole; tables that
+   then get too wide already scroll inside .markdown-content. */
+td .katex,
+th .katex {
+  white-space: nowrap;
 }
 
 /* Study packs: highlight-to-ask (components/study/SelectionAsk). Our own
@@ -600,3 +634,9 @@ body {
 ::highlight(apex-ask) {
   background-color: color-mix(in srgb, var(--color-primary-500) 35%, transparent);
 }
+/* Saved highlighter colours in Learn (SelectionAsk). Translucent so text stays
+   readable in both themes; drawn with the CSS Custom Highlight API. */
+::highlight(apex-hl-yellow) { background-color: rgb(250 204 21 / 0.42); }
+::highlight(apex-hl-blue) { background-color: rgb(96 165 250 / 0.40); }
+::highlight(apex-hl-green) { background-color: rgb(74 222 128 / 0.38); }
+::highlight(apex-hl-red) { background-color: rgb(248 113 113 / 0.40); }

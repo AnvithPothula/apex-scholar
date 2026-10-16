@@ -1,5 +1,7 @@
 // These tests cover the pure scheduling logic only, so stub the Firestore
 // layer — importing the real firebase app blows up under jsdom (no TextEncoder).
+import { review, GRADE, cardFromMiss, cardId, dueCards, trim } from './srs';
+
 jest.mock('../config/firestore', () => ({ db: {} }));
 jest.mock('firebase/firestore', () => ({
   doc: jest.fn(),
@@ -7,8 +9,6 @@ jest.mock('firebase/firestore', () => ({
   setDoc: jest.fn(),
   serverTimestamp: jest.fn(),
 }));
-
-import { review, GRADE, cardFromMiss, cardId, dueCards, trim } from './srs';
 
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = 1_000_000_000_000;
@@ -79,6 +79,12 @@ describe('queue', () => {
       { id: 'c', due: NOW - DAY },
     ];
     expect(dueCards(cards, NOW).map((c) => c.id)).toEqual(['b', 'c']);
+  });
+
+  it('trims by size as well as count, dropping the best-known cards first', () => {
+    const big = (id, interval) => ({ id, interval, explanation: 'x'.repeat(1000) });
+    const kept = trim([big('known', 30), big('shaky', 1), big('new', 0)], 300, 2500);
+    expect(kept.map((c) => c.id)).toEqual(['new', 'shaky']);
   });
 
   it('trims the longest-scheduled cards when the queue overflows', () => {

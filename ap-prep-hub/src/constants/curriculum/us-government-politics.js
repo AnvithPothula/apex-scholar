@@ -1,6 +1,6 @@
 // AP United States Government and Politics curriculum data
 const usGovernmentPolitics = {
-  name: "AP United States Government and Politics",
+  name: "AP U.S. Government and Politics",
   description: "Study the operations of the American political system, examining the Constitution, political behavior, political parties, interest groups, and policy making at the national level.",
   examFormat: {
     duration: "3 hours",

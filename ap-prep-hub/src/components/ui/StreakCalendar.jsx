@@ -103,9 +103,11 @@ export default function StreakCalendar({ activityData = {}, currentStreak = 0, c
         </div>
 
         {/* Weeks */}
-        <div className="flex gap-0.5 flex-1">
+        {/* Fixed 12px cells: stretched to fill the card they grew into big
+            squares that no longer lined up with the 12px day labels. */}
+        <div className="flex gap-0.5">
           {grid.map((week, wi) => (
-            <div key={wi} className="flex flex-col gap-0.5 flex-1">
+            <div key={wi} className="flex flex-col gap-0.5">
               {week.map((day) => (
                 <motion.div
                   key={day.date}
@@ -114,7 +116,7 @@ export default function StreakCalendar({ activityData = {}, currentStreak = 0, c
                   transition={{ delay: wi * 0.02, duration: 0.2 }}
                   title={day.isFuture ? '' : `${day.date}: ${day.count} session${day.count !== 1 ? 's' : ''}`}
                   className={cn(
-                    'aspect-square rounded-[2px] transition-colors duration-150',
+                    'w-3 h-3 rounded-[2px] transition-colors duration-150',
                     day.isFuture ? 'bg-transparent' : intensityClasses[getIntensity(day.count)],
                     day.isToday && 'ring-1 ring-primary-400/50'
                   )}
@@ -126,12 +128,12 @@ export default function StreakCalendar({ activityData = {}, currentStreak = 0, c
       </div>
 
       {/* Month labels */}
-      <div className="flex gap-0.5 mt-1 ml-4">
+      <div className="relative h-3 mt-1 ml-4">
         {months.map((m, i) => (
           <div
             key={i}
-            className="text-[9px] text-content-muted"
-            style={{ marginLeft: i === 0 ? 0 : `${(m.week - (months[i - 1]?.week || 0)) * 8.33}%` }}
+            className="absolute text-[9px] text-content-muted"
+            style={{ left: `${m.week * 14}px` }}
           >
             {m.label}
           </div>

@@ -50,10 +50,10 @@ class APIKeyManager {
     }
 
     // Validate we have at least one key — in production this is expected
-    // when Puter is the primary AI provider, so only warn (not error).
+    // when the server-side ai-proxy serves AI (the default), so only warn.
     if (this.apiKeys.length === 0) {
       if (process.env.NODE_ENV === 'development') {
-        console.warn('⚠️ No Google API keys found. AI will use Puter; configure REACT_APP_GEMINI_API_KEY for fallback.');
+        console.warn('No client Google API keys; AI goes through the ai-proxy function.');
       }
     }
   }

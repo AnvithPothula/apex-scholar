@@ -53,7 +53,7 @@ import { scoringBriefFor } from '../utils/apScore';
 import { apexSiteBrief } from '../constants/apexFeatures';
 import { languageDirective } from '../constants/languageDirective';
 import { getScoreModel } from '../constants/apScoreModels';
-import { subjects } from '../constants/subjects';
+import { subjects, subjectSlug, shortSubjectName } from '../constants/subjects';
 import { getCurriculumData, getSubjectName, resolveSubjectKey } from '../constants/comprehensiveCurriculum';
 import {
   collection,
@@ -78,9 +78,6 @@ import {
   getGuestMessages,
   appendGuestMessage,
   clearGuestConversation,
-  GUEST_MESSAGE_LIMIT,
-  guestMessagesRemaining,
-  incrementGuestUsage,
 } from '../services/guestStore';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -92,7 +89,10 @@ import { parseSingleMcq } from '../services/ai/mcqGenerator';
 import errorLogger from '../utils/errorLogger';
 import { recordTutorMessage } from '../services/activityTracker';
 import { widgetDirective, WALKTHROUGH_DIRECTIVE } from '../services/tutorWidgets';
-import { GENERAL_5H_LIMIT } from '../services/aiUsageLimiter';
+import aiUsageLimiter from '../services/aiUsageLimiter';
+import useAiUsage from '../hooks/useAiUsage';
+import useDocumentMeta from '../hooks/useDocumentMeta';
+import { canonicalFor } from '../utils/pageMeta';
 
 /**
  * Tutor answer modes.
@@ -114,6 +114,14 @@ const metaKeyLabel = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(
   ? '\u2318'
   : 'Ctrl+';
 
+// Default conversation names start with the course ("AP United States History
+// - Session 3", older ones with older names). The list is narrow, so it shows
+// the course's fixed short form.
+const conversationLabel = (name) => {
+  const m = /^(.+?) - (Session \d+|Guest session)$/.exec(name || '');
+  return m ? `${shortSubjectName(m[1])} - ${m[2]}` : (name || 'Conversation');
+};
+
 const AITutors = () => {
   const { subject: urlSubject } = useParams();
   const navigate = useNavigate();
@@ -127,6 +135,11 @@ const AITutors = () => {
   const [selectedSubject, setSelectedSubject] = useState(
     () => (urlSubject ? resolveSubjectKey(urlSubject) || urlSubject : null)
   );
+  // Each subject's tutor page is titled with the course's official name.
+  useDocumentMeta({
+    title: selectedSubject ? `${getSubjectName(selectedSubject)} AI Tutor — Apex Scholar` : undefined,
+    canonical: selectedSubject ? canonicalFor(`/ai-tutors/${subjectSlug(selectedSubject) || selectedSubject}`) : undefined,
+  });
   const [conversations, setConversations] = useState([]);
   const [activeConversationId, setActiveConversationId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -137,6 +150,8 @@ const AITutors = () => {
   const [messagesOwner, setMessagesOwner] = useState(null);
   const [currentMessage, setCurrentMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const isTypingRef = useRef(false);
+  isTypingRef.current = isTyping;
   const [editingConversationId, setEditingConversationId] = useState(null);
   const [editingName, setEditingName] = useState('');
   const [showConversationMenu, setShowConversationMenu] = useState(null);
@@ -150,9 +165,11 @@ const AITutors = () => {
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [isSwitchingSubjects, setIsSwitchingSubjects] = useState(false);
   const [subjectSuggestionsState, setSubjectSuggestionsState] = useState([]);
-  // Remaining free AI messages for guests today (per browser). Irrelevant
-  // for signed-in users (UI gated behind isGuest).
-  const [guestRemaining, setGuestRemaining] = useState(GUEST_MESSAGE_LIMIT);
+  // Live AI usage (% of the 5-hour and weekly limits), shared by every AI feature.
+  const usage = useAiUsage();
+  const usageGen = usage && !usage.bypassed ? usage.general : null;
+  const usageBlock = usageGen && (usageGen.fiveHour.remaining <= 0 ? usageGen.fiveHour
+    : usageGen.week.remaining <= 0 ? usageGen.week : null);
   const inputRef = useRef(null);
   // Which message currently shows "Copied" — resets on a timer so the button
   // doesn't stay stuck in the confirmed state.
@@ -166,23 +183,6 @@ const AITutors = () => {
   // Guards double-clicks on "New chat" — see handleNewConversation.
   const newConversationInFlight = useRef(false);
   // Removed diagnostics UI and state
-
-  // Warm up AI service (Puter model probe) to reduce first-call latency
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        await geminiService.prewarm({ multimodal: true });
-      } catch (e) { errorLogger.debug('AI prewarm failed', { error: e?.message }); }
-      if (cancelled) return;
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  // Sync the guest quota into state once auth resolves as a guest.
-  useEffect(() => {
-    if (isGuest) setGuestRemaining(guestMessagesRemaining());
-  }, [isGuest]);
 
   // One-shot prefill from a "Why was I wrong?" handoff (Review or test results).
   // Deliberately fills the composer instead of auto-sending: the student may want
@@ -647,6 +647,9 @@ const AITutors = () => {
 
   // Scroll to bottom only when user is already near the bottom
   const chatContainerRef = useRef(null);
+  // Set when a reply is requested: the reply is followed even if the student
+  // had scrolled up, and a tall one opens at its first line (see below).
+  const awaitingReplyRef = useRef(false);
 
   // Keep the newest message in view while the list is still growing.
   //
@@ -674,8 +677,20 @@ const AITutors = () => {
     const onScroll = () => { stick = atBottom(); };
     el.addEventListener('scroll', onScroll, { passive: true });
 
+    // A reply taller than the pane opens at its first line: pinned to the
+    // bottom, a Practice MCQ showed only its options with the stem scrolled
+    // off. Then it stops following so later reflows (KaTeX) don't drag it.
     const ro = new ResizeObserver(() => {
-      if (stick) el.scrollTop = el.scrollHeight;
+      if (awaitingReplyRef.current) stick = true;
+      if (!stick) return;
+      const last = content.lastElementChild;
+      if (awaitingReplyRef.current && !isTypingRef.current && last && last.offsetHeight > el.clientHeight) {
+        awaitingReplyRef.current = false;
+        el.scrollTop += last.getBoundingClientRect().top - el.getBoundingClientRect().top - 12;
+        stick = false;
+        return;
+      }
+      el.scrollTop = el.scrollHeight;
     });
     ro.observe(content);
 
@@ -961,13 +976,17 @@ const AITutors = () => {
     // One URL per subject. Links built from a display name ("/ai-tutors/AP
     // Biology", e.g. Diagnostics' "Ask a Tutor") opened conversations keyed
     // by that name — a separate history the subject picker never shows.
-    const canonical = urlSubject ? resolveSubjectKey(urlSubject) : null;
-    if (canonical && canonical !== urlSubject) {
-      navigate(`/ai-tutors/${encodeURIComponent(canonical)}`, { replace: true });
+    // The URL uses Learn's slug ("/ai-tutors/ap-us-history"); keys
+    // ("usHistory") and names redirect to it. State and saved conversations
+    // stay keyed by the curriculum key.
+    const key = urlSubject ? resolveSubjectKey(urlSubject) : null;
+    const slug = key ? (subjectSlug(key) || key) : null;
+    if (slug && slug !== urlSubject) {
+      navigate(`/ai-tutors/${encodeURIComponent(slug)}`, { replace: true });
       return;
     }
-    if (urlSubject && urlSubject !== selectedSubject) {
-      handleSubjectSelect(urlSubject);
+    if (key && key !== selectedSubject) {
+      handleSubjectSelect(key);
     } else if (!urlSubject && selectedSubject) {
       // Navigated back to /AITutors (no subject in URL) — show subject selector
       setSelectedSubject(null);
@@ -1279,6 +1298,7 @@ const AITutors = () => {
   };
 
   const generateAIResponse = async (userMessage, uploadedFiles = []) => {
+    awaitingReplyRef.current = true;
     console.log('generateAIResponse called with:', userMessage, 'and files:', uploadedFiles);
     setIsTyping(true);
     
@@ -1388,25 +1408,11 @@ const AITutors = () => {
     } catch (error) {
       console.error('Error generating AI response:', error);
       // A usage-limit hit isn't a failure — show its (friendly) message as-is.
-      const isUsageLimit = error?.code === 'ai_usage_limit';
-      if (isUsageLimit) toast.warning(error.message);
-      const errorMessage = {
-        id: `error_${Date.now()}`,
-        type: 'ai',
-        content: isUsageLimit
-          ? error.message
-          : "I apologize, but I encountered an issue generating a response. Please try asking your question again, and I'll do my best to help you learn!",
-        timestamp: new Date(),
-        responseType: 'error'
-      };
-
-      try {
-        await saveMessage(activeConversationId, errorMessage);
-      } catch (saveError) {
-        console.error('Failed to save error message:', saveError);
-        // If we can't even save the error message, show an alert
-        toast.error('I encountered an error and couldn\'t respond properly. Please try again.');
-      }
+      // Not saved to the thread: a saved apology reloads later as if the
+      // tutor had said it (an old "connectivity issues" fallback still shows
+      // in a March conversation). Your question stays, so you can resend it.
+      if (error?.code === 'ai_usage_limit') toast.warning(error.message);
+      else toast.error("The tutor couldn't answer just now. Send your question again in a moment.");
     } finally {
       setIsTyping(false);
     }
@@ -1648,7 +1654,7 @@ ${citations.map(c => `- Page ${c.page}: ${c.snippet}`).join('\n')}
     ? curriculumContext
     : briefCurriculum(curriculumData);
 
-  const systemPrompt = `You are an expert AP ${subjectName} tutor. You ONLY answer questions related to ${subjectName}. Your goal: help the student score a 5.${studentName ? `\nThe student's name is ${studentName}. Address them by name occasionally.` : ''}
+  const systemPrompt = `You are an expert ${subjectName} tutor. You ONLY answer questions related to ${subjectName}. Your goal: help the student score a 5.${studentName && (conversationHistory?.length || 0) < 2 ? `\nThe student's name is ${studentName}. You may greet them by name in this first reply only.` : ''}
 ${personalDirective ? `\n${personalDirective}` : ''}
 
 ${curriculumBlock}
@@ -1669,7 +1675,7 @@ FORMATTING:
 - Markdown: **bold**, *italics*, ## headers, bullet lists
 - Tables: Use proper Markdown table syntax with | and --- when presenting data
 - Keep responses under 400 words unless asked for more
-- No preambles ("Understood", "I'm ready", etc.)
+- No preambles ("Understood", "I'm ready", etc.) and no greetings ("Hello …!") after the first reply
 
 MATH (LaTeX) — strict rules, no exceptions:
 - Inline math: $x^2 + 1$  (single dollars)
@@ -1709,9 +1715,9 @@ RESPONSE STRUCTURE: Direct analysis → 2-3 key concepts → AP application → 
                     data: file.data
                   }
                 });
-            messageParts.push({ text: `[Analyze this image in the context of AP ${subjectName}: ${file.name}]` });
+            messageParts.push({ text: `[Analyze this image in the context of ${subjectName}: ${file.name}]` });
           } else if (file.category === 'text' && file.content) {
-            messageParts.push({ text: `[Analyze this text file content for AP ${subjectName}]\nFile: ${file.name}\nContent:\n${file.content}` });
+            messageParts.push({ text: `[Analyze this text file content for ${subjectName}]\nFile: ${file.name}\nContent:\n${file.content}` });
           } else if (file.category === 'document' && file.data) {
             // Try to extract first pages for better context
             try {
@@ -1722,7 +1728,7 @@ RESPONSE STRUCTURE: Direct analysis → 2-3 key concepts → AP application → 
                 }
               }
             } catch (e) { errorLogger.debug('PDF extraction failed', { file: file.name, error: e?.message }); }
-            messageParts.push({ text: `[Document uploaded: ${file.name}. Analyze in the context of AP ${subjectName}.]` });
+            messageParts.push({ text: `[Document uploaded: ${file.name}. Analyze in the context of ${subjectName}.]` });
           }
         }
       }
@@ -1768,7 +1774,8 @@ RESPONSE STRUCTURE: Direct analysis → 2-3 key concepts → AP application → 
             threshold: "BLOCK_MEDIUM_AND_ABOVE"
           }
         ],
-        timeoutMs: 45000 // 45 second timeout
+        timeoutMs: 45000, // 45 second timeout
+        usageCategory: hasFiles ? 'tutorFile' : 'tutor',
       };
       console.log("Calling enhanced Gemini API with curriculum focus and file analysis...", {
         messagePartsCount: messageParts.length,
@@ -1852,12 +1859,16 @@ ${retrySpec}
       return;
     }
 
-    // Guest daily cap — guests share the app's client-side AI keys, so
-    // anonymous usage is bounded per browser per day.
-    if (!user && guestMessagesRemaining() <= 0) {
-      setGuestRemaining(0);
-      toast.error(`You've used today's ${GUEST_MESSAGE_LIMIT} free guest messages. Sign in to keep going.`);
-      return;
+    // Refuse before saving the message, so a spent limit doesn't leave an
+    // unanswered question in the thread.
+    try {
+      await aiUsageLimiter.assertGeneralAvailable();
+    } catch (e) {
+      // Anything else is a failed read; the limiter fails open on those too.
+      if (e?.code === 'ai_usage_limit') {
+        toast.warning(isGuest ? `${e.message} Sign in for a bigger limit.` : e.message);
+        return;
+      }
     }
 
     const messageContent = currentMessage.trim();
@@ -1887,14 +1898,8 @@ ${retrySpec}
       const savedMessageId = await saveMessage(activeConversationId, userMessage);
       
       if (savedMessageId) {
-        // Count this guest send against today's quota (only real sends count).
-        if (!user) {
-          const used = incrementGuestUsage();
-          setGuestRemaining(Math.max(0, GUEST_MESSAGE_LIMIT - used));
-        } else {
-          // Feeds the tutor achievements, which nothing tracked before.
-          recordTutorMessage(user.uid, selectedSubject || '');
-        }
+        // Feeds the tutor achievements, which nothing tracked before.
+        if (user) recordTutorMessage(user.uid, selectedSubject || '');
         // Generate AI response with file data
         console.log('Generating AI response for:', messageContent, 'with files:', filesToSend);
         await generateAIResponse(messageContent, filesToSend);
@@ -2239,7 +2244,7 @@ ${retrySpec}
                 role="button"
                 tabIndex={0}
                 aria-current={activeConversationId === conversation.id ? 'true' : undefined}
-                aria-label={`Open ${conversation.name || 'conversation'}`}
+                aria-label={`Open ${conversationLabel(conversation.name)}`}
                 onKeyDown={(e) => {
                   if (editingConversationId) return;
                   if (e.key === 'Enter' || e.key === ' ') {
@@ -2293,7 +2298,7 @@ ${retrySpec}
                     ) : (
                       <>
                         <h4 className="text-sm font-medium text-content-primary truncate">
-                          {conversation.name}
+                          {conversationLabel(conversation.name)}
                         </h4>
                         <p className="text-xs text-content-muted mt-1 line-clamp-2">
                           {conversation.lastMessage || 'New conversation'}
@@ -2318,7 +2323,7 @@ ${retrySpec}
                             showConversationMenu === conversation.id ? null : conversation.id
                           );
                         }}
-                        aria-label={`Options for ${conversation.name || 'conversation'}`}
+                        aria-label={`Options for ${conversationLabel(conversation.name)}`}
                         className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity h-6 w-6 p-0 text-content-muted hover:text-content-primary"
                       >
                         <MoreVertical strokeWidth={1.5} className="w-3 h-3" />
@@ -2409,7 +2414,9 @@ ${retrySpec}
                   </div>
                   <div className="min-w-0">
                     <h1 className="text-base sm:text-xl md:text-2xl font-bold font-display text-content-primary truncate">
-                      {getSubjectName(selectedSubject)}
+                      {/* Phones get the course's fixed short form; the official name was cut off. */}
+                      <span className="sm:hidden">{shortSubjectName(selectedSubject)}</span>
+                      <span className="hidden sm:inline">{getSubjectName(selectedSubject)}</span>
                     </h1>
                     <p className="text-xs sm:text-sm text-content-secondary flex items-center gap-1 sm:gap-2">
                       <Bot strokeWidth={1.5} className="w-3 h-3 sm:w-4 sm:h-4 text-content-muted flex-shrink-0" />
@@ -2427,9 +2434,10 @@ ${retrySpec}
                   size="sm"
                   onClick={() => navigate('/ai-tutors')}
                   aria-label="Back to subjects"
-                  className="text-content-secondary hover:text-content-primary sm:hidden p-2"
+                  className="text-content-secondary hover:text-content-primary sm:hidden px-2 py-2 gap-0.5"
                 >
-                  <ChevronLeft strokeWidth={1.5} className="w-5 h-5" />
+                  <ChevronLeft strokeWidth={1.5} className="w-5 h-5" aria-hidden="true" />
+                  <span className="text-xs">Subjects</span>
                 </Button>
               </div>
             </div>
@@ -2454,10 +2462,12 @@ ${retrySpec}
                   variant={selectedMode === mode.id ? 'primary' : 'ghost'}
                   size="sm"
                   aria-pressed={selectedMode === mode.id}
-                  disabled={needsFile}
+                  aria-disabled={needsFile}
                   title={needsFile ? 'Attach a file first to summarize it' : `${mode.hint} (${metaKeyLabel}${i + 1})`}
-                  onClick={() => setSelectedMode(mode.id)}
-                  className={`text-xs sm:text-sm px-2 sm:px-3 py-1.5 ${selectedMode === mode.id ? 'bg-base-800 text-content-primary border border-border-strong border-b-2 border-b-content-muted' : 'text-content-secondary hover:text-content-primary'} ${needsFile ? 'opacity-40 cursor-not-allowed' : ''}`}
+                  // Not `disabled`: a disabled button swallows the tap, and
+                  // phones never show the title, so it just looked broken.
+                  onClick={() => (needsFile ? toast.info('Attach a file first, then Summarize condenses it.') : setSelectedMode(mode.id))}
+                  className={`text-xs sm:text-sm px-1.5 sm:px-3 py-1.5 ${selectedMode === mode.id ? 'bg-base-800 text-content-primary border border-border-strong border-b-2 border-b-content-muted' : 'text-content-secondary hover:text-content-primary'} ${needsFile ? 'opacity-40 cursor-not-allowed' : ''}`}
                 >
                   <span className="hidden sm:inline">{mode.label}</span>
                   <span className="sm:hidden">{mode.short}</span>
@@ -2465,12 +2475,12 @@ ${retrySpec}
               );
             })}
             <label
-              className="ml-1 sm:ml-2 inline-flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-content-secondary cursor-pointer"
+              className="sm:ml-2 inline-flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-content-secondary cursor-pointer"
               title="Paste your own work and the tutor critiques your reasoning instead of just solving it"
             >
               <input type="checkbox" checked={checkMySteps} onChange={(e) => setCheckMySteps(e.target.checked)} className="w-3 h-3 sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">Check my steps</span>
-              <span className="sm:hidden">Check</span>
+              <span className="sm:hidden">Check steps</span>
             </label>
           </div>
         </div>
@@ -2783,14 +2793,15 @@ ${retrySpec}
                 value={currentMessage}
                 onChange={(e) => setCurrentMessage(e.target.value)}
                 onKeyDown={handleKeyPress}
-                className="text-sm sm:text-base py-2.5 sm:py-4 pr-12 sm:pr-20 min-h-[2.5rem] sm:min-h-[3rem] max-h-24 sm:max-h-32"
+                className="text-sm sm:text-base py-2.5 sm:py-3 pr-12 sm:pr-20 min-h-[2.5rem] sm:min-h-[3rem] max-h-24 sm:max-h-32 [field-sizing:content]"
                 multiline={true}
+                rows={1}
                 aria-label={`Ask about ${getSubjectName(selectedSubject)}`}
               />
               {/* The composer is multiline, so Enter-sends vs Shift+Enter-newline
                   is not guessable. Desktop only — there is no Shift key to
                   mention on a phone keyboard. */}
-              <p className="hidden sm:block text-xs text-content-muted mt-1.5">
+              <p className="hidden md:block text-xs text-content-muted mt-1.5">
                 <kbd className="px-1 py-0.5 rounded bg-base-800 border border-border-strong">Enter</kbd> to send ·{' '}
                 <kbd className="px-1 py-0.5 rounded bg-base-800 border border-border-strong">Shift</kbd>
                 {' + '}
@@ -2821,7 +2832,7 @@ ${retrySpec}
                   e.stopPropagation();
                   handleSendMessage();
                 }}
-                disabled={(!currentMessage.trim() && uploadedFiles.length === 0) || isTyping || filesProcessing > 0 || (isGuest && guestRemaining <= 0)}
+                disabled={(!currentMessage.trim() && uploadedFiles.length === 0) || isTyping || filesProcessing > 0 || !!usageBlock}
                 aria-label="Send message"
                 title="Send (Enter)"
                 className="px-3 sm:px-6 py-2 sm:py-2.5 bg-content-primary text-base-950 hover:opacity-90"
@@ -2831,32 +2842,33 @@ ${retrySpec}
             </div>
           </div>
           
-          {isGuest && (
-            guestRemaining > 0 ? (
-              <div className="mt-2.5 text-xs text-content-muted flex items-center gap-1.5 flex-wrap">
-                <span>
-                  {guestRemaining} free guest {guestRemaining === 1 ? 'message' : 'messages'} left today.
-                </span>
-                <button
-                  type="button"
-                  onClick={() => navigate('/login')}
-                  className="text-content-primary font-medium hover:underline"
-                >
-                  Sign in
-                </button>
-                <span>for {GENERAL_5H_LIMIT} messages every 5 hours.</span>
-              </div>
-            ) : (
+          {usageGen && (
+            usageBlock ? (
               <div className="mt-2.5 p-2.5 rounded-md bg-base-800 border border-border flex items-center justify-between gap-3">
                 <span className="text-xs text-content-secondary">
-                  You've used today's {GUEST_MESSAGE_LIMIT} free guest messages.
+                  You've used 100% of your {usageBlock === usageGen.week ? 'weekly' : '5-hour'} AI limit. It resets in {aiUsageLimiter.humanizeUntil(usageBlock.resetAt || Date.now())}.
                 </span>
-                <Button
-                  onClick={() => navigate('/login')}
-                  className="h-8 px-3 text-xs flex-shrink-0"
-                >
-                  Sign in to continue
-                </Button>
+                {isGuest && (
+                  <Button onClick={() => navigate('/login')} className="h-8 px-3 text-xs flex-shrink-0">
+                    Sign in for more
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <div className="mt-2.5 text-xs text-content-muted flex items-center gap-1.5 flex-wrap">
+                <span>
+                  {usageGen.fiveHour.pct}% of your 5-hour AI limit used
+                  {usageGen.week.pct > usageGen.fiveHour.pct ? ` · ${usageGen.week.pct}% of this week's` : ''}.
+                </span>
+                {isGuest && (
+                  <button
+                    type="button"
+                    onClick={() => navigate('/login')}
+                    className="text-content-primary font-medium hover:underline"
+                  >
+                    Sign in for a bigger limit
+                  </button>
+                )}
               </div>
             )
           )}

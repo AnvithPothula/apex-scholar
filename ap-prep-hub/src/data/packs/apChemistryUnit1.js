@@ -36,7 +36,7 @@ In the lab you can weigh a sample, but you can't count its atoms. The **mole** l
 - **Avogadro's number:** $N_A = 6.022 \times 10^{23}\ \text{mol}^{-1}$ particles (atoms, molecules or formula units) per mole.
 - The mass of **one** particle in **amu** equals the mass of **one mole** in **grams**: one H₂O molecule is about 18.02 amu, so one mole of water is 18.02 g.
 
-$$n = \frac{m}{M} \qquad \text{(moles = mass} \div \text{molar mass)}$$
+$$\begin{aligned} n &= \frac{m}{M} \\ \text{moles} &= \frac{\text{mass}}{\text{molar mass}} \end{aligned}$$
 
 ### Dimensional analysis
 Chain conversion factors so units cancel: grams → moles (÷ molar mass) → particles (× $N_A$).
@@ -102,7 +102,8 @@ For a sample of **one element**, each peak is an **isotope**:
 - **Height**: its **relative abundance**.
 
 ### Average atomic mass
-$$\text{average atomic mass} = \sum (\text{isotope mass}) \times (\text{fractional abundance})$$
+
+$$\begin{aligned} &\text{average atomic mass} \\ &\quad = \sum (\text{isotope mass}) \\ &\qquad \times (\text{fractional abundance}) \end{aligned}$$
 
 The average lands **closest to the most abundant isotope**. That's why chlorine's 35.45 is nearer 35 than 37.
 
@@ -310,7 +311,9 @@ Measure the mass percent of an element and compare it with the pure compound's v
         'An atom has a positive nucleus of protons and neutrons and negative electrons in shells and subshells, written as a ground-state ' +
         'electron configuration using the Aufbau principle. Coulomb\'s law explains how strongly the nucleus holds each electron.',
       body: String.raw`### Coulomb's law
+
 $$F \propto \frac{q_1 q_2}{r^2}$$
+
 The attraction between the nucleus and an electron is **stronger** with **more nuclear charge** and **weaker** at **greater distance**. Almost every trend in this unit comes from this.
 
 ### Electron configurations (Aufbau)

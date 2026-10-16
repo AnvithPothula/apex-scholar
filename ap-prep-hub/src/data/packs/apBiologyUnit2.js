@@ -133,7 +133,9 @@ Ribosome on the rough ER → into the ER → transport vesicle → Golgi (modifi
 A cell takes in nutrients, gets rid of waste and exchanges heat **across its surface**, but how much it needs depends on its **volume**.
 
 For a cube with side $s$: surface area $= 6s^2$, volume $= s^3$, so
+
 $$\\frac{SA}{V} = \\frac{6s^2}{s^3} = \\frac{6}{s}.$$
+
 Double the side and the ratio halves. Small cells have a **higher** ratio, so they exchange materials more efficiently.
 
 ${steps({
@@ -372,7 +374,9 @@ Compared with the inside of a cell, the outside solution can be:
 
 ### Water potential
 Water moves from **higher** water potential (Ψ) to **lower**. On the AP equation sheet:
+
 $$\\Psi = \\Psi_P + \\Psi_S \\qquad \\Psi_S = -iCRT$$
+
 - $\\Psi_P$: pressure potential (0 in an open beaker; positive inside a turgid plant cell).
 - $i$: ionization constant (1 for sucrose, 2 for NaCl).
 - $C$: molar concentration. $R = 0.0831$ L·bar/(mol·K). $T$: temperature in kelvin (°C + 273).

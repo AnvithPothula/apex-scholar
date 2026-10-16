@@ -13,7 +13,7 @@
 
 const pack = {
   slug: 'ap-comparative-government-and-politics/unit-1',
-  subject: 'AP Government and Politics: Comparative',
+  subject: 'AP Comparative Government and Politics',
   unit: 'Unit 1: Political Systems, Regimes, and Governments',
   examWeight: '18–27% of the exam',
   intro:

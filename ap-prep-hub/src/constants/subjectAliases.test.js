@@ -7,7 +7,12 @@ import { getScoreModel, canonicalSubject } from './apScoreModels';
 // Removing a name from this list means a real model now exists for it.
 // Every AP subject in subjects.js now has a researched model. The generic
 // fallback still exists for anything unrecognised — see the last test.
-const KNOWN_UNMODELLED = [];
+// Portfolio courses are scored on submitted work, with no section raw scores
+// to model, so the generic fallback is right for them.
+const KNOWN_UNMODELLED = [
+  'AP Art and Design', 'AP 2-D Art and Design', 'AP 3-D Art and Design', 'AP Drawing',
+  'AP Studio Art and Design', 'AP Studio Art: 2-D Design', 'AP Studio Art: 3-D Design', 'AP Studio Art: Drawing',
+];
 
 describe('subject name → score model', () => {
   const subjectsSrc = fs.readFileSync(path.join(__dirname, 'subjects.js'), 'utf8');
@@ -33,19 +38,19 @@ describe('subject name → score model', () => {
   it('still falls back to the honest generic model for an unknown subject', () => {
     // Coverage is complete today, but the fallback must keep working — a new
     // AP course, or a typo, must not silently get another subject's curve.
-    KNOWN_UNMODELLED.forEach((n) => expect(getScoreModel(n).generic).toBe(true));
     expect(getScoreModel('AP Basket Weaving').generic).toBe(true);
     expect(getScoreModel('').generic).toBe(true);
   });
 
   it('covers every AP subject the app offers', () => {
-    const uncovered = names.filter((n) => getScoreModel(n).generic === true);
+    const uncovered = names.filter((n) => !KNOWN_UNMODELLED.includes(n) && getScoreModel(n).generic === true);
     expect(uncovered).toEqual([]);
   });
 
   it('resolves an alias to its canonical key', () => {
-    expect(canonicalSubject('AP U.S. History')).toBe('AP US History');
-    expect(canonicalSubject('AP Physics 1: Algebra-Based')).toBe('AP Physics 1');
+    expect(canonicalSubject('AP US History')).toBe('AP U.S. History');
+    expect(canonicalSubject('AP Physics 1')).toBe('AP Physics 1: Algebra-Based');
+    expect(canonicalSubject('AP Government and Politics: Comparative')).toBe('AP Comparative Government and Politics');
     expect(canonicalSubject('AP Biology')).toBe('AP Biology');
   });
 });

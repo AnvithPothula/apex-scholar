@@ -14,6 +14,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import useScrollTopOn from '../hooks/useScrollTopOn';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Brain, CheckCircle, RotateCcw, Eye, CalendarClock, Sparkles, Loader2, XCircle } from 'lucide-react';
@@ -27,7 +28,9 @@ import { retryAfterFrom, formatWait } from '../services/aiRetry';
 import { buildWhyWrongPrompt, buildExplainAllPrompt, looksLikeReasoningLeak } from '../utils/whyWrong';
 import geminiService from '../services/geminiService';
 import { recordReviewSession, recordReviewEvent } from '../services/activityTracker';
+import { sameAnswer, shownAnswer } from '../utils/reviewAnswer';
 import { logResponse } from '../services/responseLog';
+import { subjectName, shortSubjectName } from '../constants/subjects';
 
 const GRADE_BUTTONS = [
   { key: 'again', label: 'Again', help: 'Got it wrong', variant: 'destructive' },
@@ -67,7 +70,8 @@ export default function Review() {
     (async () => {
       const queue = await srs.getQueue(user.uid);
       if (cancelled) return;
-      setCards(queue);
+      // Older cards carry older subject names; one name per course in the picker.
+      setCards(queue.map((c) => (c.subject ? { ...c, subject: subjectName(c.subject) } : c)));
       setIsLoading(false);
     })();
     return () => { cancelled = true; };
@@ -92,6 +96,7 @@ export default function Review() {
   );
   // Reordered in place after a miss (easeAfterMiss); reset whenever the session itself changes.
   const [reordered, setReordered] = useState(null);
+  useScrollTopOn(started, index);
   useEffect(() => { setReordered(null); }, [baseSession]);
   const session = reordered || baseSession;
 
@@ -216,6 +221,7 @@ export default function Review() {
         // needs roughly double that.
         maxTokens: 1400,
         task: 'explain',
+        usageCategory: 'reviewExplain',
       });
       const answer = String(text || '').trim();
       // Gemma sits at the tail of the chain and, when reached, restates the
@@ -234,7 +240,8 @@ export default function Review() {
       // needs the difference between 20 seconds and an hour.
       const retryAfter = retryAfterFrom(e);
       setWhy(
-        retryAfter !== null
+        e?.code === 'ai_usage_limit' ? e.message
+        : retryAfter !== null
           ? `The AI is busy — everyone shares the same free capacity. Try again in ${formatWait(retryAfter)}.`
           : 'The tutor is temporarily unavailable. Try again in a moment.'
       );
@@ -332,7 +339,7 @@ export default function Review() {
       <div className="mt-4 mb-4">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2 min-w-0">
-            <Badge variant="secondary">{card.subject || 'Practice'}</Badge>
+            <Badge variant="secondary">{card.subject ? shortSubjectName(card.subject) : 'Practice'}</Badge>
             <button
               type="button"
               onClick={() => { setStarted(false); resetCardState(); }}
@@ -428,10 +435,10 @@ export default function Review() {
                 {card.userAnswer && (
                   <p className="text-body-sm text-content-secondary">
                     {gotItRight
-                      ? `Last time you put ${card.userAnswer}.`
-                      : picked !== null && card.userAnswer.startsWith(letter(picked))
-                        ? `Same answer you gave last time (${card.userAnswer}) — this is the one to nail down.`
-                        : `Last time you put ${card.userAnswer}, so it's a different mistake this time.`}
+                      ? `Last time you put “${shownAnswer(card.userAnswer)}”.`
+                      : picked !== null && sameAnswer(card.userAnswer, card.options[picked], picked)
+                        ? `Same answer as last time (“${shownAnswer(card.userAnswer)}”) — this is the one to nail down.`
+                        : `Last time you put “${shownAnswer(card.userAnswer)}”, so it's a different mistake this time.`}
                   </p>
                 )}
               </Card>
@@ -580,7 +587,7 @@ function StartScreen({ subjects, total, chosen, onToggle, onAll, order, onOrder,
                     : 'border-border text-content-secondary hover:text-content-primary hover:border-border-strong'
                 }`}
               >
-                {name} ({n})
+                {shortSubjectName(name)} ({n})
               </button>
             );
           })}

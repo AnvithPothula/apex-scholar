@@ -207,8 +207,11 @@ ${steps({
         'near Earth g = 10 m/s² downward. On graphs: slope of x–t is velocity, slope of v–t is acceleration, area under v–t is displacement, ' +
         'and area under a–t is change in velocity.',
       body: String.raw`### Constant acceleration: three equations
+
 $$v_x = v_{x0} + a_x t$$
+
 $$x = x_0 + v_{x0} t + \tfrac{1}{2} a_x t^2$$
+
 $$v_x^2 = v_{x0}^2 + 2 a_x (x - x_0)$$
 
 Pick the one that leaves out the quantity you neither know nor need. They work along any single axis, including vertical.
@@ -332,7 +335,8 @@ With $v_0 = 4$ m/s and $a = -2$ m/s²: the velocity line crosses zero at $t = 2$
 A reference frame is the viewpoint (and coordinate system) an observer measures from. The **same** motion can have a different direction and size in different frames: a passenger sitting in a bus is at rest to the driver and moving at 15 m/s to someone on the sidewalk.
 
 ### Converting between frames
-$$\vec{v}_{\text{object rel. ground}} = \vec{v}_{\text{object rel. frame}} + \vec{v}_{\text{frame rel. ground}}$$
+
+$$\begin{aligned} \vec{v}_{\text{object rel. ground}} &= \vec{v}_{\text{object rel. frame}} \\ &\quad + \vec{v}_{\text{frame rel. ground}} \end{aligned}$$
 
 In 1-D that's adding signed numbers:
 
@@ -411,7 +415,9 @@ Every **inertial** frame (one moving at constant velocity) measures the same acc
         'problems sharing the same time. A projectile has no horizontal acceleration and a constant 10 m/s² downward acceleration.',
       body: String.raw`### Components
 A vector of size $A$ at angle $\theta$ above the $+x$ axis:
+
 $$A_x = A\cos\theta \qquad A_y = A\sin\theta$$
+
 and back again: $A = \sqrt{A_x^2 + A_y^2}$, $\tan\theta = \dfrac{A_y}{A_x}$.
 
 Choose the coordinate system that makes the problem easiest; the physics doesn't change.

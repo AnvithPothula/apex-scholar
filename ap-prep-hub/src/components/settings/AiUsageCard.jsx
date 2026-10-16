@@ -1,24 +1,29 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Gauge, Infinity as InfinityIcon, Loader2 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/UIComponents';
-import aiUsageLimiter from '../../services/aiUsageLimiter';
+import aiUsageLimiter, { TASK_COST, TASK_LABELS, GENERAL_5H_LIMIT } from '../../services/aiUsageLimiter';
+import useAiUsage from '../../hooks/useAiUsage';
 
-/** One labelled usage meter (used / limit) with a colour-coded bar. */
-function UsageMeter({ label, used, limit, remaining, resetAt }) {
-  const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+/** One labelled usage meter (% used) with a colour-coded bar. */
+function UsageMeter({ label, pct, atLimit, resetAt, detail }) {
   const barColor = pct >= 100 ? 'bg-error-500' : pct >= 80 ? 'bg-warning-500' : 'bg-primary-500';
-  const atLimit = remaining <= 0;
 
   return (
     <div>
       <div className="flex items-center justify-between text-sm mb-1.5">
         <span className="text-content-secondary">{label}</span>
         <span className={atLimit ? 'text-error-400 font-medium' : 'text-content-primary'}>
-          {remaining} left
-          <span className="text-content-muted font-normal"> / {limit}</span>
+          {detail || `${pct}% used`}
         </span>
       </div>
-      <div className="h-1.5 rounded-full bg-base-800 overflow-hidden">
+      <div
+        className="h-1.5 rounded-full bg-base-800 overflow-hidden"
+        role="progressbar"
+        aria-label={label}
+        aria-valuenow={pct}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
         <div
           className={`h-full rounded-full ${barColor} transition-all duration-300`}
           style={{ width: `${pct}%` }}
@@ -26,50 +31,36 @@ function UsageMeter({ label, used, limit, remaining, resetAt }) {
       </div>
       <div className="mt-1 text-[11px] text-content-muted">
         {atLimit && resetAt
-          ? `Limit reached — resets in ${aiUsageLimiter.humanizeUntil(resetAt)}`
+          ? `Limit reached. Resets in ${aiUsageLimiter.humanizeUntil(resetAt)}`
           : resetAt
             ? `Resets in ${aiUsageLimiter.humanizeUntil(resetAt)}`
-            : 'Full'}
+            : 'Nothing used yet'}
       </div>
     </div>
   );
 }
 
+// Share of a signed-in 5-hour window, to one decimal when under 1%.
+const pctOf5h = (points) => {
+  const p = (points / GENERAL_5H_LIMIT) * 100;
+  return `${p < 1 ? p.toFixed(1) : Math.round(p * 10) / 10}%`;
+};
+
 /**
- * Settings card showing the user's remaining AI usage. Reads the limiter's
- * non-mutating snapshot on mount and refreshes every 30s so countdowns (and
- * usage spent on other pages) stay current. Admins see an "unlimited" state.
+ * Settings card showing AI usage as % of the 5-hour and weekly limits, live
+ * (useAiUsage refreshes after every AI call). Admins see an "unlimited" state.
  */
 export default function AiUsageCard() {
-  const [status, setStatus] = useState(null); // null = loading
-
-  useEffect(() => {
-    let active = true;
-    const refresh = async () => {
-      try {
-        const s = await aiUsageLimiter.getUsageStatus();
-        if (active) setStatus(s);
-      } catch (e) { /* keep last known status */ }
-    };
-    refresh();
-    const id = setInterval(refresh, 30000);
-    // Refresh when the tab regains focus (usage may have changed elsewhere).
-    window.addEventListener('focus', refresh);
-    return () => {
-      active = false;
-      clearInterval(id);
-      window.removeEventListener('focus', refresh);
-    };
-  }, []);
+  const status = useAiUsage(); // null = loading
 
   return (
     <Card id="settings-usage" className="bg-base-850 border-border md:col-span-2 scroll-mt-32 lg:scroll-mt-20">
       <CardHeader className="p-4 sm:p-6">
-        <CardTitle className="text-content-primary text-lg sm:text-xl flex items-center gap-2">
+        <CardTitle className="text-content-primary text-lg sm:text-xl flex flex-wrap items-center gap-x-2">
           <Gauge className="w-5 h-5 text-content-muted" strokeWidth={1.5} />
           AI Usage
           <span className="text-xs font-normal text-content-muted block mt-1 w-full">
-            Free AI usage across tutors, solver, flashcards, and diagnostics.
+            Every AI feature uses a share of your limits. Practice tests have their own.
           </span>
         </CardTitle>
       </CardHeader>
@@ -86,32 +77,38 @@ export default function AiUsageCard() {
         ) : (
           <div className="space-y-5">
             <UsageMeter
-              label="AI requests (5-hour window)"
-              used={status.general.fiveHour.used}
-              limit={status.general.fiveHour.limit}
-              remaining={status.general.fiveHour.remaining}
+              label="5-hour limit"
+              pct={status.general.fiveHour.pct}
+              atLimit={status.general.fiveHour.remaining <= 0}
               resetAt={status.general.fiveHour.resetAt}
             />
             <UsageMeter
-              label="AI requests (this week)"
-              used={status.general.week.used}
-              limit={status.general.week.limit}
-              remaining={status.general.week.remaining}
+              label="Weekly limit"
+              pct={status.general.week.pct}
+              atLimit={status.general.week.remaining <= 0}
               resetAt={status.general.week.resetAt}
             />
             <div className="pt-1 border-t border-border-subtle">
               <UsageMeter
                 label="Practice tests (today)"
-                used={status.test.used}
-                limit={status.test.limit}
-                remaining={status.test.remaining}
+                pct={Math.round((status.test.used / status.test.limit) * 100)}
+                detail={`${status.test.used} of ${status.test.limit} used`}
+                atLimit={status.test.remaining <= 0}
                 resetAt={status.test.resetAt}
               />
             </div>
-            <p className="text-[11px] text-content-muted leading-relaxed">
-              Practice tests have their own daily limit and don't count against your AI request budget.
-              Limits keep the free AI fast for everyone.
-            </p>
+            <details className="text-xs text-content-muted">
+              <summary className="cursor-pointer text-content-secondary">How much each AI action uses</summary>
+              <ul className="mt-2 space-y-1">
+                {Object.keys(TASK_COST).map((k) => (
+                  <li key={k} className="flex justify-between gap-3">
+                    <span>{TASK_LABELS[k]}</span>
+                    <span className="text-content-secondary tabular-nums">{pctOf5h(TASK_COST[k])} of 5 hours</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2">Bigger jobs, like a whole flashcard deck, use more than a quick answer. The weekly limit is five 5-hour windows.</p>
+            </details>
           </div>
         )}
       </CardContent>

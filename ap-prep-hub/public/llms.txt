@@ -16,7 +16,7 @@ Apex Scholar is built specifically for high-school students taking AP exams. The
 ## Tech
 
 - Built with React 18, Tailwind CSS, Firebase Auth + Firestore.
-- AI: Puter SDK (primary, free) with Google Gemini fallback.
+- AI: Google Gemini through a server-side proxy; students can optionally connect their own Puter account to pick other models.
 - Math rendering: KaTeX. Markdown: react-markdown.
 
 ## Common queries to use Apex Scholar for

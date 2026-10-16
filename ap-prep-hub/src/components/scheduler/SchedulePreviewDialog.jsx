@@ -89,7 +89,7 @@ export default function SchedulePreviewDialog({
                 {diff.added.map((item, i) => {
                   const f = formatItem(item);
                   return (
-                    <div key={i} className="p-2 rounded bg-success-900/30 border-l-2 border-success-500 text-sm">
+                    <div key={i} className="p-2 rounded bg-success-900 border-l-2 border-success-500 text-sm">
                       <span className="text-content-primary font-medium">{f.name}</span>
                       <span className="text-content-muted ml-2">{f.date} at {f.time}</span>
                       {f.subject && <span className="text-content-secondary ml-2">({f.subject})</span>}
@@ -109,7 +109,7 @@ export default function SchedulePreviewDialog({
                 {diff.removed.map((item, i) => {
                   const f = formatItem(item);
                   return (
-                    <div key={i} className="p-2 rounded bg-error-900/30 border-l-2 border-error-500 text-sm opacity-70">
+                    <div key={i} className="p-2 rounded bg-error-900 border-l-2 border-error-500 text-sm opacity-70">
                       <span className="text-content-primary font-medium line-through">{f.name}</span>
                       <span className="text-content-muted ml-2">{f.date} at {f.time}</span>
                     </div>

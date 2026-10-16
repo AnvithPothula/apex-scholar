@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Check, X, RotateCcw, Brain, Calculator, FileQuestion, Search, BookOpen } from 'lucide-react';
 import { Button, Card } from '../components/ui/UIComponents';
 import ApexScholarLogo from '../components/ui/ApexScholarLogo';
@@ -19,6 +19,7 @@ import {
   FIRST_RUN_DONE_KEY, FIRST_RUN_PENDING_KEY,
   subjectKeyFor, defaultSubject, daysToExam, predictFromCheck, missedConcepts,
 } from '../utils/firstRun';
+import { subjectSlug } from '../constants/subjects';
 
 /**
  * First-run check (playbook: "the first session is the diagnostic").
@@ -99,11 +100,14 @@ export default function Start() {
         correctAnswers: correct,
         scorePercent: Math.round((correct / qs.length) * 100),
       });
+      // Only a brand-new account takes its subject from here. An existing
+      // student checking another subject had it silently added to their AP
+      // subjects and exam schedule.
       const key = subjectKeyFor(name);
-      const subjects = key ? [...new Set([...(user.subjects || []), key])] : user.subjects || [];
+      const isFirstRun = !user.firstRunAt && !(user.subjects || []).length;
       await updateUserProfile({
-        firstRunAt: new Date().toISOString(),
-        subjects,
+        firstRunAt: user.firstRunAt || new Date().toISOString(),
+        ...(isFirstRun && key ? { subjects: [key] } : {}),
         // They chose a subject here, which is all onboarding asks for.
         ...completionRecord(),
       });
@@ -258,7 +262,7 @@ export default function Start() {
     const days = daysToExam(subject);
     const concepts = missedConcepts(questions, answers);
     const key = subjectKeyFor(subject);
-    const tutorPath = key ? `/ai-tutors/${key}` : '/ai-tutors';
+    const tutorPath = key ? `/ai-tutors/${subjectSlug(key)}` : '/ai-tutors';
     const askAbout = concepts[0]
       ? `I just missed questions on ${concepts[0]} in ${subject}. Can you explain it simply, then give me one practice question?`
       : `I just took a 10-question ${subject} check. What should I focus on first?`;
@@ -304,7 +308,9 @@ export default function Start() {
             onClick={() => navigate(tutorPath, { state: { prefill: askAbout } })}
           />
           {pack && (
-            <PlanRow icon={BookOpen} title={`Study ${pack.title}`} body="Short lessons, simulations and checkpoints. You choose how long." onClick={() => navigate(`/study/${pack.slug}`)} />
+            // The check is whole-course, so there's no one unit to point at;
+            // naming Unit 1 sent a student who missed a later topic to the start.
+            <PlanRow icon={BookOpen} title={concepts[0] ? `Find ${concepts[0]} in Learn` : `Study ${subject} in Learn`} body="Short lessons by unit, with simulations and checkpoints." onClick={() => navigate(`/study/${pack.slug.split('/')[0]}`)} />
           )}
           {user && (
             <PlanRow icon={FileQuestion} title="Take a practice test" body="Longer, timed, with free response, for a tighter score estimate." onClick={() => navigate('/practice-tests')} />
@@ -382,10 +388,14 @@ function PlanRow({ icon: Icon, title, body, onClick }) {
 
 /** The navigation bars are hidden on this screen (Layout focusMode), so the brand sits here instead. */
 function Brand() {
+  // With the header hidden, a returning student on a new device had no way
+  // to sign in from here.
+  const { user } = useAuth();
   return (
-    <div className="flex items-center gap-2 mb-6" aria-hidden="true">
-      <ApexScholarLogo className="w-7 h-7" />
-      <span className="text-body font-semibold text-content-primary">Apex Scholar</span>
+    <div className="flex items-center gap-2 mb-6">
+      <ApexScholarLogo className="w-7 h-7" aria-hidden="true" />
+      <span className="text-body font-semibold text-content-primary" aria-hidden="true">Apex Scholar</span>
+      {!user && <Link to="/login" className="ml-auto text-body-sm text-content-secondary underline hover:text-content-primary">Sign in</Link>}
     </div>
   );
 }

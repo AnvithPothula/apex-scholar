@@ -4,7 +4,7 @@
  */
 
 import IntelligentScheduler from './intelligentScheduler';
-import { addDays, format, startOfDay } from 'date-fns';
+import { addDays, format } from 'date-fns';
 
 describe('IntelligentScheduler', () => {
   let scheduler;
@@ -429,5 +429,15 @@ describe('IntelligentScheduler', () => {
     it('should calculate optimal durations based on task type', () => {
       expect(scheduler.COGNITIVE_CONSTANTS.OPTIMAL_SESSION_DURATIONS).toBeDefined();
     });
+  });
+});
+
+describe('createOptimalSessionPlan keeps every minute', () => {
+  test('a short tail joins the last session instead of being dropped', () => {
+    const s = new IntelligentScheduler({ sessionLength: 50 });
+    for (const minutes of [60, 65, 100, 130]) {
+      const plan = s.createOptimalSessionPlan({ name: 'Read', subject: 'AP Biology', estimated_time: minutes });
+      expect(plan.sessions.reduce((a, x) => a + x.duration, 0)).toBe(minutes);
+    }
   });
 });

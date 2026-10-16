@@ -57,3 +57,19 @@ describe('scoreSavedTest', () => {
     expect(scoreSavedTest(huge)).toBeNull();
   });
 });
+
+describe('inScope', () => {
+  const { inScope } = require('../../netlify/lib/classScore');
+  it('matches scopes saved as keys or names against the test subject', () => {
+    expect(inScope([], 'AP Biology')).toBe(true);
+    expect(inScope(['biology'], 'AP Biology')).toBe(true);
+    expect(inScope(['usGovernmentPolitics'], 'AP U.S. Government and Politics')).toBe(true);
+    expect(inScope(['physics1'], 'AP Physics 1: Algebra-Based')).toBe(true);
+    expect(inScope(['physicsC_ElectricityMagnetism'], 'AP Physics C: Electricity and Magnetism')).toBe(true);
+    expect(inScope(['englishLanguageAndComposition'], 'AP English Language and Composition')).toBe(true);
+    expect(inScope(['AP Calculus AB'], 'AP Calculus AB')).toBe(true);
+    expect(inScope(['calculusAB'], 'AP Calculus BC')).toBe(false);
+    expect(inScope(['spanishLanguage'], 'AP Spanish Literature and Culture')).toBe(false);
+    expect(inScope(['biology'], 'AP Chemistry')).toBe(false);
+  });
+});

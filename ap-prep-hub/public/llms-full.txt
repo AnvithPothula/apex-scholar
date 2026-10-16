@@ -41,10 +41,10 @@ including unit weightings, FRQ rubrics, and common MCQ patterns.
 - AP Physics C: Mechanics
 - AP Physics C: Electricity and Magnetism
 - AP Statistics
-- AP US History (APUSH)
+- AP U.S. History (APUSH)
 - AP World History: Modern
 - AP European History
-- AP US Government and Politics
+- AP U.S. Government and Politics
 - AP Comparative Government and Politics
 - AP English Language and Composition
 - AP English Literature and Composition
@@ -60,7 +60,7 @@ including unit weightings, FRQ rubrics, and common MCQ patterns.
 - AP Latin
 - AP Music Theory
 - AP Art History
-- AP Studio Art / 2-D, 3-D, Drawing
+- AP 2-D Art and Design, AP 3-D Art and Design, AP Drawing
 - AP Seminar
 - AP Research
 - AP Precalculus
@@ -192,7 +192,7 @@ Short diagnostic assessments map a student's mastery of each AP unit.
 - React 18 (Create React App)
 - Tailwind CSS 3 with custom design tokens
 - Firebase Auth + Firestore (backend)
-- Puter SDK (free AI inference, primary)
+- Optional Puter SDK (students can connect their own Puter account to pick other models)
 - Google Gemini API (fallback, 11 rotating keys)
 - KaTeX for math rendering
 - react-markdown for rich text

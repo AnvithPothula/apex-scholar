@@ -629,8 +629,11 @@ class AssignmentSyncService {
    */
   async getSyncStatus(userId) {
     try {
-      const isConnected = await schoologyAPI.isConnected(userId);
-      
+      // Only the calendar feed syncs. isConnected() is also truthy for an old
+      // Schoology sign-in with no feed, which showed "Calendar Feed Connected".
+      const conn = await schoologyAPI.isConnected(userId);
+      const isConnected = !!(conn && conn.calendar);
+
       // Check both in-memory state and Firebase state for auto-sync
       const hasAutoSyncInMemory = this.syncIntervals.has(userId);
       

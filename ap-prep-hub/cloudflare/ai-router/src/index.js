@@ -430,7 +430,7 @@ export default {
     if (uid) {
       // Mirrors AI_PROXY_5H_LIMIT in netlify/functions/ai-proxy.js, which
       // enforces the same ceiling per uid in Firestore.
-      quotaWait = await overQuota(env, `u:${uid}`, Number(env.USER_QUOTA || 120), 5 * 60 * 60);
+      quotaWait = await overQuota(env, `u:${uid}`, Number(env.USER_QUOTA || 200), 5 * 60 * 60);
     } else {
       // An unverified caller is a guest — whether that's a real visitor on the
       // tutor page or someone who lifted the app token out of the bundle. Same

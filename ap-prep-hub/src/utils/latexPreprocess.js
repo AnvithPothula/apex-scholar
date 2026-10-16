@@ -199,10 +199,18 @@ function stripNestedDollarsInExistingBlocks(text) {
   let safety = 8;
   do {
     prev = out;
-    out = out.replace(
-      /\$([^$\n]+?)\$(\\[a-zA-Z]+)\$([^$\n]+?)\$/g,
-      (_m, a, cmd, b) => '$' + a + cmd + b + '$'
-    );
+    // Pair dollars left to right, then merge only where the command sits
+    // directly between two real pairs. A bare regex also matches starting at
+    // a closing $ and swallows prose: "$A$ at angle $\theta$ above the $x$".
+    const spans = [...out.matchAll(/\$[^$\n]+?\$/g)];
+    for (let i = 0; i + 1 < spans.length; i++) {
+      const [a, b] = [spans[i], spans[i + 1]];
+      const gap = out.slice(a.index + a[0].length, b.index);
+      if (/^\\[a-zA-Z]+$/.test(gap)) {
+        out = out.slice(0, a.index) + a[0].slice(0, -1) + gap + b[0].slice(1) + out.slice(b.index + b[0].length);
+        break;
+      }
+    }
     safety--;
   } while (out !== prev && safety > 0);
   return out;
@@ -286,8 +294,17 @@ export function preprocessContent(content) {
   processed = unfenceMathBlocks(processed);
   processed = normalizeDelimiters(processed);
 
-  // 1. Wrap bare standalone LaTeX commands in $...$
-  processed = processed.replace(BARE_LATEX_RE, (match) => `$${match}$`);
+  // 0b. A bare degree mark in prose ("85^{\circ}C") has no command step 1 or 2
+  // can wrap (\circ sits inside braces), so it rendered as raw LaTeX.
+  const degreeMath = [...processed.matchAll(/\$\$[\s\S]*?\$\$|\$[^$\n]*?\$/g)].map((r) => [r.index, r.index + r[0].length]);
+  processed = processed.replace(/\^(?:\{\\circ\}|\\circ(?![a-zA-Z]))/g, (match, offset) =>
+    (degreeMath.some(([s, e]) => offset > s && offset < e) ? match : '°'));
+
+  // 1. Wrap bare standalone LaTeX commands in $...$, skipping any already
+  // inside math: "$\tan\theta > 1$" must not become "$\tan$\theta$ > 1$".
+  const mathRanges = [...processed.matchAll(/\$\$[\s\S]*?\$\$|\$[^$\n]*?\$/g)].map((r) => [r.index, r.index + r[0].length]);
+  processed = processed.replace(BARE_LATEX_RE, (match, _cmd, offset) =>
+    (mathRanges.some(([s, e]) => offset > s && offset < e) ? match : `$${match}$`));
 
   // 2. Find LaTeX expressions with brace commands outside $...$ and wrap them.
   // Build a set of positions already inside $...$ so we don't double-wrap.
@@ -324,5 +341,8 @@ export function preprocessContent(content) {
   // 4. Final safety net: close any unbalanced single $ at paragraph end.
   result = balanceDollars(result);
 
-  return result;
+  // 5. A line that is only $$...$$ is meant as a displayed equation, but
+  // remark-math treats one-line $$x$$ as inline maths (small fractions, no
+  // centering). Split it onto fence lines so it renders as display maths.
+  return result.replace(/^([ \t]*)\$\$([^$\n]+)\$\$[ \t]*$/gm, (_m, ind, body) => `${ind}$$\n${ind}${body.trim()}\n${ind}$$`);
 }

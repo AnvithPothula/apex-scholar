@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { RotateCw, Brain, CheckCircle, X, Target, TrendingUp, Trophy, FileQuestion, HelpCircle, Download, Sparkles } from 'lucide-react';
@@ -31,8 +31,11 @@ const ResultsPanel = ({
   tutorProcessing,
   setTutorProcessing,
   askTutorAboutQuestion,
+  onRegrade,
 }) => {
   const navigate = useNavigate();
+  const [regrading, setRegrading] = useState(false);
+  const [regradeNote, setRegradeNote] = useState('');
   // Hooks must run before the early return, so compute this here.
   const missedCount = (testResults?.questionResults || []).filter((r) => !r.correct && !r.ungraded).length;
   const ungradedCount = (testResults?.questionResults || []).filter((r) => r.ungraded).length;
@@ -126,6 +129,23 @@ const ResultsPanel = ({
             <p className="text-body-sm text-content-secondary mt-1">
               The AI grader was unavailable, so {ungradedCount === 1 ? 'it was' : 'they were'} left out of your score instead of being marked wrong.
             </p>
+            {onRegrade && (
+              <Button
+                variant="secondary"
+                className="mt-3"
+                disabled={regrading}
+                onClick={async () => {
+                  setRegrading(true); setRegradeNote('');
+                  try {
+                    const left = await onRegrade();
+                    if (left) setRegradeNote('The grader still couldn\'t be reached. Try again in a minute.');
+                  } finally { setRegrading(false); }
+                }}
+              >
+                {regrading ? 'Grading…' : `Grade ${ungradedCount === 1 ? 'it' : 'them'} now`}
+              </Button>
+            )}
+            {regradeNote && <p className="text-body-sm text-warning-400 mt-2" role="status">{regradeNote}</p>}
           </Card>
         )}
 
@@ -290,8 +310,10 @@ const ResultsPanel = ({
                     animate={isCorrect ? popCorrect : shakeWrong}
                     className="border border-border rounded-lg p-6">
                     <div className="flex items-start gap-4 mb-4">
-                      <div className={`p-2 rounded-lg ${isCorrect ? 'bg-success-500' : 'bg-error-500'}`}>
-                        {isCorrect ? (
+                      <div className={`p-2 rounded-lg ${result?.ungraded ? 'bg-base-800' : isCorrect ? 'bg-success-500' : 'bg-error-500'}`}>
+                        {result?.ungraded ? (
+                          <HelpCircle strokeWidth={1.5} className="w-5 h-5 text-content-muted" />
+                        ) : isCorrect ? (
                           <CheckCircle strokeWidth={1.5} className="w-5 h-5 text-content-primary" />
                         ) : (
                           <X strokeWidth={1.5} className="w-5 h-5 text-content-primary" />
@@ -300,9 +322,13 @@ const ResultsPanel = ({
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-3">
                           <h3 className="font-medium text-content-primary mb-3">Question {index + 1}</h3>
-                          <Badge variant={isCorrect ? "success" : "destructive"}>
-                            {result?.score || 0} / {result?.maxPoints || 1} points
-                          </Badge>
+                          {result?.ungraded ? (
+                            <Badge variant="warning">Not graded</Badge>
+                          ) : (
+                            <Badge variant={isCorrect ? "success" : "destructive"}>
+                              {result?.score || 0} / {result?.maxPoints || 1} points
+                            </Badge>
+                          )}
                         </div>
                         <div className="text-content-secondary mb-4">
                           <MarkdownRenderer content={renderSafeValue(question.question)} />
@@ -456,7 +482,7 @@ const ResultsPanel = ({
                                       <div key={idx} className={`flex items-center justify-between px-3 py-2 rounded-md ${it.earned > 0 ? 'bg-success-900 border border-success-500/30' : 'bg-base-800 border border-border-strong'}`}>
                                         <div className="text-content-primary text-sm font-medium">{it.label}</div>
                                         <div className={`text-xs font-semibold ${it.earned > 0 ? 'text-success-400' : 'text-content-muted'}`}>
-                                          {Math.round(it.earned)}/{it.maxPoints} pts
+                                          {result?.ungraded ? `${it.maxPoints} pts` : `${Math.round(it.earned)}/${it.maxPoints} pts`}
                                         </div>
                                       </div>
                                     ))}

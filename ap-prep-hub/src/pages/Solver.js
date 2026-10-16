@@ -7,7 +7,7 @@ import CustomDropdown from '../components/ui/CustomDropdown';
 import errorLogger from '../utils/errorLogger';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { AP_SUBJECTS } from '../constants/subjects';
+import { AP_SUBJECTS, shortSubjectName } from '../constants/subjects';
 import geminiService, { RateLimitError } from '../services/geminiService';
 import dataService from '../services/dataService';
 import { recordSolve } from '../services/activityTracker';
@@ -15,6 +15,7 @@ import MarkdownRenderer from '../components/MarkdownRenderer';
 import ModelSelector, { getDefaultModel, saveSelectedModel } from '../components/ui/ModelSelector';
 import 'katex/dist/katex.min.css';
 
+// Keyed by each course's short form (constants/subjects).
 const SUBJECT_BORDER_COLORS = {
   'AP Biology': 'border-l-green-500',
   'AP Chemistry': 'border-l-purple-500',
@@ -29,7 +30,7 @@ const SUBJECT_BORDER_COLORS = {
   'AP Computer Science Principles': 'border-l-cyan-400',
   'AP Environmental Science': 'border-l-emerald-500',
   'AP Psychology': 'border-l-pink-500',
-  'AP US History': 'border-l-amber-500',
+  'AP U.S. History': 'border-l-amber-500',
   'AP World History': 'border-l-amber-400',
   'AP European History': 'border-l-amber-600',
   'AP English Language': 'border-l-indigo-500',
@@ -37,7 +38,7 @@ const SUBJECT_BORDER_COLORS = {
   'AP Art History': 'border-l-rose-500',
   'AP Macroeconomics': 'border-l-teal-500',
   'AP Microeconomics': 'border-l-teal-400',
-  'AP US Government': 'border-l-slate-400',
+  'AP U.S. Government': 'border-l-slate-400',
   'AP Comparative Government': 'border-l-slate-500',
   'General': 'border-l-gray-500',
 };
@@ -151,14 +152,16 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
         const imageData = convertImageToBase64(selectedImage);
         solutionText = await geminiService.generateWithImages(
           buildSolverPrompt(sanitizedQuestion, true),
-          [imageData]
+          [imageData],
+          { usageCategory: 'solverImage' }
         );
       } else if (selectedImage) {
         // Only image provided
         const imageData = convertImageToBase64(selectedImage);
         solutionText = await geminiService.generateWithImages(
           buildSolverPrompt('', true),
-          [imageData]
+          [imageData],
+          { usageCategory: 'solverImage' }
         );
       } else {
         // Only text provided - sanitizedQuestion is already prepared
@@ -276,7 +279,7 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
       // Update local history immediately (don't wait for Firebase)
       const newItem = {
         id: Date.now(),
-        subject: subjectName || "General",
+        subject: parsedSolution.subject,
         question: questionText || "Problem from uploaded image",
         timestamp: 'Just now',
         solved: true,
@@ -288,7 +291,7 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
       // Save to history in background (don't block UI on Firebase errors)
       dataService.saveSolverHistory(user.uid, {
         question: questionText || "Problem from uploaded image",
-        subject: subjectName || "General",
+        subject: parsedSolution.subject,
         solution: parsedSolution,
         hasImage: !!selectedImage,
         solved: true
@@ -304,8 +307,9 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
     } catch (error) {
       console.error('Error analyzing problem:', error);
 
-      // Check for rate limit error
-      if (error instanceof RateLimitError || error.isRateLimit ||
+      if (error?.code === 'ai_usage_limit') {
+        toast.warning(error.message);
+      } else if (error instanceof RateLimitError || error.isRateLimit ||
           (error.message && (error.message.includes('rate') || error.message.includes('quota') || error.message.includes('429')))) {
         toast.aiBusy(error.retryAfter, { reason: 'solver' });
       } else {
@@ -403,7 +407,7 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
   };
 
   const getSubjectBorderColor = (subject) => {
-    return SUBJECT_BORDER_COLORS[subject] || SUBJECT_BORDER_COLORS['General'];
+    return SUBJECT_BORDER_COLORS[shortSubjectName(subject)] || SUBJECT_BORDER_COLORS['General'];
   };
 
   return (
@@ -548,7 +552,7 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
               {/* Problem Info */}
               <div className="mb-4 p-3 bg-base-850/50 rounded-lg">
                 <div className="flex items-center gap-2 mb-2">
-                  <Badge variant="secondary">{solution.subject}</Badge>
+                  <Badge variant="secondary">{shortSubjectName(solution.subject)}</Badge>
                   <Badge variant={solution.difficulty === 'Hard' ? 'destructive' : 'default'}>
                     {solution.difficulty}
                   </Badge>
@@ -633,7 +637,7 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
                   <div className="flex items-center justify-between">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <Badge variant="secondary" className="text-xs">{item.subject}</Badge>
+                        <Badge variant="secondary" className="text-xs">{shortSubjectName(item.subject)}</Badge>
                         <span className="text-xs text-content-muted">{item.timestamp}</span>
                         {(item.hasImage || item.image) && <Camera className="w-3.5 h-3.5 text-content-muted" strokeWidth={1.5} />}
                         {item.solved && <CheckCircle className="w-3.5 h-3.5 text-success-400" strokeWidth={1.5} />}

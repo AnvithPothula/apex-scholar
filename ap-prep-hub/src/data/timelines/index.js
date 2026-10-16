@@ -12,12 +12,18 @@ import usHistory from './usHistory';
 
 // slug -> timeline config (only LIVE timelines are registered here)
 export const TIMELINES = {
-  'us-history': usHistory,
+  'ap-us-history': usHistory,
 };
 
+// Slugs match Learn's class slugs (constants/subjects); earlier ones still resolve.
+const OLD_SLUGS = { 'us-history': 'ap-us-history' };
+
 export function getTimeline(slug) {
-  return TIMELINES[slug] || null;
+  return TIMELINES[OLD_SLUGS[slug] || slug] || null;
 }
+
+/** The current slug for an old one, or null. */
+export const currentTimelineSlug = (slug) => OLD_SLUGS[slug] || null;
 
 /**
  * Catalog of TIMELINES rendered in the Learn hub's Timelines section.
@@ -25,29 +31,28 @@ export function getTimeline(slug) {
  *   'live' -> clickable, routes to `to`
  *   'soon' -> shown as a disabled "Coming soon" card
  *
- * Curriculum catalog lives in src/data/curriculums/index.js.
  */
 export const TIMELINE_CATALOG = [
   {
     kind: 'timeline',
-    slug: 'us-history',
+    slug: 'ap-us-history',
     title: 'AP U.S. History',
     subtitle: 'Interactive timeline',
     blurb: 'Every key event from Pre-1491 to today, color-coded by APUSH theme. Click any event for an AI study note grounded in the College Board CED.',
     status: 'live',
-    to: '/learn/timeline/us-history',
+    to: '/study/timelines/ap-us-history',
   },
   {
     kind: 'timeline',
-    slug: 'world-history',
-    title: 'AP World History',
+    slug: 'ap-world-history-modern',
+    title: 'AP World History: Modern',
     subtitle: 'Interactive timeline',
-    blurb: 'Same theme-coded timeline treatment for AP World History.',
+    blurb: 'Same theme-coded timeline treatment for AP World History: Modern.',
     status: 'soon',
   },
   {
     kind: 'timeline',
-    slug: 'euro',
+    slug: 'ap-european-history',
     title: 'AP European History',
     subtitle: 'Interactive timeline',
     blurb: 'Same theme-coded timeline treatment for AP European History.',

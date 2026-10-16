@@ -2,17 +2,18 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Brain, Home, ArrowLeft, ChevronRight, Trophy, XCircle, CheckCircle2, Sparkles } from 'lucide-react';
+import useDocumentMeta from '../hooks/useDocumentMeta';
 
 // Each question has 4 choices — one correct funny answer, three distractors
 const QUESTIONS = [
   {
-    icon: "∫", subject: "AP Calculus",
+    icon: "∫", subject: "AP Calculus AB",
     question: "What is the derivative of 404?",
     choices: ["404x³", "0 — just like this page", "undefined", "404!"],
     correct: 1,
   },
   {
-    icon: "🦅", subject: "AP US History",
+    icon: "🦅", subject: "AP U.S. History",
     question: "In APUSH, what happened on page 404 of the textbook?",
     choices: ["The Boston Tea Party", "It was ripped out by a student", "The Louisiana Purchase", "Nothing — nobody reads that far"],
     correct: 1,
@@ -24,7 +25,7 @@ const QUESTIONS = [
     correct: 1,
   },
   {
-    icon: "💻", subject: "AP Computer Science",
+    icon: "💻", subject: "AP Computer Science A",
     question: "In Java, what exception does a 404 page throw?",
     choices: ["NullPointerException", "ArrayIndexOutOfBoundsException", "PageNotFoundError", "ClassNotFoundException"],
     correct: 2,
@@ -36,7 +37,7 @@ const QUESTIONS = [
     correct: 1,
   },
   {
-    icon: "⚛️", subject: "AP Physics",
+    icon: "⚛️", subject: "AP Physics 1",
     question: "Calculate the momentum of this missing page.",
     choices: ["p = mv = 404 kg·m/s", "p = mv = 0 × 0 = absolutely nothing", "p = ħk = undefined", "Insufficient data"],
     correct: 1,
@@ -60,7 +61,7 @@ const QUESTIONS = [
     correct: 2,
   },
   {
-    icon: "📈", subject: "AP Economics",
+    icon: "📈", subject: "AP Microeconomics",
     question: "What is the opportunity cost of this 404 error?",
     choices: ["$4.04", "The studying you could've been doing", "One college credit", "A marginal utility of zero"],
     correct: 1,
@@ -72,7 +73,7 @@ const QUESTIONS = [
     correct: 3,
   },
   {
-    icon: "🇪🇸", subject: "AP Spanish",
+    icon: "🇪🇸", subject: "AP Spanish Language",
     question: "How do you say '404 Page Not Found' in Spanish?",
     choices: ["Cuatro cero cuatro", "Página no encontrada — como mi motivación", "Error de la web", "No lo sé, I got a 2"],
     correct: 1,
@@ -98,6 +99,7 @@ function FloatingSymbol({ symbol }) {
 }
 
 export default function NotFound() {
+  useDocumentMeta({ title: 'Page not found — Apex Scholar' });
   const navigate = useNavigate();
   const location = useLocation();
   const [questionOrder] = useState(() => {

@@ -102,7 +102,7 @@ export const generateOptimizedPrompt = (subject, question, curriculumContext, fi
   
   if (isSimpleQuestion) {
     // Streamlined prompt for quick responses
-    return `You are an expert AP ${subject} tutor. Answer concisely and accurately.
+    return `You are an expert ${subject} tutor. Answer concisely and accurately.
 
 Question: "${question}"
 ${fileContext}
@@ -111,7 +111,7 @@ Give a clear, direct answer focusing on the key concept:`;
   } else if (isExamPrep) {
     // Exam-focused prompt with essential curriculum info
     const essentialContext = curriculumContext.split('\n').slice(0, 10).join('\n');
-    return `You are an expert AP ${subject} tutor specializing in exam preparation.
+    return `You are an expert ${subject} tutor specializing in exam preparation.
 
 ${essentialContext}
 
@@ -126,7 +126,7 @@ Provide an exam-focused response covering:
 Response:`;
   } else {
     // Full detailed prompt for complex questions
-    return `You are an expert AP ${subject} tutor. Provide comprehensive, accurate explanations.
+    return `You are an expert ${subject} tutor. Provide comprehensive, accurate explanations.
 
 ${curriculumContext}
 

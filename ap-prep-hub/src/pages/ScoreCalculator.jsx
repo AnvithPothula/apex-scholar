@@ -19,7 +19,7 @@ import { Calculator, Info, ChevronDown, Share2 } from 'lucide-react';
 import ScoreCard from '../components/ui/ScoreCard';
 import { Card, Button } from '../components/ui/UIComponents';
 import { createPageUrl } from '../utils/helpers';
-import { MODELLED_SUBJECTS, getScoreModel, SUBJECT_BY_SLUG, slugFor } from '../constants/apScoreModels';
+import { MODELLED_SUBJECTS, getScoreModel, SUBJECT_BY_SLUG, LEGACY_SLUGS, slugFor } from '../constants/apScoreModels';
 import { scoreFor, curveRows, clampRawsForModel } from '../utils/apScore';
 
 const SCORE_COLOR = {
@@ -33,8 +33,14 @@ const SCORE_COLOR = {
 export default function ScoreCalculator() {
   // The slug drives the subject so "AP Bio score calculator" can land directly on
   // /ap-score-calculator/ap-biology instead of a generic picker.
-  const { slug } = useParams();
+  const { slug: rawSlug } = useParams();
   const navigate = useNavigate();
+  // Old slugs ("ap-gov") still open the right calculator, then the URL moves
+  // to the current one so it's what gets shared.
+  const slug = LEGACY_SLUGS[rawSlug] || rawSlug;
+  useEffect(() => {
+    if (LEGACY_SLUGS[rawSlug]) navigate(`/ap-score-calculator/${slug}${window.location.search}`, { replace: true });
+  }, [rawSlug, slug, navigate]);
   const [subject, setSubject] = useState(
     () => SUBJECT_BY_SLUG[slug || ''] || MODELLED_SUBJECTS[0]
   );

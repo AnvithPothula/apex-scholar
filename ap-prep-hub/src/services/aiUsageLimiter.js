@@ -2,9 +2,10 @@
  * AI usage limiter.
  *
  * Two pooled budgets:
- *   - general:      every AI call EXCEPT practice-test generation. Fixed 5-hour
- *                   window AND fixed weekly window; whichever is hit first
- *                   blocks. Both reset on a rolling basis.
+ *   - general:      every AI call EXCEPT practice tests. Each call spends the
+ *                   points its task costs (TASK_COST), out of a 5-hour budget
+ *                   AND a weekly budget; the UI shows both as % used. Hitting
+ *                   100% of either blocks until that window resets.
  *   - practiceTest: 1 test generation per calendar day. Separate counter that
  *                   does NOT count against the general budget.
  *
@@ -15,8 +16,8 @@
  *     blocked. Note: this is not tamper-proof (the user owns the doc); real
  *     anti-abuse needs a server-side function. It does give cross-device
  *     enforcement that survives clearing browser data.
- *   - Guests (no uid): localStorage, per browser (soft cap, like the guest
- *     message cap). Guests can't write Firestore.
+ *   - Guests (no uid): localStorage, per browser, with smaller budgets (a soft
+ *     cap: clearing site data resets it). Guests can't write Firestore.
  *
  * Admins/devs bypass everything via setBypass(true).
  */
@@ -38,10 +39,44 @@ async function getFirebase() {
   return _fb;
 }
 
-// Tunable caps -------------------------------------------------------------
-export const GENERAL_5H_LIMIT = 60;    // AI calls per rolling 5 hours
-export const GENERAL_WEEK_LIMIT = 300; // AI calls per rolling 7 days
+// Tunable caps, in points (1000 points = 100% of a signed-in 5-hour window) --
+export const GENERAL_5H_LIMIT = 1000;
+export const GENERAL_WEEK_LIMIT = 5000;
+export const GUEST_5H_LIMIT = 300;    // about 20 tutor messages
+export const GUEST_WEEK_LIMIT = 1500;
 export const TEST_DAILY_LIMIT = 1;     // practice-test generations per day
+
+// Points per AI task, roughly by how much work the model does. Unknown or
+// untagged tasks cost DEFAULT_COST. Practice tests are exempt (own daily cap).
+export const TASK_COST = {
+  tutor: 15,            // one tutor reply
+  tutorFile: 30,        // a tutor reply that reads an attached file or photo
+  ask: 8,               // highlight Ask / Explain in a study pack
+  timelineNote: 8,      // a timeline study note
+  reviewExplain: 10,    // "why was I wrong" in Review
+  solver: 25,           // typed problem
+  solverImage: 40,      // photo of a problem
+  flashcards: 50,       // a generated deck
+  diagnostic: 50,       // generated diagnostic questions
+  progressInsights: 20, // the Progress page study analysis
+};
+export const DEFAULT_COST = 15;
+
+/** What each task is called on the usage card. */
+export const TASK_LABELS = {
+  tutor: 'Tutor reply',
+  tutorFile: 'Tutor reply with a file or photo',
+  ask: 'Ask or Explain on highlighted text',
+  timelineNote: 'Timeline study note',
+  reviewExplain: 'Review explanation',
+  solver: 'Solver (typed)',
+  solverImage: 'Solver (photo)',
+  flashcards: 'AI flashcard deck',
+  diagnostic: 'Diagnostic questions',
+  progressInsights: 'Progress analysis',
+};
+
+export const costOf = (category) => TASK_COST[category] ?? DEFAULT_COST;
 
 const FIVE_HOURS_MS = 5 * 60 * 60 * 1000;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -62,6 +97,17 @@ export function setBypass(value) {
 /** Tell the limiter who is signed in (null for guests). Called from AuthContext. */
 export function setUser(uid) {
   currentUid = uid || null;
+  notify();
+}
+
+const caps = () => (currentUid
+  ? { fiveHour: GENERAL_5H_LIMIT, week: GENERAL_WEEK_LIMIT }
+  : { fiveHour: GUEST_5H_LIMIT, week: GUEST_WEEK_LIMIT });
+
+/** Usage meters listen for this to refresh after any AI call. */
+export const USAGE_EVENT = 'apex:ai-usage';
+function notify() {
+  try { window.dispatchEvent(new Event(USAGE_EVENT)); } catch { /* no window in tests */ }
 }
 
 export function isExempt(category) {
@@ -98,9 +144,9 @@ function buildMessage(scope, resetAt) {
     return `You can generate ${TEST_DAILY_LIMIT} practice test per day. Try again tomorrow.`;
   }
   if (scope === 'week') {
-    return `You've reached your weekly AI usage limit. It resets in ${humanizeUntil(resetAt)}.`;
+    return `You've used 100% of this week's AI limit. It resets in ${humanizeUntil(resetAt)}.`;
   }
-  return `You've reached your AI usage limit for now. It resets in ${humanizeUntil(resetAt)}.`;
+  return `You've used 100% of your 5-hour AI limit. It resets in ${humanizeUntil(resetAt)}.`;
 }
 
 // LOCAL calendar day. This was toISOString() (UTC), so the "1 test per day"
@@ -145,27 +191,33 @@ function saveLocal(state) {
   }
 }
 
-/** Throws AiUsageLimitError if either general window is at its cap. */
+/**
+ * Throws AiUsageLimitError if either general window is at its cap. A task is
+ * allowed while any budget is left, so the last one may overshoot 100% a
+ * little rather than refusing a 5% task at 97%.
+ */
 function assertGeneralUnderCap(state, now) {
   const fiveHour = rollWindow(state.fiveHour, FIVE_HOURS_MS, now);
   const week = rollWindow(state.week, WEEK_MS, now);
-  if (fiveHour.count >= GENERAL_5H_LIMIT) {
+  const cap = caps();
+  if (fiveHour.count >= cap.fiveHour) {
     throw new AiUsageLimitError('5h', fiveHour.start + FIVE_HOURS_MS);
   }
-  if (week.count >= GENERAL_WEEK_LIMIT) {
+  if (week.count >= cap.week) {
     throw new AiUsageLimitError('week', week.start + WEEK_MS);
   }
   return { fiveHour, week };
 }
 
 /**
- * Meter one general AI call. Throws AiUsageLimitError when over the 5-hour or
- * weekly cap; otherwise records the hit. No-op for admins and exempt categories.
+ * Meter one general AI call at its task's cost. Throws AiUsageLimitError when
+ * over the 5-hour or weekly cap. No-op for admins and exempt categories.
  * Async: signed-in users hit Firestore (transaction); guests use localStorage.
  */
 export async function consume(category) {
   if (bypass || isExempt(category)) return;
   const now = Date.now();
+  const cost = costOf(category);
 
   if (currentUid) {
     try {
@@ -175,8 +227,8 @@ export async function consume(category) {
         const snap = await tx.get(ref);
         const state = normalize(snap.exists() ? snap.data() : {});
         const { fiveHour, week } = assertGeneralUnderCap(state, now); // throws if over
-        fiveHour.count += 1;
-        week.count += 1;
+        fiveHour.count += cost;
+        week.count += cost;
         tx.set(ref, { fiveHour, week, updatedAt: serverTimestamp() }, { merge: true });
       });
     } catch (e) {
@@ -184,15 +236,26 @@ export async function consume(category) {
       // Firestore/network error -> fail open (don't block the user).
       errorLogger.debug('aiUsageLimiter consume failed (fail-open)', { error: e?.message });
     }
+    notify();
     return;
   }
 
   // Guest path (localStorage).
   const state = loadLocal();
   const { fiveHour, week } = assertGeneralUnderCap(state, now);
-  fiveHour.count += 1;
-  week.count += 1;
+  fiveHour.count += cost;
+  week.count += cost;
   saveLocal({ ...state, fiveHour, week });
+  notify();
+}
+
+/** Throw AiUsageLimitError if the general budget is spent, without spending any. */
+export async function assertGeneralAvailable() {
+  if (bypass) return;
+  const status = await getUsageStatus();
+  for (const [scope, b] of [['5h', status?.general?.fiveHour], ['week', status?.general?.week]]) {
+    if (b && b.remaining <= 0) throw new AiUsageLimitError(scope, b.resetAt || Date.now());
+  }
 }
 
 /**
@@ -223,6 +286,7 @@ export async function consumeTestDaily() {
       if (e instanceof AiUsageLimitError) throw e;
       errorLogger.debug('aiUsageLimiter consumeTestDaily failed (fail-open)', { error: e?.message });
     }
+    notify();
     return;
   }
 
@@ -236,6 +300,7 @@ export async function consumeTestDaily() {
   }
   testDay = { day: todayStr(), count: testDay.count + 1 };
   saveLocal({ ...state, testDay });
+  notify();
 }
 
 /**
@@ -263,14 +328,18 @@ function snapshotFrom(state, now) {
     used: count,
     limit,
     remaining: Math.max(0, limit - count),
+    // Any use shows at least 1%, so a running countdown never sits next to "0% used".
+    pct: count > 0 ? Math.min(100, Math.max(1, Math.round((count / limit) * 100))) : 0,
     resetAt: count > 0 ? start + durationMs : null,
   });
+  const cap = caps();
 
   return {
     bypassed: bypass,
+    guest: !currentUid,
     general: {
-      fiveHour: bucket(fiveHour.count, GENERAL_5H_LIMIT, fiveHour.start, FIVE_HOURS_MS),
-      week: bucket(week.count, GENERAL_WEEK_LIMIT, week.start, WEEK_MS),
+      fiveHour: bucket(fiveHour.count, cap.fiveHour, fiveHour.start, FIVE_HOURS_MS),
+      week: bucket(week.count, cap.week, week.start, WEEK_MS),
     },
     test: {
       used: testUsed,
@@ -309,8 +378,8 @@ export function peekGeneral() {
   return {
     fiveHourRemaining: s.general.fiveHour.remaining,
     weekRemaining: s.general.week.remaining,
-    fiveHourLimit: GENERAL_5H_LIMIT,
-    weekLimit: GENERAL_WEEK_LIMIT,
+    fiveHourLimit: s.general.fiveHour.limit,
+    weekLimit: s.general.week.limit,
   };
 }
 
@@ -319,6 +388,8 @@ const aiUsageLimiter = {
   setUser,
   isExempt,
   consume,
+  assertGeneralAvailable,
+  costOf,
   consumeTestDaily,
   assertTestDailyAvailable,
   getUsageStatus,

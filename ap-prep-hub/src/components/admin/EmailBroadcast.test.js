@@ -1,8 +1,8 @@
 // These are pure predicates, but importing the component pulls in firebase/auth,
 // which blows up under jsdom (no TextEncoder). Same stub the SRS tests use.
-jest.mock('firebase/auth', () => ({ getAuth: jest.fn() }));
-
 import { isComposed, isArmed, canSendForReal } from './EmailBroadcast';
+
+jest.mock('firebase/auth', () => ({ getAuth: jest.fn() }));
 
 describe('isComposed', () => {
   it('requires both a subject and a body', () => {

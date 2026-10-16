@@ -84,11 +84,11 @@ const APExamDashboard = () => {
   }
 
   const getUrgencyLevel = (daysUntil) => {
-    if (daysUntil < 0) return { level: 'past', color: 'text-content-muted', bgColor: 'bg-base-900/50' };
-    if (daysUntil <= 14) return { level: 'critical', color: 'text-error-300', bgColor: 'bg-error-900/50' };
-    if (daysUntil <= 30) return { level: 'warning', color: 'text-warning-300', bgColor: 'bg-warning-900/50' };
-    if (daysUntil <= 60) return { level: 'moderate', color: 'text-info-300', bgColor: 'bg-info-900/50' };
-    return { level: 'low', color: 'text-success-300', bgColor: 'bg-success-900/50' };
+    if (daysUntil < 0) return { level: 'past', color: 'text-content-muted', bgColor: 'bg-base-900' };
+    if (daysUntil <= 14) return { level: 'critical', color: 'text-error-400', bgColor: 'bg-error-900' };
+    if (daysUntil <= 30) return { level: 'warning', color: 'text-warning-400', bgColor: 'bg-warning-900' };
+    if (daysUntil <= 60) return { level: 'moderate', color: 'text-info-400', bgColor: 'bg-info-900' };
+    return { level: 'low', color: 'text-success-400', bgColor: 'bg-success-900' };
   };
 
   const buttonText = upcomingExams.length === 0 
@@ -193,7 +193,7 @@ const APExamDashboard = () => {
                                 {format(exam.examDate, 'MMM dd, yyyy')}
                               </span>
                               {exam.isLateTesting && (
-                                <Badge className="bg-warning-900/50 text-warning-400 border-warning-500/30 text-xs">Late</Badge>
+                                <Badge className="bg-warning-900 text-warning-400 border-warning-500 text-xs">Late</Badge>
                               )}
                             </div>
                             <div className="flex items-center gap-2">

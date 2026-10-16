@@ -63,16 +63,15 @@ class SchoologyAPIService {
   // ---- OAuth flow -------------------------------------------------------
 
   /**
-   * Kick off OAuth: ask the proxy for a request token, stash the matching
-   * token-secret in sessionStorage, then redirect the browser to Schoology
-   * for the user to authorize. They'll come back to /schoology-callback.
+   * Kick off OAuth: the proxy gets a request token (keeping its secret
+   * server-side), then the browser goes to the student's own Schoology host
+   * (`domain`, e.g. "yourschool.schoology.com") to authorize. They come back
+   * to /schoology-callback.
    */
-  async initiateOAuth(userId) {
+  async initiateOAuth(userId, domain) {
     if (!userId) throw new Error('userId required');
     const callback = `${window.location.origin}/schoology-callback`;
-    // The function stores the request-token secret server-side keyed by uid —
-    // it no longer comes back to the browser.
-    const data = await callProxy('request_token', { callback });
+    const data = await callProxy('request_token', { callback, domain });
     const { oauth_token, authorize_url } = data;
     if (!oauth_token || !authorize_url) {
       throw new Error('Schoology did not return a valid request token');
@@ -127,6 +126,8 @@ class SchoologyAPIService {
         calendar,
         schoologyName: d.schoologyName || null,
         schoologyUid: d.schoologyUid || null,
+        // Set by the proxy when Schoology answers 401 (90-day token expiry or revoked).
+        needsReconnect: !!d.needsReconnect,
         connectedAt: d.connectedAt || null,
         lastSync: d.lastSync || null,
         valueOf() { return true; },
@@ -214,19 +215,20 @@ class SchoologyAPIService {
   // ---- Signed API calls (via proxy) ------------------------------------
 
   /**
-   * Generic signed Schoology API call. Forwards through the proxy so the
-   * consumer secret stays server-side.
+   * Signed, READ-ONLY Schoology API call through the proxy, which holds the
+   * tokens and only forwards GETs to allow-listed paths.
    */
-  async makeAPIRequest(userId, endpoint, method = 'GET', data = null) {
-    // No tokens here — the function loads the caller's server-side tokens from
-    // the verified Firebase uid and signs the request.
+  async makeAPIRequest(userId, endpoint) {
     const result = await callProxy('api_call', {
-      method,
+      method: 'GET',
       path: endpoint.startsWith('/') ? endpoint : `/${endpoint}`,
-      body: data,
     });
     if (!result.ok) {
-      throw new Error(`Schoology API error: ${result.status}`);
+      const err = new Error(result.reconnect
+        ? 'Your Schoology sign-in has expired. Sign in again to keep syncing.'
+        : `Schoology API error: ${result.status}`);
+      err.reconnect = !!result.reconnect;
+      throw err;
     }
     return result.data;
   }

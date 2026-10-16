@@ -52,7 +52,7 @@ export const COURSES = [
   { id: 'ap-chinese-language-and-culture', key: 'chineseLanguage', subject: 'AP Chinese Language and Culture',
     units: ['Families and Communities', 'Language and Culture', 'Art and Creativity', 'Science and Technology', 'Contemporary Life', 'Global Contexts'] },
   {
-    id: 'ap-comparative-government-and-politics', key: 'comparativeGovernment', subject: 'AP Government and Politics: Comparative',
+    id: 'ap-comparative-government-and-politics', key: 'comparativeGovernment', subject: 'AP Comparative Government and Politics',
     units: ['Political Systems, Regimes, and Governments', 'Political Institutions', 'Political Culture and Participation',
       'Party and Electoral Systems and Citizen Organizations', 'Political and Economic Changes and Development'],
   },

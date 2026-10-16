@@ -1,8 +1,8 @@
 /* The weekly/exam-week email logic lives in netlify/lib (shared with the
  * email-weekly function); tested from here like classScore. */
+import { AP_EXAM_DATES_2027, SUBJECT_KEY_TO_EXAM_NAME } from '../constants/apExamDates';
 const { buildDigest, examsFor, cadenceFor } = require('../../netlify/lib/weeklyDigest');
 const serverTable = require('../../netlify/lib/examDates');
-import { AP_EXAM_DATES_2027, SUBJECT_KEY_TO_EXAM_NAME } from '../constants/apExamDates';
 
 const SUNDAY = new Date(Date.UTC(2026, 9, 4, 14));   // Sun Oct 4 2026
 const MONDAY = new Date(Date.UTC(2026, 9, 5, 14));

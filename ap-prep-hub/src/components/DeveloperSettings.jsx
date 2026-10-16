@@ -483,7 +483,7 @@ export default function DeveloperSettings({ onClose }) {
                     {expandedSection === 'puter' && (
                         <div className="p-4 space-y-3 border-t border-border">
                             <p className="text-body-sm text-content-secondary">
-                                Clear Puter authentication tokens and cached data. The user will be prompted to re-authenticate on their next AI request.
+                                Clear Puter authentication tokens and cached data. AI switches to the standard model until the account is connected again from the AI model menu.
                             </p>
                             <Button
                                 variant="destructive"
@@ -498,6 +498,11 @@ export default function DeveloperSettings({ onClose }) {
                                         }
                                     }
                                     keysToRemove.forEach(k => localStorage.removeItem(k));
+                                    // The SDK also holds the token in memory; without this Puter kept answering until a reload.
+                                    try {
+                                        if (typeof window.puter?.resetAuthToken === 'function') window.puter.resetAuthToken();
+                                        else if (window.puter) window.puter.authToken = null;
+                                    } catch (e) { /* SDK not loaded */ }
                                     // Notify ModelSelector and other components that Puter auth was cleared
                                     window.dispatchEvent(new CustomEvent('apex:puterAuthCleared'));
                                     toast.success(`Cleared ${keysToRemove.length} Puter auth key(s). Puter models are now disabled.`);

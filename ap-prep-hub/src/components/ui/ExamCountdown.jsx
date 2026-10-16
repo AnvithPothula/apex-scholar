@@ -6,7 +6,6 @@ import {
   SUBJECT_KEY_TO_EXAM_NAME,
   sittingFor,
 } from '../../constants/apExamDates';
-import AnimatedCounter from './AnimatedCounter';
 
 const FINAL_WEEK_DAYS = 7;
 const FINAL_WEEK_MS = FINAL_WEEK_DAYS * 24 * 60 * 60 * 1000;
@@ -142,11 +141,9 @@ export default function ExamCountdown({ subjectKey, late = false, className = ''
             {/* Number + label pair */}
             <div className="flex flex-col items-center">
               <span style={{ color: colors.accent }}>
-                <AnimatedCounter
-                  value={value}
-                  duration={600}
-                  className="text-display font-bold leading-none"
-                />
+                {/* Plain number: the count-up animation waited to be scrolled
+                    into view and read as "0 days" until then. */}
+                <span className="text-display font-bold leading-none tabular-nums">{value}</span>
               </span>
               <span className="text-caption text-content-muted mt-0.5 uppercase tracking-widest">
                 {label}

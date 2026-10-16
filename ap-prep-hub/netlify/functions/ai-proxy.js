@@ -45,7 +45,8 @@ const numberedKeys = [key(''), key('_2'), key('_3'), key('_4'), key('_5'), key('
 // through twice (which would halve the effective per-project quota spread).
 const API_KEYS = Array.from(new Set([...keysFromList, ...numberedKeys]));
 
-if (API_KEYS.length && !process.env.GEMINI_API_KEY) {
+// Only when the keys really came from the REACT_APP_ copies; GEMINI_API_KEYS alone is the intended setup.
+if (!keysFromList.length && numberedKeys.length && !process.env.GEMINI_API_KEY) {
   console.warn('[ai-proxy] Using REACT_APP_GEMINI_API_KEY* fallback — set unprefixed GEMINI_API_KEY* and remove the REACT_APP_ copies.');
 }
 
@@ -99,8 +100,8 @@ const REQUIRE_AUTH = (process.env.AI_PROXY_REQUIRE_AUTH || '').toLowerCase() ===
 // `task` and already route to the same `interactive` chain tutorChat uses.
 // Must stay in sync with GUEST_TASKS in cloudflare/ai-router/src/index.js.
 const GUEST_TASKS = new Set(['tutorChat', '']);
-const SRV_5H_LIMIT = Number(process.env.AI_PROXY_5H_LIMIT || 120);
-const SRV_WEEK_LIMIT = Number(process.env.AI_PROXY_WEEK_LIMIT || 600);
+const SRV_5H_LIMIT = Number(process.env.AI_PROXY_5H_LIMIT || 200);
+const SRV_WEEK_LIMIT = Number(process.env.AI_PROXY_WEEK_LIMIT || 1000);
 const SRV_FIVE_H_MS = 5 * 60 * 60 * 1000;
 const SRV_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 

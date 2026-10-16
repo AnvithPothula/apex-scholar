@@ -13,7 +13,11 @@ export default function AnimatedOutlet() {
   const outlet = useOutlet();
 
   return (
-    <AnimatePresence mode="wait">
+    // A new page starts at the top. Without this the browser kept the old
+    // page's scroll offset, so opening a class or a diagnostic landed mid-page.
+    // Done once the old page has faded out, and instantly (the site sets
+    // smooth scrolling), so nothing visibly scrolls.
+    <AnimatePresence mode="wait" onExitComplete={() => window.scrollTo({ top: 0, behavior: 'instant' })}>
       <motion.div
         key={location.pathname}
         variants={pageVariants}

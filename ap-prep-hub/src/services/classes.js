@@ -218,6 +218,21 @@ export async function getMyClassesLive(uid) {
   }
 }
 
+/** Answers needed before a percentage is trusted enough to rank on. */
+export const MIN_RANKED_ANSWERS = 10;
+
+/**
+ * Leaderboard order. Raw accuracy let 2-of-3 outrank 5-of-16, so members
+ * below MIN_RANKED_ANSWERS sit after everyone with a real sample, ordered by
+ * how much they've done; members with no attempts come last.
+ */
+export function rankMembers(rows) {
+  const tier = (r) => (r.questionsAnswered >= MIN_RANKED_ANSWERS ? 0 : r.questionsAnswered > 0 ? 1 : 2);
+  return [...rows].sort((a, b) => tier(a) - tier(b)
+    || (tier(a) === 0 ? b.accuracy - a.accuracy : 0)
+    || b.questionsAnswered - a.questionsAnswered);
+}
+
 /**
  * Roster sorted for a leaderboard: accuracy first, then volume as the
  * tiebreak, so a student who answered 200 questions outranks one who answered
@@ -246,14 +261,7 @@ export async function getLeaderboard(code) {
         accuracy: answered > 0 ? Math.round((correct / answered) * 100) : null,
       };
     });
-    rows.sort((a, b) => {
-      if (a.accuracy === null && b.accuracy === null) return b.questionsAnswered - a.questionsAnswered;
-      if (a.accuracy === null) return 1;
-      if (b.accuracy === null) return -1;
-      if (b.accuracy !== a.accuracy) return b.accuracy - a.accuracy;
-      return b.questionsAnswered - a.questionsAnswered;
-    });
-    return rows.slice(0, MAX_MEMBERS_SHOWN);
+    return rankMembers(rows).slice(0, MAX_MEMBERS_SHOWN);
   } catch (e) {
     console.error('[classes] getLeaderboard failed', e);
     return [];
@@ -272,7 +280,7 @@ export async function getLeaderboard(code) {
  * smaller problem than a results screen that fails to render. Functions do not
  * run under `npm start`, so locally this quietly does nothing.
  *
- * @param {object} user   Firebase user (needs getIdToken)
+ * @param {object} user   the signed-in user (only uid is read)
  * @param {string} testId id of the practiceTests doc just saved
  * @returns {Promise<number>} classes credited
  */
@@ -282,7 +290,10 @@ export async function recordTestForClasses(user, testId) {
     // Most students are in no class; skip the function call entirely for them.
     const pointers = await getMyClasses(user.uid);
     if (!pointers.length) return 0;
-    const token = await user.getIdToken();
+    // `user` from useAuth is a plain profile object (spread copies drop the
+    // Firebase User methods), so the token comes from the live auth user.
+    const { auth } = await import('../config/firebase');
+    const token = await auth.currentUser.getIdToken();
     const res = await fetch('/.netlify/functions/class-record-test', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },

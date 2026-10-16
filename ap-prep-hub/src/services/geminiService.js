@@ -4,6 +4,9 @@ import errorLogger from '../utils/errorLogger';
 import JSONParser from './ai/jsonParser';
 import aiUsageLimiter from './aiUsageLimiter';
 
+/** Puter model used when a connected student hasn't picked one (ids: developer.puter.com/ai/models). */
+export const DEFAULT_PUTER_MODEL = 'anthropic/claude-sonnet-5-5';
+
 // Persisted Puter "out of free credits" flag. Once Puter returns 402
 // insufficient_funds we skip it for a day so we don't 402-spam on every page
 // load (the probe loop tries 7 models). TTL lets it re-check after credits
@@ -166,14 +169,8 @@ const isRateLimitError = (error) => {
 
 class GeminiService {
   constructor() {
-    // Default model selection — prefer Claude Sonnet 4 for education quality
-    this.modelName = (process.env.REACT_APP_GEMINI_MODEL && process.env.REACT_APP_GEMINI_MODEL.trim() !== '')
-      ? process.env.REACT_APP_GEMINI_MODEL.trim()
-      : 'claude-sonnet-4';
     this.debug = (process.env.REACT_APP_AI_DEBUG || '').toLowerCase() !== 'false';
     this._jsonParser = new JSONParser({ debug: this.debug });
-    this._workingModel = null;
-    this._workingModelSupportsMM = false;
     // User-selected model (from ModelSelector UI) — takes priority over everything
     this._userModel = null;
     try { this._userModel = localStorage.getItem('apex.ai.userModel') || null; } catch (e) { errorLogger.debug('localStorage read failed (userModel)', { error: e?.message }); }
@@ -182,7 +179,6 @@ class GeminiService {
     // chain can substitute a different Gemini model on 429. Callers that display
     // a model name must read this, never `_userModel`.
     this._lastResolvedModel = null;
-    this._lastPuterFailureAt = 0; // for backoff on repeated failures
     this._rateLimitUntil = 0; // Timestamp until which we should not make requests
     this._puterAuthBroken = false; // Track if Puter auth is in a broken/stuck state
     this._puterOutOfCredits = false; // Track if Puter has no free usage left (402); skip it for the session
@@ -494,146 +490,6 @@ class GeminiService {
   }
 
   // Try a list of candidate models on Puter with a tiny prompt; cache the first that works
-  async ensureWorkingModel(opts = {}) {
-    const multimodal = !!opts.multimodal;
-    const probeMs = typeof opts.probeMs === 'number' ? opts.probeMs : 8000; // generous probe timeout
-    // If Puter is out of free usage, don't probe at all (avoids 402-spamming
-    // every candidate model on each page load).
-    if (this._puterOutOfCredits) {
-      throw new Error('Puter unavailable (out of free usage)');
-    }
-    // Basic backoff to avoid hammering Puter when it's down
-    if (this._lastPuterFailureAt && Date.now() - this._lastPuterFailureAt < 15000) {
-      throw new Error('Puter temporarily unavailable (backoff)');
-    }
-
-    // Check localStorage cache first
-    try {
-      const cacheKey = multimodal ? 'apex.ai.mm_model' : 'apex.ai.text_model';
-      const cached = localStorage.getItem(cacheKey);
-      if (cached) {
-        const { model, timestamp} = JSON.parse(cached);
-        const age = Date.now() - timestamp;
-        // Cache valid for 30 minutes — re-discover periodically for best model
-        if (age < 1800000) {
-          this._workingModel = model;
-          this._workingModelSupportsMM = multimodal;
-          if (this.debug) console.debug('[AI] Using cached working model', { model, age });
-          return model;
-        }
-      }
-    } catch (e) {
-      // Ignore localStorage errors
-      if (this.debug) console.warn('[AI] localStorage cache read failed', e);
-    }
-
-    if (this._workingModel && (!multimodal || (multimodal && this._workingModelSupportsMM))) {
-      return this._workingModel;
-    }
-    const envModel = (process.env.REACT_APP_GEMINI_MODEL || '').trim();
-    // Best free Puter models for education — ordered by quality/speed balance
-    // Multimodal candidates (support image analysis)
-    const mmCandidates = [
-      envModel || null,
-      'claude-sonnet-4',           // Best for education + vision
-      'gpt-4.1',                   // Excellent vision model
-      'gpt-4o',                    // Strong multimodal
-      'google/gemini-2.5-flash',   // Fast + good vision
-      'claude-haiku-4-5',          // Fast vision fallback
-      'gpt-4.1-mini',             // Lightweight vision
-    ].filter(Boolean);
-    // Text-only candidates (fast, high-quality reasoning)
-    const textCandidates = [
-      envModel || null,
-      'claude-sonnet-4',           // Best reasoning for tutoring
-      'gpt-4.1',                   // Excellent quality
-      'google/gemini-2.5-flash',   // Fast + reliable
-      'claude-haiku-4-5',          // Very fast
-      'gpt-4.1-mini',             // Fast fallback
-      'google/gemini-2.0-flash',   // Reliable fallback
-    ].filter(Boolean);
-    const candidates = Array.from(new Set(multimodal ? mmCandidates : textCandidates));
-
-    const puter = this.getPuter();
-    if (!puter) throw new Error('Puter.js is not available');
-
-    // Helper: detect CORS / network-level failures that will affect ALL models
-    const isCorsOrNetworkError = (e) => {
-      const formatted = this._formatErrorForLog(e);
-      const s = [formatted.summary, formatted.details?.serialized].filter(Boolean).join(' ').toLowerCase();
-      return s.includes('access control') || s.includes('XMLHttpRequest') ||
-             s.includes('NetworkError') || s.includes('Failed to fetch') ||
-             s.includes('Load failed') || s.includes('CORS');
-    };
-
-    // Try default (no model specified) first to discover a server-side default
-    try {
-      const t0 = Date.now();
-      const resp = await withTimeout(puter.ai.chat('PING', { stream: false }), probeMs, 'Puter default probe timed out');
-      const text = extractPuterText(resp) || '';
-      if (text) {
-        this._workingModel = null; // indicates using server default is fine
-        this._workingModelSupportsMM = multimodal; // unknown, but assume fine for text-only; will re-probe for MM when needed
-        if (this.debug) console.debug('[AI] ensureWorkingModel selected default model', { ms: Date.now() - t0 });
-        return null;
-      }
-    } catch (e) {
-      const formatted = this._formatErrorForLog(e);
-      if (this.debug) console.warn(`[AI] ensureWorkingModel default probe failed: ${formatted.summary}`, formatted.details);
-      this._lastPuterFailureAt = Date.now();
-      // Out of free usage? Every candidate will 402 the same way — bail now.
-      this._handlePuterCreditError(e);
-      if (this._puterOutOfCredits) {
-        throw new Error('Puter out of free usage — skipping all candidates');
-      }
-      // If CORS/network error, no point trying individual models — they'll all fail
-      if (isCorsOrNetworkError(e)) {
-        throw new Error('Puter API blocked by CORS/network — skipping all candidates');
-      }
-    }
-
-    for (const m of candidates) {
-      try {
-        const t0 = Date.now();
-        const resp = await withTimeout(puter.ai.chat('PING', { model: m, stream: false }), probeMs, 'Puter probe timed out');
-        const text = extractPuterText(resp) || '';
-        if (text) {
-          this._workingModel = m;
-          this._workingModelSupportsMM = multimodal;
-          if (this.debug) console.debug('[AI] ensureWorkingModel selected', { model: m, ms: Date.now() - t0 });
-
-          // Cache the successful model to localStorage
-          try {
-            const cacheKey = multimodal ? 'apex.ai.mm_model' : 'apex.ai.text_model';
-            localStorage.setItem(cacheKey, JSON.stringify({
-              model: m,
-              timestamp: Date.now()
-            }));
-          } catch (e) {
-            // Ignore localStorage errors
-            if (this.debug) console.warn('[AI] localStorage cache write failed', e);
-          }
-
-          return m;
-        }
-      } catch (e) {
-        const formatted = this._formatErrorForLog(e);
-        if (this.debug) console.warn(`[AI] ensureWorkingModel candidate failed (${m}): ${formatted.summary}`, formatted.details);
-        this._lastPuterFailureAt = Date.now();
-        // Out of free usage? Stop probing — the rest will 402 identically.
-        this._handlePuterCreditError(e);
-        if (this._puterOutOfCredits) {
-          throw new Error('Puter out of free usage — skipping remaining candidates');
-        }
-        // If CORS/network error, bail — all subsequent candidates will fail too
-        if (isCorsOrNetworkError(e)) {
-          throw new Error(`Puter API blocked by CORS/network (detected at ${m})`);
-        }
-      }
-    }
-    // If none worked, leave null and let caller fallback to Google
-    throw new Error('No Puter models responded');
-  }
   /**
    * Detect if Puter SDK auth is in a stuck state (e.g. auth popup showed
    * "Forbidden" on Safari/iOS and never completed, leaving isPromptOpen=true
@@ -703,7 +559,6 @@ class GeminiService {
       }
 
       // Clear our own auth flag so we don't keep trying Puter with stale auth
-      try { localStorage.removeItem('apex.puter.authenticated'); } catch (e) { errorLogger.debug('localStorage remove failed (apex.puter.authenticated)', { error: e?.message }); }
 
       this._puterAuthResetCount++;
       console.warn('[AI] Reset stuck Puter auth state (reset #' + this._puterAuthResetCount + ')');
@@ -843,9 +698,56 @@ class GeminiService {
     return this._lastResolvedModel;
   }
 
-  /** Resolve effective model: user choice > working model > env default */
-  _resolveModel(optionsModel) {
-    return optionsModel || this._userModel || this._workingModel || this.modelName;
+  /**
+   * The Puter model for a request, or null when it should go to the proxy.
+   * Puter ids are vendor-prefixed ("anthropic/claude-sonnet-5-5"); a bare
+   * Gemini id is the picker's standard model, which the proxy serves.
+   */
+  _puterModelFor(optionsModel) {
+    const m = optionsModel || this._userModel;
+    // Unset, or an older bare Puter id ("claude-sonnet-4") saved before ids
+    // were vendor-prefixed: use the default rather than skipping Puter.
+    if (!m || (!m.includes('/') && !/^gemini-/.test(m))) return DEFAULT_PUTER_MODEL;
+    return m.includes('/') ? m : null;
+  }
+
+  /**
+   * Ask Puter, or return null when the request shouldn't or can't go there
+   * (not connected, standard model picked, or Puter failed) so the caller uses
+   * the proxy. A Puter failure never sets the shared rate limit: that used to
+   * lock out the proxy too. A model-specific failure (a retired id) retries
+   * once on Puter's own default model, which always exists.
+   */
+  async _askPuter(prompt, image, options = {}) {
+    const model = this._puterModelFor(options.model);
+    const puter = model ? this.getPuter() : null;
+    if (!puter) return null;
+    const ask = (m) => withTimeout(
+      image ? puter.ai.chat(prompt, image, { model: m, stream: false }) : puter.ai.chat(prompt, { model: m, stream: false }),
+      options.timeoutMs || 45000,
+      'Puter request timed out'
+    );
+    try {
+      const text = extractPuterText(await ask(model));
+      if (!text) throw new Error('Unexpected response from Puter.ai.chat');
+      this._noteResolvedModel('Puter', model);
+      return text;
+    } catch (e) {
+      this._handlePuterAuthError(e);
+      this._handlePuterCreditError(e);
+      const formatted = this._formatErrorForLog(e);
+      if (/model/i.test(formatted.summary) && this.getPuter()) {
+        try {
+          const text = extractPuterText(await ask(undefined));
+          if (text) {
+            this._noteResolvedModel('Puter', null);
+            return text;
+          }
+        } catch (_) { /* fall through to the proxy */ }
+      }
+      if (this.debug) console.warn(`[AI] Puter failed, using the proxy: ${formatted.summary}`, formatted.details);
+      return null;
+    }
   }
 
   // Safe access to Puter SDK in browser.
@@ -907,19 +809,13 @@ class GeminiService {
           } catch (e) { errorLogger.debug('localStorage access blocked', { error: e?.message }); }
         }
 
-        // NOTE: we deliberately do NOT treat the `apex.puter.authenticated`
-        // localStorage flag as proof of auth (Codex P3-2). It's a never-cleared
-        // UX hint (used by PuterAuthPrompt to decide whether to show the prompt),
-        // not a credential. Requiring a live token here means a wiped/expired
-        // session cleanly falls back to Gemini instead of trying Puter with no
-        // token (which fails or triggers a popup).
+        // Only a live token counts. The old never-cleared
+        // `apex.puter.authenticated` flag is gone: trusting it kept an expired
+        // session from reconnecting.
         if (!hasAuth) {
           if (this.debug) console.debug('[AI] Puter SDK loaded but no live auth token — skipping (falling back to Google)');
           return null;
         }
-
-        // Record that the user has a working Puter session (UX hint only).
-        try { localStorage.setItem('apex.puter.authenticated', 'true'); } catch (e) { errorLogger.debug('localStorage write failed (puter auth flag)', { error: e?.message }); }
 
         return window.puter;
       }
@@ -941,10 +837,7 @@ class GeminiService {
     // Meter against the per-browser AI usage budget (no-op for admins and for
     // exempt categories like practice tests). Throws AiUsageLimitError if over.
     await aiUsageLimiter.consume(options?.usageCategory);
-    let model = this._resolveModel(options.model);
-    const t0 = Date.now();
-
-    const requestPromise = this._doGenerateContent(prompt, options, model, t0);
+    const requestPromise = this._doGenerateContent(prompt, options);
     this._addToCache(requestHash, requestPromise);
     // Evict once settled. Settled results used to stay cached for 5 minutes —
     // including FAILURES — so "try again" replayed the same error or the same
@@ -967,7 +860,7 @@ class GeminiService {
     }
   }
 
-  async _doGenerateContent(prompt, options, model, t0) {
+  async _doGenerateContent(prompt, options) {
     // Check if we're rate limited
     if (this.isRateLimited()) {
       const seconds = this.getRateLimitSecondsRemaining();
@@ -976,62 +869,9 @@ class GeminiService {
         seconds
       );
     }
-
-    // Try Puter first with a timeout
-    try {
-      const puter = this.getPuter();
-      if (!puter) {
-        throw new Error('Puter.js is not available');
-      }
-      const puterOpts = model ? { model, stream: false } : { stream: false };
-      if (this.debug) console.debug('[AI] Puter.generateContent start', { model: model || 'default', hasImage: false });
-      const resp = await withTimeout(puter.ai.chat(prompt, puterOpts), options.timeoutMs || 45000, 'Puter request timed out');
-      if (this.debug) console.debug('[AI] Puter.generateContent success', { model, ms: Date.now() - t0, respType: typeof resp });
-      const text = extractPuterText(resp);
-      if (text) {
-        this._noteResolvedModel('Puter', model || this._workingModel);
-        return text;
-      }
-      throw new Error('Unexpected response from Puter.ai.chat');
-    } catch (e) {
-      // Check if Puter returned a rate limit error
-      if (isRateLimitError(e)) {
-        this._handleRateLimit(e, 'Puter generateContent');
-      }
-      // Check if this is a Puter auth error (Forbidden, cancelled, etc.)
-      this._handlePuterAuthError(e);
-      // Trip the circuit breaker if Puter is out of free credits (402)
-      this._handlePuterCreditError(e);
-
-      const formatted = this._formatErrorForLog(e);
-      if (this.debug) console.warn(`[AI] Puter.generateContent failed, falling back to Google: ${formatted.summary}`, { ...formatted.details, ms: Date.now() - t0 });
-      const previousFailureAt = this._lastPuterFailureAt;
-      this._lastPuterFailureAt = Date.now();
-      // One quick retry with a discovered model if we didn't have one yet
-      try {
-        const puter = this.getPuter();
-        const timeSinceLastFailure = previousFailureAt ? (Date.now() - previousFailureAt) : Infinity;
-        if (puter && !options.model && timeSinceLastFailure > 15000) {
-          const retryModel = await this.ensureWorkingModel({ multimodal: false, probeMs: 8000 });
-          const tR = Date.now();
-          const resp = await withTimeout(puter.ai.chat(prompt, { model: retryModel || undefined, stream: false }), 30000, 'Puter retry timed out');
-          if (this.debug) console.debug('[AI] Puter.generateContent retry success', { model: retryModel, ms: Date.now() - tR });
-          const retryText = extractPuterText(resp);
-          if (retryText) {
-            this._noteResolvedModel('Puter', retryModel);
-            return retryText;
-          }
-        }
-      } catch (er) {
-        const formattedRetry = this._formatErrorForLog(er);
-        if (this.debug) console.warn(`[AI] Puter.generateContent retry failed: ${formattedRetry.summary}`, formattedRetry.details);
-        if (isRateLimitError(er)) {
-          this._handleRateLimit(er, 'Puter retry');
-        }
-      }
-      // Fallback to Google Gemini v1
-      return await this._googleFallback(prompt, options);
-    }
+    const text = await this._askPuter(prompt, null, options);
+    if (text) return text;
+    return await this._googleFallback(prompt, options);
   }
 
   _classifyGoogleError(status, responseText = '') {
@@ -1157,9 +997,12 @@ class GeminiService {
     };
     let res;
     try {
-      res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(payload) });
+      // A request that never answers left the UI on "Thinking..." forever.
+      // 90 s covers the slowest real calls (FRQ grading, test batches).
+      const signal = typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(90000) : undefined;
+      res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(payload), signal });
     } catch (e) {
-      throw new Error(`${context}: proxy unreachable (${e.message})`);
+      throw new Error(`${context}: ${e.name === 'TimeoutError' ? 'the AI took too long to answer' : `proxy unreachable (${e.message})`}`);
     }
 
     if (res.status === 429) {
@@ -1243,9 +1086,8 @@ class GeminiService {
         });
 
         if (res.ok) {
-          // Read the model out of the URL that actually succeeded. `this.modelName`
-          // is NOT usable here: it defaults to 'claude-sonnet-4' (a Puter id), so
-          // using it labelled Gemini answers as Claude.
+          // Read the model out of the URL that actually succeeded; the picker's
+          // value may be a Puter id, which would label a Gemini answer as Claude.
           this._noteResolvedModel('Google', currentModel || modelFromGoogleUrl(url));
           return await res.json();
         }
@@ -1365,8 +1207,6 @@ class GeminiService {
     // Meter against the per-browser AI usage budget (no-op for admins / exempt).
     await aiUsageLimiter.consume(options?.usageCategory);
 
-    let model = this._resolveModel(options.model);
-    const t0 = Date.now();
     // If an image is provided, pass the first as a data URL to Puter
     let imageArg = undefined;
     if (Array.isArray(images) && images.length > 0) {
@@ -1379,48 +1219,10 @@ class GeminiService {
         imageArg = img; // assume URL
       }
     }
-    // Puter.ai.chat() accepts both HTTP URLs and data: URLs for images\n    // so we always try Puter first for the best free model experience
-    try {
-      const puter = this.getPuter();
-      if (!puter) {
-        throw new Error('Puter.js is not available');
-      }
-      const puterOptsBase = { stream: false };
-      const puterOpts = model ? { ...puterOptsBase, model } : puterOptsBase;
-      if (this.debug) console.debug('[AI] Puter.generateWithImages start', { model: model || 'default', hasImage: !!imageArg });
-      const p = imageArg
-        ? puter.ai.chat(prompt, imageArg, puterOpts)
-        : puter.ai.chat(prompt, puterOpts);
-      const resp = await withTimeout(p, options.timeoutMs || 45000, 'Puter image request timed out');
-      if (this.debug) console.debug('[AI] Puter.generateWithImages success', { model, ms: Date.now() - t0, respType: typeof resp });
-      
-      const responseText = extractPuterText(resp);
-      
-      if (!responseText) {
-        throw new Error('Unexpected response from Puter.ai.chat (images)');
-      }
-      
-      // Validate for hallucinations when image was provided
-      const validation = this._validateResponse(responseText, { hasImage: !!imageArg });
-      if (!validation.valid) {
-        console.warn('[AI] Image response failed validation:', validation.reason);
-        throw new Error(`Response validation failed: ${validation.reason}`);
-      }
-      
-      return responseText;
-    } catch (e) {
-      if (isRateLimitError(e)) {
-        this._handleRateLimit(e, 'Puter generateWithImages');
-      }
-      // Check if this is a Puter auth error (Forbidden, cancelled, etc.)
-      this._handlePuterAuthError(e);
-      // Trip the circuit breaker if Puter is out of free credits (402)
-      this._handlePuterCreditError(e);
-      const formatted = this._formatErrorForLog(e);
-      if (this.debug) console.warn(`[AI] Puter.generateWithImages failed, falling back to Google: ${formatted.summary}`, { ...formatted.details, ms: Date.now() - t0 });
-      this._lastPuterFailureAt = Date.now();
-      return await this._googleGenerateWithImages(prompt, imageArg, options);
-    }
+    const text = await this._askPuter(prompt, imageArg, options);
+    // Image answers are checked for hallucinated image descriptions; a bad one goes to the proxy instead.
+    if (text && this._validateResponse(text, { hasImage: !!imageArg }).valid) return text;
+    return await this._googleGenerateWithImages(prompt, imageArg, options);
   }
 
   // Internal helper to call Google for image generation with rate limit handling
@@ -1512,198 +1314,37 @@ class GeminiService {
       }
       prompt += `5. Provide substantive, helpful content immediately.\n`;
     }
-    let model = this._resolveModel(payload?.generationConfig?.model);
-    const t0 = Date.now();
-
-    console.log('[AI] Payload info:', {
-      hasImages: imageParts.length > 0,
-      promptLength: prompt.length,
-      model: model || 'default'
+    const selectedImage = imageParts.length > 0 ? imageParts[imageParts.length - 1] : undefined;
+    const puterText = await this._askPuter(prompt, selectedImage, {
+      model: payload?.generationConfig?.model,
+      timeoutMs: payload?.timeoutMs,
     });
-    // Puter.ai.chat() accepts data: URLs, so always try Puter first for free model access
-    try {
-      console.log('[AI] Attempting Puter request...');
-      const puter = this.getPuter();
-      if (!puter) {
-        console.warn('[AI] Puter not available, will fall back to Google');
-        throw new Error('Puter.js is not available');
-      }
-      console.log('[AI] Puter is available, preparing request...');
-      const puterOptsBase = { stream: false };
-      const puterOpts = model ? { ...puterOptsBase, model } : puterOptsBase;
-      console.log('[AI] Puter.generateFromPayload start', { model: model || 'default', hasImage: imageParts.length > 0 });
-      // If prompt is very long, use a truncated version for Puter attempt to avoid stalls
-      let promptForPuter = prompt;
-      if (promptForPuter.length > 10000) {
-        const head = promptForPuter.slice(0, 7000);
-        const tail = promptForPuter.slice(-2000);
-        promptForPuter = head + '\n...\n' + tail;
-      }
-      // Prefer the last image supplied (likely from the latest user message)
-      const selectedImage = imageParts.length > 0 ? imageParts[imageParts.length - 1] : undefined;
-      const p = selectedImage
-        ? puter.ai.chat(promptForPuter, selectedImage, puterOpts)
-        : puter.ai.chat(promptForPuter, puterOpts);
-      console.log('[AI] Waiting for Puter response...');
-      const timeoutMs = payload?.timeoutMs || 45000; // Allow up to 45s for complex prompts
-      const resp = await withTimeout(p, timeoutMs, 'Puter payload request timed out');
-      console.log('[AI] Puter.generateFromPayload success', { model, ms: Date.now() - t0, respType: typeof resp });
-      
-      const responseText = extractPuterText(resp);
-      
-      if (!responseText) {
-        throw new Error('Unexpected response from Puter.ai.chat (payload)');
-      }
-      
-      // Validate response for hallucinations
-      const validation = this._validateResponse(responseText, { hasImage: imageParts.length > 0 });
-      if (!validation.valid) {
-        console.warn('[AI] Response failed validation:', validation.reason);
-        // Don't throw - let it fall through to Google fallback for a potentially better response
-        throw new Error(`Puter response failed validation: ${validation.reason}`);
-      }
-      
-      return responseText;
-    } catch (e) {
-      const formatted = this._formatErrorForLog(e);
-      console.warn(`[AI] Puter.generateFromPayload failed, falling back to Google: ${formatted.summary}`, { ...formatted.details, ms: Date.now() - t0 });
-      // Check if this is a Puter auth error (Forbidden, cancelled, etc.)
-      this._handlePuterAuthError(e);
-      // Trip the circuit breaker if Puter is out of free credits (402)
-      this._handlePuterCreditError(e);
-      const previousFailureTime = this._lastPuterFailureAt;
-      this._lastPuterFailureAt = Date.now();
-
-      // Retry once with ensured model if not already (only if enough time passed since previous failure)
-      try {
-        const puter = this.getPuter();
-        const timeSinceLastFailure = previousFailureTime ? (Date.now() - previousFailureTime) : Infinity;
-        if (puter && !payload?.generationConfig?.model && timeSinceLastFailure > 15000) {
-          console.log('[AI] Attempting Puter retry with model discovery...');
-          const retryModel = await this.ensureWorkingModel({ multimodal: imageParts.length > 0, probeMs: 8000 });
-          const tR = Date.now();
-          let promptForPuter = prompt;
-          if (promptForPuter.length > 10000) {
-            const head = promptForPuter.slice(0, 7000);
-            const tail = promptForPuter.slice(-2000);
-            promptForPuter = head + '\n...\n' + tail;
-          }
-          const p2 = imageParts.length > 0
-            ? puter.ai.chat(promptForPuter, imageParts[0], { model: retryModel || undefined, stream: false })
-            : puter.ai.chat(promptForPuter, { model: retryModel || undefined, stream: false });
-          const resp2 = await withTimeout(p2, 30000, 'Puter payload retry timed out');
-          console.log('[AI] Puter.generateFromPayload retry success', { model: retryModel, ms: Date.now() - tR });
-          const retryText = extractPuterText(resp2);
-          if (retryText) return retryText;
-        }
-      } catch (er) {
-        const formattedRetry = this._formatErrorForLog(er);
-        console.warn(`[AI] Puter.generateFromPayload retry failed: ${formattedRetry.summary}`, formattedRetry.details);
-      }
-
-      // Fallback to Google (via proxy in prod, direct client keys in dev).
-      if (!this._googleConfigured()) {
-        throw new Error('No Google AI configured. AI requires Puter, the AI proxy, or REACT_APP_GEMINI_API_KEY env vars.');
-      }
-      console.log('[AI] Using Google Gemini API fallback...');
-      const normalized = this._normalizePayloadForGoogle(payload);
-      const t1 = Date.now();
-      console.log('[AI] Sending request to Google API...');
-      const data = await this._requestGoogleWithRotation(normalized, {
-        context: 'Google payload fallback',
-        maxAttempts: 4,
-        task: payload.usageCategory === 'practiceTest' ? 'practiceTest' : 'tutorChat'
-      });
-      console.log('[AI] Google.generateFromPayload success', { ms: Date.now() - t1 });
-      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      if (!text) {
-        console.error('[AI] Empty response from Google', data);
-        throw new Error('Empty response from Google payload fallback');
-      }
-      console.log('[AI] Returning response, length:', text.length);
-      return text;
+    if (puterText && this._validateResponse(puterText, { hasImage: imageParts.length > 0 }).valid) return puterText;
+    // Fallback to Google (via proxy in prod, direct client keys in dev).
+    if (!this._googleConfigured()) {
+      throw new Error('No Google AI configured. AI requires Puter, the AI proxy, or REACT_APP_GEMINI_API_KEY env vars.');
     }
-  }
-
-  /**
-   * Discover a supported model for generateContent
-   * Preference: Claude Sonnet 4 > GPT-4.1 > Gemini 2.5 Flash
-   */
-  async discoverSupportedModel() {
-    const candidates = Array.from(new Set([
-      process.env.REACT_APP_GEMINI_MODEL,
-      'claude-sonnet-4',
-      'gpt-4.1',
-      'google/gemini-2.5-flash',
-      'claude-haiku-4-5'
-    ].filter(Boolean)));
-    return candidates[0];
-  }
-
-  // Diagnostics: test Puter and fallback paths and report timings
-  async diagnose(testPrompt = "Reply with PONG only.") {
-    const model = this.modelName;
-    const result = { ok: false, provider: null, model, latencyMs: null, text: null, error: null };
-    // Try Puter
-    try {
-      const puter = this.getPuter();
-      if (!puter) {
-        throw new Error('Puter.js is not available');
-      }
-      const t0 = Date.now();
-  const resp = await withTimeout(puter.ai.chat(testPrompt, { model, stream: false }), 20000, 'Puter diagnostics timed out');
-      const text = extractPuterText(resp) || '';
-      result.ok = !!text;
-      result.provider = 'puter';
-      result.latencyMs = Date.now() - t0;
-      result.text = text;
-      if (this.debug) console.debug('[AI] Diagnostics via Puter', result);
-      return result;
-    } catch (e) {
-      if (this.debug) console.warn('[AI] Diagnostics Puter failed, trying Google fallback', e);
-      this._lastPuterFailureAt = Date.now();
-      // Try Google fallback
-      try {
-        const body = {
-          contents: [{ role: 'user', parts: [{ text: testPrompt }] }],
-          generationConfig: { temperature: 0.0, maxOutputTokens: 16 }
-        };
-        const t1 = Date.now();
-        const data = await this._requestGoogleWithRotation(body, {
-          context: 'Google diagnostics',
-          maxAttempts: 2
-        });
-        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        result.ok = !!text;
-        result.provider = 'google';
-        result.latencyMs = Date.now() - t1;
-        result.text = text;
-        if (this.debug) console.debug('[AI] Diagnostics via Google', result);
-        return result;
-      } catch (gErr) {
-        result.ok = false;
-        result.provider = null;
-        result.error = this._formatErrorForLog(gErr).summary;
-        return result;
-      }
+    console.log('[AI] Using Google Gemini API fallback...');
+    const normalized = this._normalizePayloadForGoogle(payload);
+    const t1 = Date.now();
+    console.log('[AI] Sending request to Google API...');
+    const data = await this._requestGoogleWithRotation(normalized, {
+      context: 'Google payload fallback',
+      maxAttempts: 4,
+      task: payload.usageCategory === 'practiceTest' ? 'practiceTest' : 'tutorChat'
+    });
+    console.log('[AI] Google.generateFromPayload success', { ms: Date.now() - t1 });
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (!text) {
+      console.error('[AI] Empty response from Google', data);
+      throw new Error('Empty response from Google payload fallback');
     }
+    console.log('[AI] Returning response, length:', text.length);
+    return text;
   }
 
-  // Optional warm-up to reduce first-call latency and cold starts
-  async prewarm({ multimodal = false } = {}) {
-    // Puter probing only makes sense for users who actually connected Puter —
-    // for everyone else it's page-load 402/auth noise (the Gemini proxy needs
-    // no warmup). Puter stays as the opt-in premium path.
-    try {
-      const connected =
-        (typeof window !== 'undefined' && window.puter && window.puter.authToken) ||
-        (typeof localStorage !== 'undefined' && localStorage.getItem('apex.puter.authenticated') === 'true');
-      if (!connected) return;
-      await this.ensureWorkingModel({ multimodal, probeMs: 3500 });
-    } catch (_) {
-      // ignore; we'll fallback during actual calls
-    }
-  }
+
+
 
   /**
    * Public method to parse JSON from AI responses
@@ -1722,7 +1363,7 @@ class GeminiService {
 Output ONLY a JSON array. Each object: {"question":"...","answer":"..."}. Use $LaTeX$ for math.
 [{"question":"...","answer":"..."}]`;
 
-    const response = await this.generateContent(prompt, { temperature: 0.7, maxTokens: Math.max(count * 150, 1500), task: 'flashcardGen' });
+    const response = await this.generateContent(prompt, { temperature: 0.7, maxTokens: Math.max(count * 150, 1500), task: 'flashcardGen', usageCategory: 'flashcards' });
 
     // Use robust JSON extraction
     const result = this._extractJSON(response, true);
@@ -1754,13 +1395,13 @@ Output ONLY a JSON array. Each object: {"question":"...","answer":"..."}. Use $L
 Problem: ${problemText}
 
 Output ONLY JSON:
-{"problemType":"...","steps":[{"step":1,"title":"...","content":"...","explanation":"..."}],"finalAnswer":"...","concepts":["..."],"commonMistakes":["..."],"difficulty":"Easy|Medium|Hard","timeToSolve":"X-Y minutes"}`;
+{${subject ? '' : '"subject":"the AP course it belongs to, e.g. AP Calculus AB",'}"problemType":"...","steps":[{"step":1,"title":"...","content":"...","explanation":"..."}],"finalAnswer":"...","concepts":["..."],"commonMistakes":["..."],"difficulty":"Easy|Medium|Hard","timeToSolve":"X-Y minutes"}`;
 
     let response;
     if (imageData) {
-      response = await this.generateWithImages(prompt, [imageData], { temperature: 0.3, maxTokens: 2048 });
+      response = await this.generateWithImages(prompt, [imageData], { temperature: 0.3, maxTokens: 2048, usageCategory: 'solverImage' });
     } else {
-      response = await this.generateContent(prompt, { temperature: 0.3, maxTokens: 2048 });
+      response = await this.generateContent(prompt, { temperature: 0.3, maxTokens: 2048, usageCategory: 'solver' });
     }
     
     // Try to extract JSON, but return raw text if it fails (caller can handle it)
@@ -1789,7 +1430,7 @@ Every question for the same concept must use the IDENTICAL "concept" string.
 Output ONLY a JSON array. Each object: {"question":"...","choices":["A","B","C","D"],"correctAnswer":0,"explanations":["...","...","...","..."],"concept":"..."}
 correctAnswer is the index (0-3) of the correct choice. Exactly 4 choices and 4 explanations per question.`;
 
-    const response = await this.generateContent(prompt, { temperature: 0.6, maxTokens: Math.max(count * 300, 2000), task: 'diagnostic' });
+    const response = await this.generateContent(prompt, { temperature: 0.6, maxTokens: Math.max(count * 300, 2000), task: 'diagnostic', usageCategory: 'diagnostic' });
 
     const result = this._extractJSON(response, true);
     
@@ -1828,7 +1469,7 @@ correctAnswer is the index (0-3) of the correct choice. Exactly 4 choices and 4 
 Output ONLY JSON:
 {"overallProgress":"...","strengths":["..."],"weaknesses":["..."],"recommendations":["..."],"nextSteps":["..."],"timeAllocation":"..."}`;
 
-    const response = await this.generateContent(prompt, { temperature: 0.5, maxTokens: 1000 });
+    const response = await this.generateContent(prompt, { temperature: 0.5, maxTokens: 1000, usageCategory: 'progressInsights' });
     
     const result = this._extractJSON(response, false);
     

@@ -18,7 +18,7 @@ import GuestGate from './components/GuestGate';
 import { metaFor } from './constants/routeMeta';
 import { canonicalFor } from './utils/pageMeta';
 import useDocumentMeta from './hooks/useDocumentMeta';
-import { Calendar, FileQuestion, Zap, Calculator, Settings as SettingsIcon, Activity, GraduationCap, Brain, TrendingUp, Users } from 'lucide-react';
+import { Calendar, FileQuestion, Zap, Calculator, Settings as SettingsIcon, Activity, Brain, TrendingUp, Users } from 'lucide-react';
 import ErrorBoundary from './components/ErrorBoundary';
 import PageSkeleton from './components/ui/PageSkeleton';
 import { ToastProvider } from './contexts/ToastContext';
@@ -46,7 +46,7 @@ const StudyPack = lazy(retryingImport(() => import('./pages/StudyPack')));
 // eslint-disable-next-line import/first
 const StudyIndex = lazy(retryingImport(() => import('./pages/StudyIndex')));
 // eslint-disable-next-line import/first
-const LearnHub = lazy(retryingImport(() => import('./pages/LearnHub')));
+const Timeline = lazy(retryingImport(() => import('./pages/Timeline')));
 // eslint-disable-next-line import/first
 const Review = lazy(retryingImport(() => import('./pages/Review')));
 // eslint-disable-next-line import/first
@@ -95,7 +95,6 @@ const FEATURES = {
   solver:      { icon: Calculator,   title: 'Problem Solver',    preview: '/guest-previews/solver.jpg',      blurb: 'Sign in for free to get step-by-step solutions to any problem from a photo or text.' },
   settings:    { icon: SettingsIcon, title: 'Settings',          preview: '/guest-previews/settings.jpg',    blurb: 'Sign in for free to pick your AP subjects, customize your tutor, and manage your account.' },
   diagnostics: { icon: Activity,     title: 'Diagnostics',       preview: '/guest-previews/diagnostics.jpg', blurb: 'Sign in for free to run a diagnostic that pinpoints your strengths and weak spots per subject.' },
-  learn:       { icon: GraduationCap, title: 'Learn',            blurb: 'Sign in for free to explore interactive timelines and study lessons for your AP subjects.' },
   review:      { icon: Brain,        title: 'Review',            blurb: 'Sign in for free to turn every question you miss into a spaced-repetition card that comes back until it sticks.' },
   practiceHub: { icon: FileQuestion, title: 'Practice',          blurb: 'Sign in for free to take AP practice tests, study flashcards, and review every question you have missed.' },
   progress:    { icon: TrendingUp,   title: 'Progress',          blurb: 'Sign in for free to track your accuracy, streaks, and measured weak spots across every AP subject.' },
@@ -160,6 +159,11 @@ function App() {
  * /join/:code → /classes/:code. The short link is what teachers actually share,
  * but the class page is where the join happens, so this is a pure redirect.
  */
+function LearnTimelineRedirect() {
+  const { subject } = useParams();
+  return <Navigate to={`/study/timelines/${subject || ''}`} replace />;
+}
+
 function JoinRedirect() {
   const { code } = useParams();
   return <Navigate to={`${createPageUrl('Classes')}/${code || ''}`} replace />;
@@ -212,6 +216,7 @@ function MainApp() {
           <Route path="/start" element={<Start />} />
           <Route path="/study" element={<StudyIndex />} />
           <Route path="/study/:subject" element={<StudyIndex />} />
+          <Route path="/study/timelines/:subject" element={<Timeline />} />
           <Route path="/study/:subject/:unit" element={<StudyPack />} />
           <Route path={createPageUrl("AITutors")} element={<AITutors />} />
           <Route path={createPageUrl("AITutors", ":subject")} element={<AITutors />} />
@@ -241,12 +246,11 @@ function MainApp() {
           {/* Short share link. Kept separate from /classes/:code so the thing a
               teacher pastes into a slide reads as an invitation, not a page. */}
           <Route path="/join/:code" element={<JoinRedirect />} />
-          {/* Learn is dev-only for now (LearnHub redirects non-admins). No
-              GuestGate wrap — guests just get redirected too, no upsell for a
-              feature users can't access yet. */}
-          <Route path={createPageUrl("Learn")} element={<LearnHub />} />
-          <Route path={`${createPageUrl("Learn")}/timeline/:subject`} element={<LearnHub />} />
-          <Route path={`${createPageUrl("Learn")}/curriculum/:subject`} element={<LearnHub />} />
+          {/* The old dev-only Learn hub folded into /study, which is now called
+              Learn: its timelines live at /study/timelines/:subject. */}
+          <Route path="/learn" element={<Navigate to="/study" replace />} />
+          <Route path="/learn/timeline/:subject" element={<LearnTimelineRedirect />} />
+          <Route path="/learn/*" element={<Navigate to="/study" replace />} />
 
           {/* Legacy PascalCase routes — redirect to kebab-case canonicals.
               The `/*` splat catches subpaths (e.g., /AITutors/statistics). */}

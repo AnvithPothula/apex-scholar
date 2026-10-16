@@ -4,9 +4,6 @@
  * stops metering while the server keeps enforcing, or vice versa — either way
  * the user sees a cap they were told they don't have.
  */
-const fs = require('fs');
-const path = require('path');
-
 const { UNLIMITED_UIDS, hasUnlimitedUsage } = require('./unlimitedUsers');
 const { ADMIN_UIDS } = require('./admins');
 const server = require('../../netlify/lib/unlimitedUsers');

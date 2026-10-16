@@ -25,7 +25,7 @@ export default function OverdueTasksBanner({
   if (!tasks || tasks.length === 0) return null;
 
   return (
-    <div className="mb-4 rounded-lg border border-warning-400/30 bg-warning-900/20 overflow-hidden">
+    <div id="overdue-tasks" className="mb-4 rounded-lg border border-warning-500 bg-warning-900 overflow-hidden scroll-mt-24">
       {/* Collapsed header */}
       <div
         className="flex items-center justify-between px-4 py-3 cursor-pointer"
@@ -59,7 +59,7 @@ export default function OverdueTasksBanner({
 
       {/* Expanded task list */}
       {isExpanded && (
-        <div className="px-4 pb-4 space-y-2 max-h-48 overflow-y-auto border-t border-warning-400/20">
+        <div className="px-4 pb-4 space-y-2 max-h-48 overflow-y-auto border-t border-warning-500">
           {tasks.map((task) => {
             const deadline = task.deadline?.toDate ? task.deadline.toDate() : new Date(task.deadline);
             const daysOverdue = Math.ceil((new Date() - deadline) / (1000 * 60 * 60 * 24));

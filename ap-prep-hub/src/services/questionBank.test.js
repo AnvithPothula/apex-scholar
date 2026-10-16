@@ -166,3 +166,11 @@ describe('extractQuestionArray', () => {
     expect(extractQuestionArray('')).toBeNull();
   });
 });
+
+describe('renamed courses keep their seeded bank ids', () => {
+  it('reads Comparative Government from where it was seeded', () => {
+    const { indexId, bundleId } = require('./questionBank');
+    expect(indexId('AP Comparative Government and Politics')).toBe('ap-government-and-politics-comparative');
+    expect(bundleId('AP Comparative Government and Politics', 'general', 0)).toBe('ap-government-and-politics-comparative__general__0');
+  });
+});

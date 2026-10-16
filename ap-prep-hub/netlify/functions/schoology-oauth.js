@@ -1,29 +1,26 @@
 /**
  * Netlify serverless function — Schoology OAuth 1.0a proxy.
  *
- * The Schoology consumer SECRET must never reach the browser. This function
- * holds it (process.env.SCHOOLOGY_CONSUMER_SECRET) and signs every request
- * server-side. The frontend POSTs to this function with one of three actions:
+ * Holds the consumer SECRET (process.env.SCHOOLOGY_CONSUMER_SECRET) and every
+ * user's access token server-side (users/{uid}/private/schoology, which
+ * clients can't read). Every action needs a verified Firebase ID token.
  *
- *   POST ?action=request_token   { callback }
- *     -> { oauth_token, oauth_token_secret, authorize_url }
+ *   POST ?action=request_token   { callback, domain }
+ *     -> { oauth_token, authorize_url }   // authorize on the student's own Schoology host
+ *   POST ?action=access_token    { oauth_token, oauth_verifier }
+ *     -> { success, schoologyName, schoologyUid }
+ *   POST ?action=api_call        { method: 'GET', path }
+ *     -> { status, ok, data }   // signed GET to api.schoology.com/v1{path}
+ *   POST ?action=disconnect
  *
- *   POST ?action=access_token    { oauth_token, oauth_verifier, oauth_token_secret }
- *     -> { access_token, token_secret }
- *
- *   POST ?action=api_call        { method, path, access_token, token_secret, body? }
- *     -> { status, data }   // forwards a signed call to api.schoology.com/v1{path}
- *
- * Notes:
- *   - oauth_token_secret from request_token must round-trip through the
- *     browser (stored client-side keyed by oauth_token) because the access
- *     token exchange needs it as the token half of the signing key. The
- *     consumer secret stays here.
- *   - api_call rejects absolute URLs and methods outside GET/POST/PUT/DELETE
- *     so this can't be used as an open relay.
+ * api_call is READ-ONLY and allow-listed (netlify/lib/schoologyGuard.js):
+ * OAuth 1.0a tokens have no scopes, so a forwarded POST/PUT/DELETE could change
+ * or delete the student's own Schoology work. A 401 from Schoology (tokens now
+ * expire after 90 days) marks the integration needsReconnect.
  */
 
 const crypto = require('crypto');
+const { checkApiCall, resolveMe, normalizeDomain, signedFetch } = require('../lib/schoologyGuard');
 
 const SCHOOLOGY_BASE = 'https://api.schoology.com/v1';
 
@@ -53,44 +50,10 @@ function cors(origin) {
   };
 }
 
-// ---- OAuth 1.0a signing --------------------------------------------------
-
-// RFC 3986 percent-encode (encodeURIComponent leaves !*'() unescaped).
-function pe(s) {
-  return encodeURIComponent(String(s)).replace(
-    /[!*'()]/g,
-    (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase()
-  );
-}
+// ---- OAuth 1.0a signing (see ../lib/schoologyGuard) ----------------------
 
 const nonce = () => crypto.randomBytes(16).toString('hex');
 const ts = () => Math.floor(Date.now() / 1000).toString();
-
-function baseString(method, url, params) {
-  const sorted = Object.keys(params)
-    .sort()
-    .map((k) => `${pe(k)}=${pe(params[k])}`)
-    .join('&');
-  return `${method.toUpperCase()}&${pe(url)}&${pe(sorted)}`;
-}
-
-function sign(method, url, params, tokenSecret = '') {
-  const key = `${pe(process.env.SCHOOLOGY_CONSUMER_SECRET || '')}&${pe(tokenSecret)}`;
-  return crypto
-    .createHmac('sha1', key)
-    .update(baseString(method, url, params))
-    .digest('base64');
-}
-
-function authHeader(signedParams) {
-  return (
-    'OAuth ' +
-    Object.keys(signedParams)
-      .sort()
-      .map((k) => `${pe(k)}="${pe(signedParams[k])}"`)
-      .join(', ')
-  );
-}
 
 function oauthBase() {
   return {
@@ -102,20 +65,18 @@ function oauthBase() {
   };
 }
 
-async function callSchoology(method, url, params, tokenSecret = '', body = null) {
-  const signed = { ...params, oauth_signature: sign(method, url, params, tokenSecret) };
-  const opts = {
+function callSchoology(method, url, params, tokenSecret = '', body = null) {
+  const token = params.oauth_token;
+  return signedFetch({
     method,
-    headers: {
-      Authorization: authHeader(signed),
-      Accept: 'application/json',
-    },
-  };
-  if (body != null) {
-    opts.headers['Content-Type'] = 'application/json';
-    opts.body = JSON.stringify(body);
-  }
-  return fetch(url, opts);
+    url,
+    oauthParams: params,
+    consumerSecret: process.env.SCHOOLOGY_CONSUMER_SECRET || '',
+    tokenSecret,
+    body,
+    // A followed redirect needs a fresh nonce/timestamp, same token.
+    freshParams: () => ({ ...oauthBase(), ...(token ? { oauth_token: token } : {}) }),
+  });
 }
 
 // ---- Firebase auth + admin Firestore -------------------------------------
@@ -220,6 +181,12 @@ exports.handler = async (event) => {
       if (!callback || !callbackAllowed(callback)) {
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'invalid callback' }) };
       }
+      // Students authorize on their own school's host; www.schoology.com can
+      // attach the token to whoever happens to be signed in there.
+      const domain = normalizeDomain(body.domain);
+      if (!domain) {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Enter your school\'s Schoology address, e.g. yourschool.schoology.com' }) };
+      }
       const url = `${SCHOOLOGY_BASE}/oauth/request_token`;
       const params = { ...oauthBase(), oauth_callback: callback };
       const res = await callSchoology('POST', url, params);
@@ -241,9 +208,10 @@ exports.handler = async (event) => {
       await oauthTempRef.set({
         requestToken: oauth_token,
         requestTokenSecret: oauth_token_secret,
+        domain,
         createdAt: FieldValue.serverTimestamp(),
       });
-      const authorize_url = `${SCHOOLOGY_BASE}/oauth/authorize?oauth_token=${encodeURIComponent(oauth_token)}`;
+      const authorize_url = `https://${domain}/oauth/authorize?oauth_token=${encodeURIComponent(oauth_token)}`;
       // Note: no oauth_token_secret returned to the client.
       return { statusCode: 200, headers, body: JSON.stringify({ oauth_token, authorize_url }) };
     }
@@ -259,6 +227,7 @@ exports.handler = async (event) => {
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'OAuth session expired or mismatched — please retry sign-in' }) };
       }
       const oauth_token_secret = tempSnap.data().requestTokenSecret;
+      const domain = tempSnap.data().domain || null;
 
       const url = `${SCHOOLOGY_BASE}/oauth/access_token`;
       const params = { ...oauthBase(), oauth_token, oauth_verifier };
@@ -299,6 +268,7 @@ exports.handler = async (event) => {
         accessTokenSecret: token_secret,
         schoologyUid,
         schoologyName,
+        domain,
         connectedAt: FieldValue.serverTimestamp(),
         isActive: true,
       }, { merge: true });
@@ -310,6 +280,8 @@ exports.handler = async (event) => {
         integrationType: 'oauth',
         schoologyName,
         schoologyUid,
+        domain,
+        needsReconnect: false,
         connectedAt: FieldValue.serverTimestamp(),
         accessToken: FieldValue.delete(),
         accessTokenSecret: FieldValue.delete(),
@@ -321,13 +293,10 @@ exports.handler = async (event) => {
     }
 
     if (action === 'api_call') {
-      const { method = 'GET', path, body: apiBody = null } = body;
-      if (!path || typeof path !== 'string' || !path.startsWith('/')) {
-        return { statusCode: 400, headers, body: JSON.stringify({ error: 'path must start with /' }) };
-      }
-      const m = String(method).toUpperCase();
-      if (!['GET', 'POST', 'PUT', 'DELETE'].includes(m)) {
-        return { statusCode: 400, headers, body: JSON.stringify({ error: 'method not allowed' }) };
+      const { method = 'GET', path } = body;
+      const check = checkApiCall(method, path);
+      if (!check.ok) {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: check.error }) };
       }
       // Load the caller's tokens server-side — the client never supplies them.
       const tokSnap = await privateTokenRef.get();
@@ -335,13 +304,18 @@ exports.handler = async (event) => {
       if (!tok || tok.isActive === false || !tok.accessToken || !tok.accessTokenSecret) {
         return { statusCode: 401, headers, body: JSON.stringify({ error: 'No Schoology authentication for this user' }) };
       }
-      const url = `${SCHOOLOGY_BASE}${path}`;
+      const url = `${SCHOOLOGY_BASE}${resolveMe(path, tok.schoologyUid)}`;
       const params = { ...oauthBase(), oauth_token: tok.accessToken };
-      const res = await callSchoology(m, url, params, tok.accessTokenSecret, apiBody);
+      const res = await callSchoology('GET', url, params, tok.accessTokenSecret);
       const text = await res.text();
       let data;
       try { data = JSON.parse(text); } catch (_) { data = text; }
-      return { statusCode: 200, headers, body: JSON.stringify({ status: res.status, ok: res.ok, data }) };
+      // Expired (90-day TTL) or revoked token: tell the UI to ask for a reconnect.
+      const reconnect = res.status === 401;
+      if (reconnect) {
+        await db.doc(`users/${uid}/integrations/schoology`).set({ needsReconnect: true }, { merge: true }).catch(() => {});
+      }
+      return { statusCode: 200, headers, body: JSON.stringify({ status: res.status, ok: res.ok, reconnect, data }) };
     }
 
     if (action === 'disconnect') {

@@ -139,12 +139,29 @@ export async function recordDeckCreated(userId) {
   );
 }
 
-/** One message sent to an AI tutor. Counter only — not a study session. */
+/** One message sent to an AI tutor. Not a study session, but it does count as
+ * studying that subject (Subject Explorer / Polymath). */
 export async function recordTutorMessage(userId, subject = '') {
   if (!userId) return;
   await safely('tutor message', () =>
     achievementsService.trackActivity(userId, 'ai_chat_message', { subject })
   );
+  if (subject) {
+    await safely('subject breadth', () => achievementsService.trackActivity(userId, 'study_subject', { subject }));
+  }
+}
+
+/**
+ * Studying a Learn unit: the first checkpoint answered in a visit. It's a study
+ * session (streak, Early Bird and friends) and counts toward subject breadth;
+ * before this, a day spent in Learn didn't count as a study day at all.
+ */
+export async function recordLearnSession(userId, subject = '') {
+  if (!userId) return;
+  await Promise.all([
+    safely('learn streak', () => achievementsService.trackActivity(userId, 'study_session', { subject })),
+    subject && safely('subject breadth', () => achievementsService.trackActivity(userId, 'study_subject', { subject })),
+  ]);
 }
 
 /** One problem run through the solver. Counter only. */
@@ -158,6 +175,7 @@ const activityTracker = {
   recordFlashcardStudy,
   recordReviewSession,
   recordTutorMessage,
+  recordLearnSession,
   recordDeckCreated,
   recordReviewEvent,
   recordSolve,

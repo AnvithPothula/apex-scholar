@@ -37,7 +37,11 @@ const pack = {
 **Scalars**: distance, speed, time, mass. **Vectors**: position, displacement, velocity, acceleration (and force, momentum…). Drawn as arrows: length ∝ magnitude.
 
 ### Unit-vector notation
-$$\vec{A} = A_x\hat{i} + A_y\hat{j} + A_z\hat{k}, \qquad |\vec{A}| = \sqrt{A_x^2 + A_y^2 + A_z^2}$$
+
+$$\vec{A} = A_x\hat{i} + A_y\hat{j} + A_z\hat{k}$$
+
+$$|\vec{A}| = \sqrt{A_x^2 + A_y^2 + A_z^2}$$
+
 $\hat{i}, \hat{j}, \hat{k}$ are unit vectors along $x$, $y$, $z$. The position vector is $\vec{r}$, and $\hat{r}$ is the unit vector pointing along it.
 
 ### Adding vectors
@@ -94,15 +98,20 @@ In one dimension, opposite directions get opposite signs.`,
         'zero they become instantaneous: v = dx/dt and a = dv/dt. Differentiate to go from position to velocity to acceleration; integrate ' +
         'to go back.',
       body: String.raw`### Averages
+
 $$\vec{v}_{avg} = \frac{\Delta\vec{r}}{\Delta t} \qquad \vec{a}_{avg} = \frac{\Delta\vec{v}}{\Delta t}$$
+
 An object accelerates whenever its velocity's magnitude **or** direction changes.
 
 ### Instantaneous: derivatives
 Let $\Delta t \to 0$:
+
 $$v_x = \frac{dx}{dt} \qquad a_x = \frac{dv_x}{dt} = \frac{d^2x}{dt^2}$$
 
 ### Back again: integrals
+
 $$\Delta x = \int_{t_1}^{t_2} v_x\,dt \qquad \Delta v_x = \int_{t_1}^{t_2} a_x\,dt$$
+
 Add the initial value to get the function: $x(t) = x_0 + \int_0^t v_x\,dt'$.
 
 ${steps({
@@ -172,7 +181,13 @@ ${steps({
         'Motion can be shown with diagrams, graphs, equations and words. For constant acceleration, three kinematic equations apply ' +
         '(g = 10 m/s² near Earth). Slopes of x–t and v–t graphs give v and a; areas under v–t and a–t graphs give Δx and Δv.',
       body: String.raw`### Constant acceleration only
-$$v_x = v_{x0} + a_x t \qquad x = x_0 + v_{x0}t + \tfrac12 a_x t^2 \qquad v_x^2 = v_{x0}^2 + 2a_x(x - x_0)$$
+
+$$v_x = v_{x0} + a_x t$$
+
+$$x = x_0 + v_{x0}t + \tfrac12 a_x t^2$$
+
+$$v_x^2 = v_{x0}^2 + 2a_x(x - x_0)$$
+
 They come from integrating a constant $a_x$ twice, so they **don't apply when acceleration changes**; use the calculus definitions instead. Near Earth, free-fall acceleration is $g \approx 10$ m/s² downward.
 
 ### Graphs
@@ -249,7 +264,9 @@ ${graph({
         'What an observer measures depends on their reference frame. Velocities convert between frames by vector addition; all inertial ' +
         'frames measure the same acceleration. Frames are inertial unless stated otherwise.',
       body: String.raw`### Converting between frames
+
 $$\vec{v}_{\text{object, ground}} = \vec{v}_{\text{object, frame}} + \vec{v}_{\text{frame, ground}}$$
+
 and the velocity of A seen from B is $\vec v_A - \vec v_B$.
 
 ${steps({
@@ -313,7 +330,11 @@ Every **inertial** frame (constant velocity relative to another inertial frame) 
         'need not be uniform. A projectile has zero horizontal acceleration and constant vertical acceleration. 2-D motion is quantitative; ' +
         '3-D is qualitative.',
       body: String.raw`### Components are independent
-$$\vec{r}(t) = x(t)\hat{i} + y(t)\hat{j} \qquad \vec{v} = \frac{d\vec{r}}{dt} \qquad \vec{a} = \frac{d\vec{v}}{dt}$$
+
+$$\vec{r}(t) = x(t)\hat{i} + y(t)\hat{j}$$
+
+$$\vec{v} = \frac{d\vec{r}}{dt} \qquad \vec{a} = \frac{d\vec{v}}{dt}$$
+
 Each component is its own 1-D problem; they share only $t$. Acceleration can differ in each direction and can be non-uniform. A change in one direction doesn't cause a change in the perpendicular direction.
 
 ${steps({

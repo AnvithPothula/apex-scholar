@@ -27,7 +27,7 @@ export const TaskCard = React.memo(function TaskCard({ task, onEdit, onDelete, o
     >
       <Card className={`p-3 sm:p-4 transition-all duration-200 hover:shadow-raised rounded-md ${
         task.is_completed ? 'opacity-60 bg-base-850' : 'bg-base-850'
-      } ${isOverdue ? 'border-error-500 bg-error-900/40' : 'border-border'}`}>
+      } ${isOverdue ? 'border-error-500 bg-error-900' : 'border-border'}`}>
         <div className="flex items-start justify-between">
           <div className="flex-1 space-y-2 sm:space-y-3 min-w-0">
             <div className="flex items-start justify-between">
@@ -76,7 +76,7 @@ export const TaskCard = React.memo(function TaskCard({ task, onEdit, onDelete, o
               <DropdownMenuItem onSelect={onEdit} className="flex items-center text-xs sm:text-sm">
                 <Edit size={12} className="sm:w-3.5 sm:h-3.5 mr-2" strokeWidth={1.5}/>Edit
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={onDelete} className="flex items-center text-error-400 hover:text-error-300 hover:bg-error-900/20 text-xs sm:text-sm">
+              <DropdownMenuItem onSelect={onDelete} className="flex items-center text-error-400 hover:bg-error-900 text-xs sm:text-sm">
                 <Trash2 size={12} className="sm:w-3.5 sm:h-3.5 mr-2" strokeWidth={1.5}/>Delete
               </DropdownMenuItem>
             </DropdownMenuContent>

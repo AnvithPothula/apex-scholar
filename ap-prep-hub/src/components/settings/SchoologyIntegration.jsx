@@ -39,6 +39,7 @@ export function SchoologyIntegration() {
   // OAuth-side state (separate from the calendar-feed `isConnected` above).
   const [oauthConnected, setOauthConnected] = useState(false);
   const [schoologyName, setSchoologyName] = useState(null);
+  const [needsReconnect, setNeedsReconnect] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   // Load integration status on component mount
@@ -60,9 +61,11 @@ export function SchoologyIntegration() {
       if (conn && typeof conn === 'object') {
         setOauthConnected(!!conn.oauth);
         setSchoologyName(conn.schoologyName || null);
+        setNeedsReconnect(!!conn.needsReconnect);
       } else {
         setOauthConnected(false);
         setSchoologyName(null);
+        setNeedsReconnect(false);
       }
 
       console.log('📊 Schoology integration status:', status);
@@ -262,7 +265,11 @@ export function SchoologyIntegration() {
 
     } catch (error) {
       console.error('Error setting calendar URL:', error);
-      setError('Failed to configure calendar: ' + error.message);
+      // The raw message is developer text (proxy names, HTTP codes, `netlify
+      // dev`); the console keeps it, the student gets what to do next.
+      setError(/VCALENDAR|iCal/i.test(error.message)
+        ? "That link didn't return a calendar. Copy the link under “Share Your Schoology Calendar” in your Schoology settings (steps below)."
+        : "Couldn't reach that calendar just now. Check the link and try again in a minute.");
     } finally {
       setIsSettingCalendar(false);
     }
@@ -302,12 +309,18 @@ export function SchoologyIntegration() {
           {(
             <div className="flex items-center justify-between gap-3 p-3 rounded-md bg-base-800 border border-border">
               <div className="flex items-center gap-2 min-w-0">
-                <CheckCircle className="w-5 h-5 text-success-400 flex-shrink-0" strokeWidth={1.5} />
+                {needsReconnect
+                  ? <AlertCircle className="w-5 h-5 text-warning-400 flex-shrink-0" strokeWidth={1.5} />
+                  : <CheckCircle className="w-5 h-5 text-success-400 flex-shrink-0" strokeWidth={1.5} />}
                 <div className="min-w-0">
                   <div className="text-sm text-content-primary truncate">
                     {schoologyName ? `Connected as ${schoologyName}` : 'Signed in to Schoology'}
                   </div>
-                  <div className="text-xs text-content-muted">Apex stays signed in across sessions.</div>
+                  <div className="text-xs text-content-muted">
+                    {needsReconnect
+                      ? 'This Schoology sign-in has expired (they last 90 days). Sign out here; your calendar feed keeps working.'
+                      : 'Apex stays signed in across sessions.'}
+                  </div>
                 </div>
               </div>
               <Button
@@ -361,9 +374,9 @@ export function SchoologyIntegration() {
 
           {error && (
             <div className="p-3 bg-error-900/30 border border-error-600 rounded-lg">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-error-400" strokeWidth={1.5} />
-                <span className="text-error-300">{error}</span>
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-error-400" strokeWidth={1.5} aria-hidden="true" />
+                <span className="text-error-300" role="alert">{error}</span>
               </div>
             </div>
           )}
@@ -388,6 +401,7 @@ export function SchoologyIntegration() {
                 value={calendarUrl}
                 onChange={(e) => setCalendarUrl(e.target.value)}
                 placeholder="webcal://yourschool.schoology.com/calendar/feed/ical/..."
+                aria-label="Schoology calendar URL"
                 className="flex-1 px-3 py-2 bg-base-800 border border-border rounded-md text-content-primary placeholder:text-content-muted focus:outline-none focus:ring-2 focus:ring-content-muted"
               />
               <Button

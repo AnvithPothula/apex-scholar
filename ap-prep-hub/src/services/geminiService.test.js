@@ -1,4 +1,4 @@
-import geminiService, { modelFromGoogleUrl } from './geminiService';
+import geminiService, { modelFromGoogleUrl, DEFAULT_PUTER_MODEL } from './geminiService';
 
 describe('GeminiService payload normalization', () => {
   it('removes transport-only fields before Google fallback', () => {
@@ -125,7 +125,7 @@ describe('GeminiService resolved-model tracking', () => {
 describe('modelFromGoogleUrl', () => {
   it('reads the real model out of a generateContent URL', () => {
     // The direct-key path has no other record of which model it hit, and
-    // this.modelName defaults to a Puter id ('claude-sonnet-4') — using that
+    // the picker's value can be a Puter id — using that
     // labelled Gemini answers as Claude in the tutor UI.
     expect(modelFromGoogleUrl(
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=abc'
@@ -135,5 +135,37 @@ describe('modelFromGoogleUrl', () => {
   it('returns null rather than guessing when there is no model segment', () => {
     expect(modelFromGoogleUrl('https://example.com/nope')).toBeNull();
     expect(modelFromGoogleUrl(null)).toBeNull();
+  });
+});
+
+describe('Puter routing', () => {
+  afterEach(() => { delete window.puter; geminiService.setUserModel(null); });
+
+  it('sends only Puter-picked (or unpicked) requests to Puter', () => {
+    geminiService.setUserModel('gemini-2.0-flash');
+    expect(geminiService._puterModelFor()).toBeNull();
+    geminiService.setUserModel('openai/gpt-5.5');
+    expect(geminiService._puterModelFor()).toBe('openai/gpt-5.5');
+    geminiService.setUserModel(null);
+    expect(geminiService._puterModelFor()).toBe(DEFAULT_PUTER_MODEL);
+    geminiService.setUserModel('claude-sonnet-4');
+    expect(geminiService._puterModelFor()).toBe(DEFAULT_PUTER_MODEL);
+  });
+
+  it('retries a retired model on Puter\'s default, and never rate-limits the proxy', async () => {
+    const chat = jest.fn()
+      .mockRejectedValueOnce(new Error('Model not found: anthropic/claude-sonnet-4'))
+      .mockResolvedValueOnce({ message: { content: 'ok' } });
+    window.puter = { ai: { chat }, authToken: 'x'.repeat(24) };
+    await expect(geminiService._askPuter('hi', null, { model: 'anthropic/claude-sonnet-4' })).resolves.toBe('ok');
+    expect(chat.mock.calls[1][1].model).toBeUndefined();
+
+    window.puter.ai.chat = jest.fn().mockRejectedValue(Object.assign(new Error('429 Too Many Requests'), { status: 429 }));
+    await expect(geminiService._askPuter('hi', null, {})).resolves.toBeNull();
+    expect(geminiService.isRateLimited()).toBe(false);
+  });
+
+  it('skips Puter when the student is not connected', async () => {
+    await expect(geminiService._askPuter('hi', null, {})).resolves.toBeNull();
   });
 });

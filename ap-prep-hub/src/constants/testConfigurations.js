@@ -14,7 +14,7 @@ export const TEST_CONFIGURATIONS = {
     sections: [
       { id: 'mcq', name: 'Multiple Choice', time: 70, questions: 60, description: 'Business concepts and personal finance' },
       { id: 'frq', name: 'Free Response', time: 65, questions: 3, description: 'Personal finance and business strategy' },
-      { id: 'full', name: 'Full Practice Test', time: 135, questions: 63, description: 'Complete AP Business with Personal Finance simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 135, questions: 63, description: 'Complete exam simulation' }
     ],
     units: [
       { id: 'unit1', name: 'Unit 1: Businesses, Competition, and New Ideas', description: 'Markets, competitive advantage, PESTEL, ethics, supply chains' },
@@ -31,7 +31,7 @@ export const TEST_CONFIGURATIONS = {
     sections: [
       { id: 'mcq', name: 'Multiple Choice', time: 80, questions: 60, description: 'Scenario-based threat analysis' },
       { id: 'frq', name: 'Free Response', time: 40, questions: 1, description: 'Device Security Analysis' },
-      { id: 'full', name: 'Full Practice Test', time: 120, questions: 61, description: 'Complete AP Cybersecurity simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 120, questions: 61, description: 'Complete exam simulation' }
     ],
     units: [
       { id: 'unit1', name: 'Unit 1: Introduction to Security', description: 'Social engineering, public networks, AI in attack and defense' },
@@ -57,7 +57,7 @@ export const TEST_CONFIGURATIONS = {
           { id: 'all-frq', name: 'All FRQs', time: 90, questions: 6, description: '2 Long + 4 Short FRQs' }
         ]
       },
-      { id: 'full', name: 'Full Practice Test', time: 180, questions: 66, description: 'Complete AP Biology exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 180, questions: 66, description: 'Complete exam simulation' }
     ],
     units: [
       { id: 'unit1', name: 'Unit 1: Chemistry of Life', description: 'Water, macromolecules, and origin of life' },
@@ -86,7 +86,7 @@ export const TEST_CONFIGURATIONS = {
           { id: 'all-frq', name: 'All FRQs', time: 105, questions: 7, description: '3 Long + 4 Short FRQs' }
         ]
       },
-      { id: 'full', name: 'Full Practice Test', time: 195, questions: 67, description: 'Complete AP Chemistry exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 195, questions: 67, description: 'Complete exam simulation' }
     ],
     units: [
       { id: 'unit1', name: 'Unit 1: Atomic Structure and Properties', topics: ['Moles and molar mass', 'Mass spectroscopy', 'Elemental composition', 'Atomic structure', 'Photoelectron spectroscopy'] },
@@ -116,7 +116,7 @@ export const TEST_CONFIGURATIONS = {
           { id: 'all-frq', name: 'All FRQs', time: 90, questions: 6, description: 'Complete FRQ section' }
         ]
       },
-      { id: 'full', name: 'Full Practice Test', time: 195, questions: 51, description: 'Complete AP Calculus AB exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 195, questions: 51, description: 'Complete exam simulation' }
     ],
     units: [
       { id: 'unit1', name: 'Unit 1: Limits and Continuity', topics: ['Limits', 'Continuity', 'Intermediate Value Theorem', 'Asymptotes'] },
@@ -145,7 +145,7 @@ export const TEST_CONFIGURATIONS = {
           { id: 'all-frq', name: 'All FRQs', time: 90, questions: 6, description: 'Complete FRQ section' }
         ]
       },
-      { id: 'full', name: 'Full Practice Test', time: 195, questions: 51, description: 'Complete AP Calculus BC exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 195, questions: 51, description: 'Complete exam simulation' }
     ],
     units: [
       { id: 'unit1', name: 'Unit 1: Limits and Continuity', topics: ['Limits', 'Continuity', 'Intermediate Value Theorem', 'Asymptotes'] },
@@ -165,7 +165,7 @@ export const TEST_CONFIGURATIONS = {
     sections: [
       { id: 'mcq', name: 'Multiple Choice', time: 100, questions: 70, description: 'Listening (40min) + Reading (60min)' },
       { id: 'frq', name: 'Free Response', time: 90, questions: 2, description: 'Writing (2 tasks), no speaking tasks' },
-      { id: 'full', name: 'Full Practice Test', time: 190, questions: 72, description: 'Complete AP Chinese exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 190, questions: 72, description: 'Complete exam simulation' }
     ],
     units: [
       { id: 'unit1', name: 'Unit 1: Personal and Public Identity', topics: ['Personal relationships', 'Family', 'Individual identity', 'Community values'] },
@@ -181,7 +181,7 @@ export const TEST_CONFIGURATIONS = {
     sections: [
       { id: 'mcq', name: 'Multiple Choice', time: 90, questions: 40, description: 'Code analysis, algorithms, OOP' },
       { id: 'frq', name: 'Free Response', time: 90, questions: 4, description: 'Q1: Methods & Control Structures, Q2: Classes, Q3: Arrays/ArrayLists, Q4: 2D Arrays/Algorithms' },
-      { id: 'full', name: 'Full Practice Test', time: 180, questions: 44, description: 'Complete AP Computer Science A exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 180, questions: 44, description: 'Complete exam simulation' }
     ],
     units: [
       { id: 'unit1', name: 'Unit 1: Primitive Types', topics: ['Variables', 'Data types', 'Expressions', 'Assignment statements'] },
@@ -207,11 +207,11 @@ export const TEST_CONFIGURATIONS = {
   // entry generated tests from ten units that included Electric Charge, DC
   // Circuits and Waves — content removed from AP Physics 1, so those questions
   // could never appear on the real exam.
-  'AP Physics 1': {
+  'AP Physics 1: Algebra-Based': {
     sections: [
       { id: 'mcq', name: 'Multiple Choice', time: 85, questions: 42, description: 'Conceptual understanding and problem solving' },
       { id: 'frq', name: 'Free Response', time: 95, questions: 4, description: 'Mathematical routines, representations, experimental design, qualitative/quantitative translation' },
-      { id: 'full', name: 'Full Practice Test', time: 180, questions: 46, description: 'Complete AP Physics 1 exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 180, questions: 46, description: 'Complete exam simulation' }
     ],
     units: [
       { id: 'unit1', name: 'Unit 1: Kinematics', description: 'Position, velocity, acceleration, projectile motion' },
@@ -222,22 +222,6 @@ export const TEST_CONFIGURATIONS = {
       { id: 'unit6', name: 'Unit 6: Energy and Momentum of Rotating Systems', description: 'Rotational kinetic energy, angular momentum' },
       { id: 'unit7', name: 'Unit 7: Oscillations', description: 'Simple harmonic motion, springs, pendulums' },
       { id: 'unit8', name: 'Unit 8: Fluids', description: 'Density, pressure, buoyancy, Bernoulli' }
-    ]
-  },
-  'AP Physics 2': {
-    sections: [
-      { id: 'mcq', name: 'Multiple Choice', time: 90, questions: 50, description: 'Advanced physics concepts' },
-      { id: 'frq', name: 'Free Response', time: 90, questions: 5, description: 'Complex problem solving and lab analysis' },
-      { id: 'full', name: 'Full Practice Test', time: 180, questions: 55, description: 'Complete AP Physics 2 exam simulation' }
-    ],
-    units: [
-      { id: 'unit1', name: 'Unit 1: Fluids', topics: ['Fluid statics', 'Buoyancy', 'Fluid dynamics', 'Bernoulli\'s equation'] },
-      { id: 'unit2', name: 'Unit 2: Thermodynamics', topics: ['Temperature', 'Heat', 'Laws of thermodynamics', 'Kinetic theory'] },
-      { id: 'unit3', name: 'Unit 3: Electric Force, Field, and Potential', topics: ['Coulomb\'s law', 'Electric fields', 'Electric potential'] },
-      { id: 'unit4', name: 'Unit 4: Electric Circuits', topics: ['Current', 'Resistance', 'Capacitors', 'Circuit analysis'] },
-      { id: 'unit5', name: 'Unit 5: Magnetism and Electromagnetic Induction', topics: ['Magnetic fields', 'Electromagnetic induction', 'Faraday\'s law'] },
-      { id: 'unit6', name: 'Unit 6: Geometric and Physical Optics', topics: ['Reflection', 'Refraction', 'Lenses', 'Interference'] },
-      { id: 'unit7', name: 'Unit 7: Quantum, Atomic, and Nuclear Physics', topics: ['Photons', 'Atomic structure', 'Nuclear physics'] }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
@@ -245,7 +229,7 @@ export const TEST_CONFIGURATIONS = {
     sections: [
       { id: 'mcq', name: 'Multiple Choice', time: 45, questions: 35, description: 'Classical mechanics with calculus' },
       { id: 'frq', name: 'Free Response', time: 45, questions: 3, description: 'Calculus-based mechanics problems' },
-      { id: 'full', name: 'Full Practice Test', time: 90, questions: 38, description: 'Complete AP Physics C: Mechanics exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 90, questions: 38, description: 'Complete exam simulation' }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
@@ -253,7 +237,7 @@ export const TEST_CONFIGURATIONS = {
     sections: [
       { id: 'mcq', name: 'Multiple Choice', time: 45, questions: 35, description: 'Electromagnetism with calculus' },
       { id: 'frq', name: 'Free Response', time: 45, questions: 3, description: 'Calculus-based E&M problems' },
-      { id: 'full', name: 'Full Practice Test', time: 90, questions: 38, description: 'Complete AP Physics C: E&M exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 90, questions: 38, description: 'Complete exam simulation' }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
@@ -262,7 +246,7 @@ export const TEST_CONFIGURATIONS = {
     sections: [
       { id: 'mcq', name: 'Multiple Choice', time: 90, questions: 42, description: 'Data analysis, probability, and inference' },
       { id: 'frq', name: 'Free Response', time: 90, questions: 4, description: 'Four 10-point questions' },
-      { id: 'full', name: 'Full Practice Test', time: 180, questions: 46, description: 'Complete AP Statistics exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 180, questions: 46, description: 'Complete exam simulation' }
     ],
     units: [
       { id: 'unit1', name: 'Unit 1: Exploring One-Variable Data and Collecting Data', topics: ['Categorical and quantitative data', 'Comparing distributions', 'Sampling and experiments', 'Bias and scope of inference'] },
@@ -288,7 +272,7 @@ export const TEST_CONFIGURATIONS = {
           { id: 'all-frq', name: 'All FRQs', time: 140, questions: 5, description: 'SAQ + DBQ + LEQ' }
         ]
       },
-      { id: 'full', name: 'Full Practice Test', time: 195, questions: 60, description: 'Complete AP US History exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 195, questions: 60, description: 'Complete exam simulation' }
     ],
     units: [
       { id: 'unit1', name: 'Unit 1: Interactions between Native Americans and Europeans', periods: '1491-1607' },
@@ -304,68 +288,6 @@ export const TEST_CONFIGURATIONS = {
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
   // Keep backward compatibility
-  'AP US History': {
-    sections: [
-      { id: 'mcq', name: 'Multiple Choice', time: 55, questions: 55, description: 'Historical analysis and interpretation' },
-      {
-        id: 'frq',
-        name: 'Free Response Questions',
-        time: 140,
-        questions: 5,
-        description: 'Choose specific FRQ types or take all written responses',
-        subSections: [
-          { id: 'saq-only', name: 'SAQ Only', time: 40, questions: 3, description: 'Short Answer Questions only' },
-          { id: 'dbq-only', name: 'DBQ Only', time: 60, questions: 1, description: 'Document-Based Question only' },
-          { id: 'leq-only', name: 'LEQ Only', time: 40, questions: 1, description: 'Long Essay Question only' },
-          { id: 'all-frq', name: 'All FRQs', time: 140, questions: 5, description: 'SAQ + DBQ + LEQ' }
-        ]
-      },
-      { id: 'full', name: 'Full Practice Test', time: 195, questions: 60, description: 'Complete AP US History exam simulation' }
-    ],
-    units: [
-      { id: 'unit1', name: 'Unit 1: Interactions between Native Americans and Europeans', periods: '1491-1607' },
-      { id: 'unit2', name: 'Unit 2: Colonial Society and Culture', periods: '1607-1754' },
-      { id: 'unit3', name: 'Unit 3: Road to Revolution and Revolution', periods: '1754-1800' },
-      { id: 'unit4', name: 'Unit 4: Early Republic', periods: '1800-1848' },
-      { id: 'unit5', name: 'Unit 5: Civil War and Reconstruction', periods: '1844-1877' },
-      { id: 'unit6', name: 'Unit 6: Industrial Revolution and Gilded Age', periods: '1865-1898' },
-      { id: 'unit7', name: 'Unit 7: Progressive Era and World War I', periods: '1890-1945' },
-      { id: 'unit8', name: 'Unit 8: World War II and Post-War', periods: '1945-1980' },
-      { id: 'unit9', name: 'Unit 9: Modern America', periods: '1980-Present' }
-    ],
-    difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
-  },
-  'AP World History': {
-    sections: [
-      { id: 'mcq', name: 'Multiple Choice', time: 55, questions: 55, description: 'Global historical analysis' },
-      {
-        id: 'frq',
-        name: 'Free Response Questions',
-        time: 140,
-        questions: 5,
-        description: 'Choose specific FRQ types or take all written responses',
-        subSections: [
-          { id: 'saq-only', name: 'SAQ Only', time: 40, questions: 3, description: 'Short Answer Questions only' },
-          { id: 'dbq-only', name: 'DBQ Only', time: 60, questions: 1, description: 'Document-Based Question only' },
-          { id: 'leq-only', name: 'LEQ Only', time: 40, questions: 1, description: 'Long Essay Question only' },
-          { id: 'all-frq', name: 'All FRQs', time: 140, questions: 5, description: 'SAQ + DBQ + LEQ' }
-        ]
-      },
-      { id: 'full', name: 'Full Practice Test', time: 195, questions: 60, description: 'Complete AP World History exam simulation' }
-    ],
-    units: [
-      { id: 'unit1', name: 'Unit 1: The Global Tapestry', periods: 'c. 1200-1450' },
-      { id: 'unit2', name: 'Unit 2: Networks of Exchange', periods: 'c. 1200-1450' },
-      { id: 'unit3', name: 'Unit 3: Land-Based Empires', periods: 'c. 1450-1750' },
-      { id: 'unit4', name: 'Unit 4: Transoceanic Interconnections', periods: 'c. 1450-1750' },
-      { id: 'unit5', name: 'Unit 5: Revolutions', periods: 'c. 1750-1900' },
-      { id: 'unit6', name: 'Unit 6: Consequences of Industrialization', periods: 'c. 1750-1900' },
-      { id: 'unit7', name: 'Unit 7: Global Conflict', periods: 'c. 1900-present' },
-      { id: 'unit8', name: 'Unit 8: Cold War and Decolonization', periods: 'c. 1900-present' },
-      { id: 'unit9', name: 'Unit 9: Globalization', periods: 'c. 1900-present' }
-    ],
-    difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
-  },
   'AP European History': {
     sections: [
       { id: 'mcq', name: 'Multiple Choice', time: 55, questions: 55, description: 'European historical analysis' },
@@ -382,7 +304,7 @@ export const TEST_CONFIGURATIONS = {
           { id: 'all-frq', name: 'All FRQs', time: 140, questions: 5, description: 'SAQ + DBQ + LEQ' }
         ]
       },
-      { id: 'full', name: 'Full Practice Test', time: 195, questions: 60, description: 'Complete AP European History exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 195, questions: 60, description: 'Complete exam simulation' }
     ],
     units: [
       { id: 'unit1', name: 'Unit 1: Renaissance and Exploration', periods: 'c. 1450-1648', topics: ['Italian Renaissance', 'Northern Renaissance', 'Age of Exploration', 'Commercial Revolution'] },
@@ -394,37 +316,6 @@ export const TEST_CONFIGURATIONS = {
       { id: 'unit7', name: 'Unit 7: 19th-Century Perspectives and Political Developments', periods: 'c. 1815-1914', topics: ['Unification of Germany', 'Unification of Italy', 'New Imperialism', 'Fin de Siecle'] },
       { id: 'unit8', name: 'Unit 8: 20th-Century Global Conflicts', periods: 'c. 1914-present', topics: ['World War I', 'Russian Revolution', 'Interwar Period', 'World War II'] },
       { id: 'unit9', name: 'Unit 9: Cold War and Contemporary Europe', periods: 'c. 1945-present', topics: ['Cold War', 'Decolonization', 'European Integration', 'Fall of Communism'] }
-    ],
-    difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
-  },
-  'AP English Literature': {
-    sections: [
-      { id: 'mcq', name: 'Multiple Choice', time: 60, questions: 55, description: 'Reading comprehension and literary analysis' },
-      {
-        id: 'frq',
-        name: 'Free Response Questions',
-        time: 120,
-        questions: 3,
-        description: 'Choose specific essay types or take all essays',
-        subSections: [
-          { id: 'poetry-only', name: 'Poetry Analysis Only', time: 40, questions: 1, description: 'Poetry analysis essay' },
-          { id: 'prose-only', name: 'Prose Analysis Only', time: 40, questions: 1, description: 'Prose passage analysis essay' },
-          { id: 'open-only', name: 'Open Question Only', time: 40, questions: 1, description: 'Literary argument essay' },
-          { id: 'all-essays', name: 'All Essays', time: 120, questions: 3, description: 'All three essay types' }
-        ]
-      },
-      { id: 'full', name: 'Full Practice Test', time: 180, questions: 58, description: 'Complete AP Literature exam simulation' }
-    ],
-    units: [
-      { id: 'unit1', name: 'Unit 1: Short Fiction I', topics: ['Character', 'Setting', 'Structure', 'Narration'] },
-      { id: 'unit2', name: 'Unit 2: Poetry I', topics: ['Speaker', 'Imagery', 'Figurative language', 'Sound and rhythm'] },
-      { id: 'unit3', name: 'Unit 3: Longer Fiction or Drama I', topics: ['Character development', 'Plot structure', 'Conflict', 'Point of view'] },
-      { id: 'unit4', name: 'Unit 4: Short Fiction II', topics: ['Complexity', 'Ambiguity', 'Irony', 'Symbolism'] },
-      { id: 'unit5', name: 'Unit 5: Poetry II', topics: ['Tone', 'Mood', 'Allusion', 'Form and meter'] },
-      { id: 'unit6', name: 'Unit 6: Longer Fiction or Drama II', topics: ['Theme', 'Motif', 'Literary devices', 'Historical context'] },
-      { id: 'unit7', name: 'Unit 7: Short Fiction III', topics: ['Comparative analysis', 'Multiple interpretations', 'Critical perspectives'] },
-      { id: 'unit8', name: 'Unit 8: Poetry III', topics: ['Complex poetry', 'Intertextuality', 'Cultural contexts'] },
-      { id: 'unit9', name: 'Unit 9: Longer Fiction or Drama III', topics: ['Synthesis', 'Literary criticism', 'Reader response'] }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
@@ -444,7 +335,7 @@ export const TEST_CONFIGURATIONS = {
           { id: 'all-essays', name: 'All Essays', time: 135, questions: 3, description: 'Complete essay section' }
         ]
       },
-      { id: 'full', name: 'Full Practice Test', time: 195, questions: 48, description: 'Complete AP Language exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 195, questions: 48, description: 'Complete exam simulation' }
     ],
     units: [
       { id: 'unit1', name: 'Unit 1: Claims and Evidence', topics: ['Rhetorical situation', 'Claims and evidence', 'Reasoning and organization'] },
@@ -475,7 +366,7 @@ export const TEST_CONFIGURATIONS = {
           { id: 'all-essays', name: 'All Essays', time: 120, questions: 3, description: 'All three essay types' }
         ]
       },
-      { id: 'full', name: 'Full Practice Test', time: 180, questions: 58, description: 'Complete AP Literature exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 180, questions: 58, description: 'Complete exam simulation' }
     ],
     units: [
       { id: 'unit1', name: 'Unit 1: Short Fiction I', topics: ['Character', 'Setting', 'Structure', 'Narration'] },
@@ -490,11 +381,11 @@ export const TEST_CONFIGURATIONS = {
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
-  'AP Government and Politics: Comparative': {
+  'AP Comparative Government and Politics': {
     sections: [
       { id: 'mcq', name: 'Multiple Choice', time: 60, questions: 55, description: 'Comparative political systems and concepts' },
       { id: 'frq', name: 'Free Response', time: 90, questions: 4, description: 'Concept Application, Quantitative Analysis, Comparative Analysis, Argument Essay' },
-      { id: 'full', name: 'Full Practice Test', time: 150, questions: 59, description: 'Complete AP Comparative Government exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 150, questions: 59, description: 'Complete exam simulation' }
     ],
     units: [
       { id: 'unit1', name: 'Unit 1: Political Systems, Regimes, and Governments', topics: ['Democratic and authoritarian regimes', 'Parliamentary and presidential systems', 'Federal and unitary systems'] },
@@ -505,28 +396,11 @@ export const TEST_CONFIGURATIONS = {
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
-  'AP Physics 1: Algebra-Based': {
-    sections: [
-      { id: 'mcq', name: 'Multiple Choice', time: 90, questions: 50, description: 'Conceptual understanding and problem solving' },
-      { id: 'frq', name: 'Free Response', time: 90, questions: 5, description: 'Experimental Design, Quantitative/Qualitative, Short Answer' },
-      { id: 'full', name: 'Full Practice Test', time: 180, questions: 55, description: 'Complete AP Physics 1 exam simulation' }
-    ],
-    units: [
-      { id: 'unit1', name: 'Unit 1: Kinematics', topics: ['Motion in one dimension', 'Motion in two dimensions', 'Acceleration', 'Projectile motion'] },
-      { id: 'unit2', name: 'Unit 2: Dynamics', topics: ['Newton\'s laws', 'Free body diagrams', 'Forces', 'Friction'] },
-      { id: 'unit3', name: 'Unit 3: Circular Motion and Gravitation', topics: ['Centripetal acceleration', 'Universal gravitation', 'Orbital motion'] },
-      { id: 'unit4', name: 'Unit 4: Energy', topics: ['Work', 'Kinetic energy', 'Potential energy', 'Conservation of energy'] },
-      { id: 'unit5', name: 'Unit 5: Momentum', topics: ['Impulse and momentum', 'Conservation of momentum', 'Collisions'] },
-      { id: 'unit6', name: 'Unit 6: Simple Harmonic Motion', topics: ['Springs', 'Pendulums', 'Wave properties'] },
-      { id: 'unit7', name: 'Unit 7: Torque and Rotational Motion', topics: ['Torque', 'Angular velocity', 'Rotational inertia'] }
-    ],
-    difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
-  },
   'AP Physics 2: Algebra-Based': {
     sections: [
       { id: 'mcq', name: 'Multiple Choice', time: 90, questions: 50, description: 'Advanced physics concepts' },
       { id: 'frq', name: 'Free Response', time: 90, questions: 5, description: 'Complex problem solving and lab analysis' },
-      { id: 'full', name: 'Full Practice Test', time: 180, questions: 55, description: 'Complete AP Physics 2 exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 180, questions: 55, description: 'Complete exam simulation' }
     ],
     units: [
       { id: 'unit1', name: 'Unit 1: Fluids', topics: ['Fluid statics', 'Buoyancy', 'Fluid dynamics', 'Bernoulli\'s equation'] },
@@ -555,7 +429,7 @@ export const TEST_CONFIGURATIONS = {
           { id: 'all-frq', name: 'All FRQs', time: 140, questions: 5, description: 'SAQ + DBQ + LEQ' }
         ]
       },
-      { id: 'full', name: 'Full Practice Test', time: 195, questions: 60, description: 'Complete AP World History exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 195, questions: 60, description: 'Complete exam simulation' }
     ],
     units: [
       { id: 'unit1', name: 'Unit 1: The Global Tapestry', periods: 'c. 1200-1450', topics: ['Song Dynasty', 'Dar al-Islam', 'South and Southeast Asia', 'State building in the Americas'] },
@@ -574,7 +448,7 @@ export const TEST_CONFIGURATIONS = {
     sections: [
       { id: 'mcq', name: 'Multiple Choice', time: 70, questions: 100, description: 'Psychological concepts and research methods' },
       { id: 'frq', name: 'Free Response', time: 50, questions: 2, description: 'Application and analysis questions' },
-      { id: 'full', name: 'Full Practice Test', time: 120, questions: 102, description: 'Complete AP Psychology exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 120, questions: 102, description: 'Complete exam simulation' }
     ],
     units: [
       { id: 'unit1', name: 'Unit 1: Scientific Foundations of Psychology', topics: ['History and approaches', 'Research methods', 'Statistical analysis', 'Ethics in research'] },
@@ -591,7 +465,7 @@ export const TEST_CONFIGURATIONS = {
     sections: [
       { id: 'mcq', name: 'Multiple Choice', time: 90, questions: 80, description: 'Environmental concepts and data analysis' },
       { id: 'frq', name: 'Free Response', time: 70, questions: 3, description: 'Design investigation, analyze problems, solve with calculations' },
-      { id: 'full', name: 'Full Practice Test', time: 160, questions: 83, description: 'Complete AP Environmental Science exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 160, questions: 83, description: 'Complete exam simulation' }
     ],
     units: [
       { id: 'unit1', name: 'Unit 1: The Living World: Ecosystems', topics: ['Introduction to ecosystems', 'Terrestrial biomes', 'Aquatic biomes', 'Carbon cycle'] },
@@ -621,7 +495,7 @@ export const TEST_CONFIGURATIONS = {
           { id: 'all-frq', name: 'All FRQs', time: 60, questions: 3, description: '1 Long + 2 Short FRQs' }
         ]
       },
-      { id: 'full', name: 'Full Practice Test', time: 130, questions: 63, description: 'Complete AP Macroeconomics exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 130, questions: 63, description: 'Complete exam simulation' }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
@@ -640,7 +514,7 @@ export const TEST_CONFIGURATIONS = {
           { id: 'all-frq', name: 'All FRQs', time: 60, questions: 3, description: '1 Long + 2 Short FRQs' }
         ]
       },
-      { id: 'full', name: 'Full Practice Test', time: 130, questions: 63, description: 'Complete AP Microeconomics exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 130, questions: 63, description: 'Complete exam simulation' }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
@@ -648,15 +522,7 @@ export const TEST_CONFIGURATIONS = {
     sections: [
       { id: 'mcq', name: 'Multiple Choice', time: 80, questions: 55, description: 'Political concepts and institutions' },
       { id: 'frq', name: 'Free Response', time: 100, questions: 4, description: 'Concept Application, Quantitative Analysis, Court Comparison, Argumentative Essay' },
-      { id: 'full', name: 'Full Practice Test', time: 180, questions: 59, description: 'Complete AP US Government exam simulation' }
-    ],
-    difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
-  },
-  'AP Comparative Government': {
-    sections: [
-      { id: 'mcq', name: 'Multiple Choice', time: 60, questions: 55, description: 'Comparative political systems and concepts' },
-      { id: 'frq', name: 'Free Response', time: 90, questions: 4, description: 'Concept Application, Quantitative Analysis, Comparative Analysis, Argument Essay' },
-      { id: 'full', name: 'Full Practice Test', time: 150, questions: 59, description: 'Complete AP Comparative Government exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 180, questions: 59, description: 'Complete exam simulation' }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
@@ -664,7 +530,7 @@ export const TEST_CONFIGURATIONS = {
     sections: [
       { id: 'mcq', name: 'Multiple Choice', time: 60, questions: 60, description: 'Geographic concepts and spatial analysis' },
       { id: 'frq', name: 'Free Response', time: 75, questions: 3, description: 'Concept application, spatial analysis, data interpretation' },
-      { id: 'full', name: 'Full Practice Test', time: 135, questions: 63, description: 'Complete AP Human Geography exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 135, questions: 63, description: 'Complete exam simulation' }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
@@ -672,7 +538,7 @@ export const TEST_CONFIGURATIONS = {
     sections: [
       { id: 'mcq', name: 'Multiple Choice', time: 100, questions: 70, description: 'Listening (40min) + Reading (60min)' },
       { id: 'frq', name: 'Free Response', time: 90, questions: 2, description: 'Writing (2 tasks), no speaking tasks' },
-      { id: 'full', name: 'Full Practice Test', time: 190, questions: 72, description: 'Complete AP French exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 190, questions: 72, description: 'Complete exam simulation' }
     ],
     units: [
       { id: 'unit1', name: 'Unit 1: Families and Communities', topics: ['Family structure', 'Community traditions', 'Cultural values', 'Social relationships'] },
@@ -688,7 +554,7 @@ export const TEST_CONFIGURATIONS = {
     sections: [
       { id: 'mcq', name: 'Multiple Choice', time: 100, questions: 70, description: 'Listening (40min) + Reading (60min)' },
       { id: 'frq', name: 'Free Response', time: 90, questions: 2, description: 'Writing (2 tasks), no speaking tasks' },
-      { id: 'full', name: 'Full Practice Test', time: 190, questions: 72, description: 'Complete AP German exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 190, questions: 72, description: 'Complete exam simulation' }
     ],
     units: [
       { id: 'unit1', name: 'Unit 1: Families and Communities', topics: ['Family dynamics', 'Community involvement', 'Social customs', 'Regional differences'] },
@@ -704,7 +570,7 @@ export const TEST_CONFIGURATIONS = {
     sections: [
       { id: 'mcq', name: 'Multiple Choice', time: 100, questions: 70, description: 'Listening (40min) + Reading (60min)' },
       { id: 'frq', name: 'Free Response', time: 90, questions: 2, description: 'Writing (2 tasks), no speaking tasks' },
-      { id: 'full', name: 'Full Practice Test', time: 190, questions: 72, description: 'Complete AP Spanish Language exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 190, questions: 72, description: 'Complete exam simulation' }
     ],
     units: [
       { id: 'unit1', name: 'Unit 1: Families and Communities', topics: ['Family relationships', 'Community traditions', 'Social customs', 'Cultural celebrations'] },
@@ -731,7 +597,7 @@ export const TEST_CONFIGURATIONS = {
           { id: 'all-frq', name: 'All FRQs', time: 100, questions: 4, description: '2 Short Answer + 2 Essays' }
         ]
       },
-      { id: 'full', name: 'Full Practice Test', time: 190, questions: 54, description: 'Complete AP Spanish Literature exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 190, questions: 54, description: 'Complete exam simulation' }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
@@ -739,7 +605,7 @@ export const TEST_CONFIGURATIONS = {
     sections: [
       { id: 'mcq', name: 'Multiple Choice', time: 100, questions: 70, description: 'Listening (40min) + Reading (60min)' },
       { id: 'frq', name: 'Free Response', time: 90, questions: 4, description: 'Writing (2 tasks) + Speaking (2 tasks)' },
-      { id: 'full', name: 'Full Practice Test', time: 190, questions: 74, description: 'Complete AP Italian exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 190, questions: 74, description: 'Complete exam simulation' }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
@@ -747,7 +613,7 @@ export const TEST_CONFIGURATIONS = {
     sections: [
       { id: 'mcq', name: 'Multiple Choice', time: 100, questions: 70, description: 'Listening (40min) + Reading (60min)' },
       { id: 'frq', name: 'Free Response', time: 90, questions: 4, description: 'Writing (2 tasks) + Speaking (2 tasks)' },
-      { id: 'full', name: 'Full Practice Test', time: 190, questions: 74, description: 'Complete AP Japanese exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 190, questions: 74, description: 'Complete exam simulation' }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
@@ -767,7 +633,7 @@ export const TEST_CONFIGURATIONS = {
           { id: 'all-frq', name: 'All FRQs', time: 120, questions: 3, description: 'Translation + Short Answer + Essay' }
         ]
       },
-      { id: 'full', name: 'Full Practice Test', time: 180, questions: 53, description: 'Complete AP Latin exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 180, questions: 53, description: 'Complete exam simulation' }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
@@ -786,7 +652,7 @@ export const TEST_CONFIGURATIONS = {
           { id: 'all-frq', name: 'All FRQs', time: 120, questions: 6, description: '4 Short + 2 Long FRQs' }
         ]
       },
-      { id: 'full', name: 'Full Practice Test', time: 180, questions: 86, description: 'Complete AP Art History exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 180, questions: 86, description: 'Complete exam simulation' }
     ],
     units: [
       { id: 'unit1', name: 'Unit 1: Global Prehistory, 30,000-500 B.C.E.', topics: ['Cave paintings', 'Megalithic architecture', 'Neolithic art', 'Stonehenge'] },
@@ -817,7 +683,7 @@ export const TEST_CONFIGURATIONS = {
           { id: 'all-frq', name: 'All FRQs', time: 80, questions: 7, description: '5 Written + 2 Aural FRQs' }
         ]
       },
-      { id: 'full', name: 'Full Practice Test', time: 160, questions: 82, description: 'Complete AP Music Theory exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 160, questions: 82, description: 'Complete exam simulation' }
     ],
     units: [
       { id: 'unit1', name: 'Unit 1: Pitch, Scales, and Key Signatures', topics: ['Staff notation', 'Major scales', 'Key signatures', 'Intervals'] },
@@ -834,7 +700,7 @@ export const TEST_CONFIGURATIONS = {
   'AP Precalculus': {
     sections: [
       { id: 'mcq', name: 'Multiple Choice', time: 120, questions: 40, description: 'Part A: 28Q (80min, no calc) + Part B: 12Q (40min, calc)' },
-      { id: 'full', name: 'Full Practice Test', time: 120, questions: 40, description: 'Complete AP Precalculus exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 120, questions: 40, description: 'Complete exam simulation' }
     ],
     units: [
       { id: 'unit1', name: 'Unit 1: Polynomial and Rational Functions', topics: ['Polynomial functions', 'Rates of change', 'Complex zeros', 'Rational functions'] },
@@ -851,7 +717,7 @@ export const DEFAULT_CONFIG = {
   sections: [
     { id: 'mcq', name: 'Multiple Choice', time: 90, questions: 50, description: 'Content knowledge and application' },
     { id: 'frq', name: 'Free Response', time: 90, questions: 5, description: 'Extended written responses' },
-    { id: 'full', name: 'Full Practice Test', time: 180, questions: 55, description: 'Complete AP exam simulation' }
+    { id: 'full', name: 'Full Practice Test', time: 180, questions: 55, description: 'Complete exam simulation' }
   ],
   difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
 };

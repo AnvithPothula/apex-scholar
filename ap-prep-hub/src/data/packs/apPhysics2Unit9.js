@@ -36,17 +36,23 @@ const pack = {
         'pressure at absolute zero.',
       body: String.raw`### Pressure from collisions
 Atoms collide with each other and with the walls. Each collision with a wall pushes on it (momentum changes), and pressure is the total perpendicular force per area:
+
 $$P = \frac{F_\perp}{A}$$
+
 Pressure exists throughout the gas, not just at the walls.
 
 ### Temperature from motion
 Temperature measures the **average kinetic energy** of the atoms:
+
 $$K_{avg} = \tfrac{3}{2}k_B T = \tfrac{1}{2}m v_{rms}^2$$
+
 At a given temperature the atoms have a **spread** of speeds (the Maxwell–Boltzmann distribution): heat the gas and the distribution shifts to higher speeds and spreads out. You need to know that shape qualitatively, not its formula.
 
 ### The ideal gas model
 Assumes: random velocities, atoms' volume negligible, **elastic** collisions, and no forces except during collisions.
+
 $$PV = nRT = Nk_BT$$
+
 ($n$ in moles with $R = 8.31$ J/(mol·K); $N$ atoms with $k_B = 1.38 \times 10^{-23}$ J/K; $T$ always in **kelvin**.)
 
 Graph pressure against temperature at constant volume and extend the line back: it reaches **zero pressure at 0 K** (−273 °C), absolute zero.
@@ -190,11 +196,15 @@ Temperature is not energy: a bathtub of warm water holds far more thermal energy
         'are isobaric, isovolumetric, isothermal and adiabatic.',
       body: String.raw`### Internal energy
 A system's internal energy is the kinetic energy of its parts plus the potential energy of their arrangement. Ideal gas atoms don't interact, so for a **monatomic** ideal gas it's all kinetic:
+
 $$U = \tfrac32 nRT = \tfrac32 Nk_BT$$
+
 Internal energy depends only on **temperature** (for a fixed amount of gas).
 
 ### The first law
+
 $$\Delta U = Q + W$$
+
 - $Q$: energy **added by heating** (negative if the gas is cooled).
 - $W$: work done **on** the gas: $W = -P\Delta V$. Compressing (ΔV < 0) does positive work on it; when it expands, it does work on its surroundings and $W$ is negative.
 
@@ -288,7 +298,9 @@ ${steps({
         'Q = mcΔT gives the energy to change a material\'s temperature, with specific heat c a property of the material. Conduction ' +
         'rate Q/Δt = kAΔT/L depends on the material\'s conductivity k, its area and thickness, and the temperature difference.',
       body: String.raw`### Specific heat
+
 $$Q = mc\Delta T$$
+
 The **specific heat** $c$ (J/(kg·K)) is a property of the material that depends on how its atoms are arranged and interact. Water's is unusually high (about 4,190 J/(kg·K)), so it heats and cools slowly. On the exam, $c$ does not depend on temperature.
 
 ${steps({
@@ -301,7 +313,9 @@ ${steps({
 })}
 
 ### Conduction rate
+
 $$\frac{Q}{\Delta t} = \frac{kA\,\Delta T}{L}$$
+
 The rate grows with the **thermal conductivity** $k$ (a material property), the **area** $A$ and the **temperature difference** $\Delta T$, and falls with the **thickness** $L$. That's why thick, low-$k$ insulation keeps a house warm.`,
       blocks: [],
       precheck: {

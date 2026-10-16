@@ -1,4 +1,4 @@
-import aiUsageLimiter, {
+import {
   consume,
   consumeTestDaily,
   setBypass,
@@ -6,9 +6,12 @@ import aiUsageLimiter, {
   isExempt,
   peekGeneral,
   AiUsageLimitError,
-  GENERAL_5H_LIMIT,
-  GENERAL_WEEK_LIMIT,
+  GUEST_5H_LIMIT,
+  GUEST_WEEK_LIMIT,
+  TASK_COST,
+  DEFAULT_COST,
   TEST_DAILY_LIMIT,
+  getUsageStatus,
 } from './aiUsageLimiter';
 
 const KEY = 'apex.ai.usage.v2';
@@ -21,24 +24,29 @@ beforeEach(() => {
 });
 
 describe('aiUsageLimiter general budget (guest/localStorage)', () => {
-  test('allows up to the 5-hour limit, then throws', async () => {
-    for (let i = 0; i < GENERAL_5H_LIMIT; i++) {
-      await expect(consume('general')).resolves.toBeUndefined();
+  test('allows tasks until the 5-hour budget is spent, then throws', async () => {
+    const sends = Math.ceil(GUEST_5H_LIMIT / TASK_COST.tutor);
+    for (let i = 0; i < sends; i++) {
+      await expect(consume('tutor')).resolves.toBeUndefined();
     }
-    await expect(consume('general')).rejects.toBeInstanceOf(AiUsageLimitError);
-    try {
-      await consume('general');
-      throw new Error('expected throw');
-    } catch (e) {
-      expect(e.code).toBe('ai_usage_limit');
-      expect(e.scope).toBe('5h');
-    }
+    await expect(consume('tutor')).rejects.toBeInstanceOf(AiUsageLimitError);
+    await expect(consume('ask')).rejects.toMatchObject({ code: 'ai_usage_limit', scope: '5h' });
+  });
+
+  test('each task spends its own cost, shown as % used', async () => {
+    await consume('flashcards');
+    await consume('somethingUntagged');
+    const spent = TASK_COST.flashcards + DEFAULT_COST;
+    expect(peekGeneral().fiveHourRemaining).toBe(GUEST_5H_LIMIT - spent);
+    const s = await getUsageStatus();
+    expect(s.general.fiveHour.pct).toBe(Math.round((spent / GUEST_5H_LIMIT) * 100));
+    expect(s.general.week.pct).toBe(Math.round((spent / GUEST_WEEK_LIMIT) * 100));
   });
 
   test('resets the 5-hour window once it has elapsed', async () => {
     const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000;
     localStorage.setItem(KEY, JSON.stringify({
-      fiveHour: { start: sixHoursAgo, count: GENERAL_5H_LIMIT },
+      fiveHour: { start: sixHoursAgo, count: GUEST_5H_LIMIT },
       week: { start: Date.now(), count: 1 },
       testDay: { day: '1970-01-01', count: 0 },
     }));
@@ -48,25 +56,20 @@ describe('aiUsageLimiter general budget (guest/localStorage)', () => {
   test('enforces the weekly cap independently of the 5h window', async () => {
     localStorage.setItem(KEY, JSON.stringify({
       fiveHour: { start: Date.now(), count: 0 },
-      week: { start: Date.now(), count: GENERAL_WEEK_LIMIT },
+      week: { start: Date.now(), count: GUEST_WEEK_LIMIT },
       testDay: { day: '1970-01-01', count: 0 },
     }));
-    try {
-      await consume('general');
-      throw new Error('expected throw');
-    } catch (e) {
-      expect(e).toBeInstanceOf(AiUsageLimitError);
-      expect(e.scope).toBe('week');
-    }
+    await expect(consume('general')).rejects.toMatchObject({ scope: 'week' });
+    await expect(consume('general')).rejects.toBeInstanceOf(AiUsageLimitError);
   });
 
   test('exempt categories and admins are never metered', async () => {
     expect(isExempt('practiceTest')).toBe(true);
-    for (let i = 0; i < GENERAL_5H_LIMIT + 5; i++) {
+    for (let i = 0; i < 40; i++) {
       await expect(consume('practiceTest')).resolves.toBeUndefined();
     }
     setBypass(true);
-    for (let i = 0; i < GENERAL_5H_LIMIT + 5; i++) {
+    for (let i = 0; i < 40; i++) {
       await expect(consume('general')).resolves.toBeUndefined();
     }
   });
@@ -77,18 +80,13 @@ describe('aiUsageLimiter practice-test budget (guest/localStorage)', () => {
     for (let i = 0; i < TEST_DAILY_LIMIT; i++) {
       await expect(consumeTestDaily()).resolves.toBeUndefined();
     }
-    try {
-      await consumeTestDaily();
-      throw new Error('expected throw');
-    } catch (e) {
-      expect(e).toBeInstanceOf(AiUsageLimitError);
-      expect(e.scope).toBe('testDaily');
-    }
+    await expect(consumeTestDaily()).rejects.toBeInstanceOf(AiUsageLimitError);
+    await expect(consumeTestDaily()).rejects.toMatchObject({ scope: 'testDaily' });
   });
 
   test('does not count against the general budget', async () => {
     await consumeTestDaily();
-    expect(peekGeneral().fiveHourRemaining).toBe(GENERAL_5H_LIMIT);
+    expect(peekGeneral().fiveHourRemaining).toBe(GUEST_5H_LIMIT);
   });
 
   test('admins bypass the daily test cap', async () => {

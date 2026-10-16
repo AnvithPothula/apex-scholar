@@ -1,6 +1,6 @@
-// AP Studio Art and Design curriculum data
+// AP Art and Design curriculum data
 const studioArt = {
-  name: "AP Studio Art and Design",
+  name: "AP Art and Design",
   description: "Engage in studio art making through inquiry-guided investigation of materials, processes, and ideas. Students create a portfolio that demonstrates inquiry through art making, problem-solving, and self-reflection.",
   examFormat: {
     duration: "Portfolio Submission",

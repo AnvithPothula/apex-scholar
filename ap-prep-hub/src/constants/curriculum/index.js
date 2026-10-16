@@ -1,6 +1,8 @@
 // Lazy-loaded modular curriculum data
 // Each subject is loaded on demand via dynamic import() and cached.
 
+import { courseFor } from '../subjects';
+
 // Map of subject keys to their dynamic import functions
 const subjectImports = {
   artHistory: () => import('./art-history'),
@@ -73,10 +75,10 @@ const subjectNames = {
   psychology: "AP Psychology",
   precalculus: "AP Precalculus",
   statistics: "AP Statistics",
-  usGovernmentPolitics: "AP United States Government and Politics",
-  usHistory: "AP United States History",
+  usGovernmentPolitics: "AP U.S. Government and Politics",
+  usHistory: "AP U.S. History",
   worldHistory: "AP World History: Modern",
-  studioArt: "AP Studio Art and Design",
+  studioArt: "AP Art and Design",
   research: "AP Research",
   seminar: "AP Seminar",
   spanishLanguage: "AP Spanish Language and Culture",
@@ -88,9 +90,9 @@ const subjectNames = {
   latin: "AP Latin",
   comparativeGovernment: "AP Comparative Government and Politics",
   spanishLiterature: "AP Spanish Literature and Culture",
-  studioArt2D: "AP Studio Art: 2-D Design",
-  studioArt3D: "AP Studio Art: 3-D Design",
-  studioArtDrawing: "AP Studio Art: Drawing",
+  studioArt2D: "AP 2-D Art and Design",
+  studioArt3D: "AP 3-D Art and Design",
+  studioArtDrawing: "AP Drawing",
 };
 
 /**
@@ -104,6 +106,10 @@ const subjectNames = {
 export const SUBJECT_KEY_BY_DISPLAY_NAME = {
   // Arts
   'AP Art History': 'artHistory',
+  'AP Art and Design': 'studioArt',
+  'AP 2-D Art and Design': 'studioArt2D',
+  'AP 3-D Art and Design': 'studioArt3D',
+  'AP Drawing': 'studioArtDrawing',
   'AP Studio Art and Design': 'studioArt',
   'AP Studio Art: 2-D Design': 'studioArt2D',
   'AP Studio Art: 3-D Design': 'studioArt3D',
@@ -198,6 +204,10 @@ export const resolveSubjectKey = (subject) => {
   const mappedKey = displayNameMap[subject];
   if (mappedKey && subjectImports[mappedKey]) return mappedKey;
 
+  // URL slug ("ap-us-history") or any other name constants/subjects knows
+  const course = courseFor(subject);
+  if (course && subjectImports[course.key]) return course.key;
+
   // Normalized fuzzy lookup
   const normalizedSubject = subject.toLowerCase().replace(/^ap\s+/i, '').replace(/[\s\-:]+/g, '');
   for (const key of Object.keys(subjectImports)) {
@@ -282,7 +292,7 @@ export const generateCurriculumContext = async (subject) => {
   if (!curriculum) return "";
 
   return `
-OFFICIAL AP ${curriculum.name.toUpperCase()} CURRICULUM CONTEXT:
+OFFICIAL ${curriculum.name.toUpperCase()} CURRICULUM CONTEXT:
 
 Course Description: ${curriculum.description}
 

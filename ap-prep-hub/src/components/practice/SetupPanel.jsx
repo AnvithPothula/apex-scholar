@@ -321,6 +321,7 @@ const SetupPanel = ({
                           <Input
                             type="number"
                             placeholder="Minutes"
+                  aria-label="Custom time in minutes"
                             min="1"
                             max="300"
                             value={customTime}
@@ -388,6 +389,7 @@ const SetupPanel = ({
                           <Input
                             type="number"
                             placeholder="1-100"
+                  aria-label="Number of questions"
                             min="1"
                             max="100"
                             value={customQuestionCount}

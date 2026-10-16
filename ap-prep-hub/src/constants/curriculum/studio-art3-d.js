@@ -1,6 +1,6 @@
-// AP Studio Art: 3-D Design curriculum data
+// AP 3-D Art and Design curriculum data
 const studioArt3D = {
-  name: "AP Studio Art: 3-D Design",
+  name: "AP 3-D Art and Design",
   description: "Explore 3-D design through direct experience in a variety of sculptural approaches, materials, and methods.",
   bigIdeas: [
     "3-D Elements and Relationships",

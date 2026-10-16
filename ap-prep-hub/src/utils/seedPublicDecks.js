@@ -86,7 +86,7 @@ const STATIC_DECKS = [
     ]},
 
   // ── AP U.S. History ──
-  { subject: 'AP U.S. History', title: 'AP US History — Period 1-2: Colonial America', topic: 'Period 1-2: Colonial America (1491–1754)', difficulty: 'Medium',
+  { subject: 'AP U.S. History', title: 'AP U.S. History — Period 1-2: Colonial America', topic: 'Period 1-2: Colonial America (1491–1754)', difficulty: 'Medium',
     description: 'European colonization, colonial society, and interactions with Native Americans.',
     cards: [
       { question: 'What was the Columbian Exchange?', answer: 'The widespread transfer of plants, animals, diseases, and technology between the Americas and the Old World after 1492.' },
@@ -100,7 +100,7 @@ const STATIC_DECKS = [
       { question: 'What was the Middle Passage?', answer: 'The forced Atlantic voyage of enslaved Africans from West Africa to the Americas — horrific conditions with ~15% mortality rate.' },
       { question: 'How did Puritan and Chesapeake colonies differ?', answer: 'Puritans (New England): religious community, families, town meetings. Chesapeake: profit-driven, young single men, plantation economy, high mortality.' },
     ]},
-  { subject: 'AP U.S. History', title: 'AP US History — Period 3: Revolution & Republic', topic: 'Period 3: Revolution and the New Republic (1754–1800)', difficulty: 'Medium',
+  { subject: 'AP U.S. History', title: 'AP U.S. History — Period 3: Revolution & Republic', topic: 'Period 3: Revolution and the New Republic (1754–1800)', difficulty: 'Medium',
     description: 'American Revolution, Constitution, and early republic.',
     cards: [
       { question: 'What was "no taxation without representation"?', answer: 'Colonial argument that Parliament couldn\'t tax them because they had no elected members in Parliament — central grievance leading to revolution.' },
@@ -304,7 +304,7 @@ const STATIC_DECKS = [
     ]},
 
   // ── AP U.S. Government ──
-  { subject: 'AP U.S. Government and Politics', title: 'AP US Government — Foundations & Federalism', topic: 'Foundations of American Democracy & Federalism', difficulty: 'Medium',
+  { subject: 'AP U.S. Government and Politics', title: 'AP U.S. Government — Foundations & Federalism', topic: 'Foundations of American Democracy & Federalism', difficulty: 'Medium',
     description: 'Constitutional principles, federalism, and the structure of government.',
     cards: [
       { question: 'What are the six principles of the Constitution?', answer: 'Popular sovereignty, limited government, separation of powers, checks and balances, judicial review, and federalism.' },
@@ -377,7 +377,7 @@ export async function seedAllPublicDecks(userId, onProgress) {
 
 /**
  * AI-powered generation: generates additional decks for subjects not in STATIC_DECKS.
- * Requires a working AI service (Puter or Gemini API key).
+ * Requires a working AI service (the ai-proxy or a Gemini API key).
  */
 export async function seedAIDecks(onProgress) {
   let created = 0;

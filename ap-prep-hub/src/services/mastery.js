@@ -12,6 +12,8 @@
  * fake "Basic Fundamentals" weakness.)
  */
 
+import { subjectName } from '../constants/subjects';
+
 const MIN_SAMPLES = 5;
 const GREEN = 80;
 const YELLOW = 60;
@@ -188,7 +190,8 @@ export function subjectMastery(subject, tests = []) {
 export function masteryBySubject(tests = []) {
   const bySubject = new Map();
   for (const t of tests) {
-    const s = (t && t.subject) || '';
+    // One entry per course even when older tests saved an older name.
+    const s = subjectName((t && t.subject) || '');
     // Drop abandoned tests here too, so a subject whose only attempt was a blank
     // submission doesn't show up as a studied subject at all.
     if (!s || isAbandoned(t)) continue;
@@ -248,12 +251,13 @@ export function topicsFromResponses(responses = []) {
   const bySubject = new Map();
   for (const r of responses) {
     if (!r || !r.subject || !r.unit || typeof r.correct !== 'boolean') continue;
-    const topics = bySubject.get(r.subject) || new Map();
+    const subject = subjectName(r.subject);
+    const topics = bySubject.get(subject) || new Map();
     const t = topics.get(r.unit) || { unit: r.unit, right: 0, total: 0 };
     t.total += 1;
     if (r.correct) t.right += 1;
     topics.set(r.unit, t);
-    bySubject.set(r.subject, topics);
+    bySubject.set(subject, topics);
   }
   const out = new Map();
   bySubject.forEach((topics, subject) => {

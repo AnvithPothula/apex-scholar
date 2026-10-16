@@ -172,7 +172,7 @@ describe('adapting to what the student has shown', () => {
       const course = ids.get(slug.split('/')[0]);
       expect(course).toBeTruthy();
       expect(p.subject).toBe(course.subject);
-      if (course.units) expect(courseUnits(course).map((u) => u.slug)).toContain(slug);
+      expect(course.units ? courseUnits(course).map((u) => u.slug) : [slug]).toContain(slug);
     });
     expect(new Set(COURSES.map((c) => c.id)).size).toBe(COURSES.length);
   });
@@ -474,6 +474,120 @@ describe('Boolean search sandbox', () => {
   });
 });
 
+describe('incline lab', () => {
+  // eslint-disable-next-line global-require
+  const { inclineForces } = require('../components/study/InclineLab');
+  it('holds with exactly the static friction needed, then slides with kinetic friction', () => {
+    const rest = inclineForces({ deg: 20, m: 2, mus: 0.5, muk: 0.3 });
+    expect(rest.slides).toBe(false);
+    expect(rest.friction).toBeCloseTo(20 * Math.sin((20 * Math.PI) / 180));
+    expect(rest.a).toBe(0);
+    const slide = inclineForces({ deg: 30, m: 2, mus: 0.5, muk: 0.3 });
+    expect(slide.slides).toBe(true); // tan 30° ≈ 0.577 > 0.5
+    expect(slide.a).toBeCloseTo(10 * (0.5 - 0.3 * Math.cos(Math.PI / 6)));
+    // mass never decides slipping
+    expect(inclineForces({ deg: 30, m: 9, mus: 0.5, muk: 0.3 }).a).toBeCloseTo(slide.a);
+    expect(inclineForces({ deg: 0, m: 5, mus: 0, muk: 0 }).slides).toBe(false);
+  });
+});
+
+describe('VSEPR explorer', () => {
+  // eslint-disable-next-line global-require
+  const { vsepr } = require('../components/study/VSEPRExplorer');
+  it('maps domains and lone pairs to shapes, angles, hybridization and polarity', () => {
+    expect(vsepr(4, 2)).toMatchObject({ shape: 'bent', example: 'H₂O', hybrid: 'sp³', polar: true, bonded: 2 });
+    expect(vsepr(4, 1).shape).toBe('trigonal pyramidal');
+    expect(vsepr(3, 0)).toMatchObject({ angle: '120°', hybrid: 'sp²', polar: false });
+    expect(vsepr(5, 3)).toMatchObject({ shape: 'linear', polar: false, hybrid: null });
+    expect(vsepr(6, 2)).toMatchObject({ shape: 'square planar', polar: false });
+    expect(vsepr(2, 1)).toBeUndefined();
+  });
+});
+
+describe('display maths in packs', () => {
+  it('sits in its own paragraph, so it renders as a block, not inline', async () => {
+    const problems = [];
+    for (const [slug, entry] of Object.entries(PACKS)) {
+      const { default: pack } = await entry.load();
+      for (const s of pack.sections) {
+        const lines = s.body.split('\n');
+        lines.forEach((l, i) => {
+          if (!/^\s*\$\$/.test(l)) return;
+          if (i > 0 && lines[i - 1].trim() && !/^\s*#/.test(lines[i - 1])) problems.push(`${slug} ${s.id}: $$ glued to the line before`);
+          if (/\$\$\s*$/.test(l.trim().slice(2)) && i + 1 < lines.length && lines[i + 1].trim()) problems.push(`${slug} ${s.id}: $$ glued to the line after`);
+        });
+        for (const m of s.body.matchAll(/(?<!\\)\$[^$\n]+(?<!\\)\$/g)) if (m[0].includes('·')) problems.push(`${slug} ${s.id}: middle dot inside maths renders red`);
+        for (const row of lines.filter((l) => l.trim().startsWith('|'))) {
+          for (const m of row.matchAll(/(?<!\\)\$[^$]+(?<!\\)\$/g)) if (m[0].includes('|')) problems.push(`${slug} ${s.id}: | inside maths splits a table cell; use \\lvert \\rvert`);
+        }
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+});
+
+describe('probability sims', () => {
+  // eslint-disable-next-line global-require
+  const { simulate, runningProportions } = require('../components/study/LargeNumbersLab');
+  // eslint-disable-next-line global-require
+  const { POPULATIONS, popStats, sampleMeans } = require('../components/study/CLTLab');
+  // Deterministic generator so the checks don't flake.
+  const lcg = (seed) => () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
+  it('running proportions settle near p', () => {
+    expect(runningProportions([true, false, true, true])).toEqual([1, 0.5, 2 / 3, 0.75]);
+    const props = runningProportions(simulate(0.3, 5000, lcg(7)));
+    expect(Math.abs(props[4999] - 0.3)).toBeLessThan(0.03);
+  });
+  it('sample means center on mu and spread like sigma over root n', () => {
+    const { mu, sigma } = popStats(POPULATIONS.Uniform);
+    expect(mu).toBeCloseTo(4.5);
+    expect(sigma).toBeCloseTo(Math.sqrt(8.25));
+    const means = sampleMeans(POPULATIONS['Right-skewed'], 30, 4000, lcg(3));
+    const s = popStats(POPULATIONS['Right-skewed']);
+    const m = means.reduce((a, b) => a + b, 0) / means.length;
+    const sd = Math.sqrt(means.reduce((a, b) => a + (b - m) ** 2, 0) / (means.length - 1));
+    expect(Math.abs(m - s.mu)).toBeLessThan(0.05);
+    expect(sd / (s.sigma / Math.sqrt(30))).toBeGreaterThan(0.9);
+    expect(sd / (s.sigma / Math.sqrt(30))).toBeLessThan(1.1);
+  });
+});
+
+describe('population pyramid lab', () => {
+  // eslint-disable-next-line global-require
+  const { stablePopulation } = require('../components/study/PopulationPyramidLab');
+  it('moves through the demographic transition as births fall and lives lengthen', () => {
+    const s1 = stablePopulation(36, 30);
+    expect(s1.stage).toBe(1);
+    expect(Math.abs(s1.nir)).toBeLessThan(0.5);
+    const s2 = stablePopulation(40, 60);
+    expect(s2.stage).toBe(2);
+    expect(s2.doubling).toBeCloseTo(70 / s2.nir);
+    expect(stablePopulation(22, 75).stage).toBe(3);
+    expect(stablePopulation(12, 82).stage).toBe(4);
+    const s5 = stablePopulation(8, 84);
+    expect(s5.stage).toBe(5);
+    expect(s5.old).toBeGreaterThan(s2.old);
+    expect(s5.young).toBeLessThan(s2.young);
+    // crude death rate is births minus growth, per 1,000
+    expect(s2.cdr).toBeCloseTo(40 - s2.r * 1000);
+    expect(s2.share.reduce((a, b) => a + b, 0)).toBeCloseTo(1);
+  });
+});
+
+describe('labor market lab', () => {
+  // eslint-disable-next-line global-require
+  const { laborStats } = require('../components/study/LaborMarketLab');
+  it('computes the unemployment and participation rates and the discouraged-worker effect', () => {
+    const base = laborStats({ employed: 120, unemployed: 8, notInLaborForce: 72 });
+    expect(base.unemploymentRate).toBeCloseTo(6.25);
+    expect(base.participationRate).toBeCloseTo(64);
+    const discouraged = laborStats({ employed: 120, unemployed: 7, notInLaborForce: 73 });
+    expect(discouraged.unemploymentRate).toBeLessThan(base.unemploymentRate);
+    expect(discouraged.participationRate).toBeLessThan(base.participationRate);
+    expect(laborStats({ employed: 0, unemployed: 0, notInLaborForce: 0 }).unemploymentRate).toBe(0);
+  });
+});
+
 describe('dollar signs in packs', () => {
   // A lone "$" (currency) is auto-closed as maths by the renderer, turning the rest
   // of the paragraph into italic run-together text. Currency must be written "\\$".
@@ -507,5 +621,29 @@ describe('dollar signs in packs', () => {
       }
     }
     expect(problems).toEqual([]);
+  });
+});
+
+describe('market lab', () => {
+  // eslint-disable-next-line global-require
+  const { market } = require('../components/study/MarketLab');
+  const base = { a: 100, b: 1, c: 10, d: 1 };
+  it('finds equilibrium and splits surplus', () => {
+    const m = market(base);
+    expect([m.qStar, m.pStar, m.cs, m.ps, m.dwl]).toEqual([45, 55, 1012.5, 1012.5, 0]);
+  });
+  it('prices a per-unit tax: revenue, deadweight loss and incidence', () => {
+    const m = market({ ...base, policy: 'tax', level: 20 });
+    expect([m.q, m.pBuyers, m.pSellers, m.revenue, m.cs, m.ps, m.dwl, m.buyerShare]).toEqual([35, 65, 45, 700, 612.5, 612.5, 100, 0.5]);
+    // Flatter (more elastic) demand: buyers bear less of the tax.
+    expect(market({ a: 100, b: 0.5, c: 10, d: 2, policy: 'tax', level: 20 }).buyerShare).toBeCloseTo(0.2);
+  });
+  it('handles binding and non-binding ceilings and floors', () => {
+    const c = market({ ...base, policy: 'ceiling', level: 40 });
+    expect([c.q, c.shortage, c.cs, c.ps, c.dwl]).toEqual([30, 30, 1350, 450, 225]);
+    const f = market({ ...base, policy: 'floor', level: 70 });
+    expect([f.q, f.surplus, f.cs, f.ps, f.dwl]).toEqual([30, 30, 450, 1350, 225]);
+    expect(market({ ...base, policy: 'ceiling', level: 60 }).binding).toBe(false);
+    expect(market({ ...base, policy: 'floor', level: 50 }).dwl).toBe(0);
   });
 });

@@ -2,7 +2,7 @@ import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { overlayVariants, modalVariants } from '../utils/animations';
-import { Brain, Calendar, Settings, LogOut, Award, Shield, X, MessageSquare, Send, Bug, FileQuestion, Calculator, Star, Code2, Sun, Moon, Lock, LogIn, GraduationCap, FileText } from 'lucide-react';
+import { Brain, Calendar, Settings, LogOut, Award, Shield, X, MessageSquare, Bug, FileQuestion, Calculator, Star, Code2, Sun, Moon, Lock, LogIn, FileText } from 'lucide-react';
 import { Button, Avatar, AvatarFallback, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from './ui/UIComponents';
 import { useAuth } from '../contexts/AuthContext';
 import { createPageUrl, cn } from '../utils/helpers';
@@ -18,6 +18,7 @@ const OnboardingWalkthrough = lazy(() => import('./OnboardingWalkthrough'));
 const ReviewModal = lazy(() => import('./ReviewModal'));
 const DeveloperSettings = lazy(() => import('./DeveloperSettings'));
 const BugReportModal = lazy(() => import('./BugReportModal'));
+const FeedbackModal = lazy(() => import('./FeedbackModal'));
 
 export function Layout({ children }) {
     const location = useLocation();
@@ -66,7 +67,7 @@ export function Layout({ children }) {
                                     className="w-7 h-7 sm:w-8 sm:h-8"
                                 />
                             </div>
-                            <h1 className="text-base sm:text-lg font-display font-semibold text-content-primary truncate max-w-[120px] sm:max-w-none">Apex Scholar</h1>
+                            <span className="text-base sm:text-lg font-display font-semibold text-content-primary truncate max-w-[120px] sm:max-w-none">Apex Scholar</span>
                         </Link>
                         
                         {/* Mobile-optimized navigation */}
@@ -125,21 +126,6 @@ export function Layout({ children }) {
                                 <span className="hidden md:inline">Schedule</span>
                                 {isGuest && <Lock strokeWidth={1.5} size={11} className="ml-0.5 flex-shrink-0 opacity-50" />}
                             </Link>
-                            {/* Learn tab is dev-only for now */}
-                            {isAdmin(user?.uid) && (
-                            <Link
-                                to={createPageUrl("Learn")}
-                                aria-label="Learn"
-                                aria-current={isActiveTab("Learn") ? "page" : undefined}
-                                className={cn(
-                                    "px-2 sm:px-2.5 md:px-3 lg:px-4 py-1.5 sm:py-2 flex items-center space-x-1 md:space-x-1.5 font-medium transition-all duration-200 text-xs sm:text-sm",
-                                    isActiveTab("Learn") ? "text-content-primary border-b-2 border-content-primary" : "text-content-muted hover:text-content-primary"
-                                )}
-                            >
-                                <GraduationCap strokeWidth={1.5} size={14} className="sm:w-4 sm:h-4 flex-shrink-0" />
-                                <span className="hidden md:inline">Learn</span>
-                            </Link>
-                            )}
                         </nav>
                         
                         <div className="flex items-center space-x-1 sm:space-x-2">
@@ -153,6 +139,17 @@ export function Layout({ children }) {
                                 {isDark ? <Sun strokeWidth={1.5} size={16} className="sm:w-[18px] sm:h-[18px]" /> : <Moon strokeWidth={1.5} size={16} className="sm:w-[18px] sm:h-[18px]" />}
                             </button>
                             {!user ? (
+                                <>
+                                {/* Guests had no way to send feedback: the form was only in the account menu. */}
+                                <button
+                                    type="button"
+                                    onClick={() => setShowFeedbackModal(true)}
+                                    className="p-2 rounded-lg text-content-secondary hover:text-content-primary hover:bg-base-850 transition-colors"
+                                    aria-label="Send feedback"
+                                    title="Send feedback"
+                                >
+                                    <MessageSquare strokeWidth={1.5} size={16} className="sm:w-[18px] sm:h-[18px]" />
+                                </button>
                                 <Button
                                     onClick={() => navigate('/login')}
                                     className="h-8 sm:h-9 px-3 sm:px-4 text-xs sm:text-sm"
@@ -160,6 +157,7 @@ export function Layout({ children }) {
                                     <LogIn strokeWidth={1.5} size={14} className="mr-1.5" />
                                     Sign in
                                 </Button>
+                                </>
                             ) : (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -229,8 +227,6 @@ export function Layout({ children }) {
                         { page: 'Practice', label: 'Practice', Icon: FileQuestion, locked: true },
                         { page: 'Solver', label: 'Solver', Icon: Calculator, locked: true },
                         { page: 'SmartScheduler', label: 'Schedule', Icon: Calendar, locked: true },
-                        // Dev-only: Learn tab only appears in the mobile nav for admins.
-                        ...(isAdmin(user?.uid) ? [{ page: 'Learn', label: 'Learn', Icon: GraduationCap }] : []),
                     ].map(({ page, label, Icon, locked }) => (
                         <Link
                             key={page}
@@ -254,16 +250,16 @@ export function Layout({ children }) {
                 </div>
             </nav>}
 
-            {/* Feedback Modal */}
-            <AnimatePresence>
             {showFeedbackModal && (
-                <FeedbackModal
-                    user={user}
-                    onClose={() => setShowFeedbackModal(false)}
-                    onReportBug={() => { setShowFeedbackModal(false); setShowBugModal(true); }}
-                />
+                <Suspense fallback={null}>
+                    <FeedbackModal
+                        user={user}
+                        page={location.pathname}
+                        onClose={() => setShowFeedbackModal(false)}
+                        onReportBug={() => { setShowFeedbackModal(false); setShowBugModal(true); }}
+                    />
+                </Suspense>
             )}
-            </AnimatePresence>
 
             <AnimatePresence>
             {showBugModal && (
@@ -336,189 +332,5 @@ export function Layout({ children }) {
             {/* Global command palette (Cmd+K) */}
             <CommandPalette />
         </div>
-    );
-}
-
-// Feedback Modal Component
-function FeedbackModal({ user, onClose, onReportBug }) {
-    const [feedbackType, setFeedbackType] = useState('');
-    const [title, setTitle] = useState('');
-    const [message, setMessage] = useState('');
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [submitStatus, setSubmitStatus] = useState('');
-
-    const feedbackTypes = [
-        { value: 'bug', label: 'Bug/Issue' },
-        { value: 'suggestion', label: 'Suggestion' },
-        { value: 'feature', label: 'Feature Request' },
-        { value: 'general', label: 'General Feedback' },
-        { value: 'other', label: 'Other' }
-    ];
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        
-        // Bugs have their own form (steps, expected vs actual, browser details).
-        if (feedbackType === 'bug') return;
-        if (!feedbackType || !title || !message) {
-            setSubmitStatus('Please fill in all fields');
-            return;
-        }
-
-        setIsSubmitting(true);
-        setSubmitStatus('Sending...');
-
-        try {
-            const { default: emailService } = await import('../services/emailService');
-            const result = await emailService.sendFeedback(
-                { feedbackType, title, message },
-                user
-            );
-            
-            if (result.demo) {
-                if (result.fallback) {
-                    setSubmitStatus('Your feedback has been logged (EmailJS configuration issue). Check console for details.');
-                } else {
-                    setSubmitStatus('Demo: Your feedback has been logged to console. Configure EmailJS to send real emails.');
-                }
-            } else {
-                setSubmitStatus('Thank you! Your feedback has been sent successfully.');
-            }
-            
-            // Close modal after 3 seconds
-            setTimeout(() => {
-                onClose();
-            }, 3000);
-            
-        } catch (error) {
-            console.error('Error sending feedback:', error);
-            setSubmitStatus('Your feedback has been logged locally. There may be an email configuration issue.');
-            
-            // Still close modal after showing error
-            setTimeout(() => {
-                onClose();
-            }, 4000);
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-    return (
-        <motion.div variants={overlayVariants} initial="hidden" animate="visible" exit="exit" className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-            <motion.div variants={modalVariants} initial="hidden" animate="visible" exit="exit" className="bg-base-850 rounded-md p-6 max-w-lg w-full border border-border shadow-floating">
-                <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-base font-display font-semibold text-content-primary">
-                        Send Feedback
-                    </h2>
-                    <button
-                        onClick={onClose}
-                        className="text-content-muted hover:text-content-primary transition-colors"
-                    >
-                        <X strokeWidth={1.5} className="w-5 h-5" />
-                    </button>
-                </div>
-
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    {/* Feedback Type */}
-                    <div>
-                        <label className="block text-sm font-medium text-content-secondary mb-2">
-                            Feedback Type *
-                        </label>
-                        <select
-                            value={feedbackType}
-                            onChange={(e) => setFeedbackType(e.target.value)}
-                            className="w-full bg-base-800 border border-border-strong rounded-sm px-3 py-2 text-content-primary focus:border-content-muted focus:ring-1 focus:ring-content-muted/20 transition-all"
-                            required
-                        >
-                            <option value="">Select feedback type...</option>
-                            {feedbackTypes.map(type => (
-                                <option key={type.value} value={type.value}>
-                                    {type.label}
-                                </option>
-                            ))}
-                        </select>
-                        {feedbackType === 'bug' && (
-                            <div role="alert" className="mt-3 p-3 rounded-lg text-sm bg-warning-900/30 border border-warning-500 text-content-secondary">
-                                Please use <strong className="text-content-primary">Report bug</strong> instead. It asks the questions we need to fix it and attaches your browser details.
-                                <button type="button" onClick={onReportBug} className="mt-2 flex items-center gap-1.5 text-primary-400 underline">
-                                    <Bug strokeWidth={1.5} className="w-4 h-4" />Open Report bug
-                                </button>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Title */}
-                    <div>
-                        <label className="block text-sm font-medium text-content-secondary mb-2">
-                            Title *
-                        </label>
-                        <input
-                            type="text"
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                            className="w-full bg-base-800 border border-border-strong rounded-sm px-3 py-2 text-content-primary focus:border-content-muted focus:ring-1 focus:ring-content-muted/20 transition-all"
-                            placeholder="Brief description of your feedback"
-                            required
-                        />
-                    </div>
-
-                    {/* Message */}
-                    <div>
-                        <label className="block text-sm font-medium text-content-secondary mb-2">
-                            Message *
-                        </label>
-                        <textarea
-                            value={message}
-                            onChange={(e) => setMessage(e.target.value)}
-                            rows={4}
-                            className="w-full bg-base-800 border border-border-strong rounded-sm px-3 py-2 text-content-primary focus:border-content-muted focus:ring-1 focus:ring-content-muted/20 transition-all resize-none"
-                            placeholder="Please provide detailed feedback..."
-                            required
-                        />
-                    </div>
-
-                    {/* Status Message */}
-                    {submitStatus && (
-                        <div className={`p-3 rounded-lg text-sm ${
-                            submitStatus.includes('success') || submitStatus.includes('Thank you')
-                                ? 'bg-success-900/30 border border-success-600 text-success-300'
-                                : submitStatus.includes('Failed') || submitStatus.includes('Please fill')
-                                ? 'bg-error-900/30 border border-error-600 text-error-300'
-                                : 'bg-base-800/30 border border-border text-content-muted'
-                        }`}>
-                            {submitStatus}
-                        </div>
-                    )}
-
-                    {/* Submit Button */}
-                    <div className="flex gap-3 pt-2">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="flex-1 px-4 py-2 bg-base-800 hover:bg-base-750 text-content-secondary rounded-sm transition-colors"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={isSubmitting || feedbackType === 'bug'}
-                            className="flex-1 px-4 py-2 bg-content-primary text-base-950 rounded-sm transition-colors hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {isSubmitting ? (
-                                <>
-                                    <div className="w-4 h-4 border-2 border-base-950 border-t-transparent rounded-full animate-spin"></div>
-                                    Sending...
-                                </>
-                            ) : (
-                                <>
-                                    <Send strokeWidth={1.5} className="w-4 h-4" />
-                                    Send Feedback
-                                </>
-                            )}
-                        </button>
-                    </div>
-                </form>
-            </motion.div>
-        </motion.div>
     );
 }

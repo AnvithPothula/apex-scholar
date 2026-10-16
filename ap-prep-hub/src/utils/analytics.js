@@ -18,7 +18,9 @@ const GA_ID = process.env.REACT_APP_GA_MEASUREMENT_ID;
 let loaded = false;
 
 export function initAnalytics() {
-  if (loaded || !GA_ID || typeof window === 'undefined') return false;
+  // Production builds only: .env carries the real measurement ID, and dev
+  // traffic would otherwise land in the live GA property.
+  if (loaded || !GA_ID || process.env.NODE_ENV !== 'production' || typeof window === 'undefined') return false;
   // Respect an explicit Do Not Track signal rather than ignoring it.
   if (window.navigator?.doNotTrack === '1' || window.doNotTrack === '1') return false;
   loaded = true;

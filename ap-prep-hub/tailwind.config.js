@@ -1,3 +1,31 @@
+/**
+ * Theme colours are CSS variables holding hex values, which Tailwind can't
+ * apply an opacity modifier to: `bg-warning-900/50` used to generate NO CSS at
+ * all (about 300 classes rendered nothing). With a modifier, mix the variable
+ * with transparent; without one, emit the plain variable exactly as before, so
+ * browsers without color-mix() lose nothing they had.
+ */
+const tok = (cssVar) => ({ opacityValue }) => {
+  if (opacityValue === undefined || String(opacityValue).startsWith('var(')) return `var(${cssVar})`;
+  // Gradients ask for the 0% stop; plain `transparent` works in every browser.
+  if (Number(opacityValue) === 0) return 'transparent';
+  return `color-mix(in srgb, var(${cssVar}) calc(${opacityValue} * 100%), transparent)`;
+};
+
+/**
+ * Semantic palettes define three roles: 400 text, 500 solid, 900 tint (the
+ * tint flips light/dark with the theme). Other shades were used ~80 times and
+ * generated nothing; alias each to the role it was reaching for.
+ */
+const semantic = (name) => {
+  const v = (n) => tok(`--color-${name}-${n}`);
+  return {
+    200: v(400), 300: v(400), 400: v(400),
+    500: v(500), 600: v(500), 700: v(500),
+    800: v(900), 900: v(900),
+  };
+};
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: ["class"],
@@ -34,56 +62,38 @@ module.exports = {
       },
       colors: {
         base: {
-          950: 'var(--color-base-950)',
-          900: 'var(--color-base-900)',
-          850: 'var(--color-base-850)',
-          800: 'var(--color-base-800)',
-          750: 'var(--color-base-750)',
+          950: tok('--color-base-950'),
+          900: tok('--color-base-900'),
+          850: tok('--color-base-850'),
+          800: tok('--color-base-800'),
+          750: tok('--color-base-750'),
+          700: tok('--color-base-750'), // alias: no 700 in the palette
         },
         border: {
-          DEFAULT: 'var(--color-border)',
-          subtle: 'var(--color-border-subtle)',
-          strong: 'var(--color-border-strong)',
+          DEFAULT: tok('--color-border'),
+          subtle: tok('--color-border-subtle'),
+          strong: tok('--color-border-strong'),
         },
         content: {
-          primary: 'var(--color-text-primary)',
-          secondary: 'var(--color-text-secondary)',
-          muted: 'var(--color-text-muted)',
-          disabled: 'var(--color-text-disabled)',
+          primary: tok('--color-text-primary'),
+          secondary: tok('--color-text-secondary'),
+          muted: tok('--color-text-muted'),
+          disabled: tok('--color-text-disabled'),
         },
         primary: {
-          400: 'var(--color-primary-400)',
-          500: 'var(--color-primary-500)',
-          600: 'var(--color-primary-600)',
-          700: 'var(--color-primary-700)',
-          900: 'var(--color-primary-900)',
-          950: 'var(--color-primary-950)',
+          300: tok('--color-primary-400'), // alias
+          400: tok('--color-primary-400'),
+          500: tok('--color-primary-500'),
+          600: tok('--color-primary-600'),
+          700: tok('--color-primary-700'),
+          900: tok('--color-primary-900'),
+          950: tok('--color-primary-950'),
         },
-        accent: {
-          400: 'var(--color-accent-400)',
-          500: 'var(--color-accent-500)',
-          900: 'var(--color-accent-900)',
-        },
-        success: {
-          400: 'var(--color-success-400)',
-          500: 'var(--color-success-500)',
-          900: 'var(--color-success-900)',
-        },
-        warning: {
-          400: 'var(--color-warning-400)',
-          500: 'var(--color-warning-500)',
-          900: 'var(--color-warning-900)',
-        },
-        error: {
-          400: 'var(--color-error-400)',
-          500: 'var(--color-error-500)',
-          900: 'var(--color-error-900)',
-        },
-        info: {
-          400: 'var(--color-info-400)',
-          500: 'var(--color-info-500)',
-          900: 'var(--color-info-900)',
-        },
+        accent: semantic('accent'),
+        success: semantic('success'),
+        warning: semantic('warning'),
+        error: semantic('error'),
+        info: semantic('info'),
       },
       borderRadius: {
         sm: '6px',

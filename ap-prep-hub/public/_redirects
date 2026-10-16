@@ -18,5 +18,23 @@
 /Settings          /settings           301
 /Settings/*        /settings/:splat    301
 
+# Score calculator slugs renamed to match Learn's (2026-10-16).
+/ap-score-calculator/ap-world-history  /ap-score-calculator/ap-world-history-modern  301
+/ap-score-calculator/ap-english-language  /ap-score-calculator/ap-english-language-and-composition  301
+/ap-score-calculator/ap-english-literature  /ap-score-calculator/ap-english-literature-and-composition  301
+/ap-score-calculator/ap-gov  /ap-score-calculator/ap-us-government-and-politics  301
+/ap-score-calculator/ap-comparative-government  /ap-score-calculator/ap-comparative-government-and-politics  301
+/ap-score-calculator/ap-spanish-language  /ap-score-calculator/ap-spanish-language-and-culture  301
+/ap-score-calculator/ap-french-language  /ap-score-calculator/ap-french-language-and-culture  301
+/ap-score-calculator/ap-german-language  /ap-score-calculator/ap-german-language-and-culture  301
+/ap-score-calculator/ap-italian-language  /ap-score-calculator/ap-italian-language-and-culture  301
+/ap-score-calculator/ap-chinese-language  /ap-score-calculator/ap-chinese-language-and-culture  301
+/ap-score-calculator/ap-japanese-language  /ap-score-calculator/ap-japanese-language-and-culture  301
+/ap-score-calculator/ap-spanish-literature  /ap-score-calculator/ap-spanish-literature-and-culture  301
+/ap-score-calculator/ap-business-personal-finance  /ap-score-calculator/ap-business-with-personal-finance  301
+
+# Timeline slug renamed to match Learn's (2026-10-16).
+/study/timelines/us-history  /study/timelines/ap-us-history  301
+
 # SPA fallback
 /* /index.html 200

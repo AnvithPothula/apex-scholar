@@ -1,6 +1,6 @@
-// AP Studio Art: 2-D Design curriculum data
+// AP 2-D Art and Design curriculum data
 const studioArt2D = {
-  name: "AP Studio Art: 2-D Design",
+  name: "AP 2-D Art and Design",
   description: "Develop mastery in 2-D design through a portfolio that demonstrates artistic investigation of materials, processes, and ideas.",
   bigIdeas: [
     "Visual Relationships",

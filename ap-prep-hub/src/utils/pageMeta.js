@@ -10,30 +10,27 @@
  * builders are pure and tested, the DOM write is a one-line hook.
  */
 
-/** Short forms students actually type. "ap bio" gets far more searches than
- *  "AP Biology", and none of them appeared anywhere on the page. */
+/** Nicknames students actually search ("ap bio", "apush"). They go in the
+ *  description as search terms; titles use the official course name, the
+ *  same one every page shows (constants/subjects). Keyed by official name. */
 const ALIASES = {
   'AP Biology': ['AP Bio'],
   'AP Chemistry': ['AP Chem'],
   'AP Calculus AB': ['AP Calc AB'],
   'AP Calculus BC': ['AP Calc BC'],
   'AP Precalculus': ['AP Precalc'],
-  'AP US History': ['APUSH', 'AP US History'],
-  'AP United States History': ['APUSH', 'AP US History'],
   'AP U.S. History': ['APUSH', 'AP US History'],
   'AP World History: Modern': ['AP World'],
   'AP European History': ['AP Euro'],
   'AP Environmental Science': ['APES'],
   'AP Computer Science A': ['AP CSA'],
   'AP Computer Science Principles': ['AP CSP'],
-  'AP United States Government and Politics': ['AP Gov'],
   'AP U.S. Government and Politics': ['AP Gov'],
   'AP Comparative Government and Politics': ['AP Comp Gov'],
   'AP Psychology': ['AP Psych'],
   'AP Macroeconomics': ['AP Macro'],
   'AP Microeconomics': ['AP Micro'],
   'AP Statistics': ['AP Stats'],
-  'AP Physics 1': ['AP Physics 1'],
   'AP Physics 1: Algebra-Based': ['AP Physics 1'],
   'AP Physics 2: Algebra-Based': ['AP Physics 2'],
   'AP Physics C: Mechanics': ['AP Physics C Mech'],
@@ -53,11 +50,12 @@ const ALIASES = {
 
 export const aliasesFor = (subject) => ALIASES[subject] || [];
 
-/** Under ~60 chars survives untruncated in a result listing. */
+/** Under ~65 chars survives untruncated in a result listing; long course
+ *  names drop the brand rather than being shortened. */
 export function scoreCalculatorTitle(subject) {
   if (!subject) return 'AP Score Calculator — Apex Scholar';
-  const short = aliasesFor(subject)[0];
-  return `${short || subject} Score Calculator — Apex Scholar`;
+  const full = `${subject} Score Calculator — Apex Scholar`;
+  return full.length <= 65 ? full : `${subject} Score Calculator`;
 }
 
 export function scoreCalculatorDescription(subject) {

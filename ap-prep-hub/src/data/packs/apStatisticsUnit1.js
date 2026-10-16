@@ -360,7 +360,9 @@ So for skewed data or data with outliers, report the **median and IQR**; for rou
 Compare **center, variability, shape and outliers** (and gaps/clusters on dotplots and histograms), **using comparative words** ("greater," "less") and context. Boxplots compare center, spread, outliers and skew, but they hide gaps and clusters.
 
 ### z-scores
+
 $$z = \frac{x_i - \mu}{\sigma}$$
+
 How many standard deviations a value is above (+) or below (−) the mean. Use the sample mean and SD if the population values are unknown.
 
 ${steps({

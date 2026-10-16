@@ -30,137 +30,52 @@ export function hasSourceMaterial(q) {
   );
 }
 
-export default function SourcePane({ currentQuestion, selectedDBQDocument, setSelectedDBQDocument }) {
+/** A source's attribution line, in Bluebook's small sans-serif. */
+const Attribution = ({ children }) => (children ? <p className="font-sans text-sm text-[#555] mt-1">{children}</p> : null);
+
+// Plain serif text on white, as Bluebook shows stimulus material: no cards,
+// no coloured bars. Documents and sources run in one scrolling column with
+// their labels, the way the exam lays them out.
+export default function SourcePane({ currentQuestion }) {
   if (!hasSourceMaterial(currentQuestion)) return null;
+  const q = currentQuestion;
 
   return (
-    <div className="space-y-6">
-      {/* Sources for Synthesis questions */}
-      {currentQuestion?.sources && currentQuestion.sources.length > 0 && (
-        <div className="p-6 bg-base-800 rounded-lg">
-          <h4 className="font-medium text-content-secondary mb-4 text-xl">Sources:</h4>
-          <div className="space-y-6">
-            {currentQuestion.sources.map((source, index) => (
-              <div key={index} className="border-l-4 border-success-500 pl-4">
-                <div className="mb-2">
-                  <span className="font-bold text-success-400">Source {String.fromCharCode(65 + index)}</span>
-                  {source.title && (
-                    <div className="text-sm text-content-secondary mt-1 font-medium">{source.title}</div>
-                  )}
-                  {source.source && (
-                    <div className="text-sm text-content-muted mt-1">Source: {source.source}</div>
-                  )}
-                  {source.type && <div className="text-sm text-content-muted">Type: {source.type}</div>}
-                </div>
-                <div className="text-content-secondary leading-relaxed bg-base-850/50 p-4 rounded">
-                  {source.content || source.description}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+    <div className="space-y-8">
+      {q.sources?.length > 0 && q.sources.map((source, i) => (
+        <section key={i}>
+          <h4 className="font-sans font-bold">Source {String.fromCharCode(65 + i)}</h4>
+          {source.title && <p className="font-semibold mt-1">{source.title}</p>}
+          <Attribution>{[source.source, source.type].filter(Boolean).join(' · ')}</Attribution>
+          <div className="mt-3 whitespace-pre-wrap">{source.content || source.description}</div>
+        </section>
+      ))}
+
+      {q.passage && (
+        <section>
+          <Attribution>{q.passageInfo}</Attribution>
+          <div className="mt-3 whitespace-pre-wrap">{q.passage}</div>
+        </section>
       )}
 
-      {/* Passage for rhetorical analysis, poetry, or prose questions */}
-      {currentQuestion?.passage && (
-        <div className="p-6 bg-base-800 rounded-lg">
-          <h4 className="font-medium text-content-secondary mb-4 text-xl">
-            {currentQuestion.type === 'poetry-analysis' ? 'Poem:' :
-             currentQuestion.type === 'prose-analysis' ? 'Passage:' :
-             currentQuestion.type === 'rhetorical-analysis' ? 'Text:' :
-             'Reading:'}
-          </h4>
-          {currentQuestion.passageInfo && (
-            <div className="mb-4 text-sm text-content-muted">{currentQuestion.passageInfo}</div>
-          )}
-          <div className="text-content-secondary leading-relaxed bg-base-850/50 p-4 rounded font-serif">
-            <pre className="whitespace-pre-wrap font-serif">{currentQuestion.passage}</pre>
-          </div>
-        </div>
-      )}
-
-      {/* Documents — DBQ gets a tabbed selector, everything else a plain list */}
-      {currentQuestion?.documents && currentQuestion.documents.length > 0 && (
-        <div>
-          {currentQuestion.type === 'dbq' ? (
-            <div className="space-y-4">
-              <div className="p-4 bg-base-800 rounded-lg">
-                <h4 className="font-medium text-content-secondary mb-4 text-lg">Historical Documents:</h4>
-                <div className="flex flex-wrap gap-3 mb-4">
-                  {currentQuestion.documents.map((doc, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setSelectedDBQDocument(selectedDBQDocument === index ? null : index)}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                        selectedDBQDocument === index
-                          ? 'bg-content-primary text-base-950 ring-2 ring-content-primary'
-                          : 'bg-base-800 text-content-secondary hover:bg-base-750 border border-border-strong'
-                      }`}
-                    >
-                      Document {String.fromCharCode(65 + index)}
-                    </button>
-                  ))}
-                </div>
-
-                {selectedDBQDocument !== null && currentQuestion.documents[selectedDBQDocument] && (
-                  <div className="border-l-4 border-content-muted pl-4 bg-base-850/50 p-4 rounded">
-                    <div className="mb-3">
-                      <span className="font-bold text-content-primary">
-                        Document {String.fromCharCode(65 + selectedDBQDocument)}
-                      </span>
-                      {currentQuestion.documents[selectedDBQDocument].source && (
-                        <div className="text-sm text-content-muted mt-1">
-                          Source: {currentQuestion.documents[selectedDBQDocument].source}
-                        </div>
-                      )}
-                      {currentQuestion.documents[selectedDBQDocument].date && (
-                        <div className="text-sm text-content-muted">
-                          Date: {currentQuestion.documents[selectedDBQDocument].date}
-                        </div>
-                      )}
-                    </div>
-                    <div className="text-content-secondary italic leading-relaxed">
-                      "{currentQuestion.documents[selectedDBQDocument].content}"
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="p-6 bg-base-800 rounded-lg">
-              <h4 className="font-medium text-content-secondary mb-4 text-lg">Supporting Documents:</h4>
-              <div className="space-y-4">
-                {currentQuestion.documents.map((doc, index) => (
-                  <div key={index} className="border-l-4 border-success-500 pl-4 bg-base-850/50 p-4 rounded">
-                    {doc.source && (
-                      <div className="text-sm text-content-muted mb-2">
-                        Source: {doc.source}
-                        {doc.date && `, ${doc.date}`}
-                      </div>
-                    )}
-                    <div className="text-content-secondary leading-relaxed">{doc.content}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+      {q.documents?.length > 0 && q.documents.map((doc, i) => (
+        <section key={i}>
+          <h4 className="font-sans font-bold">Document {i + 1}</h4>
+          <Attribution>{[doc.source && `Source: ${doc.source}`, doc.date].filter(Boolean).join(', ')}</Attribution>
+          <div className="mt-3 whitespace-pre-wrap">{doc.content}</div>
+        </section>
+      ))}
 
       {/* Standalone stimulus (MCQ/SAQ) when it isn't expressed as documents */}
-      {currentQuestion?.stimulus && !currentQuestion?.documents && (() => {
-        const stim = String(currentQuestion.stimulus || '');
+      {q.stimulus && !q.documents && (() => {
+        const stim = String(q.stimulus || '');
         const sourceMatch = stim.match(/^\s*Source:\s*(.+?)\s*(?:\n|$)/i);
-        const sourceLine = sourceMatch ? sourceMatch[1].trim() : null;
         const content = sourceMatch ? stim.replace(sourceMatch[0], '').trim() : stim;
         return (
-          <div className="p-6 bg-base-800 rounded-lg">
-            <h4 className="font-medium text-content-secondary mb-4 text-lg">Stimulus:</h4>
-            {sourceLine && <div className="text-sm text-content-muted mb-2">Source: {sourceLine}</div>}
-            <div className="border-l-4 border-success-500 pl-4 bg-base-850/50 p-4 rounded">
-              <div className="text-content-secondary leading-relaxed italic">{content}</div>
-            </div>
-          </div>
+          <section>
+            <div className="whitespace-pre-wrap">{content}</div>
+            <Attribution>{sourceMatch && `Source: ${sourceMatch[1].trim()}`}</Attribution>
+          </section>
         );
       })()}
     </div>

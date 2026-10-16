@@ -37,7 +37,7 @@ describe('HEALTH_PROBES', () => {
     // prompt. This is the guard against someone "improving" a probe later.
     HEALTH_PROBES.forEach((p) => {
       expect(['GET', 'POST']).toContain(p.method);
-      if (p.method === 'POST') expect(p.body).toBe('{}');
+      expect(p.method === 'POST' ? p.body : '{}').toBe('{}');
       expect(p.healthy.length).toBeGreaterThan(0);
     });
   });

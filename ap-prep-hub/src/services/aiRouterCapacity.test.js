@@ -244,6 +244,7 @@ describe('model ordering agrees across all three runtimes', () => {
     }
     throw new Error(`${name} is unbalanced`);
   };
+  // eslint-disable-next-line no-new-func -- evaluates the worker's own source so the test can't drift from it
   const w = new Function(
     `${['LITE_HEAD', 'balanceHead', 'orderModels', 'isDailyQuota', 'secondsUntilPacificMidnight'].map((n) => slice(worker, n)).join('\n')}
      return { orderModels, isDailyQuota, secondsUntilPacificMidnight };`

@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { MessageCircleQuestion, Sparkles, Copy, Check, X, Send } from 'lucide-react';
+import { MessageCircleQuestion, Sparkles, Copy, Check, X, Send, Eraser } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { HL_COLORS, textMap, anchorFromRange, rangeFromAnchor, loadHighlights, saveHighlights } from '../../services/packHighlights';
 import MarkdownRenderer from '../MarkdownRenderer';
 import { buildSelectionPrompt, usableQuote, snapToWords, EXPLAIN_QUESTION } from '../../utils/askSelection';
 import { looksLikeReasoningLeak } from '../../utils/whyWrong';
@@ -8,6 +10,8 @@ import { retryAfterFrom, formatWait } from '../../services/aiRetry';
 import { trackEvent } from '../../utils/analytics';
 
 const HL = 'apex-ask';
+// Swatch colours match the ::highlight(apex-hl-*) rules in index.css.
+const SWATCH = { yellow: 'rgb(250 204 21)', blue: 'rgb(96 165 250)', green: 'rgb(74 222 128)', red: 'rgb(248 113 113)' };
 const canHighlight = () => typeof window !== 'undefined' && window.CSS && CSS.highlights && typeof window.Highlight === 'function';
 
 /**
@@ -22,8 +26,15 @@ const canHighlight = () => typeof window !== 'undefined' && window.CSS && CSS.hi
  *
  * Answers come back in a side panel (a bottom sheet on phones) that keeps the
  * thread for follow-ups. It never navigates to the tutor.
+ *
+ * The same menu saves highlights in four colours (services/packHighlights).
+ * Tapping a saved highlight reopens the menu to recolour or remove it.
  */
-export default function SelectionAsk({ subject, unit, children }) {
+export default function SelectionAsk({ slug, subject, unit, children }) {
+  const { user } = useAuth();
+  const uid = user?.uid || null;
+  const [marks, setMarks] = useState([]); // saved highlights: { id, color, quote, prefix, suffix }
+  const painted = useRef([]); // { id, range } for what's on the page now
   const zone = useRef(null);
   const input = useRef(null);
   const thread = useRef(null);
@@ -32,6 +43,7 @@ export default function SelectionAsk({ subject, unit, children }) {
   const [draft, setDraft] = useState('');
   const [copied, setCopied] = useState(false);
   const lastPointer = useRef('mouse');
+  const openedAt = useRef(0);
 
   // Keep the newest question and answer in view.
   useEffect(() => {
@@ -40,39 +52,109 @@ export default function SelectionAsk({ subject, unit, children }) {
 
   const clearHighlight = useCallback(() => { if (canHighlight()) CSS.highlights.delete(HL); }, []);
 
-  const capture = useCallback(() => {
-    const s = window.getSelection();
-    if (!s || s.isCollapsed || !s.rangeCount || !zone.current) return;
-    const range = snapToWords(s.getRangeAt(0).cloneRange());
-    if (!zone.current.contains(range.commonAncestorContainer)) return;
-    const quote = range.toString();
-    if (!usableQuote(quote)) return;
+  const openAt = useCallback((range, extra) => {
+    openedAt.current = Date.now();
     const rect = range.getBoundingClientRect();
     const el = range.startContainer.nodeType === 1 ? range.startContainer : range.startContainer.parentElement;
-    const section = el?.closest('section')?.querySelector('h2')?.textContent || '';
-    const context = el?.closest('p, li, td, th, blockquote, div')?.textContent || '';
+    // The menu is two rows on phones, so it always opens below there.
+    const above = lastPointer.current !== 'touch' && rect.top > 150 && window.innerWidth >= 640;
+    setCopied(false);
+    setMenu({
+      quote: range.toString().trim(),
+      context: el?.closest('p, li, td, th, blockquote, div')?.textContent || '',
+      section: el?.closest('section')?.querySelector('h2')?.textContent || '',
+      x: rect.left + rect.width / 2 + window.scrollX,
+      y: above ? rect.top + window.scrollY - 46 : rect.bottom + window.scrollY + 8,
+      ...extra,
+    });
+  }, []);
+
+  // A tap with no selection: if it lands on a saved highlight, offer recolour/remove.
+  const hitTest = useCallback((pt) => {
+    if (!pt || pt.target?.closest?.('button, a, input, select, textarea, label, [role="button"]')) return;
+    let node; let offset;
+    if (document.caretPositionFromPoint) {
+      const p = document.caretPositionFromPoint(pt.x, pt.y);
+      if (!p) return;
+      node = p.offsetNode; offset = p.offset;
+    } else if (document.caretRangeFromPoint) {
+      const r = document.caretRangeFromPoint(pt.x, pt.y);
+      if (!r) return;
+      node = r.startContainer; offset = r.startOffset;
+    } else return;
+    const hit = painted.current.find((p) => { try { return p.range.isPointInRange(node, offset); } catch { return false; } });
+    if (hit) openAt(hit.range, { hlId: hit.id });
+  }, [openAt]);
+
+  const capture = useCallback((pt) => {
+    const s = window.getSelection();
+    if (!zone.current) return;
+    if (!s || s.isCollapsed || !s.rangeCount) {
+      // A double or triple click sends more mouse-ups after the menu opened
+      // (and the selection was cleared); those aren't taps on a highlight.
+      if (Date.now() - openedAt.current > 400) hitTest(pt);
+      return;
+    }
+    const range = snapToWords(s.getRangeAt(0).cloneRange());
+    if (!zone.current.contains(range.commonAncestorContainer)) return;
+    if (!usableQuote(range.toString())) return;
     if (canHighlight()) {
       CSS.highlights.set(HL, new window.Highlight(range.cloneRange()));
       s.removeAllRanges(); // dismisses the device's own selection menu
     }
-    setCopied(false);
-    // Above the selection with a mouse (so it doesn't cover the next lines you
-    // might select); below it on touch, where the system bar, if any, sits above.
-    // Below as well when there's no room above (the sticky header is ~110 px).
-    const above = lastPointer.current !== 'touch' && rect.top > 150;
-    setMenu({
-      quote: quote.trim(), context, section,
-      x: rect.left + rect.width / 2 + window.scrollX,
-      y: above ? rect.top + window.scrollY - 46 : rect.bottom + window.scrollY + 8,
+    // openAt puts the menu above the selection with a mouse (so it doesn't
+    // cover the next lines you might select) and below it on touch, where the
+    // system bar, if any, sits above; below as well when there's no room above.
+    // Selecting inside a saved highlight edits that highlight instead of stacking a new one.
+    const inside = painted.current.find((p) => {
+      try {
+        return p.range.compareBoundaryPoints(Range.START_TO_START, range) <= 0
+          && p.range.compareBoundaryPoints(Range.END_TO_END, range) >= 0;
+      } catch { return false; }
     });
-  }, []);
+    openAt(range, inside ? { hlId: inside.id } : { range: range.cloneRange() });
+  }, [hitTest, openAt]);
+
+  useEffect(() => {
+    let live = true;
+    loadHighlights(uid, slug).then((m) => { if (live) setMarks(m); });
+    return () => { live = false; };
+  }, [uid, slug]);
+
+  // Paint saved highlights, and repaint whenever the unit's content changes
+  // (sections opening, answers revealed): anchors are re-found in the text.
+  const paint = useCallback(() => {
+    if (!canHighlight() || !zone.current) return;
+    const map = textMap(zone.current);
+    const byColor = Object.fromEntries(HL_COLORS.map((c) => [c, []]));
+    painted.current = [];
+    marks.forEach((m) => {
+      const r = rangeFromAnchor(zone.current, m, map);
+      if (r && byColor[m.color]) { byColor[m.color].push(r); painted.current.push({ id: m.id, range: r }); }
+    });
+    HL_COLORS.forEach((c) => CSS.highlights.set(`apex-hl-${c}`, new window.Highlight(...byColor[c])));
+  }, [marks]);
+
+  useEffect(() => {
+    paint();
+    if (!zone.current) return undefined;
+    let t;
+    const obs = new MutationObserver(() => { clearTimeout(t); t = setTimeout(paint, 120); });
+    obs.observe(zone.current, { childList: true, subtree: true, characterData: true });
+    return () => { obs.disconnect(); clearTimeout(t); };
+  }, [paint]);
+
+  useEffect(() => () => { if (canHighlight()) HL_COLORS.forEach((c) => CSS.highlights.delete(`apex-hl-${c}`)); }, []);
 
   useEffect(() => {
     const inZone = (t) => zone.current && t instanceof Node && zone.current.contains(t);
     const onPointer = (e) => { lastPointer.current = e.pointerType || 'mouse'; };
-    const onMouseUp = (e) => { if (inZone(e.target)) setTimeout(capture, 0); };
+    const onMouseUp = (e) => { if (inZone(e.target)) setTimeout(() => capture({ x: e.clientX, y: e.clientY, target: e.target }), 0); };
     // iOS and Android settle the selection a moment after the finger lifts.
-    const onTouchEnd = (e) => { if (inZone(e.target)) setTimeout(capture, 350); };
+    const onTouchEnd = (e) => {
+      const t = e.changedTouches?.[0];
+      if (inZone(e.target)) setTimeout(() => capture(t && { x: t.clientX, y: t.clientY, target: e.target }), 350);
+    };
     const onKeyUp = (e) => { if (e.shiftKey && inZone(document.activeElement || e.target)) capture(); if (e.key === 'Escape') { setMenu(null); setChat(null); clearHighlight(); } };
     const onContext = (e) => {
       if (!inZone(e.target)) return;
@@ -129,7 +211,7 @@ export default function SelectionAsk({ subject, unit, children }) {
         history: thread.turns.filter((t) => t.answer).map((t) => ({ question: t.question, answer: t.answer })),
       });
       // tutorChat: the one task the AI proxy allows for signed-out students too.
-      const text = String(await geminiService.generateContent(prompt, { temperature: 0.4, maxTokens: 900, task: 'tutorChat' }) || '').trim();
+      const text = String(await geminiService.generateContent(prompt, { temperature: 0.4, maxTokens: 900, task: 'tutorChat', usageCategory: 'ask' }) || '').trim();
       if (!text || looksLikeReasoningLeak(text)) error = 'That answer came back garbled. Ask again; it usually works on the second try.';
       else answer = text;
     } catch (e) {
@@ -155,17 +237,31 @@ export default function SelectionAsk({ subject, unit, children }) {
     try { await navigator.clipboard.writeText(menu.quote); setCopied(true); setTimeout(() => setMenu(null), 700); } catch { setCopied(false); }
   };
 
+  const persist = (next) => { setMarks(next); saveHighlights(uid, slug, next); };
+  const mark = (color) => {
+    if (menu.hlId) persist(marks.map((m) => (m.id === menu.hlId ? { ...m, color } : m)));
+    else if (menu.range && zone.current) {
+      const anchor = anchorFromRange(zone.current, menu.range);
+      if (anchor.quote.trim()) persist([...marks, { id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, color, ...anchor }]);
+    }
+    trackEvent('pack_highlight', { subject, color });
+    setMenu(null);
+    if (!chat) clearHighlight();
+  };
+  const unmark = () => { persist(marks.filter((m) => m.id !== menu.hlId)); setMenu(null); };
+
   const close = () => { setChat(null); clearHighlight(); };
   const busy = chat?.turns.some((t) => t.loading);
-  const menuLeft = menu ? Math.min(Math.max(menu.x - 120, window.scrollX + 8), window.scrollX + window.innerWidth - 248) : 0;
+  const menuW = Math.min(500, window.innerWidth - 16);
+  const menuLeft = menu ? Math.min(Math.max(menu.x - menuW / 2, window.scrollX + 8), window.scrollX + window.innerWidth - menuW - 8) : 0;
 
   return (
     <div ref={zone} className="apex-ask-zone">
       {children}
       {menu && createPortal(
         <div data-ask-menu role="toolbar" aria-label="Selected text"
-          className="absolute z-[60] flex items-center gap-1 p-1 rounded-lg border border-border-strong bg-base-800 shadow-floating"
-          style={{ top: menu.y, left: menuLeft }}
+          className="absolute z-[60] flex flex-wrap items-center gap-1 p-1 rounded-lg border border-border-strong bg-base-800 shadow-floating"
+          style={{ top: menu.y, left: menuLeft, maxWidth: menuW }}
           onMouseDown={(e) => e.preventDefault()}>
           <button type="button" onClick={() => open(false)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-body-sm text-content-primary hover:bg-base-750">
             <MessageCircleQuestion className="w-4 h-4 text-primary-400" aria-hidden="true" />Ask
@@ -177,6 +273,20 @@ export default function SelectionAsk({ subject, unit, children }) {
             {copied ? <Check className="w-4 h-4 text-success-400" aria-hidden="true" /> : <Copy className="w-4 h-4 text-content-muted" aria-hidden="true" />}
             {copied ? 'Copied' : 'Copy'}
           </button>
+          <span className="hidden sm:block w-px h-6 bg-border-strong mx-0.5" aria-hidden="true" />
+          <div className="flex items-center gap-1 basis-full sm:basis-auto pt-1 sm:pt-0 border-t sm:border-t-0 border-border-subtle">
+          {HL_COLORS.map((c) => (
+            <button key={c} type="button" onClick={() => mark(c)} aria-label={`Highlight ${c}`} title={`Highlight ${c}`}
+              className="p-1.5 rounded-md hover:bg-base-750">
+              <span className="block w-4 h-4 rounded-full ring-1 ring-black/20" style={{ background: SWATCH[c] }} />
+            </button>
+          ))}
+          {menu.hlId && (
+            <button type="button" onClick={unmark} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-body-sm text-content-primary hover:bg-base-750">
+              <Eraser className="w-4 h-4 text-content-muted" aria-hidden="true" />Remove
+            </button>
+          )}
+          </div>
         </div>,
         document.body,
       )}

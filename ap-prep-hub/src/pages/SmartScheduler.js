@@ -397,12 +397,31 @@ export default function SmartScheduler() {
   };
 
   // Refresh entire schedule
+  // Clearing alone left an empty schedule, though the dialog promised a new
+  // one. Generation reads the schedule from its closure, so it runs once the
+  // cleared schedule has rendered rather than straight after setAiSchedule.
+  const [rebuildPending, setRebuildPending] = useState(false);
+  useEffect(() => {
+    if (rebuildPending && Array.isArray(aiSchedule) && aiSchedule.length === 0) {
+      setRebuildPending(false);
+      generateIntelligentSchedule(false);
+    }
+  }, [rebuildPending, aiSchedule, generateIntelligentSchedule]);
+
   const refreshSchedule = async () => {
-    const ok = await confirm({ title: 'Refresh entire schedule?', message: 'This regenerates your schedule from scratch.', confirmText: 'Refresh' });
+    // Generation won't run past overdue tasks, so clearing now would leave
+    // the student with no schedule at all.
+    if (overdueTasksDialog.tasks.length) {
+      toast.warning("Some tasks are past their deadline. Reschedule or remove them first, then rebuild.");
+      document.getElementById('overdue-tasks')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    const ok = await confirm({ title: 'Rebuild your schedule?', message: 'This clears every planned session and builds a new plan from your tasks.', confirmText: 'Rebuild' });
     if (ok) {
       try {
         setAiSchedule([]);
         await saveAiScheduleToFirebase([]);
+        setRebuildPending(true);
         debugLog("✅ Schedule refreshed and saved to Firebase");
       } catch (error) {
         console.error("Error refreshing schedule:", error);
@@ -508,6 +527,10 @@ export default function SmartScheduler() {
     return grouped;
   }, [aiSchedule]);
 
+  // Sessions of a finished task show as done; nothing ever set item.completed,
+  // so they used to look like work still to do.
+  const doneTaskIds = useMemo(() => new Set(tasks.filter((t) => t.is_completed).map((t) => t.id)), [tasks]);
+
   // Adapter for CalendarGrid: returns schedule items for a given date
   const getTasksForDate = useCallback((date) => {
     const key = format(date, 'yyyy-MM-dd');
@@ -522,9 +545,9 @@ export default function SmartScheduler() {
       scheduled_end: item.endTime instanceof Date ? item.endTime.toISOString() : item.endTime,
       duration: item.duration,
       difficulty: item.difficulty || 'Medium',
-      completed: item.completed || false,
+      completed: !!item.completed || doneTaskIds.has(item.taskId),
     }));
-  }, [scheduleByDay]);
+  }, [scheduleByDay, doneTaskIds]);
 
   const handleScheduleItemClick = useCallback((scheduleTask) => {
     const sourceTask = tasks.find(task => task.id === (scheduleTask.taskId || scheduleTask.id));
@@ -548,12 +571,14 @@ export default function SmartScheduler() {
   }
 
   return (
-    <div className="h-below-header flex flex-col md:flex-row bg-base-950">
-      {/* Mobile/Tablet optimized sidebar */}
-      <div className="w-full md:w-72 lg:w-80 border-r border-border flex flex-col bg-base-850 order-2 md:order-1 max-h-[40vh] md:max-h-none">
+    // Below md the page itself scrolls, sidebar first: a fixed-height shell
+    // put the "Scheduler" heading under the schedule (order-2) and squeezed
+    // both lists into nested scroll boxes.
+    <div className="md:h-[calc(100dvh-4rem)] flex flex-col md:flex-row bg-base-950">
+      <div className="w-full md:w-72 lg:w-80 md:border-r border-b md:border-b-0 border-border flex flex-col bg-base-850">
         <div className="p-4 sm:p-6 border-b border-border bg-base-850">
           <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <h2 className="text-xl sm:text-2xl font-bold font-display text-content-primary">Scheduler</h2>
+            <h1 className="text-xl sm:text-2xl font-bold font-display text-content-primary">Scheduler</h1>
             <Button size="sm" onClick={handleCreateTask} className="bg-content-primary text-base-950 hover:opacity-90 text-xs sm:text-sm">
               <Plus strokeWidth={1.5} size={14} className="mr-1"/>
               Task
@@ -618,10 +643,10 @@ export default function SmartScheduler() {
               <Button 
                 size="sm" 
                 variant="outline" 
-                className="w-full text-xs text-error-400 border-error-500 hover:bg-error-900" 
+                className="w-full text-xs" 
                 onClick={refreshSchedule}
               >
-                Refresh Schedule
+                Rebuild Schedule
               </Button>
             </div>
           )}
@@ -665,21 +690,24 @@ export default function SmartScheduler() {
       </div>
 
       {/* Main schedule view - responsive */}
-      <div className="flex-1 bg-base-950 order-1 md:order-2 min-h-0">
+      <div className="flex-1 bg-base-950 min-h-0">
         <div className="p-4 sm:p-6 h-full flex flex-col">
-          <div className="flex items-center justify-between mb-4 sm:mb-6">
-            <h3 className="text-lg sm:text-xl font-semibold font-display text-content-primary">AI Study Schedule</h3>
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-4 sm:mb-6">
+            <h3 className="text-lg sm:text-xl font-semibold font-display text-content-primary whitespace-nowrap">AI Study Schedule</h3>
             <div className="flex items-center gap-2">
-              {Array.isArray(aiSchedule) && aiSchedule.length > 0 && (
+              {/* The toggle used to hide until a schedule existed, so deadlines
+                  and exam dates had no calendar to show on. */}
+              {(tasks.length > 0 || (Array.isArray(aiSchedule) && aiSchedule.length > 0)) && (
                 <>
-                  <span className="text-xs sm:text-sm text-content-muted mr-2">
-                    {(() => { const n = aiSchedule.filter(item => !item.completed).length; return `${n} ${n === 1 ? 'session' : 'sessions'}`; })()}
+                  <span className="text-xs sm:text-sm text-content-muted mr-2 whitespace-nowrap">
+                    {(() => { const n = (aiSchedule || []).filter(item => !item.completed && !doneTaskIds.has(item.taskId)).length; return `${n} ${n === 1 ? 'session' : 'sessions'}`; })()}
                   </span>
                   <div className="flex rounded-md border border-border overflow-hidden">
                     {['list', 'week', 'month'].map(mode => (
                       <button
                         key={mode}
                         onClick={() => setScheduleViewMode(mode)}
+                        aria-pressed={scheduleViewMode === mode}
                         className={`px-2 py-1 text-xs capitalize transition-colors ${
                           scheduleViewMode === mode
                             ? 'bg-content-primary text-base-950'
@@ -713,7 +741,7 @@ export default function SmartScheduler() {
                 <p className="text-content-muted text-sm">Loading your preferences...</p>
               </div>
             </div>
-          ) : !Array.isArray(aiSchedule) || aiSchedule.length === 0 ? (
+          ) : scheduleViewMode === 'list' && (!Array.isArray(aiSchedule) || aiSchedule.length === 0) ? (
             <div className="text-center py-12 sm:py-16">
               <Brain strokeWidth={1.5} size={48} className="sm:w-16 sm:h-16 mx-auto mb-4 text-content-disabled"/>
               <h4 className="text-base sm:text-lg font-medium text-content-secondary mb-2">No schedule yet</h4>
@@ -776,18 +804,21 @@ export default function SmartScheduler() {
                             const scheduleIndex = safeSchedule.findIndex(s => s === item);
                             const uniqueKey = scheduleIndex >= 0 ? scheduleIndex : `item-${dayIndex}-${index}`;
 
+                            const done = item.completed || doneTaskIds.has(item.taskId);
                             return (
-                              <div
+                              <button
+                                type="button"
                                 key={uniqueKey}
-                                className={`p-2 sm:p-3 rounded border-l-4 ${
-                                  item.completed
+                                onClick={() => handleScheduleItemClick(item)}
+                                className={`w-full text-left p-2 sm:p-3 rounded border-l-4 hover:bg-base-750 ${
+                                  done
                                     ? 'bg-success-900 border-success-500 opacity-60'
                                     : 'bg-base-800 border-content-muted'
                                 }`}
                               >
                                 <div className="flex items-center justify-between">
                                   <div className="flex-1 min-w-0">
-                                    <p className="font-medium text-content-primary text-sm sm:text-base truncate">{item.task || item.taskName || 'Unnamed Task'}</p>
+                                    <p className={`font-medium text-content-primary text-sm sm:text-base truncate ${done ? 'line-through' : ''}`}>{item.task || item.taskName || 'Unnamed Task'}</p>
                                     <p className="text-xs sm:text-sm text-content-muted">
                                       {(() => {
                                         try {
@@ -808,7 +839,7 @@ export default function SmartScheduler() {
                                     )}
                                   </div>
                                 </div>
-                              </div>
+                              </button>
                             );
                           })}
                         </div>
@@ -819,8 +850,10 @@ export default function SmartScheduler() {
               </div>
             </ScrollArea>
           ) : (
-            /* Week / Month calendar view */
-            <div className="flex-1 min-h-0 flex flex-col">
+            /* Week / Month calendar view. Phones scroll the page, so without a
+               height cap the week grid grew to all 24 hours: it never scrolled
+               to study time and its day headers couldn't stick. */
+            <div className="flex-1 min-h-0 flex flex-col max-md:flex-none max-md:h-[75dvh]">
               <CalendarHeader
                 currentDate={calendarDate}
                 onDateChange={setCalendarDate}
@@ -835,6 +868,7 @@ export default function SmartScheduler() {
                   onTaskClick={handleScheduleItemClick}
                   onDateClick={(date) => { setCalendarDate(date); setScheduleViewMode('week'); }}
                   getTasksForDate={getTasksForDate}
+                  onDeadlineClick={handleEditTask}
                 />
               </div>
             </div>

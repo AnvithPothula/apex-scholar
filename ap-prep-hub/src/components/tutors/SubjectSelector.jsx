@@ -34,6 +34,7 @@ import { getAvailableSubjects, getSubjectName } from '../../constants/comprehens
 import { getSubjectColor } from '../../constants/subjectColors';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../config/firestore';
+import { subjectSlug } from '../../constants/subjects';
 
 const SubjectSelector = ({ subjects, selectedSubject, onSelectSubject }) => {
   const navigate = useNavigate();
@@ -106,7 +107,7 @@ const SubjectSelector = ({ subjects, selectedSubject, onSelectSubject }) => {
     // routing migration. Hardcoding "/AITutors/..." here previously caused
     // a 404 on subject click — React Router's client-side navigation
     // bypasses Netlify's PascalCase→kebab-case 301 redirects.
-    navigate(createPageUrl('AITutors', encodeURIComponent(subjectId)));
+    navigate(createPageUrl('AITutors', subjectSlug(subjectId) || encodeURIComponent(subjectId)));
   };
 
   const hasUserSubjects = user && !isLoadingUserSubjects && filteredUserSubjects.length > 0;
@@ -122,7 +123,7 @@ const SubjectSelector = ({ subjects, selectedSubject, onSelectSubject }) => {
           className="mb-8 sm:mb-10"
         >
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold text-content-primary mb-2">
-            {hasUserSubjects ? 'Your Subjects' : 'Subjects'}
+            AI Tutors
           </h1>
           <p className="text-sm sm:text-base text-content-muted">
             Choose a subject to start studying.

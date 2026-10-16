@@ -77,4 +77,19 @@ function scoreSavedTest(test) {
   return { answered, correct };
 }
 
-module.exports = { scoreSavedTest, wasSkipped, MAX_QUESTIONS };
+/**
+ * Does a class's subject scope include this test? Scopes saved before
+ * 2026-10-16 hold curriculum keys ("usGovernmentPolitics", "physics1") while
+ * tests hold course names ("AP U.S. Government and Politics", "AP Physics 1:
+ * Algebra-Based"), so an exact compare never matched and scoped classes never
+ * credited anyone. Compare on a normalized form, allowing a key to be the
+ * start of the full name.
+ */
+function inScope(scope, subject) {
+  const norm = (s) => String(s || '').toLowerCase()
+    .replace(/united states/g, 'us').replace(/^ap\s+/, '').replace(/and/g, '').replace(/[^a-z0-9]/g, '');
+  const want = norm(subject);
+  return !scope.length || scope.some((s) => { const n = norm(s); return n && (want === n || want.startsWith(n)); });
+}
+
+module.exports = { scoreSavedTest, wasSkipped, inScope, MAX_QUESTIONS };

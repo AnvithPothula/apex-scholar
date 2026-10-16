@@ -151,6 +151,11 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://apex-scholar.com/study/timelines/ap-us-history</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://apex-scholar.com/study/ap-us-history</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
@@ -391,6 +396,66 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://apex-scholar.com/study/ap-us-history/unit-2</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apex-scholar.com/study/ap-us-government-and-politics/unit-2</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apex-scholar.com/study/ap-world-history-modern/unit-2</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apex-scholar.com/study/ap-english-language-and-composition/unit-2</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apex-scholar.com/study/ap-precalculus/unit-2</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apex-scholar.com/study/ap-physics-1/unit-2</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apex-scholar.com/study/ap-chemistry/unit-2</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apex-scholar.com/study/ap-environmental-science/unit-2</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apex-scholar.com/study/ap-statistics/unit-2</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apex-scholar.com/study/ap-human-geography/unit-2</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apex-scholar.com/study/ap-macroeconomics/unit-2</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apex-scholar.com/study/ap-microeconomics/unit-2</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://apex-scholar.com/study/ap-biology/unit-1</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
@@ -491,7 +556,7 @@
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://apex-scholar.com/ap-score-calculator/ap-world-history</loc>
+    <loc>https://apex-scholar.com/ap-score-calculator/ap-world-history-modern</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -516,7 +581,7 @@
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://apex-scholar.com/ap-score-calculator/ap-english-language</loc>
+    <loc>https://apex-scholar.com/ap-score-calculator/ap-english-language-and-composition</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -541,7 +606,7 @@
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://apex-scholar.com/ap-score-calculator/ap-english-literature</loc>
+    <loc>https://apex-scholar.com/ap-score-calculator/ap-english-literature-and-composition</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -551,12 +616,12 @@
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://apex-scholar.com/ap-score-calculator/ap-gov</loc>
+    <loc>https://apex-scholar.com/ap-score-calculator/ap-us-government-and-politics</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://apex-scholar.com/ap-score-calculator/ap-comparative-government</loc>
+    <loc>https://apex-scholar.com/ap-score-calculator/ap-comparative-government-and-politics</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -601,27 +666,27 @@
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://apex-scholar.com/ap-score-calculator/ap-spanish-language</loc>
+    <loc>https://apex-scholar.com/ap-score-calculator/ap-spanish-language-and-culture</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://apex-scholar.com/ap-score-calculator/ap-french-language</loc>
+    <loc>https://apex-scholar.com/ap-score-calculator/ap-french-language-and-culture</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://apex-scholar.com/ap-score-calculator/ap-german-language</loc>
+    <loc>https://apex-scholar.com/ap-score-calculator/ap-german-language-and-culture</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://apex-scholar.com/ap-score-calculator/ap-chinese-language</loc>
+    <loc>https://apex-scholar.com/ap-score-calculator/ap-chinese-language-and-culture</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://apex-scholar.com/ap-score-calculator/ap-spanish-literature</loc>
+    <loc>https://apex-scholar.com/ap-score-calculator/ap-spanish-literature-and-culture</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -631,17 +696,17 @@
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://apex-scholar.com/ap-score-calculator/ap-italian-language</loc>
+    <loc>https://apex-scholar.com/ap-score-calculator/ap-italian-language-and-culture</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://apex-scholar.com/ap-score-calculator/ap-japanese-language</loc>
+    <loc>https://apex-scholar.com/ap-score-calculator/ap-japanese-language-and-culture</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://apex-scholar.com/ap-score-calculator/ap-business-personal-finance</loc>
+    <loc>https://apex-scholar.com/ap-score-calculator/ap-business-with-personal-finance</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>

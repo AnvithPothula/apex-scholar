@@ -184,7 +184,10 @@ export const fixLaTeXInQuestions = (questions) => {
             optionText = JSON.stringify(option);
           }
 
+          // Keep every other field: dropping `correct` here made every
+          // generated MCQ fail validation (no option marked correct).
           return {
+            ...option,
             letter: option.letter || null,
             text: fixLaTeXInText(String(optionText))
           };
@@ -727,6 +730,12 @@ export const parseAIResponse = (text, startId = 1) => {
   }
 };
 
+// Lettered parts written into the prompt itself — "(A) ... (B) ..." — else a/b/c.
+const partLetters = (text) => {
+  const found = [...new Set((String(text || '').match(/\(([a-hA-H])\)/g) || []).map((m) => m[1].toLowerCase()))];
+  return found.length >= 2 ? found : ['a', 'b', 'c'];
+};
+
 // Normalize a rubric for a given question into items with labels and points
 export const buildRubricItems = (question) => {
   const items = [];
@@ -798,7 +807,11 @@ export const buildRubricItems = (question) => {
   }
 
   // Generic STEM FRQ
-  const parts = (question?.parts && typeof question.parts === 'object') ? Object.keys(question.parts) : ['a','b','c'];
+  // parts is usually an array of prompts; its keys are 0, 1, 2, which used to
+  // label the rubric "Part 0 / Part 1 / Part 2".
+  const parts = Array.isArray(question?.parts) && question.parts.length
+    ? question.parts.map((_, i) => String.fromCharCode(97 + i))
+    : (question?.parts && typeof question.parts === 'object') ? Object.keys(question.parts) : partLetters(question?.question);
   const per = Math.max(1, Math.floor(total / Math.max(1, parts.length)));
   parts.forEach((p, idx) => items.push({ id: p, label: `Part ${String(p).toUpperCase()}`, maxPoints: per }));
   return { items, totalPoints: total };

@@ -135,8 +135,8 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
         
         <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-5 flex-1 overflow-y-auto">
           <div>
-            <label className="block text-sm font-medium mb-2 text-content-primary">Task Name</label>
-            <Input 
+            <label htmlFor="task-name" className="block text-sm font-medium mb-2 text-content-primary">Task Name</label>
+            <Input id="task-name" 
               value={formData.name} 
               onChange={(e) => setFormData({...formData, name: e.target.value})} 
               required 
@@ -144,8 +144,8 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-2 text-content-primary">Subject</label>
-            <Input 
+            <label htmlFor="task-subject" className="block text-sm font-medium mb-2 text-content-primary">Subject</label>
+            <Input id="task-subject" 
               value={formData.subject} 
               onChange={(e) => setFormData({...formData, subject: e.target.value})} 
               required 
@@ -154,8 +154,8 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
           </div>
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2 text-content-primary">Task Type</label>
-              <select 
+              <label htmlFor="task-type" className="block text-sm font-medium mb-2 text-content-primary">Task Type</label>
+              <select id="task-type" 
                 value={formData.type} 
                 onChange={(e) => setFormData({...formData, type: e.target.value})}
                 className="flex h-10 w-full rounded-sm border border-border-strong bg-base-800 px-3 py-2 text-sm text-content-primary placeholder:text-content-muted focus:border-content-muted focus:ring-1 focus:ring-content-muted/20 transition-colors duration-150"
@@ -169,8 +169,8 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2 text-content-primary">Difficulty</label>
-              <select 
+              <label htmlFor="task-difficulty" className="block text-sm font-medium mb-2 text-content-primary">Difficulty</label>
+              <select id="task-difficulty" 
                 value={formData.difficulty} 
                 onChange={(e) => setFormData({...formData, difficulty: e.target.value})}
                 className="flex h-10 w-full rounded-sm border border-border-strong bg-base-800 px-3 py-2 text-sm text-content-primary placeholder:text-content-muted focus:border-content-muted focus:ring-1 focus:ring-content-muted/20 transition-colors duration-150"
@@ -183,10 +183,11 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
           </div>
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2 text-content-primary">
+              <label htmlFor="task-amount" className="block text-sm font-medium mb-2 text-content-primary">
                 {formData.type === 'reading' ? 'Pages' : 'Time (min)'}
               </label>
               <Input 
+                id="task-amount"
                 type="number" 
                 value={formData.type === 'reading' ? formData.pages : formData.estimated_time} 
                 onChange={(e) => setFormData({
@@ -209,8 +210,8 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2 text-content-primary">Priority</label>
-              <select 
+              <label htmlFor="task-priority" className="block text-sm font-medium mb-2 text-content-primary">Priority</label>
+              <select id="task-priority" 
                 value={formData.priority || 'medium'} 
                 onChange={(e) => setFormData({...formData, priority: e.target.value})}
                 className="flex h-10 w-full rounded-sm border border-border-strong bg-base-800 px-3 py-2 text-sm text-content-primary placeholder:text-content-muted focus:border-content-muted focus:ring-1 focus:ring-content-muted/20 transition-colors duration-150"
@@ -223,8 +224,8 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-2 text-content-primary">Deadline</label>
-            <Input 
+            <label htmlFor="task-deadline" className="block text-sm font-medium mb-2 text-content-primary">Deadline</label>
+            <Input id="task-deadline" 
               type="datetime-local" 
               value={formData.deadline} 
               onChange={(e) => setFormData({...formData, deadline: e.target.value})} 
@@ -233,8 +234,8 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-2 text-content-primary">Description</label>
-            <Textarea 
+            <label htmlFor="task-description" className="block text-sm font-medium mb-2 text-content-primary">Description</label>
+            <Textarea id="task-description" 
               value={formData.description} 
               onChange={(e) => setFormData({...formData, description: e.target.value})} 
               rows="3"

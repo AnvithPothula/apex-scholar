@@ -223,7 +223,7 @@ describe('topicsFromResponses', () => {
     expect(bio[0]).toMatchObject({ right: 1, total: 3, accuracy: 33, level: 'insufficient' });
     expect(bio[0].low).toBeLessThan(33);
     expect(bio[0].high).toBeGreaterThan(33);
-    expect(topicsFromResponses(rows).get('AP Physics 1')[0].high).toBe(100);
+    expect(topicsFromResponses(rows).get('AP Physics 1: Algebra-Based')[0].high).toBe(100);
   });
 
   it('ignores rows without a subject, unit or correctness bit', () => {

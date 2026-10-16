@@ -50,11 +50,9 @@ describe('AI router CORS', () => {
   });
 
   it('exposes the model header wherever it is set, or the client reads null', () => {
-    [['worker', worker], ['proxy', proxy]].forEach(([name, src]) => {
-      if (/'X-Apex-Model'/.test(src)) {
-        expect({ name, exposed: exposedHeaders(src).includes('x-apex-model') })
-          .toEqual({ name, exposed: true });
-      }
+    [['worker', worker], ['proxy', proxy]].filter(([, src]) => /'X-Apex-Model'/.test(src)).forEach(([name, src]) => {
+      expect({ name, exposed: exposedHeaders(src).includes('x-apex-model') })
+        .toEqual({ name, exposed: true });
     });
   });
 

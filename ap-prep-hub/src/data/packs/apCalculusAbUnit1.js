@@ -35,7 +35,9 @@ const pack = {
 Average velocity over an interval is $\frac{\Delta s}{\Delta t}$. Shrink the interval to a single instant and $\Delta t = 0$, so the formula breaks. Calculus looks instead at what the average rates **approach** as the interval shrinks.
 
 For $s(t) = t^2$, the average velocity on $[2,\ 2+h]$ is
-$$\frac{(2+h)^2 - 4}{h} = \frac{4h + h^2}{h} = 4 + h \quad (h \neq 0).$$
+
+$$\begin{aligned} \frac{(2+h)^2 - 4}{h} &= \frac{4h + h^2}{h} \\ &= 4 + h \quad (h \neq 0). \end{aligned}$$
+
 As $h$ gets close to $0$ this gets close to $4$, so the instantaneous velocity at $t = 2$ is $4$.
 
 ${graph({
@@ -48,7 +50,9 @@ ${graph({
 Drag **h** toward 0: the secant line turns into the tangent line, and its slope $4 + h$ turns into $4$.
 
 ### Limit notation
+
 $$\lim_{x \to c} f(x) = L$$
+
 reads "the limit of $f(x)$ as $x$ approaches $c$ is $L$". Three things it does **not** say:
 - that $f(c) = L$ ($f(c)$ might be different or not exist at all);
 - that $f(x)$ ever equals $L$;
@@ -271,7 +275,9 @@ Trap $f$ between two functions that meet at the same height at $c$. With nowhere
 
 ### Classic example
 $\sin\left(\frac{1}{x}\right)$ oscillates wildly near $0$, but it is always between $-1$ and $1$. Multiplying by $x^2 \ge 0$:
+
 $$-x^2 \le x^2 \sin\left(\tfrac{1}{x}\right) \le x^2.$$
+
 Both $-x^2$ and $x^2$ go to $0$, so $\lim_{x \to 0} x^2 \sin\left(\frac{1}{x}\right) = 0$.
 
 ${graph({

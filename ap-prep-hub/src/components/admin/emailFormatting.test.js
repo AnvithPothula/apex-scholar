@@ -1,3 +1,4 @@
+/* eslint-disable no-script-url -- javascript: links are the input under test */
 import { applyWrap, applyLinePrefix, applyLink, applyImage } from './emailFormatting';
 
 describe('applyWrap', () => {

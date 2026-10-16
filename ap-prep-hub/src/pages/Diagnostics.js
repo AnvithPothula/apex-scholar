@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
+import useScrollTopOn from '../hooks/useScrollTopOn';
+import useDocumentMeta from '../hooks/useDocumentMeta';
 import { motion } from 'framer-motion';
 import { Brain, Target, TrendingUp, Clock, Play, ArrowRight, Search, CheckCircle, BarChart3, Award, Zap, X, AlertCircle, Lightbulb, BookOpen, ChevronDown } from 'lucide-react';
 import { Button, Card, Badge, Input } from '../components/ui/UIComponents';
 import ProgressIndicator from '../components/ui/ProgressIndicator';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { useNavigate, useParams } from 'react-router-dom';
-import { AP_SUBJECTS } from '../constants/subjects';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { packForSubject } from '../data/packs';
+import { AP_SUBJECTS, subjectName, subjectSlug } from '../constants/subjects';
 import geminiService, { RateLimitError } from '../services/geminiService';
 import { getBankQuestions } from '../services/questionBank';
 import errorLogger from '../utils/errorLogger';
@@ -21,9 +24,9 @@ const EXCLUDED_SUBJECTS = [
   'AP Music Theory',
   'AP Research', 
   'AP Seminar',
-  'AP Studio Art: 2-D Design',
-  'AP Studio Art: 3-D Design', 
-  'AP Studio Art: Drawing'
+  'AP 2-D Art and Design',
+  'AP 3-D Art and Design', 
+  'AP Drawing'
 ];
 
 // Filtered subjects for diagnostics
@@ -41,7 +44,7 @@ const SUBJECT_CATEGORIES = {
   ],
   'History & Social Sciences': [
     'AP U.S. History', 'AP World History: Modern', 'AP European History',
-    'AP U.S. Government and Politics', 'AP Government and Politics: Comparative',
+    'AP U.S. Government and Politics', 'AP Comparative Government and Politics',
     'AP Human Geography', 'AP Psychology', 'AP Macroeconomics', 'AP Microeconomics'
   ],
   'English & Literature': [
@@ -72,6 +75,8 @@ const DiagnosticTypes = () => {
   const [answers, setAnswers] = useState({});
   const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
   const [diagnosticResult, setDiagnosticResult] = useState(null);
+  useDocumentMeta({ title: takingDiagnostic ? `${takingDiagnostic.name} Diagnostic — Apex Scholar` : undefined });
+  useScrollTopOn(currentQuestionIndex, diagnosticResult);
   const [showReview, setShowReview] = useState(false);
   // NOTE: previously stored diagnostic history in local state and fetched it
   // here on mount, but nothing in the render reads it — removed to drop the
@@ -130,7 +135,9 @@ const DiagnosticTypes = () => {
       setAnswers({});
     } catch (error) {
       console.error('Error generating questions:', error);
-      if (error instanceof RateLimitError || error?.isRateLimit) {
+      if (error?.code === 'ai_usage_limit') {
+        toast.warning(error.message);
+      } else if (error instanceof RateLimitError || error?.isRateLimit) {
         toast.aiBusy(error.retryAfter, { reason: 'diagnostic' });
       } else {
         toast.error('Failed to generate diagnostic questions. Please try again.');
@@ -237,6 +244,7 @@ const DiagnosticTypes = () => {
 
       const result = {
         subject: takingDiagnostic.name,
+        subjectKey: takingDiagnostic.key,
         accuracy,
         totalQuestions: questions.length,
         correctAnswers,
@@ -337,8 +345,15 @@ const DiagnosticTypes = () => {
 
   // If a specific subject is provided in URL, start that diagnostic
   useEffect(() => {
-    if (subject && DIAGNOSTIC_SUBJECTS[subject] && !takingDiagnostic && !isGeneratingQuestions) {
-      startDiagnostic(subject, DIAGNOSTIC_SUBJECTS[subject].name);
+    // URLs use Learn's slug (/diagnostics/ap-biology/start); older links
+    // carried the name ("AP%20Biology") and move to the slug first.
+    const key = subject ? subjectName(subject) : null;
+    if (key && DIAGNOSTIC_SUBJECTS[key] && subjectSlug(key) && subject !== subjectSlug(key)) {
+      navigate(`/diagnostics/${subjectSlug(key)}/start`, { replace: true });
+      return;
+    }
+    if (key && DIAGNOSTIC_SUBJECTS[key] && !takingDiagnostic && !isGeneratingQuestions) {
+      startDiagnostic(key, DIAGNOSTIC_SUBJECTS[key].name);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subject]);
@@ -366,7 +381,7 @@ const DiagnosticTypes = () => {
   }, [searchQuery, selectedCategory]);
 
   const handleStartDiagnostic = (subjectKey) => {
-    navigate(`/diagnostics/${encodeURIComponent(subjectKey)}/start`);
+    navigate(`/diagnostics/${subjectSlug(subjectKey) || encodeURIComponent(subjectKey)}/start`);
   };
 
   return (
@@ -515,6 +530,14 @@ const DiagnosticTypes = () => {
                     </li>
                   ))}
                 </ul>
+                {packForSubject(diagnosticResult.subjectKey) && (
+                  <Link
+                    to={`/study/${packForSubject(diagnosticResult.subjectKey).slug.split('/')[0]}`}
+                    className="inline-flex items-center gap-1.5 mt-4 text-primary-400 underline"
+                  >
+                    <BookOpen className="w-4 h-4" aria-hidden="true" /> Study these topics in Learn
+                  </Link>
+                )}
               </Card>
 
               <Card className="p-6 mb-8">
@@ -609,7 +632,7 @@ const DiagnosticTypes = () => {
                   Take Another Diagnostic
                 </Button>
                 <Button
-                  onClick={() => navigate(`/ai-tutors/${encodeURIComponent(takingDiagnostic.key)}`)}
+                  onClick={() => navigate(`/ai-tutors/${subjectSlug(takingDiagnostic.key) || ''}`)}
                   variant="outline"
                 >
                   Ask a Tutor
@@ -714,8 +737,8 @@ const DiagnosticTypes = () => {
             </h1>
           </div>
           <p className="text-sm sm:text-base md:text-lg text-content-secondary max-w-3xl mx-auto px-2">
-            Get an instant diagnostic assessment in hundreds of AP subjects. Discover your 
-            strengths and identify areas for improvement with our AI-powered diagnostic tests.
+            A quick 15-question check for each of {Object.keys(DIAGNOSTIC_SUBJECTS).length} AP subjects. See which
+            topics you already know and which ones to study first.
           </p>
         </motion.div>
 
@@ -732,9 +755,9 @@ const DiagnosticTypes = () => {
                 <div className="p-3 bg-base-800 rounded-lg w-fit mx-auto mb-3">
                   <Target className="w-6 h-6 text-content-secondary" />
                 </div>
-                <h3 className="font-semibold text-content-primary mb-2">Adaptive Assessment</h3>
+                <h3 className="font-semibold text-content-primary mb-2">Every Topic Covered</h3>
                 <p className="text-sm text-content-muted">
-                  Questions adapt to your skill level in real-time
+                  Questions are spread across the whole course
                 </p>
               </div>
               <div className="text-center">
@@ -784,7 +807,7 @@ const DiagnosticTypes = () => {
                 </div>
                 <h3 className="font-semibold text-content-primary mb-2">Take Assessment</h3>
                 <p className="text-sm text-content-muted">
-                  Answer 15-25 adaptive questions that adjust to your skill level
+                  Answer 15 questions spread across the course's topics
                 </p>
               </div>
               <div className="text-center">
@@ -959,11 +982,11 @@ const DiagnosticTypes = () => {
                   <div className="grid grid-cols-2 gap-4 mb-4 text-xs">
                     <div className="flex items-center gap-2 text-content-muted">
                       <Clock className="w-4 h-4" />
-                      <span>15-25 questions</span>
+                      <span>15 questions</span>
                     </div>
                     <div className="flex items-center gap-2 text-content-muted">
                       <BarChart3 className="w-4 h-4" />
-                      <span>Adaptive difficulty</span>
+                      <span>Spread across topics</span>
                     </div>
                     <div className="flex items-center gap-2 text-content-muted">
                       <Target className="w-4 h-4" />
@@ -982,6 +1005,7 @@ const DiagnosticTypes = () => {
                       handleStartDiagnostic(key);
                     }}
                     className="w-full"
+                    aria-label={`Start ${subject.name} diagnostic`}
                   >
                     <Brain className="w-4 h-4 mr-2" />
                     Start Diagnostic

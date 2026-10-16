@@ -41,12 +41,16 @@ const pack = {
       summary: String.raw`The difference quotient $\frac{f(a+h) - f(a)}{h}$ (or $\frac{f(x) - f(a)}{x - a}$) is an average rate of change over an interval. Its limit as $h \to 0$ is the instantaneous rate of change at $a$, written $f'(a)$, when that limit exists.`,
       body: String.raw`### Average rate of change
 Over an interval, the average rate of change is the slope of the **secant line**:
+
 $$\frac{f(a+h) - f(a)}{h} \quad\text{or}\quad \frac{f(x) - f(a)}{x - a}.$$
+
 Both are **difference quotients**: change in output over change in input.
 
 ### Instantaneous rate of change
 Shrink the interval to zero and take the limit:
-$$f'(a) = \lim_{h \to 0} \frac{f(a+h) - f(a)}{h} = \lim_{x \to a} \frac{f(x) - f(a)}{x - a},$$
+
+$$\begin{aligned} f'(a) &= \lim_{h \to 0} \frac{f(a+h) - f(a)}{h} \\ &= \lim_{x \to a} \frac{f(x) - f(a)}{x - a}, \end{aligned}$$
+
 provided the limit exists. The two forms are equivalent definitions of the **derivative at $a$**.
 
 **Units:** a rate of change carries "output units per input unit": meters per second, liters per minute, dollars per item.`,
@@ -101,7 +105,9 @@ provided the limit exists. The two forms are equivalent definitions of the **der
       summary: String.raw`The derivative function is $f'(x) = \lim_{h \to 0} \frac{f(x+h) - f(x)}{h}$, also written $\frac{dy}{dx}$ or $y'$. Its value at a point is the slope of the tangent line there, so the tangent line at $x = a$ is $y = f(a) + f'(a)(x - a)$.`,
       body: String.raw`### From a number to a function
 Find the derivative at **every** $x$ and you get a new function:
+
 $$f'(x) = \lim_{h \to 0} \frac{f(x+h) - f(x)}{h}.$$
+
 Notations: $f'(x)$, $y'$, $\frac{dy}{dx}$, $\frac{d}{dx}f(x)$. The derivative can be shown as a graph, a table, a formula or in words.
 
 ${steps({
@@ -116,6 +122,7 @@ ${steps({
 
 ### Tangent lines
 $f'(a)$ is the **slope of the tangent line** at $x = a$. The tangent line goes through $(a, f(a))$, so in point-slope form:
+
 $$y = f(a) + f'(a)(x - a).$$
 
 ${graph({
@@ -414,6 +421,7 @@ Wherever the tangent to $\sin x$ is flat, $\cos x$ crosses zero; where $\sin x$ 
 
 ### Limits that are secretly derivatives
 A limit shaped like $\lim_{h \to 0} \frac{f(a+h) - f(a)}{h}$ **is** $f'(a)$. Recognize $f$ and $a$ and you're done:
+
 $$\lim_{h \to 0} \frac{e^{2+h} - e^2}{h} = \frac{d}{dx}e^x\Big|_{x=2} = e^2.$$`,
       blocks: [
         {
@@ -470,11 +478,15 @@ $$\lim_{h \to 0} \frac{e^{2+h} - e^2}{h} = \frac{d}{dx}e^x\Big|_{x=2} = e^2.$$`,
       minutes: 8,
       summary: String.raw`Product rule: $(fg)' = f'g + fg'$. Quotient rule: $\left(\frac{f}{g}\right)' = \frac{f'g - fg'}{g^2}$. With them: $\frac{d}{dx}\tan x = \sec^2 x$, $\frac{d}{dx}\cot x = -\csc^2 x$, $\frac{d}{dx}\sec x = \sec x\tan x$, $\frac{d}{dx}\csc x = -\csc x\cot x$.`,
       body: String.raw`### Product rule
+
 $$\frac{d}{dx}[f(x)g(x)] = f'(x)g(x) + f(x)g'(x).$$
+
 The derivative of a product is **not** the product of the derivatives.
 
 ### Quotient rule
+
 $$\frac{d}{dx}\left[\frac{f(x)}{g(x)}\right] = \frac{f'(x)g(x) - f(x)g'(x)}{[g(x)]^2}.$$
+
 Memory aid: "low d-high minus high d-low, over the square of what's below." The order matters because of the minus sign.
 
 ${steps({

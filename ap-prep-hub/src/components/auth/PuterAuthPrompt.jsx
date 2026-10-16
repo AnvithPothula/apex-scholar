@@ -3,45 +3,33 @@ import { Sparkles, Shield, Clock, ArrowRight, CheckCircle, AlertTriangle, Loader
 import errorLogger from '../../utils/errorLogger';
 
 /**
- * PuterAuthPrompt — shown after Firebase login if the user hasn't
- * authenticated with Puter yet.  It explains what Puter does and lets
- * the user either authenticate or skip.
+ * PuterAuthPrompt: connects the student's own Puter account so they can pick
+ * Puter models. Optional: AI works without it through Apex Scholar's proxy.
+ * Opens only when asked (the `apex:requestPuterAuth` event from ModelSelector).
  *
- * State tracking (all localStorage):
- *   puter.auth.token         — set by the Puter SDK on successful auth
- *   apex.puter.authenticated — set by US after a successful auth (never cleared)
- *   apex.puter.skipped       — set by us when the user clicks "Skip for now"
- *   apex.puter.skippedAt     — timestamp of last skip (re-prompt after 7 days)
+ * Connected means a live token (`puter.auth.token`, set by the SDK). A
+ * never-cleared "authenticated" flag used to count too, so once a token
+ * expired, "Connect Puter account" did nothing.
  */
-
-const AUTH_KEY  = 'apex.puter.authenticated';
-const SKIP_KEY  = 'apex.puter.skipped';
-const SKIP_TS   = 'apex.puter.skippedAt';
-
-/** Check every reasonable signal that the user has previously authenticated */
 function isPuterAuthenticated() {
   try {
-    // Our own permanent flag (survives token expiry / SDK changes)
-    if (localStorage.getItem(AUTH_KEY) === 'true') return true;
-    // SDK in-memory token
     if (typeof window !== 'undefined' && window.puter && window.puter.authToken) return true;
-    // localStorage token set by the Puter SDK
     const token = localStorage.getItem('puter.auth.token');
-    if (token && token.length > 10) {
-      // While we're here, set our permanent flag so future checks are instant
-      try { localStorage.setItem(AUTH_KEY, 'true'); } catch (e) { errorLogger.debug('localStorage write failed (puter auth)', { error: e?.message }); }
-      return true;
-    }
-  } catch (e) { errorLogger.debug('isPuterAuthenticated check failed', { error: e?.message }); }
-  return false;
+    return !!(token && token.length > 10);
+  } catch (e) {
+    errorLogger.debug('isPuterAuthenticated check failed', { error: e?.message });
+    return false;
+  }
 }
-
 
 export default function PuterAuthPrompt() {
   const [visible, setVisible] = useState(false);
   const [authState, setAuthState] = useState('idle'); // idle | loading | success | error
   const [errorMsg, setErrorMsg] = useState('');
+  // The SDK isn't on the page until someone asks to connect (public/index.html).
+  const [sdk, setSdk] = useState('loading'); // loading | ready | blocked
   const visibleRef = useRef(false);
+  const dialogRef = useRef(null);
 
   // Puter is opt-in premium now: the prompt NEVER auto-shows. It only opens
   // when the user explicitly clicks "Connect Puter" (the apex:requestPuterAuth
@@ -57,6 +45,11 @@ export default function PuterAuthPrompt() {
       setAuthState('idle');
       setErrorMsg('');
       setVisible(true);
+      // Loaded now, while the student reads, because signIn() must run straight
+      // from the button click or Safari blocks its popup.
+      setSdk(window.__puterLoaded ? 'ready' : 'loading');
+      Promise.resolve(window.__loadPuter ? window.__loadPuter() : false)
+        .then((ok) => setSdk(ok ? 'ready' : 'blocked'));
     };
     window.addEventListener('apex:requestPuterAuth', handleRequest);
     return () => window.removeEventListener('apex:requestPuterAuth', handleRequest);
@@ -76,6 +69,8 @@ export default function PuterAuthPrompt() {
     }, 1000);
     return () => clearInterval(iv);
   }, [visible]);
+
+  const close = useCallback(() => { visibleRef.current = false; setVisible(false); }, []);
 
   // Handle "Continue with Puter"
   const handleContinue = useCallback(async () => {
@@ -128,13 +123,10 @@ export default function PuterAuthPrompt() {
         }
       }
 
-      // If we get here the user completed auth.
-      // Set our permanent flag so the prompt never shows again
-      try { localStorage.setItem(AUTH_KEY, 'true'); } catch (e) { errorLogger.debug('localStorage write failed (puter auth)', { error: e?.message }); }
       setAuthState('success');
       // Reload model selector defaults after Puter becomes available
       window.dispatchEvent(new CustomEvent('apex:puterAuthComplete'));
-      setTimeout(() => setVisible(false), 1500);
+      setTimeout(close, 1500);
     } catch (err) {
       // Safely extract a human-readable error string (avoid [object Object])
       let msg = '';
@@ -154,22 +146,24 @@ export default function PuterAuthPrompt() {
       setErrorMsg(msg || 'Something went wrong. You can try again or skip for now.');
       setAuthState('error');
     }
-  }, []);
+  }, [close]);
 
-  // Handle "Skip for now"
-  const handleSkip = useCallback(() => {
-    try {
-      localStorage.setItem(SKIP_KEY, 'true');
-      localStorage.setItem(SKIP_TS, String(Date.now()));
-    } catch (e) { errorLogger.debug('localStorage write failed (puter skip)', { error: e?.message }); }
-    setVisible(false);
-  }, []);
+  // A native modal <dialog>: focus stays inside, Escape closes, the page behind is inert.
+  useEffect(() => {
+    const d = dialogRef.current;
+    if (visible && d && !d.open && d.showModal) d.showModal();
+  }, [visible]);
 
   if (!visible) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[60]">
-      <div className="bg-base-850 rounded-md max-w-lg w-full border border-border shadow-floating overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <dialog
+      ref={dialogRef}
+      aria-labelledby="puter-connect-title"
+      onCancel={(e) => { e.preventDefault(); if (authState !== 'loading') close(); }}
+      className="bg-transparent p-4 w-full max-w-lg backdrop:bg-black/60"
+    >
+      <div className="bg-base-850 rounded-md w-full border border-border shadow-floating overflow-hidden">
         {/* Header */}
         <div className="bg-content-primary/10 border-b border-border px-6 py-5">
           <div className="flex items-center gap-3">
@@ -177,8 +171,8 @@ export default function PuterAuthPrompt() {
                 <Sparkles className="w-6 h-6 text-content-muted" strokeWidth={1.5} />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-content-primary">Enable AI Features</h2>
-                <p className="text-sm text-content-muted mt-0.5">One-time setup — takes about 30 seconds</p>
+                <h2 id="puter-connect-title" className="text-lg font-bold text-content-primary">Connect a Puter account</h2>
+                <p className="text-sm text-content-muted mt-0.5">Optional. The AI already works without it.</p>
               </div>
             </div>
         </div>
@@ -189,33 +183,35 @@ export default function PuterAuthPrompt() {
             <div className="flex flex-col items-center py-4 gap-3">
               <CheckCircle className="w-12 h-12 text-success-400" strokeWidth={1.5} />
               <p className="text-success-300 font-semibold text-lg">You're all set!</p>
-              <p className="text-content-muted text-sm">AI features are now fully enabled.</p>
+              <p className="text-content-muted text-sm">Pick a Puter model from the AI model menu.</p>
             </div>
           ) : (
             <>
               <p className="text-content-secondary text-sm leading-relaxed">
-                Apex Scholar uses <strong className="text-content-muted">Puter</strong> to provide free,
-                unlimited access to advanced AI models. We <strong className="text-content-primary">strongly recommend</strong> connecting
-                your account — it only takes a moment and dramatically improves your experience.
+                <strong className="text-content-primary">Puter</strong> is a separate service with a free account.
+                Connecting it lets you choose other AI models for the tutor and other tools.
               </p>
 
               <div className="space-y-2.5">
-                <Benefit icon={Sparkles} text="Access to 500+ AI models including GPT, Claude, and Gemini" />
-                <Benefit icon={Shield}   text="Faster, more reliable AI responses" />
-                <Benefit icon={Clock}    text="No daily limits on AI tutoring, flashcards, and more" />
+                <Benefit icon={Sparkles} text="Choose Claude, GPT or Gemini models" />
+                <Benefit icon={Shield}   text="Runs on your Puter account's free allowance" />
+                <Benefit icon={Clock}    text="When that runs out, Apex Scholar switches back to its own AI by itself" />
               </div>
 
               {/* Important note */}
               <div className="bg-warning-900/20 border border-warning-700/40 rounded-sm px-4 py-3 flex gap-3 items-start">
                 <AlertTriangle className="w-5 h-5 text-warning-400 flex-shrink-0 mt-0.5" strokeWidth={1.5} />
                 <div className="text-sm text-warning-200/90 leading-relaxed">
-                  <strong>Please note:</strong> A new tab will open to complete the setup.
-                  It may take a moment to load — <strong>do not close the tab</strong> while it's working.
-                  If you're asked to create a Puter account, it's free and quick.
+                  A Puter window opens to sign in or create the account. Keep it open until it finishes.
                   <br /><span className="text-warning-300/70 text-xs mt-1 block">Puter sign-in is per-device — you may need to connect again on other devices.</span>
                 </div>
               </div>
 
+              {sdk === 'blocked' && (
+                <div className="bg-error-900/20 border border-error-700/40 rounded-sm px-4 py-3 text-sm text-error-300">
+                  Puter couldn&apos;t load on this network (some school filters block it). You can keep using the standard AI.
+                </div>
+              )}
               {errorMsg && (
                 <div className="bg-error-900/20 border border-error-700/40 rounded-sm px-4 py-3 text-sm text-error-300">
                   {errorMsg}
@@ -229,27 +225,34 @@ export default function PuterAuthPrompt() {
         {authState !== 'success' && (
           <div className="px-6 pb-5 flex flex-col sm:flex-row gap-3">
             <button
-              onClick={handleSkip}
+              type="button"
+              onClick={close}
               disabled={authState === 'loading'}
               className="flex-1 px-4 py-2.5 bg-base-800 hover:bg-base-750 disabled:opacity-50 text-content-secondary rounded-sm text-sm font-medium transition-colors"
             >
-              Skip for now
+              Not now
             </button>
             <button
+              type="button"
               onClick={handleContinue}
-              disabled={authState === 'loading'}
+              disabled={authState === 'loading' || sdk !== 'ready'}
               className="flex-[2] px-4 py-2.5 bg-content-primary hover:opacity-90 disabled:opacity-70 text-base-950 rounded-sm text-sm font-semibold transition-all flex items-center justify-center gap-2 shadow-raised"
             >
               {authState === 'loading' ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" strokeWidth={1.5} />
-                  Connecting — don't close this tab…
+                  Connecting…
+                </>
+              ) : sdk === 'loading' ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" strokeWidth={1.5} />
+                  Loading Puter…
                 </>
               ) : authState === 'error' ? (
                 <>Try Again</>
               ) : (
                 <>
-                  Continue with Puter
+                  Connect Puter
                   <ArrowRight className="w-4 h-4" strokeWidth={1.5} />
                 </>
               )}
@@ -257,7 +260,7 @@ export default function PuterAuthPrompt() {
           </div>
         )}
       </div>
-    </div>
+    </dialog>
   );
 }
 

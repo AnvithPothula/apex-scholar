@@ -221,11 +221,11 @@ const SettingsSidebar = ({ isSaving = false, onResetAll }) => {
 
       {/* Mobile/tablet: horizontal scrollable pill bar */}
       <nav
-        className="lg:hidden -mx-3 sm:-mx-4 mb-4 sticky top-0 z-30 bg-base-950/85 backdrop-blur-sm border-b border-border-subtle"
+        className="lg:hidden -mx-3 sm:-mx-4 mb-4 sticky top-12 sm:top-14 z-30 bg-base-950/85 backdrop-blur-sm border-b border-border-subtle"
         aria-label="Settings sections"
       >
         <ul
-          className="flex gap-1 overflow-x-auto px-3 sm:px-4 py-2"
+          className="flex gap-1 overflow-x-auto pl-3 sm:pl-4 pr-10 py-2 [mask-image:linear-gradient(to_right,black_calc(100%-2.5rem),transparent)]"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           {SETTINGS_SECTIONS.map(({ id, label, icon: Icon }) => {

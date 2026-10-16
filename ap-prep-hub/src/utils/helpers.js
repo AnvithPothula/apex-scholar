@@ -66,7 +66,7 @@ export const generateSampleTasks = () => [
     },
     {
         name: "AP English Essay Draft",
-        subject: "AP English Literature",
+        subject: "AP English Literature and Composition",
         difficulty: "Medium",
         estimated_time: 90,
         deadline: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000),

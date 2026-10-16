@@ -1,5 +1,5 @@
-const { EMAIL_CATEGORIES, wants, parseForm, prefsFromForm } = require('../../netlify/lib/emailPrefs');
 import { EMAIL_CATEGORIES as CLIENT } from '../constants/emailCategories';
+const { EMAIL_CATEGORIES, wants, parseForm, prefsFromForm } = require('../../netlify/lib/emailPrefs');
 
 describe('email preferences', () => {
   it('uses the same category keys on the client and server', () => {

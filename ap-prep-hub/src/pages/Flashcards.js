@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import useScrollTopOn from '../hooks/useScrollTopOn';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, Play, Trash2, Clock, BookOpen, CheckCircle, X, Edit3, Save, ChevronDown, Globe, Lock, Copy, Users, User, Upload } from 'lucide-react';
+import { Plus, Search, Play, Trash2, Clock, BookOpen, CheckCircle, X, Edit3, Save, ChevronDown, Globe, Lock, Copy, Users, User, Upload, Folder, FolderPlus } from 'lucide-react';
 import QuizletImport from '../components/flashcards/QuizletImport';
 import { recordFlashcardStudy, recordDeckCreated } from '../services/activityTracker';
 import { Button, Card, Input } from '../components/ui/UIComponents';
 import ProgressIndicator from '../components/ui/ProgressIndicator';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { AP_SUBJECTS } from '../constants/subjects';
+import { AP_SUBJECTS, shortSubjectName, courseTitle } from '../constants/subjects';
 import geminiService, { RateLimitError } from '../services/geminiService';
 import dataService from '../services/dataService';
+import srs from '../services/srs';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import ModelSelector, { getDefaultModel, saveSelectedModel } from '../components/ui/ModelSelector';
 import { useToast } from '../contexts/ToastContext';
@@ -89,6 +91,7 @@ const FlashcardsPage = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [studyingDeck, setStudyingDeck] = useState(null);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
+  useScrollTopOn(studyingDeck?.id);
   const [showAnswer, setShowAnswer] = useState(false);
   const [studySession, setStudySession] = useState(null);
   const [selectedModel, setSelectedModel] = useState(getDefaultModel);
@@ -103,12 +106,20 @@ const FlashcardsPage = () => {
   const [isSearchingPublic, setIsSearchingPublic] = useState(false);
   const [copyingDeckId, setCopyingDeckId] = useState(null);
   const [isPublicDeck, setIsPublicDeck] = useState(false); // toggle for create forms
+  // Folders: names on users/{uid}; each deck's `folder` is one of them or ''.
+  const [folders, setFolders] = useState([]);
+  const [activeFolder, setActiveFolder] = useState(null); // null = all decks
+  const [newFolder, setNewFolder] = useState(null); // null = not adding one
 
   // Load user's flashcard decks
   const loadUserFlashcards = useCallback(async () => {
     if (!user) return;
     try {
-      const decks = await dataService.getUserFlashcardDecks(user.uid);
+      const [decks, savedFolders] = await Promise.all([
+        dataService.getUserFlashcardDecks(user.uid),
+        dataService.getFlashcardFolders(user.uid),
+      ]);
+      setFolders(savedFolders);
       setUserCollections(decks.map(deck => ({
         ...deck,
         lastStudied: deck.lastStudied ? new Date(deck.lastStudied.seconds * 1000).toLocaleDateString() : 'Never',
@@ -180,7 +191,7 @@ const FlashcardsPage = () => {
       );
 
       const newCollection = {
-        title: `${AP_SUBJECTS[createSubject]?.name || createSubject} - ${createTopic}`,
+        title: `${shortSubjectName(createSubject)} - ${createTopic}`,
         subject: createSubject,
         topic: createTopic,
         cards: flashcards,
@@ -211,7 +222,9 @@ const FlashcardsPage = () => {
       setIsPublicDeck(false);
     } catch (error) {
       console.error('Error creating flashcards:', error);
-      if (error instanceof RateLimitError || error?.isRateLimit) {
+      if (error?.code === 'ai_usage_limit') {
+        toast.warning(error.message);
+      } else if (error instanceof RateLimitError || error?.isRateLimit) {
         toast.aiBusy(error.retryAfter, { reason: 'flashcards' });
       } else {
         toast.error('Failed to generate flashcards. Please try again.');
@@ -265,7 +278,13 @@ const FlashcardsPage = () => {
     }
   };
 
+  // "Didn't Know" puts the card in the Review queue, which brings it back on a
+  // spaced schedule — that is the spaced repetition this page promises.
   const handleCardAnswer = (isCorrect) => {
+    const card = studyingDeck.cards[currentCardIndex];
+    if (!isCorrect && user && card?.question) {
+      srs.addMisses(user.uid, [{ question: card.question, correctAnswer: card.answer, subject: studyingDeck.subject || '' }]);
+    }
     handleNextCard(isCorrect ? 1 : 0);
   };
 
@@ -537,9 +556,56 @@ const FlashcardsPage = () => {
   }));
 
   const filteredUserCollections = userCollections.filter(collection =>
-    collection.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    collection.subject.toLowerCase().includes(searchQuery.toLowerCase())
+    (activeFolder === null || (collection.folder || '') === activeFolder) && (
+      collection.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      collection.subject.toLowerCase().includes(searchQuery.toLowerCase())
+    )
   );
+
+  const addFolder = async () => {
+    const name = (newFolder || '').trim();
+    if (!name) { setNewFolder(null); return; }
+    if (folders.includes(name)) { toast.warning('You already have a folder with that name.'); return; }
+    const next = [...folders, name];
+    try {
+      await dataService.saveFlashcardFolders(user.uid, next);
+      setFolders(next);
+      setNewFolder(null);
+      setActiveFolder(name);
+    } catch {
+      toast.error('Couldn\'t create the folder. Try again.');
+    }
+  };
+
+  const moveDeck = async (deck, folder) => {
+    setUserCollections(prev => prev.map(d => (d.id === deck.id ? { ...d, folder } : d)));
+    try {
+      await dataService.updateFlashcardDeck(deck.id, { folder });
+    } catch {
+      setUserCollections(prev => prev.map(d => (d.id === deck.id ? { ...d, folder: deck.folder || '' } : d)));
+      toast.error('Couldn\'t move the deck. Try again.');
+    }
+  };
+
+  const deleteFolder = async (name) => {
+    const inside = userCollections.filter(d => d.folder === name);
+    const ok = await confirm({
+      title: `Delete the "${name}" folder?`,
+      message: inside.length ? `Its ${inside.length} ${inside.length === 1 ? 'deck stays' : 'decks stay'} in My Flashcards, just outside any folder.` : 'It\'s empty.',
+      confirmText: 'Delete folder',
+    });
+    if (!ok) return;
+    try {
+      await Promise.all(inside.map(d => dataService.updateFlashcardDeck(d.id, { folder: '' })));
+      const next = folders.filter(f => f !== name);
+      await dataService.saveFlashcardFolders(user.uid, next);
+      setFolders(next);
+      setUserCollections(prev => prev.map(d => (d.folder === name ? { ...d, folder: '' } : d)));
+      setActiveFolder(null);
+    } catch {
+      toast.error('Couldn\'t delete the folder. Try again.');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-base-950 text-content-primary">
@@ -548,7 +614,7 @@ const FlashcardsPage = () => {
         <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
           <div className="flex items-center justify-between gap-3 mb-4 sm:mb-6 md:mb-8">
             <div className="min-w-0">
-              <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-content-primary truncate">{studyingDeck.title}</h1>
+              <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-content-primary truncate">{courseTitle(studyingDeck.title)}</h1>
               <p className="text-xs sm:text-sm text-content-muted">
                 Card {currentCardIndex + 1} of {studyingDeck.cards.length}
               </p>
@@ -558,8 +624,8 @@ const FlashcardsPage = () => {
               variant="outline"
               className="flex-shrink-0 text-xs sm:text-sm px-2 sm:px-4"
             >
-              <X className="w-4 h-4 sm:mr-2" strokeWidth={1.5} />
-              <span className="hidden sm:inline">Exit Study</span>
+              <X className="w-4 h-4 sm:mr-2" strokeWidth={1.5} aria-hidden="true" />
+              <span className="sr-only sm:not-sr-only">Exit Study</span>
             </Button>
           </div>
 
@@ -572,17 +638,22 @@ const FlashcardsPage = () => {
             </div>
           </div>
 
-          <Card className="p-4 sm:p-6 md:p-8 mb-4 sm:mb-6 min-h-[200px] sm:min-h-[280px] md:min-h-[300px] flex flex-col justify-center">
+          <Card className="p-4 sm:p-6 md:p-8 mb-4 sm:mb-6 min-h-[200px] flex flex-col justify-center">
             <div className="text-center">
               <h2 className="text-base sm:text-lg md:text-xl font-bold text-content-primary mb-4 sm:mb-6">
-                {showAnswer ? 'Answer' : 'Question'}
+                Question
               </h2>
-              <div className="text-sm sm:text-base md:text-lg text-content-primary leading-relaxed">
-                {showAnswer 
-                  ? <MarkdownRenderer content={studyingDeck.cards[currentCardIndex]?.answer || 'No answer available'} />
-                  : <MarkdownRenderer content={studyingDeck.cards[currentCardIndex]?.question || 'No question available'} />
-                }
+              <div className={`leading-relaxed ${showAnswer ? 'text-sm sm:text-base text-content-secondary' : 'text-sm sm:text-base md:text-lg text-content-primary'}`}>
+                <MarkdownRenderer content={studyingDeck.cards[currentCardIndex]?.question || 'No question available'} />
               </div>
+              {showAnswer && (
+                <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-border">
+                  <h2 className="text-base sm:text-lg md:text-xl font-bold text-content-primary mb-3">Answer</h2>
+                  <div className="text-sm sm:text-base md:text-lg text-content-primary leading-relaxed">
+                    <MarkdownRenderer content={studyingDeck.cards[currentCardIndex]?.answer || 'No answer available'} />
+                  </div>
+                </div>
+              )}
               {!showAnswer && (
                 <Button
                   onClick={() => setShowAnswer(true)}
@@ -595,8 +666,8 @@ const FlashcardsPage = () => {
           </Card>
 
           {showAnswer && (
-            <div className="flex flex-col gap-4">
-              <div className="text-center text-content-secondary mb-4">
+            <div className="flex flex-col gap-3">
+              <div className="text-center text-content-secondary">
                 How well did you know this?
               </div>
               <div className="flex gap-4 justify-center">
@@ -746,6 +817,7 @@ const FlashcardsPage = () => {
                 className="flex-1 sm:flex-none bg-content-primary text-base-950 hover:opacity-90 text-sm"
               >
                 <Plus className="w-4 h-4 mr-1 sm:mr-2" strokeWidth={1.5} />
+                <span className="sm:hidden">Manual</span>
                 <span className="hidden sm:inline">Create Manual</span>
               </Button>
               <Button
@@ -753,6 +825,7 @@ const FlashcardsPage = () => {
                 className="flex-1 sm:flex-none bg-content-primary text-base-950 hover:opacity-90 text-sm"
               >
                 <Plus className="w-4 h-4 mr-1 sm:mr-2" strokeWidth={1.5} />
+                <span className="sm:hidden">With AI</span>
                 <span className="hidden sm:inline">Create with AI</span>
               </Button>
               <Button
@@ -761,6 +834,7 @@ const FlashcardsPage = () => {
                 className="flex-1 sm:flex-none text-sm"
               >
                 <Upload className="w-4 h-4 mr-1 sm:mr-2" strokeWidth={1.5} />
+                <span className="sm:hidden">Import</span>
                 <span className="hidden sm:inline">Import from Quizlet</span>
               </Button>
             </div>
@@ -1023,6 +1097,41 @@ const FlashcardsPage = () => {
             </motion.div>
           )}
 
+          {/* Folders */}
+          {user && (
+            <div className="flex flex-wrap items-center gap-2 mb-5" role="group" aria-label="Folders">
+              {[[null, 'All decks', userCollections.length], ...folders.map(f => [f, f, userCollections.filter(d => d.folder === f).length])].map(([key, label, n]) => (
+                <button key={label} type="button" onClick={() => setActiveFolder(key)} aria-pressed={activeFolder === key}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm transition-colors ${
+                    activeFolder === key ? 'border-content-primary bg-base-800 text-content-primary' : 'border-border-strong text-content-secondary hover:text-content-primary'
+                  }`}>
+                  {key !== null && <Folder className="w-3.5 h-3.5" strokeWidth={1.5} />}
+                  {label}<span className="text-content-muted">{n}</span>
+                </button>
+              ))}
+              {newFolder === null ? (
+                <button type="button" onClick={() => setNewFolder('')}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-dashed border-border-strong text-sm text-content-muted hover:text-content-primary">
+                  <FolderPlus className="w-3.5 h-3.5" strokeWidth={1.5} />New folder
+                </button>
+              ) : (
+                <form onSubmit={(e) => { e.preventDefault(); addFolder(); }} className="inline-flex items-center gap-1.5">
+                  <input autoFocus value={newFolder} onChange={(e) => setNewFolder(e.target.value)} maxLength={40}
+                    onKeyDown={(e) => { if (e.key === 'Escape') setNewFolder(null); }}
+                    placeholder="Folder name" aria-label="New folder name"
+                    className="w-40 px-3 py-1.5 rounded-full bg-base-800 border border-border-strong text-sm text-content-primary placeholder:text-content-muted" />
+                  <button type="submit" className="px-3 py-1.5 rounded-full bg-content-primary text-base-950 text-sm">Add</button>
+                  <button type="button" onClick={() => setNewFolder(null)} className="px-2 py-1.5 text-sm text-content-muted">Cancel</button>
+                </form>
+              )}
+              {activeFolder !== null && (
+                <button type="button" onClick={() => deleteFolder(activeFolder)} className="ml-auto inline-flex items-center gap-1 text-xs text-content-muted hover:text-error-400">
+                  <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />Delete folder
+                </button>
+              )}
+            </div>
+          )}
+
           {/* User Collections */}
           {user ? (
             filteredUserCollections.length > 0 ? (
@@ -1040,7 +1149,7 @@ const FlashcardsPage = () => {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-2 flex-wrap">
                             <h3 className="text-lg font-bold text-content-primary group-hover:text-content-muted transition-colors truncate">
-                              {collection.title}
+                              {courseTitle(collection.title)}
                             </h3>
                             <button
                               onClick={(e) => { e.stopPropagation(); handleToggleVisibility(collection); }}
@@ -1071,11 +1180,24 @@ const FlashcardsPage = () => {
                         </div>
                       </div>
 
+                      {folders.length > 0 && (
+                        <label className="flex items-center gap-2 mb-3 text-xs text-content-muted" onClick={(e) => e.stopPropagation()}>
+                          <Folder className="w-3.5 h-3.5 shrink-0" strokeWidth={1.5} />
+                          <span className="sr-only">Folder for {collection.title}</span>
+                          <select value={collection.folder || ''} onChange={(e) => moveDeck(collection, e.target.value)}
+                            className="flex-1 min-w-0 px-2 py-1 rounded-md bg-base-800 border border-border text-xs text-content-secondary">
+                            <option value="">No folder</option>
+                            {folders.map(f => <option key={f} value={f}>{f}</option>)}
+                          </select>
+                        </label>
+                      )}
+
                       {/* Action Buttons */}
                       <div className="flex gap-2">
                         <Button
                           size="sm"
                           onClick={() => handleStudyCollection(collection)}
+                          aria-label={`Study ${collection.title}`}
                           className="flex-1 bg-content-primary text-base-950 hover:opacity-90"
                         >
                           <Play className="w-4 h-4 mr-2" strokeWidth={1.5} />
@@ -1102,6 +1224,13 @@ const FlashcardsPage = () => {
                   </motion.div>
                 ))}
               </div>
+            ) : activeFolder !== null || (searchQuery && userCollections.length) ? (
+              <Card className="p-8 text-center">
+                <Folder className="w-10 h-10 text-content-muted mx-auto mb-3" strokeWidth={1.5} />
+                <p className="text-content-secondary">
+                  {searchQuery ? 'No decks match that search here.' : 'This folder is empty. Use the folder menu on any deck to move it here.'}
+                </p>
+              </Card>
             ) : (
               <Card className="p-8 text-center">
                 <BookOpen className="w-16 h-16 text-content-muted mx-auto mb-4" strokeWidth={1.5} />
@@ -1162,7 +1291,7 @@ const FlashcardsPage = () => {
                     <div className="mb-4">
                       <div className="flex items-center gap-2 mb-2">
                         <h3 className="text-lg font-bold text-content-primary group-hover:text-content-muted transition-colors truncate">
-                          {deck.title}
+                          {courseTitle(deck.title)}
                         </h3>
                         <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-base-800 text-content-muted whitespace-nowrap">
                           <Globe className="w-3 h-3" strokeWidth={1.5} />
@@ -1170,7 +1299,7 @@ const FlashcardsPage = () => {
                         </span>
                       </div>
                       {deck.topic && (
-                        <p className="text-xs text-content-muted mb-1">{AP_SUBJECTS[deck.subject]?.name || deck.subject}</p>
+                        <p className="text-xs text-content-muted mb-1">{shortSubjectName(deck.subject)}</p>
                       )}
                       <p className="text-sm text-content-muted mb-3 line-clamp-2">
                         {deck.description}

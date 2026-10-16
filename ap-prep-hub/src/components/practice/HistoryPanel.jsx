@@ -79,7 +79,7 @@ const HistoryPanel = ({
                   console.log('HISTORY: Sanitized test results:', sanitizedResults);
                   const emergencyCleanedResults = emergencyCleanResults(sanitizedResults);
                   console.log('HISTORY: Emergency cleaned test results:', emergencyCleanedResults);
-                  setTestResults(emergencyCleanedResults);
+                  setTestResults({ ...emergencyCleanedResults, docId: test.id });
                   setQuestions(test.questions || []);
                   setUserAnswers(test.userAnswers || {});
                   setSelectedSubject(test.subject);

@@ -126,6 +126,37 @@ class DataService {
     }
   }
 
+  /**
+   * Append cards to an existing deck, skipping any whose question is already
+   * in it (saving the same Learn cards twice shouldn't double them).
+   * Returns how many were added.
+   */
+  async addCardsToDeck(deckId, cards) {
+    const deckRef = doc(this.db, 'flashcardDecks', deckId);
+    const snap = await getDoc(deckRef);
+    const existing = snap.exists() ? (snap.data().cards || []) : [];
+    const seen = new Set(existing.map((c) => c.question));
+    const merged = [...existing, ...cards.filter((c) => !seen.has(c.question))];
+    await updateDoc(deckRef, { cards: merged, cardCount: merged.length, lastUpdated: serverTimestamp() });
+    return merged.length - existing.length;
+  }
+
+  // Flashcard folders: names kept on the user's own doc (users/{uid}, owner-only
+  // rule); each deck carries a `folder` name, '' or missing for none.
+  async getFlashcardFolders(userId) {
+    try {
+      const snap = await getDoc(doc(this.db, 'users', userId));
+      return snap.exists() ? (snap.data().flashcardFolders || []) : [];
+    } catch (error) {
+      console.error('Error loading flashcard folders:', error);
+      return [];
+    }
+  }
+
+  async saveFlashcardFolders(userId, folders) {
+    await setDoc(doc(this.db, 'users', userId), { flashcardFolders: folders }, { merge: true });
+  }
+
   async toggleFlashcardVisibility(deckId, isPublic) {
     try {
       const deckRef = doc(this.db, 'flashcardDecks', deckId);

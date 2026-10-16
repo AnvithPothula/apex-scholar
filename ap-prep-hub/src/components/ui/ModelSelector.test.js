@@ -2,7 +2,8 @@ import { getModelLabel } from './ModelSelector';
 
 describe('getModelLabel', () => {
   it('gives the friendly name for a listed model', () => {
-    expect(getModelLabel('claude-sonnet-4')).toBe('Claude Sonnet 4');
+    expect(getModelLabel('anthropic/claude-sonnet-5-5')).toBe('Claude Sonnet 5.5');
+    expect(getModelLabel('gemini-2.0-flash')).toBe('Standard');
   });
 
   it('falls back to the bare id for models the picker never lists', () => {

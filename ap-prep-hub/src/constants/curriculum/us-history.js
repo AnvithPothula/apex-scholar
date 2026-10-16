@@ -1,6 +1,6 @@
 // AP United States History curriculum data
 const usHistory = {
-  name: "AP United States History",
+  name: "AP U.S. History",
   description: "Study the political, diplomatic, intellectual, cultural, economic, and social history of the United States from 1491 to the present.",
   examFormat: {
     duration: "3 hours 15 minutes",

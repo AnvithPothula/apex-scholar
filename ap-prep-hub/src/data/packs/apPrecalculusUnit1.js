@@ -45,7 +45,9 @@ A **function** maps each input to **exactly one** output. **Domain**: the inputs
 
 ### Rates of change
 **Average rate of change** on $[a, b]$:
+
 $$\frac{f(b) - f(a)}{b - a}$$
+
 the slope of the **secant line** between the two points, and the constant rate that would produce the same change in output.
 
 The **rate of change at a point** is approximated by average rates of change over smaller and smaller intervals containing that point. A **positive** rate: both quantities move the same way; **negative**: one rises as the other falls.
@@ -457,8 +459,8 @@ $(x + 2)^3 = 1\cdot x^3 + 3\cdot x^2\cdot 2 + 3\cdot x\cdot 2^2 + 1\cdot 2^3 = x
 |---|---|
 | $f(x) + k$ | Vertical translation by $k$ (up if $k > 0$) |
 | $f(x + h)$ | Horizontal translation by $-h$ (**left** if $h > 0$) |
-| $a\,f(x)$ | Vertical dilation by factor $|a|$; reflect over the $x$-axis if $a < 0$ |
-| $f(bx)$ | Horizontal dilation by factor $\tfrac{1}{|b|}$; reflect over the $y$-axis if $b < 0$ |
+| $a\,f(x)$ | Vertical dilation by factor $\lvert a\rvert$; reflect over the $x$-axis if $a < 0$ |
+| $f(bx)$ | Horizontal dilation by factor $\tfrac{1}{\lvert b\rvert}$; reflect over the $y$-axis if $b < 0$ |
 
 Changes **inside** the function act on $x$ and do the "opposite" of what you might expect: $+h$ moves left, and multiplying by $b = 2$ **squeezes** the graph to half its width.
 

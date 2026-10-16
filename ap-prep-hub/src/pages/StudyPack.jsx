@@ -27,6 +27,14 @@ import ScaleBuilder from '../components/study/ScaleBuilder';
 import MeterLab from '../components/study/MeterLab';
 import CaseLab from '../components/study/CaseLab';
 import BooleanSearch from '../components/study/BooleanSearch';
+import InclineLab from '../components/study/InclineLab';
+import { shortSubjectName, subjectSlug } from '../constants/subjects';
+import VSEPRExplorer from '../components/study/VSEPRExplorer';
+import LargeNumbersLab from '../components/study/LargeNumbersLab';
+import CLTLab from '../components/study/CLTLab';
+import PopulationPyramidLab from '../components/study/PopulationPyramidLab';
+import LaborMarketLab from '../components/study/LaborMarketLab';
+import MarketLab from '../components/study/MarketLab';
 import PackQuestion from '../components/study/PackQuestion';
 import SelectionAsk from '../components/study/SelectionAsk';
 import { useAuth } from '../contexts/AuthContext';
@@ -59,7 +67,9 @@ const SIMS = { 'polymer-builder': PolymerBuilder, 'saturation-slider': Saturatio
   'ppc-explorer': PPCExplorer, 'timeline-order': TimelineOrder,
   'sort-buckets': SortBuckets, 'java-arithmetic': JavaArithmetic, 'string-lab': StringLab,
   'password-space': PasswordSpace, 'scale-builder': ScaleBuilder, 'meter-lab': MeterLab,
-  'case-lab': CaseLab, 'boolean-search': BooleanSearch };
+  'case-lab': CaseLab, 'boolean-search': BooleanSearch, 'incline-lab': InclineLab, 'vsepr-explorer': VSEPRExplorer,
+  'law-large-numbers': LargeNumbersLab, 'clt-lab': CLTLab,
+  'population-pyramid': PopulationPyramidLab, 'labor-market': LaborMarketLab, 'market-lab': MarketLab };
 const MODE_ICONS = { quick: Gauge, full: BookOpen, precheck: ListChecks, adaptive: Target };
 const STATUS_CHIP = {
   mastered: { label: 'Known', className: 'text-success-400 border-success-500/40' },
@@ -81,7 +91,7 @@ export default function StudyPack() {
   }
   // Highlight anything in the pack to ask about it, answered in place.
   return (
-    <SelectionAsk key={slug} subject={PACKS[slug]?.subject} unit={PACKS[slug]?.title}>
+    <SelectionAsk key={slug} slug={slug} subject={PACKS[slug]?.subject} unit={PACKS[slug]?.title}>
       <StudyPackView key={`${slug}:${user?.uid || ''}`} slug={slug} uid={user?.uid || null} />
     </SelectionAsk>
   );
@@ -99,6 +109,7 @@ function StudyPackView({ slug, uid }) {
   const [answers, setAnswers] = useState({});    // question key -> the choice text picked
   const [expanded, setExpanded] = useState({});
   const pending = useRef(null);
+  const learnLogged = useRef(false); // once per visit: this counts as a study session
 
   useEffect(() => {
     if (!entry) return undefined;
@@ -177,13 +188,13 @@ function StudyPackView({ slug, uid }) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-16 text-center">
         <h1 className="text-h2 font-bold text-content-primary">
-          {planned ? `${course.subject} ${planned.title}: coming soon` : "That study pack doesn't exist yet"}
+          {planned ? `${course.subject} ${planned.title}: coming soon` : "That unit doesn't exist yet"}
         </h1>
         <p className="text-body text-content-secondary mt-2">
           We're writing these one unit at a time and checking each against the College Board course description.
         </p>
         <Button className="mt-6" onClick={() => navigate(course ? `/study/${course.id}` : '/study')}>
-          {course ? `${course.subject} units` : 'See every study pack'}
+          {course ? `${course.subject} units` : 'Back to Learn'}
         </Button>
       </div>
     );
@@ -199,6 +210,10 @@ function StudyPackView({ slug, uid }) {
   const record = (s, kind, i, q, { correct, chosen, ms }) => {
     setAnswers((a) => ({ ...a, [`${s.id}:${kind}${i ?? ''}`]: q.choices[chosen] }));
     if (!uid) return;
+    if (!learnLogged.current) {
+      learnLogged.current = true;
+      import('../services/activityTracker').then((m) => m.recordLearnSession(uid, pack.subject));
+    }
     const original = kind === 'pre' || kind === 'more' ? s.precheck : s.checkpoints[i];
     logResponses(uid, [{
       itemId: `${pack.slug}#${s.id}#${kind}${i ?? ''}`,
@@ -265,7 +280,7 @@ function StudyPackView({ slug, uid }) {
       <div className="max-w-3xl mx-auto px-4 py-8">
         <button type="button" onClick={() => navigate(`/study/${slug.split('/')[0]}`)}
           className="text-body-sm text-content-muted hover:text-content-primary">← {pack.subject} units</button>
-        <p className="text-label text-content-muted uppercase tracking-wide mt-4">{pack.subject} · study pack</p>
+        <p className="text-label text-content-muted uppercase tracking-wide mt-4">{pack.subject} · Learn</p>
         <h1 className="text-h1 font-bold text-content-primary mt-1">{pack.unit}</h1>
         <p className="text-body text-content-secondary mt-3">{pack.intro}</p>
         <p className="text-body-sm text-content-muted mt-2">On the exam: {pack.examWeight}. {pack.sections.length} topics.</p>
@@ -401,7 +416,7 @@ function StudyPackView({ slug, uid }) {
               <>
                 <MarkdownRenderer content={s.body} className="text-content-secondary" />
                 {s.blocks.map((b, bi) => {
-                  if (b.type === 'flashcards') return <FlipCards key={bi} cards={b.cards} />;
+                  if (b.type === 'flashcards') return <FlipCards key={bi} cards={b.cards} subject={pack.subject} deckName={`${shortSubjectName(pack.subject)} ${s.id}: ${s.title}`} />;
                   const Sim = SIMS[b.sim];
                   return Sim ? <Sim key={bi} {...b.props} /> : null;
                 })}
@@ -463,7 +478,7 @@ function StudyPackView({ slug, uid }) {
             {missedKeys.length > 0 && uid && (
               <Button variant="secondary" onClick={() => navigate('/review')}><RotateCcw className="w-4 h-4 mr-2" />Review</Button>
             )}
-            <Button variant="secondary" onClick={() => navigate(tutorKey ? `/ai-tutors/${tutorKey}` : '/ai-tutors', {
+            <Button variant="secondary" onClick={() => navigate(tutorKey ? `/ai-tutors/${subjectSlug(tutorKey)}` : '/ai-tutors', {
               state: { prefill: `I just studied ${pack.subject} ${pack.unit}. Quiz me on the parts students usually get wrong.` },
             })}><Brain className="w-4 h-4 mr-2" />Ask the tutor</Button>
             <Button onClick={() => navigate('/practice-tests')}><FileQuestion className="w-4 h-4 mr-2" />Practice test</Button>

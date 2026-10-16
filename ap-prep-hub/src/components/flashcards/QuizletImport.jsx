@@ -11,7 +11,7 @@
  * before anything is saved, rather than after 200 broken cards land in Firestore.
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { X, Upload, Loader2, ExternalLink } from 'lucide-react';
 import { Button, Input } from '../ui/UIComponents';
 import { parseQuizletExport, separatorLabel } from '../../utils/quizletImport';
@@ -36,11 +36,24 @@ export default function QuizletImport({ onClose, onImport, isSaving }) {
 
   const canImport = parsed.cards.length > 0 && title.trim() && !isSaving;
 
+  // A native modal <dialog> traps focus, closes on Escape and makes the page
+  // behind it inert; the old fixed <div> let Tab walk into the page underneath.
+  const dialogRef = useRef(null);
+  useEffect(() => {
+    const d = dialogRef.current;
+    if (d && !d.open && d.showModal) d.showModal();
+  }, []);
+
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-      <div className="bg-base-850 rounded-lg border border-border w-full max-w-2xl max-h-[85vh] overflow-y-auto">
+    <dialog
+      ref={dialogRef}
+      aria-labelledby="quizlet-import-title"
+      onCancel={(e) => { e.preventDefault(); onClose(); }}
+      className="bg-transparent p-4 w-full max-w-2xl max-h-full backdrop:bg-black/60"
+    >
+      <div className="bg-base-850 rounded-lg border border-border w-full max-h-[85vh] overflow-y-auto">
         <div className="flex items-center justify-between p-5 border-b border-border">
-          <h3 className="text-lg font-semibold text-content-primary">Import from Quizlet</h3>
+          <h3 id="quizlet-import-title" className="text-lg font-semibold text-content-primary">Import from Quizlet</h3>
           <button onClick={onClose} className="text-content-muted hover:text-content-primary" aria-label="Close">
             <X className="w-5 h-5" strokeWidth={1.5} />
           </button>
@@ -163,6 +176,6 @@ export default function QuizletImport({ onClose, onImport, isSaving }) {
           </Button>
         </div>
       </div>
-    </div>
+    </dialog>
   );
 }

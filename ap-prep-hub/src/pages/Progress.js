@@ -137,6 +137,9 @@ const processAchievements = (achievements, uid) => {
       // A secret achievement's progress is part of the surprise — hide it.
       progress: achievement.secret ? 0 : current,
       target: achievement.secret ? 1 : target,
+      // Goals you hit in one go (a perfect deck, a 90% test, a weekend) have no
+      // meaningful running count; they used to show "0/100".
+      oneShot: !['count', 'streak', 'unique_count'].includes(raw.requirement?.type),
       _rank: isUnlocked ? 2 : achievement.secret ? 0 : 1,
       _pct: target ? current / target : 0,
     };
@@ -212,10 +215,21 @@ const ProgressPage = () => {
   const [dueCount, setDueCount] = useState(0);
 
   // The single worst evidenced area across every subject.
-  const focus = useMemo(
-    () => (progressData ? weakestArea(progressData.masteries || []) : null),
-    [progressData]
-  );
+  // Falls back to the lowest topic in "By Subject" (shown from 3 answers, while
+  // a weak area needs more evidence) so this card never says "no weak spots"
+  // next to a list of 0-of-4 topics.
+  const focus = useMemo(() => {
+    if (!progressData) return null;
+    const measured = weakestArea(progressData.masteries || []);
+    if (measured) return measured;
+    const early = (progressData.subjects || [])
+      .flatMap((sub) => (sub.topics || []).map((t) => ({ ...t, subject: sub.name })))
+      .filter((t) => t.total && t.right / t.total < 0.6)
+      .sort((x, y) => x.right / x.total - y.right / y.total || y.total - x.total)[0];
+    return early ? {
+      label: early.unit, subject: early.subject, accuracy: Math.round((early.right / early.total) * 100), count: early.total, early: true,
+    } : null;
+  }, [progressData]);
 
   // The review queue drives the primary CTA, so it loads alongside the page.
   useEffect(() => {
@@ -249,11 +263,23 @@ const ProgressPage = () => {
         .flatMap((m) => m.weakAreas.map((a) => `${m.subject}: ${a.label} (${a.accuracy}%)`))
         .slice(0, 6);
 
-      const analysis = await geminiService.analyzeStudentProgress(
-        progressData.map(p => p.subject || 'Unknown'),
-        studySessions,
-        measuredWeakAreas.length ? measuredWeakAreas : ['No graded practice yet']
-      );
+      // This runs on every visit, and each run spends AI usage the student
+      // never asked for. Reuse today's answer while the weak areas match.
+      const cacheKey = `apex.progressRecs.${user?.uid}`;
+      const stamp = `${new Date().toDateString()}|${measuredWeakAreas.join(';')}`;
+      let analysis = null;
+      try {
+        const hit = JSON.parse(localStorage.getItem(cacheKey) || 'null');
+        if (hit?.stamp === stamp) analysis = hit.analysis;
+      } catch { /* no cache */ }
+      if (!analysis) {
+        analysis = await geminiService.analyzeStudentProgress(
+          progressData.map(p => p.subject || 'Unknown'),
+          studySessions,
+          measuredWeakAreas.length ? measuredWeakAreas : ['No graded practice yet']
+        );
+        try { localStorage.setItem(cacheKey, JSON.stringify({ stamp, analysis })); } catch { /* full or blocked */ }
+      }
 
       // The weakest subject is the one these recommendations are really about;
       // labelling by array index (as this did) was arbitrary.
@@ -278,7 +304,7 @@ const ProgressPage = () => {
         }
       ];
     }
-  }, []);
+  }, [user]);
 
   const loadUserProgress = useCallback(async () => {
     try {
@@ -357,7 +383,8 @@ const ProgressPage = () => {
         masteries,
         weeklyActivity: processWeeklyActivity(studySessions),
         achievements: processAchievements(achievements, user.uid),
-        recommendations: await generateRecommendations(overallProgress, currentWorkOnly(studySessions, { enrolledSubjects }), masteries),
+        // Filled in below: the AI call took 10-20 s and the whole page waited on it.
+        recommendations: null,
         activityMap,
         // Subject keys the student sits in the late window. The countdown has to
         // target the same date the scheduler shows, or the two disagree.
@@ -366,6 +393,10 @@ const ProgressPage = () => {
 
       setProgressData(processedData);
       setUserStats(stats);
+      setIsLoading(false);
+      generateRecommendations(overallProgress, currentWorkOnly(studySessions, { enrolledSubjects }), masteries)
+        .then((recommendations) => setProgressData((d) => (d ? { ...d, recommendations } : d)))
+        .catch(() => {});
     } catch (error) {
       console.error('Error loading progress data:', error);
       setProgressData(getDefaultProgressData());
@@ -863,7 +894,8 @@ const ProgressPage = () => {
                             </p>
                             <p className="text-body-sm text-content-secondary mt-1">
                               {focus.subject} — {focus.accuracy}% correct across {focus.count}{' '}
-                              {focus.count === 1 ? 'question' : 'questions'}.
+                              {focus.count === 1 ? 'question' : 'questions'}
+                              {focus.early ? ' so far; a few more questions will confirm it.' : '.'}
                             </p>
                           </>
                         ) : (
@@ -913,7 +945,7 @@ const ProgressPage = () => {
                       <p className="text-display font-display text-content-primary">
                         {progressData.overall.studyStreak}
                       </p>
-                      <p className="text-h3 text-content-secondary font-body">days in a row</p>
+                      <p className="text-h3 text-content-secondary font-body">{progressData.overall.studyStreak === 1 ? 'day in a row' : 'days in a row'}</p>
                     </div>
                     <div className="mt-4 pt-4 border-t border-border-subtle">
                       <StreakCalendar
@@ -928,7 +960,6 @@ const ProgressPage = () => {
                     icon={Clock}
                     label="Study Time"
                     value={progressData.overall.totalStudyTime}
-                    change={progressData.overall.improvement}
                     color="text-content-primary"
                     iconBg="bg-base-800"
                   />
@@ -989,7 +1020,7 @@ const ProgressPage = () => {
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-content-secondary">Study Streak</span>
-                          <span className="text-accent-400">{progressData.overall.studyStreak} days</span>
+                          <span className="text-accent-400">{progressData.overall.studyStreak} {progressData.overall.studyStreak === 1 ? 'day' : 'days'}</span>
                         </div>
                       </div>
                     </Card>
@@ -1124,7 +1155,7 @@ const ProgressPage = () => {
                   transition={{ delay: 0.5 }}
                   className="mb-8"
                 >
-                  <h2 className="text-2xl font-bold text-content-primary mb-6">Recent Achievements</h2>
+                  <h2 className="text-2xl font-bold text-content-primary mb-6">Achievements</h2>
                   {progressData.achievements.displayList.length === 0 && (
                     <EmptySection>
                       No achievements unlocked yet. They start appearing once you study, practice, or
@@ -1139,7 +1170,7 @@ const ProgressPage = () => {
                           <h3 className="font-semibold text-content-primary mb-2">{achievement.title}</h3>
                           <p className="text-sm text-content-muted mb-3">{achievement.description}</p>
                           {achievement.earned ? (
-                            <Badge variant="default" className="bg-warning-600">
+                            <Badge variant="warning">
                               {/* No earned date is stored; this used to print today's date for every achievement. */}
                               Earned
                             </Badge>
@@ -1147,6 +1178,8 @@ const ProgressPage = () => {
                             // Progress on a mystery achievement would give the
                             // trigger away, so show only that it exists.
                             <Badge variant="secondary" className="text-xs">Hidden</Badge>
+                          ) : achievement.oneShot ? (
+                            <Badge variant="secondary" className="text-xs">Not yet</Badge>
                           ) : (
                             <div className="space-y-2">
                               <div className="w-full bg-base-800 rounded-full h-2">
@@ -1173,14 +1206,17 @@ const ProgressPage = () => {
                   transition={{ delay: 0.6 }}
                 >
                   <h2 className="text-2xl font-bold text-content-primary mb-6">Recommended Next</h2>
-                  {progressData.recommendations.length === 0 && (
+                  {!progressData.recommendations && (
+                    <p className="text-body-sm text-content-muted animate-pulse">Working out what to recommend…</p>
+                  )}
+                  {progressData.recommendations?.length === 0 && (
                     <EmptySection>
                       Recommendations appear once there is graded work to learn from — they are built
                       from your measured weak areas, not generic study tips.
                     </EmptySection>
                   )}
                   <div className="space-y-4">
-                    {progressData.recommendations.map((rec, index) => (
+                    {(progressData.recommendations || []).map((rec, index) => (
                       // Was styled as clickable (cursor-pointer + hover) but had
                       // no handler, so clicking did nothing. Now it goes where the
                       // recommendation points, and is a real keyboard-reachable
@@ -1210,7 +1246,10 @@ const ProgressPage = () => {
                                <Star className="w-5 h-5" strokeWidth={1.5} />}
                             </div>
                             <div>
-                              <h3 className="font-semibold text-content-primary">{rec.subject} — {rec.topic}</h3>
+                              {/* The model often returns the same sentence as topic and action. */}
+                              <h3 className="font-semibold text-content-primary">
+                                {rec.topic && rec.topic !== rec.action && rec.topic.length < 60 ? `${rec.subject} — ${rec.topic}` : rec.subject}
+                              </h3>
                               <p className="text-content-muted">{rec.action}</p>
                             </div>
                           </div>

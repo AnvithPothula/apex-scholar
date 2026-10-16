@@ -40,7 +40,11 @@ const pack = {
 - **Point charge**: an object small enough that its size doesn't matter.
 
 ### Coulomb's law
-$$|\vec{F}_E| = \frac{1}{4\pi\varepsilon_0}\frac{|q_1q_2|}{r^2} = k\frac{|q_1q_2|}{r^2}, \qquad k \approx 9.0 \times 10^9\ \text{N·m}^2/\text{C}^2$$
+
+$$|\vec{F}_E| = \frac{1}{4\pi\varepsilon_0}\frac{|q_1q_2|}{r^2} = k\frac{|q_1q_2|}{r^2}$$
+
+$$k \approx 9.0 \times 10^9\ \text{N}\cdot\text{m}^2/\text{C}^2$$
+
 Directed **along the line** between the charges: **like charges repel, opposite charges attract**. With several charges, add the force vectors (the exam uses up to four, or more with high symmetry).
 
 ### Electric vs gravitational
@@ -186,7 +190,9 @@ A system's net charge stays constant **unless charge crosses its boundary**. Cha
         'several charges add as vectors. In electrostatic equilibrium a conductor\'s excess charge sits on its surface, the field inside is ' +
         'zero, and the field at the surface is perpendicular to it.',
       body: String.raw`### Definition
+
 $$\vec{E} = \frac{\vec{F}_E}{q} \qquad \text{point charge: } |\vec E| = k\frac{|q|}{r^2}$$
+
 measured with a **test charge** small enough not to disturb the field. $\vec{E}$ points **away from positive** and **toward negative** charges; the force on a positive test charge is along $\vec E$, on a negative one opposite to it.
 
 ### Representing fields
@@ -257,7 +263,9 @@ Outside a spherically symmetric charge distribution, the field is the same as a 
         'components. The exam limits this to an infinite line or cylinder, a ring on its axis, a semicircular arc at its center and a finite ' +
         'line on its axis or perpendicular bisector.',
       body: String.raw`### Integrate the pieces
+
 $$\vec{E} = \int d\vec{E}, \qquad |d\vec E| = k\frac{dq}{r^2}$$
+
 1. Pick a small piece $dq$ (for a line, $dq = \lambda\,dx$; $\lambda$ = charge per length).
 2. Write its $d\vec E$ at the point, with direction.
 3. **Use symmetry** to cancel components before integrating.
@@ -335,11 +343,17 @@ ${steps({
         'a closed surface equals the enclosed charge over ε₀, regardless of the surface\'s size. With spherical, cylindrical or planar symmetry ' +
         'it gives E directly. It is the first of Maxwell\'s equations.',
       body: String.raw`### Flux
-$$\Phi_E = \vec{E}\cdot\vec{A} = EA\cos\theta \qquad \Phi_E = \int \vec{E}\cdot d\vec{A}$$
+
+$$\Phi_E = \vec{E}\cdot\vec{A} = EA\cos\theta$$
+
+$$\Phi_E = \int \vec{E}\cdot d\vec{A}$$
+
 The **area vector** is perpendicular to the surface (outward for a closed surface). Field passing outward gives positive flux, inward negative.
 
 ### Gauss's law
+
 $$\oint \vec{E}\cdot d\vec{A} = \frac{q_{enc}}{\varepsilon_0}$$
+
 - Total flux through a closed (**Gaussian**) surface depends only on the **enclosed** charge, not on the surface's size or on charges outside.
 - Choose the surface so $\vec E$ is either **perpendicular** (and constant) or **parallel** to each part; then the integral is just $E \times$ area.
 - If you're given a charge density, integrate it for $q_{enc}$: $q = \int \lambda\,dx$, $\int \sigma\,dA$, or $\int \rho\,dV$.

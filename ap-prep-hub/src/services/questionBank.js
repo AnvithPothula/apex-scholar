@@ -42,12 +42,19 @@ export function slugify(name) {
     .replace(/^-+|-+$/g, '');
 }
 
+// Bank documents keep the name a subject was seeded under. Renaming a course
+// in the app (2026-10-16) must not orphan its seeded questions.
+const SEEDED_AS = {
+  'AP Comparative Government and Politics': 'AP Government and Politics: Comparative',
+};
+const bankName = (subject) => SEEDED_AS[subject] || subject;
+
 export function bundleId(subject, unit, index) {
-  return `${slugify(subject)}__${slugify(unit) || GENERAL_UNIT}__${index}`;
+  return `${slugify(bankName(subject))}__${slugify(unit) || GENERAL_UNIT}__${index}`;
 }
 
 export function indexId(subject) {
-  return slugify(subject);
+  return slugify(bankName(subject));
 }
 
 /**

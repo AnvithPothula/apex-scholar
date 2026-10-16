@@ -306,7 +306,9 @@ Note Ana has the **absolute** advantage in both (she's faster at each), yet both
 
 ### Total benefits and the best choice
 Total benefit is **utility** for a consumer and **total revenue** for a firm.
-$$\text{Total net benefit} = \text{Total benefit} - \text{Total cost}$$
+
+$$\begin{aligned} \text{Total net benefit} &= \text{Total benefit} \\ &\quad - \text{Total cost} \end{aligned}$$
+
 The optimal choice **maximizes total net benefit**. Some decisions can be broken into increments and decided at the margin (next section); others are all-or-nothing and must be compared in totals.
 
 ${steps({
@@ -376,7 +378,9 @@ Compare the **marginal benefit (MB)** of one more unit with its **marginal cost 
 - Consumers try to **maximize total utility** with limited income.
 - **Diminishing marginal utility**: each extra unit adds less satisfaction than the one before.
 - **Utility-maximizing rule**: spend so the marginal utility per dollar is equal across goods:
+
 $$\frac{MU_A}{P_A} = \frac{MU_B}{P_B}$$
+
 If $\dfrac{MU_A}{P_A} > \dfrac{MU_B}{P_B}$, buy more A and less B.
 
 ${steps({

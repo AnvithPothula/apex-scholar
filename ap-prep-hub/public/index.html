@@ -27,7 +27,6 @@
     <link rel="dns-prefetch" href="https://firestore.googleapis.com" />
     <link rel="dns-prefetch" href="https://generativelanguage.googleapis.com" />
     <link rel="dns-prefetch" href="https://firebaseinstallations.googleapis.com" />
-    <link rel="dns-prefetch" href="https://js.puter.com" />
 
     <!-- Design System Fonts -->
     <!-- Fonts are self-hosted (public/fonts). Google Fonts was the longest
@@ -45,7 +44,7 @@
       name="description"
       content="Apex Scholar is the all-in-one AI study platform for AP exam prep. Subject-trained AI tutors, full-length AI-generated practice tests with rubric scoring, smart Schoology-integrated scheduling, flashcards with spaced repetition, a photo problem solver, and unit-by-unit diagnostics — free."
     />
-    <meta name="keywords" content="AP exam prep, AP study tool, AI tutor, AP practice tests, AP Calculus help, AP Biology tutor, AP Chemistry practice, AP US History, AP English Language, AP Statistics, free AP study, AP flashcards, AP problem solver, college board, advanced placement, smart scheduler, Schoology integration, study planner, AP score predictor, FRQ grader, MCQ practice" />
+    <meta name="keywords" content="AP exam prep, AP study tool, AI tutor, AP practice tests, AP Calculus help, AP Biology tutor, AP Chemistry practice, AP U.S. History, AP English Language and Composition, AP Statistics, free AP study, AP flashcards, AP problem solver, college board, advanced placement, smart scheduler, Schoology integration, study planner, AP score predictor, FRQ grader, MCQ practice" />
     <meta name="author" content="Apex Scholar" />
     <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
     <meta name="googlebot" content="index, follow" />
@@ -174,7 +173,7 @@
           "name": "Which AP subjects does Apex Scholar support?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Apex Scholar supports all major AP subjects, including AP Calculus AB & BC, AP Biology, AP Chemistry, AP Physics 1, AP Physics C, AP Statistics, AP US History, AP World History, AP European History, AP Government, AP English Language, AP English Literature, AP Psychology, AP Computer Science A, AP Computer Science Principles, AP Environmental Science, AP Microeconomics, AP Macroeconomics, AP Human Geography, and more — over 39 subjects total."
+            "text": "Apex Scholar supports all major AP subjects, including AP Calculus AB & BC, AP Biology, AP Chemistry, AP Physics 1: Algebra-Based, AP Physics C, AP Statistics, AP U.S. History, AP World History: Modern, AP European History, AP U.S. Government and Politics, AP English Language and Composition, AP English Literature and Composition, AP Psychology, AP Computer Science A, AP Computer Science Principles, AP Environmental Science, AP Microeconomics, AP Macroeconomics, AP Human Geography, and more — over 39 subjects total."
           }
         },
         {
@@ -213,117 +212,100 @@
     }
     </script>
 
-    <!-- Puter.js for free Gemini API access -->
-    <!-- Loaded async so a blocked network (e.g. Lightspeed Filter) doesn't stall page render -->
+    <!-- Puter.js: optional. Students who connect their own Puter account can
+         pick Puter models; everyone else uses Apex Scholar's AI proxy. -->
     <script>
       window.__puterBlocked = false;
       window.__puterLoaded = false;
+      // The SDK prints a "Submit this app to the Puter App Store" banner unless this is set.
+      window.PUTER_QUIET = true;
       (function() {
         function markBlocked(reason) {
-          if (window.__puterBlocked) return; // already flagged
+          if (window.__puterBlocked) return;
           window.__puterBlocked = true;
-          console.warn('[Puter] ' + reason + '. Using Google API fallback.');
+          console.warn('[Puter] ' + reason + '. Using the standard AI.');
         }
 
-        // --- Strategy 1: Load the SDK script asynchronously ---
-        var s = document.createElement('script');
-        s.src = 'https://js.puter.com/v2/';
-        s.async = true;
-        s.onerror = function() {
-          markBlocked('SDK script failed to load (network error / blocked)');
-        };
-        s.onload = function() {
-          // onload fires even if Lightspeed returned a block page or
-          // about:blank — the browser treats it as "fetched" even though
-          // the content is garbage HTML, not JavaScript.
-          try {
-            var p = window.puter;
-            if (!p || typeof p !== 'object' || !p.ai || typeof p.ai.chat !== 'function') {
-              markBlocked('SDK script loaded but window.puter is missing or incomplete (blocked / redirected to about:blank)');
-              return;
-            }
-            // SDK loaded successfully
-            window.__puterLoaded = true;
+        // Load the SDK once, on demand. Resolves true when window.puter is usable.
+        var loading = null;
+        window.__loadPuter = function() {
+          if (loading) return loading;
+          loading = new Promise(function(resolve) {
+            var s = document.createElement('script');
+            s.src = 'https://js.puter.com/v2/';
+            s.async = true;
+            s.onerror = function() {
+              markBlocked('SDK script failed to load (network error / blocked)');
+              resolve(false);
+            };
+            s.onload = function() {
+              // onload fires even if a school filter (e.g. Lightspeed) returned a
+              // block page or about:blank instead of JavaScript.
+              try {
+                var p = window.puter;
+                if (!p || typeof p !== 'object' || !p.ai || typeof p.ai.chat !== 'function') {
+                  markBlocked('SDK script loaded but window.puter is missing or incomplete (blocked / redirected to about:blank)');
+                  resolve(false);
+                  return;
+                }
+                p.quiet = true;
+                window.__puterLoaded = true;
 
-            // Restore persisted auth token
-            var t = localStorage.getItem('puter.auth.token');
-            if (t && t.length > 10) {
-              if (typeof p.setAuthToken === 'function') { p.setAuthToken(t); }
-              else { p.authToken = t; }
-            }
-            // Suppress the SDK's built-in auth popup
-            if (p.ui && typeof p.ui.authenticateWithPuter === 'function') {
-              p.ui._originalAuthenticateWithPuter = p.ui.authenticateWithPuter;
-              p.ui.authenticateWithPuter = function() {
-                return Promise.reject(new Error('Auth suppressed by Apex Scholar'));
-              };
-            }
-            // Suppress the SDK's built-in popup dialogs (e.g. the centered
-            // "No usage left for request" insufficient-funds alert). Apex
-            // Scholar shows its own centered notice instead (AiDowngradeNotice,
-            // fired off the apex:ai-downgraded event). Originals are kept under
-            // _original_<name> in case they're ever needed.
-            if (p.ui) {
-              var _puterDialogFns = ['alert', 'notify', 'showError'];
-              for (var _i = 0; _i < _puterDialogFns.length; _i++) {
-                (function(fn) {
-                  if (typeof p.ui[fn] === 'function') {
-                    p.ui['_original_' + fn] = p.ui[fn];
-                    p.ui[fn] = function() { return Promise.resolve(); };
-                  }
-                })(_puterDialogFns[_i]);
+                // Restore persisted auth token
+                var t = localStorage.getItem('puter.auth.token');
+                if (t && t.length > 10) {
+                  if (typeof p.setAuthToken === 'function') { p.setAuthToken(t); }
+                  else { p.authToken = t; }
+                }
+                // Suppress the SDK's built-in auth popup; PuterAuthPrompt opens sign-in itself.
+                if (p.ui && typeof p.ui.authenticateWithPuter === 'function') {
+                  p.ui._originalAuthenticateWithPuter = p.ui.authenticateWithPuter;
+                  p.ui.authenticateWithPuter = function() {
+                    return Promise.reject(new Error('Auth suppressed by Apex Scholar'));
+                  };
+                }
+                // Suppress the SDK's own dialogs (e.g. "No usage left for request");
+                // Apex Scholar shows AiDowngradeNotice instead.
+                if (p.ui) {
+                  ['alert', 'notify', 'showError'].forEach(function(fn) {
+                    if (typeof p.ui[fn] === 'function') {
+                      p.ui['_original_' + fn] = p.ui[fn];
+                      p.ui[fn] = function() { return Promise.resolve(); };
+                    }
+                  });
+                }
+                resolve(true);
+                // ModelSelector re-checks on this, however late the SDK arrives.
+                window.dispatchEvent(new Event('apex:puterReady'));
+              } catch(e) {
+                markBlocked('SDK onload handler threw: ' + e);
+                resolve(false);
               }
-            }
-          } catch(e) {
-            markBlocked('SDK onload handler threw: ' + e);
-          }
+            };
+            document.head.appendChild(s);
+            setTimeout(function() {
+              if (!window.__puterLoaded) { markBlocked('SDK not loaded after 10s'); resolve(false); }
+            }, 10000);
+          });
+          return loading;
         };
-        // Deferred to idle, not appended inline.
-        //
-        // The SDK is 87 KiB (74 KiB of it unused on a cold page) and it was
-        // fetched on EVERY route, competing with the app's own JS for the
-        // critical path — Lighthouse measured LCP at 9.2s on mobile. Nothing
-        // can call puter.ai before the app has painted and the student has
-        // typed something, so there is no reason for it to race first paint.
-        //
-        // Still eager enough to be ready long before any AI call: waiting for
-        // load and then one idle slot is well under a second in practice, and
-        // geminiService only falls back to the Google API if __puterLoaded is
-        // still false when a request is actually made.
-        var startPuter = function () {
-          if (s.parentNode) return;
-          document.head.appendChild(s);
-        };
+
+        // Only a student who already connected Puter needs the SDK on page load
+        // (it's 87 KiB, and a "probe" fetch here used to download it a second
+        // time, uncached, on every page for everyone). Deferred to idle so it
+        // never competes with first paint. PuterAuthPrompt loads it on demand.
+        var connected = false;
+        try { var tok = localStorage.getItem('puter.auth.token'); connected = !!(tok && tok.length > 10); } catch(e) {}
+        if (!connected) return;
         var whenIdle = function () {
           if (typeof window.requestIdleCallback === 'function') {
-            window.requestIdleCallback(startPuter, { timeout: 2000 });
+            window.requestIdleCallback(window.__loadPuter, { timeout: 2000 });
           } else {
-            setTimeout(startPuter, 200);
+            setTimeout(window.__loadPuter, 200);
           }
         };
         if (document.readyState === 'complete') whenIdle();
         else window.addEventListener('load', whenIdle, { once: true });
-
-        // --- Strategy 2: Fast parallel fetch probe ---
-        try {
-          fetch('https://js.puter.com/v2/', { mode: 'no-cors', cache: 'no-store' })
-            .then(function() { /* opaque response is fine */ })
-            .catch(function() {
-              markBlocked('Fetch probe to js.puter.com failed (network blocked)');
-            });
-        } catch(e) { /* fetch not available — old browser */ }
-
-        // --- Strategy 3: Tiered timeouts ---
-        setTimeout(function() {
-          if (!window.__puterLoaded && !window.puter) {
-            console.warn('[Puter] SDK not loaded after 3s — may be blocked or slow connection.');
-          }
-        }, 3000);
-        setTimeout(function() {
-          if (!window.__puterLoaded && !window.puter) {
-            markBlocked('SDK not loaded after 10s');
-          }
-        }, 10000);
       })();
     </script>
   </head>
@@ -358,7 +340,7 @@
         </p>
         <h2>Features</h2>
         <ul>
-          <li><strong>AI Tutors</strong> — chat one-on-one with subject-trained AI tutors covering AP Calculus AB &amp; BC, AP Biology, AP Chemistry, AP Physics 1 &amp; C, AP Statistics, AP US History, AP World History, AP European History, AP Government, AP English Language, AP English Literature, AP Psychology, AP Computer Science A &amp; Principles, AP Environmental Science, AP Macro &amp; Microeconomics, AP Human Geography, and more.</li>
+          <li><strong>AI Tutors</strong> — chat one-on-one with subject-trained AI tutors covering AP Calculus AB &amp; BC, AP Biology, AP Chemistry, AP Physics 1: Algebra-Based &amp; Physics C, AP Statistics, AP U.S. History, AP World History: Modern, AP European History, AP U.S. Government and Politics, AP English Language and Composition, AP English Literature and Composition, AP Psychology, AP Computer Science A &amp; Principles, AP Environmental Science, AP Macro &amp; Microeconomics, AP Human Geography, and more.</li>
           <li><strong>Smart Scheduler</strong> — auto-generates focused study blocks based on your AP exam dates, Schoology assignments, blackout schedule, and study preferences (session length, peak hours, weekend availability).</li>
           <li><strong>Practice Tests</strong> — unlimited AI-generated AP-style multiple-choice and free-response questions, graded against the official College Board rubric with a predicted 1–5 score.</li>
           <li><strong>Flashcards</strong> — generate decks from your notes, study with spaced repetition, share public decks with classmates.</li>

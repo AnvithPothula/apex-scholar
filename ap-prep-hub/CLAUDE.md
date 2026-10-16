@@ -7,7 +7,7 @@ React 18 single-page app built with Create React App, Tailwind CSS, and Firebase
 ### Tech Stack
 - **Frontend:** React 18.3.1 (CRA), Tailwind CSS 3 with design tokens, Framer Motion
 - **Backend:** Firebase Auth + Firestore (no custom server)
-- **AI:** Puter SDK (primary, free tier) with Google Gemini API fallback (11 rotating keys)
+- **AI:** Gemini through the server-side proxy (`netlify/functions/ai-proxy`, 11 rotating keys, per-task model routing); optional Puter models for students who connect their own Puter account
 - **Math:** KaTeX for LaTeX rendering, react-markdown for rich text
 - **Icons:** lucide-react
 
@@ -37,6 +37,8 @@ accent-400/500          # Slate-blue secondary accent
 success/warning/error/info-400/500/900  # Semantic colors
 ```
 
+**Opacity and shades:** opacity modifiers work on every token (`bg-warning-900/30`, `border-primary-500/40`) via `tok()` in `tailwind.config.js` (they generated no CSS before). Semantic colours (accent/success/warning/error/info) have three roles: 400 text, 500 solid, 900 tint, which flips with the theme. 200/300 alias to 400, 600/700 to 500, 800 to 900. Put dark text (`text-base-950`) on solid 500 fills, never `text-content-primary`.
+
 **Typography tokens:** `text-display`, `text-h1`..`text-h4`, `text-body`, `text-body-sm`, `text-caption`, `text-label`, `text-overline`
 
 **Fonts:** Plus Jakarta Sans (display), Source Sans 3 (body)
@@ -64,17 +66,16 @@ User Request
     ↓
 geminiService.js (orchestrator)
     ↓
-┌─ Puter SDK (primary) ─── Free AI models (Claude, GPT-4, etc.)
-│   authenticated via Puter auth token
-│   no API key needed
-└─ Google Gemini (fallback) ─── 11 rotating API keys
-    managed by APIKeyManager.js
-    v1beta endpoint for gemini-2.5-* models
-    rate limiting + key rotation on 429s
+┌─ Puter (opt-in) ─── only when the student connected a Puter account
+│   and picked a Puter model (vendor-prefixed ids, e.g. anthropic/claude-sonnet-5-5);
+│   SDK loaded on demand (public/index.html window.__loadPuter);
+│   failures fall through to the proxy, never rate-limit it
+└─ AI proxy (default) ─── netlify/functions/ai-proxy, server-side keys
+    task → free-tier Gemini model chain, key rotation on 429s
 ```
 
 **Key files:**
-- `services/geminiService.js` — Central AI class with prompt sanitization, Puter→Google fallback
+- `services/geminiService.js` — Central AI class with prompt sanitization; `_askPuter()` for connected Puter accounts, otherwise the proxy
 - `services/ai/jsonParser.js` — JSON extraction/repair pipeline for AI responses (extracted from geminiService)
 - `services/APIKeyManager.js` — Manages 11 Google API keys with rotation and rate limit tracking
 

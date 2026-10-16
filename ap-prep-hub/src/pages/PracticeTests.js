@@ -3,8 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { db } from '../config/firestore';
 import { collection, addDoc, serverTimestamp, query, where, orderBy, onSnapshot, doc, setDoc, getDoc, deleteDoc } from 'firebase/firestore';
-import { AP_SUBJECTS } from '../constants/subjects';
-import apiKeyManager from '../services/APIKeyManager';
+import { AP_SUBJECTS, subjectName } from '../constants/subjects';
 import geminiService, { RateLimitError } from '../services/geminiService';
 import { verifyOptionMcqs } from '../services/ai/mcqGenerator';
 import { retryAfterFrom } from '../services/aiRetry';
@@ -28,6 +27,9 @@ import TestPanel from '../components/practice/TestPanel';
 import ResultsPanel from '../components/practice/ResultsPanel';
 
 // TEST_CONFIGURATIONS and DEFAULT_CONFIG are now imported from ../constants/testConfigurations
+// Points per short free-response question on the real exams that have them.
+const shortFrqPoints = (subject) => (/Biology|Chemistry/.test(subject || '') ? 4 : 5);
+
 const PracticeTests = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -43,8 +45,10 @@ const PracticeTests = () => {
   const [customQuestionCount, setCustomQuestionCount] = useState('');
   const [questions, setQuestions] = useState([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [selectedDBQDocument, setSelectedDBQDocument] = useState(null);
   const [userAnswers, setUserAnswers] = useState({});
+  // Bluebook "Mark for Review" flags and crossed-out choices. Held here, not in
+  // TestPanel, so auto-save and resume keep them.
+  const [testMarks, setTestMarks] = useState({ marked: {}, crossed: {} });
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [testStarted, setTestStarted] = useState(false);
   // An unfinished test found in Firestore on load. Auto-save wrote these docs
@@ -63,18 +67,9 @@ const PracticeTests = () => {
   const [selectedModel, setSelectedModel] = useState(getDefaultModel);
   
   // Subject name mapping for backward compatibility
-  const getCanonicalSubjectName = (subjectName) => {
-    const subjectMappings = {
-      'AP English Language': 'AP English Language and Composition',
-      'AP English Literature': 'AP English Literature and Composition',
-      'AP Comparative Government': 'AP Government and Politics: Comparative',
-      'AP Physics 1': 'AP Physics 1: Algebra-Based',
-      'AP Physics 2': 'AP Physics 2: Algebra-Based',
-      'AP World History': 'AP World History: Modern'
-    };
-    
-    return subjectMappings[subjectName] || subjectName;
-  };
+  // Older or short names (stored tests, links) map onto the official name the
+  // config and score tables are keyed by.
+  const getCanonicalSubjectName = (name) => subjectName(name);
   
   // Drawing canvas removed
   
@@ -411,7 +406,6 @@ const PracticeTests = () => {
       };
     }
 
-  // Use Puter.js free Gemini API instead of Google endpoint
     
     // Enhanced scoring instructions for different question types
     let questionTypeInstructions = '';
@@ -452,7 +446,7 @@ AP ENGLISH ESSAY SCORING (6 points total):
 - Evidence and Commentary (4 points): Provides specific evidence from the provided text(s) to support all claims in a line of reasoning. Consistently explains how the evidence supports a line of reasoning.
 - Sophistication (1 point): Demonstrates sophistication of thought and/or a complex understanding of the rhetorical situation.`;
     } else if (type === 'calculator-frq' || type === 'no-calculator-frq' || type === 'long-frq' || type === 'short-frq') {
-        maxPoints = question.rubric?.totalPoints || 9; // Math/Science FRQs have variable points
+        maxPoints = question.rubric?.totalPoints || question.points || 9;
         questionTypeInstructions = `
 STEM FRQ SCORING:
 - Evaluate based on the correctness of the method and the final answer for each part.
@@ -519,7 +513,7 @@ Format as JSON:
 }`;
 
     try {
-      // Use centralized service (Puter-first with Google fallback) and free/fast Puter model
+      // Centralized service: the student's Puter model if connected, otherwise the proxy
       const scoringText = await geminiService.generateContent(scoringPrompt, {
         timeoutMs: 45000,
         temperature: 0.2,
@@ -554,10 +548,16 @@ Format as JSON:
         });
       }
       
+      // The model's totalScore and its per-part scores disagreed (9/9 next to
+      // parts worth 3 + 3 + 0). The parts are what the student sees broken
+      // down, so when they exist the total is their sum.
+      const max = scoring.maxPoints || maxPoints;
+      const partSum = Object.values(cleanPartScores).reduce((sum, v) => sum + v, 0);
+      const total = Object.keys(cleanPartScores).length ? partSum : (Number(scoring.totalScore) || 0);
       return {
-        score: scoring.totalScore || 0,
-        maxPoints: scoring.maxPoints || maxPoints,
-        feedback: scoring.feedback || "Response scored.",
+        score: Math.max(0, Math.min(max, total)),
+        maxPoints: max,
+        feedback: scoring.feedback || '',
         breakdown: cleanPartScores,
         strengths: scoring.strengths || [],
         improvements: scoring.improvements || []
@@ -635,14 +635,12 @@ Format as JSON:
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [currentView, testPaused, currentQuestionIndex, questions]);
 
-  // Reset selected DBQ document when question changes
-  useEffect(() => {
-    setSelectedDBQDocument(null);
-  }, [currentQuestionIndex]);
 
   // Drawing canvas removed: no restore needed
 
-  const calculateResults = useCallback(async () => {
+  // `prior`: results from an earlier scoring pass. Graded ones are kept as-is,
+  // so a regrade only re-asks the AI about the responses it couldn't grade.
+  const calculateResults = useCallback(async (prior = []) => {
     let score = 0;
     let totalPoints = 0;
     const questionResults = [];
@@ -651,7 +649,14 @@ Format as JSON:
 
     for (const question of questions) {
       const userAnswer = userAnswers[question.id];
-      
+      const kept = prior.find((r) => r.questionId === question.id && !r.ungraded);
+      if (kept) {
+        score += kept.score;
+        totalPoints += kept.maxPoints;
+        questionResults.push(kept);
+        continue;
+      }
+
       try {
   const result = await scoreQuestion(question, userAnswer);
         score += result.score;
@@ -868,6 +873,7 @@ Format as JSON:
             }));
           }
           const savedTest = await addDoc(collection(db, 'practiceTests'), sanitizedData);
+          setTestResults((r) => (r ? { ...r, docId: savedTest.id } : r));
           console.log('Test saved to history successfully');
 
           // Append-only response log, one row per attempted item. `userAnswer`
@@ -992,6 +998,25 @@ Format as JSON:
     }
   }, [user, selectedSubject, selectedSection, selectedSubSection, selectedUnits, questions, userAnswers, calculateResults, getTimeSpent, sanitizeResultsData, emergencyCleanResults]);
 
+  // Grade the written responses the AI couldn't reach at submit time, then
+  // update both this screen and the saved test (history and class boards read
+  // that). ponytail: misses found by a regrade aren't queued for Review.
+  const regradeUngraded = useCallback(async () => {
+    const results = await calculateResults(testResults?.questionResults || []);
+    results.timeSpent = testResults?.timeSpent ?? results.timeSpent;
+    const docId = testResults?.docId;
+    setTestResults({ ...emergencyCleanResults(sanitizeResultsData(results)), docId });
+    if (user && docId) {
+      try {
+        await setDoc(doc(db, 'practiceTests', docId), { results: JSON.parse(JSON.stringify(results)) }, { merge: true });
+        await recordTestForClasses(user, docId);
+      } catch (error) {
+        console.error('Error saving regraded results:', error);
+      }
+    }
+    return results.questionResults.filter((r) => r.ungraded).length;
+  }, [user, testResults, calculateResults, sanitizeResultsData, emergencyCleanResults]);
+
   const handleTimeUp = useCallback(() => {
     setTestStarted(false);
     setTestPaused(false);
@@ -1036,7 +1061,7 @@ Format as JSON:
         // Only offer a resume we can actually honour: without the question set
         // there is nothing to restore, and offering it would be a lie.
         if (!Array.isArray(data.questions) || data.questions.length === 0) return;
-        setResumable({ ...data, questionCount: data.questions.length });
+        setResumable({ ...data, subject: subjectName(data.subject), questionCount: data.questions.length });
       } catch (e) {
         // Resuming is optional, so a failed lookup must never look like a
         // breakage. permission-denied here just means the updated testProgress
@@ -1069,6 +1094,7 @@ Format as JSON:
     setSelectedUnits(Array.isArray(resumable.units) ? resumable.units : []);
     setQuestions(resumable.questions || []);
     setUserAnswers(resumable.userAnswers || {});
+    setTestMarks(resumable.marks || { marked: {}, crossed: {} });
     setCurrentQuestionIndex(resumable.currentQuestionIndex || 0);
     setTimeRemaining(resumable.timeRemaining || 0);
     setResumable(null);
@@ -1081,7 +1107,7 @@ Format as JSON:
   const autoSaveState = useRef({});
   autoSaveState.current = {
     selectedSubject, selectedSection, selectedSubSection, selectedUnits, questions, userAnswers,
-    currentQuestionIndex, timeRemaining,
+    currentQuestionIndex, timeRemaining, testMarks,
   };
 
   // Auto-save functionality.
@@ -1145,6 +1171,7 @@ Format as JSON:
             // Difficulty removed from schema
             questions: live.questions || [],
             userAnswers: live.userAnswers || {},
+            marks: live.testMarks || { marked: {}, crossed: {} },
             currentQuestionIndex: live.currentQuestionIndex || 0,
             timeRemaining: live.timeRemaining || 0,
             lastSaved: serverTimestamp()
@@ -1194,6 +1221,8 @@ Format as JSON:
           return {
             id: doc.id,
             ...data,
+            // Older tests saved older names ("AP US History"); show one name per course.
+            subject: subjectName(data.subject),
             createdAt
           };
         });
@@ -1343,6 +1372,7 @@ Format as JSON:
       setQuestions(generatedQuestions);
       setCurrentQuestionIndex(0);
       setUserAnswers({});
+      setTestMarks({ marked: {}, crossed: {} });
       
       // Set timer
       const timeInMinutes = useDefaultTime 
@@ -1412,7 +1442,7 @@ Format as JSON:
             
             batchQuestions = await generateQuestionBatch(
               'AP U.S. History', sectionInfo.type, difficulty, questionsInBatch, startId, 
-              apiKeyManager.getCurrentKey(), apiKeyManager.getCurrentUrl(), selectedUnits
+              selectedUnits
             );
             
             if (batchQuestions && batchQuestions.length > 0) {
@@ -1528,7 +1558,7 @@ Format as JSON:
             
             batchQuestions = await generateQuestionBatch(
               subject, sectionInfo.type, difficulty, questionsInBatch, startId, 
-              apiKeyManager.getCurrentKey(), apiKeyManager.getCurrentUrl(), selectedUnits
+              selectedUnits
             );
             
             if (batchQuestions && batchQuestions.length > 0) {
@@ -1673,7 +1703,7 @@ Format as JSON:
             
             batchQuestions = await generateQuestionBatch(
               subject, sectionInfo.type, difficulty, questionsInBatch, startId, 
-              apiKeyManager.getCurrentKey(), apiKeyManager.getCurrentUrl(), selectedUnits
+              selectedUnits
             );
             
             if (batchQuestions && batchQuestions.length > 0) {
@@ -1777,7 +1807,7 @@ Format as JSON:
             
             batchQuestions = await generateQuestionBatch(
               subject, sectionInfo.type, difficulty, questionsInBatch, startId, 
-              apiKeyManager.getCurrentKey(), apiKeyManager.getCurrentUrl(), selectedUnits
+              selectedUnits
             );
             
             if (batchQuestions && batchQuestions.length > 0) {
@@ -1905,7 +1935,7 @@ Format as JSON:
             
             batchQuestions = await generateQuestionBatch(
               subject, sectionInfo.type, difficulty, questionsInBatch, startId, 
-              apiKeyManager.getCurrentKey(), apiKeyManager.getCurrentUrl(), selectedUnits
+              selectedUnits
             );
             
             if (batchQuestions && batchQuestions.length > 0) {
@@ -2005,7 +2035,6 @@ Format as JSON:
       case 'AP English Literature and Composition':
         return generateEnglishLiteratureFullTest(difficulty, selectedUnits);
       case 'AP U.S. Government and Politics':
-      case 'AP Government and Politics: Comparative':
       case 'AP Comparative Government and Politics':
         return generateGovernmentFullTest(subject, difficulty, selectedUnits);
       case 'AP Human Geography':
@@ -2053,7 +2082,7 @@ Format as JSON:
           
           batchQuestions = await generateQuestionBatch(
             subject, section, difficulty, questionsInBatch, currentId, 
-            apiKeyManager.getCurrentKey(), apiKeyManager.getCurrentUrl(), selectedUnits
+            selectedUnits
           );
           
           if (batchQuestions && batchQuestions.length > 0) {
@@ -2150,7 +2179,7 @@ Format as JSON:
     return kept;
   };
 
-  const generateQuestionBatch = async (subject, section, difficulty, numQuestions, startId, apiKey, apiUrl, selectedUnits = []) => {
+  const generateQuestionBatch = async (subject, section, difficulty, numQuestions, startId, selectedUnits = []) => {
     console.log('generateQuestionBatch called with selectedUnits:', selectedUnits);
     let sectionInstructions = '';
     let subjectContext = '';
@@ -2196,7 +2225,6 @@ No specific units selected - generate questions that cover all units and topics 
         break;
       case 'AP Government':
       case 'AP U.S. Government and Politics':
-      case 'AP Government and Politics: Comparative':
       case 'AP Comparative Government and Politics':
         if (selectedUnits && selectedUnits.length > 0) {
           subjectContext = `Focus exclusively on these selected units: ${selectedUnits.join(', ')}. Draw all questions from content within these specific units only.${unitContext}`;
@@ -2751,7 +2779,7 @@ Format: Choose a novel or play in which [literary element/theme]. Write an essay
       // Create a complete FRQ section with proper question type distribution based on subject
       if (subject.includes('History')) {
         // For AP History: 3 SAQs + 1 DBQ + 1 LEQ
-        sectionInstructions = `Create exactly 5 free response questions for AP ${subject} in this EXACT order and format:
+        sectionInstructions = `Create exactly 5 free response questions for ${subject} in this EXACT order and format:
 
 QUESTIONS 1-3: SHORT ANSWER QUESTIONS (SAQ)
 Create 3 Short Answer Questions with REAL historical stimulus material. Each question must:
@@ -2786,7 +2814,7 @@ CRITICAL: Each SAQ must have actual historical stimulus content, each DBQ must h
 Return as JSON array: [{"id": startId, "type": "saq", "stimulus": "real historical content", ...}, {"id": startId+1, "type": "saq", ...}, {"id": startId+2, "type": "saq", ...}, {"id": startId+3, "type": "dbq", "documents": [7 real documents], ...}, {"id": startId+4, "type": "leq", "question": "one specific prompt", ...}]`;
       } else if (subject.includes('English')) {
         // For AP English: Mix of essay types
-        sectionInstructions = `Create exactly 3 essay questions for AP ${subject} in this order:
+        sectionInstructions = `Create exactly 3 essay questions for ${subject} in this order:
 
 QUESTION 1: RHETORICAL ANALYSIS
 - Include authentic speech/essay from real author with clear context
@@ -2856,6 +2884,7 @@ Return as JSON array with type: "long-frq".`;
 - Include clear, direct prompts
 - Focus on application and analysis rather than memorization
 - Use authentic scenarios and examples
+- Be worth exactly ${shortFrqPoints(subject)} points, split across lettered parts (A), (B), ... the way the real ${subject} short free-response questions are
 
 ${subjectContext}
 
@@ -2863,6 +2892,7 @@ REQUIRED JSON FORMAT FOR EACH QUESTION:
 {
   "id": [number],
   "type": "short-frq",
+  "points": ${shortFrqPoints(subject)},
   "question": "[Complete question text]"
 }
 
@@ -2964,7 +2994,7 @@ Essays should demonstrate mastery of course content through sophisticated writin
       const requiresStimulus = subject.includes('History') || subject.includes('Government') || subject.includes('English') || subject.includes('Human Geography');
       
       if (subject.includes('Calculus')) {
-        sectionInstructions = `Create a complete AP ${subject} practice test with EXACTLY:
+        sectionInstructions = `Create a complete ${subject} practice test with EXACTLY:
 - ${mcqCount} multiple choice questions (NO stimulus required for math)
 - ${frqCount} free response questions (each worth 9 points with 3-4 parts)
 
@@ -2999,7 +3029,7 @@ IMPORTANT: Return EXACTLY ${mcqCount + frqCount} questions total. Use this exact
 
 Generate EXACTLY ${mcqCount + frqCount} questions - no extras!`;
       } else {
-        sectionInstructions = `Create a complete AP ${subject} practice test with EXACTLY:
+        sectionInstructions = `Create a complete ${subject} practice test with EXACTLY:
 - ${mcqCount} multiple choice questions${requiresStimulus ? ' (with stimulus material)' : ''}
 - ${frqCount} comprehensive free response questions
 
@@ -3078,7 +3108,7 @@ Generate ${numQuestions} questions now:`;
     }
 
     try {
-      // generateContent already falls back Puter -> Google proxy internally.
+      // generateContent already falls back from Puter to the proxy internally.
       // There used to be a second fallback here through apiManager, which hit
       // the SAME proxy and, when that failed too, resolved with placeholder
       // questions ("AP Biology practice question 1 (Generated offline)",
@@ -3545,6 +3575,7 @@ Provide a clear, educational response that helps the student understand why ${co
     setQuestions([]);
     setCurrentQuestionIndex(0);
     setUserAnswers({});
+    setTestMarks({ marked: {}, crossed: {} });
     setTimeRemaining(0);
     setTestStarted(false);
     setTestPaused(false);
@@ -3650,14 +3681,14 @@ Provide a clear, educational response that helps the student understand why ${co
         currentQuestionIndex={currentQuestionIndex}
         setCurrentQuestionIndex={setCurrentQuestionIndex}
         userAnswers={userAnswers}
+        testMarks={testMarks}
+        setTestMarks={setTestMarks}
         handleAnswerSelect={handleAnswerSelect}
         timeRemaining={timeRemaining}
         testPaused={testPaused}
         setTestPaused={setTestPaused}
         selectedSubject={selectedSubject}
         selectedSection={selectedSection}
-        selectedDBQDocument={selectedDBQDocument}
-        setSelectedDBQDocument={setSelectedDBQDocument}
         isMobile={isMobile}
         showSettings={showSettings}
         setShowSettings={setShowSettings}
@@ -3687,6 +3718,7 @@ Provide a clear, educational response that helps the student understand why ${co
         resetTest={resetTest}
         renderSafeValue={renderSafeValue}
         renderBreakdownSafely={renderBreakdownSafely}
+        onRegrade={regradeUngraded}
         askingTutor={askingTutor}
         setAskingTutor={setAskingTutor}
         tutorQuestion={tutorQuestion}
