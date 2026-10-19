@@ -267,9 +267,11 @@ export function SchoologyIntegration() {
       console.error('Error setting calendar URL:', error);
       // The raw message is developer text (proxy names, HTTP codes, `netlify
       // dev`); the console keeps it, the student gets what to do next.
-      setError(/VCALENDAR|iCal/i.test(error.message)
-        ? "That link didn't return a calendar. Copy the link under “Share Your Schoology Calendar” in your Schoology settings (steps below)."
-        : "Couldn't reach that calendar just now. Check the link and try again in a minute.");
+      setError(/Invalid calendar URL format|isn't a Schoology or Canvas/i.test(error.message)
+        ? "That doesn't look like a Schoology or Canvas calendar link. Follow the steps below for yours."
+        : /VCALENDAR|iCal|did not return a calendar/i.test(error.message)
+          ? "That link didn't return a calendar. Copy the feed link again (steps below)."
+          : "Couldn't reach that calendar just now. Check the link and try again in a minute.");
     } finally {
       setIsSettingCalendar(false);
     }
@@ -294,7 +296,7 @@ export function SchoologyIntegration() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-content-primary">
           <BookOpen className="w-5 h-5" strokeWidth={1.5} />
-          Schoology Integration
+          Class calendar (Schoology or Canvas)
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -392,7 +394,7 @@ export function SchoologyIntegration() {
           <div className="space-y-2">
             <h4 className="font-medium text-content-primary">Calendar URL</h4>
             <p className="text-sm text-content-muted">
-              Add your Schoology calendar feed URL. Only calendar items with assignment links will be synced.
+              Paste your Schoology or Canvas calendar feed link. Assignments become tasks with their due dates; plain events (games, meetings) are skipped.
             </p>
 
             <div className="flex gap-2">
@@ -400,8 +402,8 @@ export function SchoologyIntegration() {
                 type="url"
                 value={calendarUrl}
                 onChange={(e) => setCalendarUrl(e.target.value)}
-                placeholder="webcal://yourschool.schoology.com/calendar/feed/ical/..."
-                aria-label="Schoology calendar URL"
+                placeholder="Schoology or Canvas calendar feed link"
+                aria-label="Schoology or Canvas calendar feed link"
                 className="flex-1 px-3 py-2 bg-base-800 border border-border rounded-md text-content-primary placeholder:text-content-muted focus:outline-none focus:ring-2 focus:ring-content-muted"
               />
               <Button
@@ -418,16 +420,29 @@ export function SchoologyIntegration() {
             </div>
           </div>
 
-          <div className="p-3 bg-warning-900/30 border border-warning-600 rounded-lg">
-            <h5 className="font-medium text-warning-300 mb-1">How to get your calendar URL (you have to go to the schoology website):</h5>
-            <ol className="text-sm text-warning-200 space-y-1">
-              <li>1. Go to Schoology → Settings</li>
-              <li>2. Scroll to "Share Your Schoology Calendar"</li>
-              <li>3. Click "Enable" and copy the iCal link</li>
-              <li>4. Paste the URL above</li>
-            </ol>
-            <p className="text-xs text-warning-200 mt-2">
-              URL should look like: webcal://school.yourdistrict.com/calendar/feed/ical/...
+          <div className="p-3 bg-warning-900/30 border border-warning-600 rounded-lg grid gap-4 sm:grid-cols-2">
+            <div>
+              <h5 className="font-medium text-warning-300 mb-1">Schoology (on the Schoology website)</h5>
+              <ol className="text-sm text-warning-200 space-y-1">
+                <li>1. Open Schoology → Settings</li>
+                <li>2. Scroll to "Share Your Schoology Calendar"</li>
+                <li>3. Click "Enable" and copy the iCal link</li>
+                <li>4. Paste it above</li>
+              </ol>
+              <p className="text-xs text-warning-200 mt-2 break-all">Looks like: webcal://yourschool.schoology.com/calendar/feed/ical/…</p>
+            </div>
+            <div>
+              <h5 className="font-medium text-warning-300 mb-1">Canvas (on the Canvas website)</h5>
+              <ol className="text-sm text-warning-200 space-y-1">
+                <li>1. Open Calendar in Canvas</li>
+                <li>2. At the bottom of the right-hand column, click "Calendar Feed"</li>
+                <li>3. Copy the link it shows</li>
+                <li>4. Paste it above</li>
+              </ol>
+              <p className="text-xs text-warning-200 mt-2 break-all">Looks like: https://yourschool.instructure.com/feeds/calendars/user_….ics</p>
+            </div>
+            <p className="text-xs text-warning-200 sm:col-span-2">
+              The link is private to you, like a password: Apex only uses it to read your due dates. Calendar feeds don't say whether you've turned work in, so mark tasks done yourself.
             </p>
           </div>
         </div>

@@ -95,7 +95,7 @@ class AssignmentSyncService {
 
     return {
       name: assignment.title.trim(),
-      subject: assignment.courseName || 'Schoology Assignment',
+      subject: assignment.courseName || (assignment.provider === 'canvas' ? 'Canvas assignment' : 'Schoology Assignment'),
       type: taskType,
       difficulty: difficulty,
       estimated_time: estimatedTime,
@@ -105,7 +105,7 @@ class AssignmentSyncService {
       description: assignment.description || '',
       pages: 0,
       priority: this.determinePriority(assignment, deadline),
-      source: 'schoology',
+      source: assignment.provider || 'schoology',
       schoologyId: assignment.id || `temp_${Date.now()}`,
       courseId: assignment.courseId,
       courseName: assignment.courseName,

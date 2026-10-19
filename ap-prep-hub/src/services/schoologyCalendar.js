@@ -1,11 +1,18 @@
 /**
- * Schoology Calendar Feed Service
- * Handles parsing and processing of Schoology iCal calendar feeds
+ * Class calendar feed service: parses Schoology and Canvas iCal feeds into
+ * assignments. (Named for Schoology, which came first.)
  */
 
 import { 
   getUserTimezone
 } from '../utils/timezone';
+import { subjectName } from '../constants/subjects';
+
+// Feed paths, kept in step with netlify/lib/feedUrl.js (a test checks).
+export const FEED_PATHS = {
+  schoology: /^\/calendar\/feed\/ical\/\d+\/[A-Za-z0-9]+\/ical\.ics$/,
+  canvas: /^\/feeds\/calendars\/user_[A-Za-z0-9]+\.ics$/,
+};
 
 // Console output intentionally minimized; rely on assignmentSync summary only.
 
@@ -123,10 +130,13 @@ class SchoologyCalendarService {
    * Parse individual event properties from iCal format
    */
   parseEventProperty(line, event) {
-    if (line.startsWith('UID:')) {
-      event.id = line.substring(4);
-    } else if (line.startsWith('SUMMARY:')) {
-      event.title = this.decodeICalValue(line.substring(8));
+    // Properties may carry parameters before the value: Canvas writes
+    // "URL;VALUE=URI:https://…", which a bare "URL:" check silently dropped.
+    const value = () => line.substring(line.indexOf(':') + 1);
+    if (/^UID[;:]/.test(line)) {
+      event.id = value();
+    } else if (/^SUMMARY[;:]/.test(line)) {
+      event.title = this.decodeICalValue(value());
     } else if (line.startsWith('DESCRIPTION:')) {
       const description = this.decodeICalValue(line.substring(12));
       event.description = description;
@@ -138,9 +148,9 @@ class SchoologyCalendarService {
         event.isAssignmentByUrl = this.isAssignmentUrl(event.url);
         
       }
-    } else if (line.startsWith('URL:')) {
+    } else if (/^URL[;:]/.test(line)) {
       // Also check the URL field directly (fallback)
-      event.url = line.substring(4);
+      event.url = value();
       event.isAssignmentByUrl = this.isAssignmentUrl(event.url);
       
     } else if (line.startsWith('DTSTART')) {
@@ -357,11 +367,13 @@ class SchoologyCalendarService {
   isAssignmentUrl(url) {
     if (!url) return null;
     
-    // Assignment URLs: http://school.district196.org/assignment/7863396025
-    // Event URLs: http://school.district196.org/event/7863601655/profile
-    
-    const assignmentPattern = /\/assignment\/\d+/i;
-    const eventPattern = /\/event\/\d+/i;
+    // Schoology assignment: http://school.district196.org/assignment/7863396025
+    // Schoology event:      http://school.district196.org/event/7863601655/profile
+    // Canvas links every item to its calendar, tagged in the fragment:
+    //   https://x.instructure.com/calendar?include_contexts=course_1&month=10&year=2026#assignment_456
+    //   ...#calendar_event_789 (a plain event, not work to schedule)
+    const assignmentPattern = /\/assignment\/\d+|#assignment_\d+$/i;
+    const eventPattern = /\/event\/\d+|#calendar_event_\d+$/i;
     
     if (assignmentPattern.test(url)) {
   
@@ -415,12 +427,17 @@ class SchoologyCalendarService {
    */
   processAssignmentEvent(event) {
     // Ensure we have a valid title - if empty/undefined, create a default one
+    const canvas = /#assignment_\d+$/i.test(event.url || '');
     let title = event.title;
+    let courseCode = '';
     if (!title || title.trim() === '' || title === 'undefined' || title === null || title === 'null') {
-      title = `Schoology Assignment ${event.id || Date.now()}`;
+      title = `${canvas ? 'Canvas' : 'Schoology'} Assignment ${event.id || Date.now()}`;
 
     } else {
       title = title.trim(); // Clean up any whitespace
+      // Canvas appends the course code: "Essay 2 [AP Lang P3]".
+      const m = canvas && title.match(/^(.*\S)\s*\[([^\]]+)\]$/);
+      if (m) { title = m[1]; courseCode = m[2].trim(); }
     }
 
     // Determine the best due date based on available information
@@ -513,9 +530,12 @@ class SchoologyCalendarService {
       due: dueTimestamp, // Unix timestamp in seconds
       dueDate: dueDate, // Keep the Date object for easier handling in convertAssignmentToTask
       created: event.created ? Math.floor(event.created.getTime() / 1000) : Math.floor(Date.now() / 1000),
-      courseName: '', // Left blank as subject doesn't show up in Schoology calendar
-      courseCode: '', // Left blank as subject doesn't show up in Schoology calendar
-      courseId: 'schoology', // Generic course ID for Schoology assignments
+      // Schoology's feed has no course; Canvas's gives a code, matched to an AP
+      // course name only on an exact match; codes vary too much to guess.
+      courseName: courseCode ? subjectName(courseCode) : '',
+      courseCode,
+      courseId: canvas ? 'canvas' : 'schoology',
+      provider: canvas ? 'canvas' : 'schoology',
       location: event.location,
       url: event.url || '',
       type: 'assignment',
@@ -652,11 +672,10 @@ class SchoologyCalendarService {
   isValidCalendarUrl(url) {
     try {
       const urlObj = new URL(url);
-      return (
-        (urlObj.protocol === 'webcal:' || urlObj.protocol === 'https:' || urlObj.protocol === 'http:') &&
-        url.includes('ical') &&
-        (url.includes('schoology') || url.includes('calendar'))
-      );
+      if (!['webcal:', 'https:', 'http:'].includes(urlObj.protocol)) return false;
+      // Canvas feeds (/feeds/calendars/user_….ics) have no "ical" in them.
+      if (Object.values(FEED_PATHS).some((re) => re.test(urlObj.pathname))) return true;
+      return url.includes('ical') && (url.includes('schoology') || url.includes('calendar'));
     } catch {
       return false;
     }

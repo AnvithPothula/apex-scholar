@@ -82,6 +82,7 @@ export default function SmartScheduler() {
   const { toast } = useToast();
   const confirm = useConfirm();
   const [tasks, setTasks] = useState([]);
+  const [tasksLoaded, setTasksLoaded] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [aiSchedule, setAiSchedule] = useState([]);
@@ -277,6 +278,7 @@ export default function SmartScheduler() {
         tasksData.push({ id: doc.id, ...doc.data() });
       });
       setTasks(tasksData);
+      setTasksLoaded(true);
     }, (error) => {
       console.error("❌ Error loading tasks:", error);
     });
@@ -516,16 +518,20 @@ export default function SmartScheduler() {
   // Pre-group schedule items by day to avoid per-day .filter() on every render
   const scheduleByDay = useMemo(() => {
     const safeSchedule = Array.isArray(aiSchedule) ? aiSchedule : [];
+    // A task deleted on another device (or by a sync) left its sessions on the
+    // calendar until the next rebuild; skip sessions whose task is gone.
+    const liveIds = tasksLoaded ? new Set(tasks.map((t) => t.id)) : null;
     const grouped = {};
     safeSchedule.forEach(item => {
       if (!item || !item.startTime) return;
+      if (liveIds && item.taskId && !liveIds.has(item.taskId)) return;
       const itemDate = item.startTime instanceof Date ? item.startTime : new Date(item.startTime);
       const key = format(itemDate, 'yyyy-MM-dd');
       if (!grouped[key]) grouped[key] = [];
       grouped[key].push(item);
     });
     return grouped;
-  }, [aiSchedule]);
+  }, [aiSchedule, tasks, tasksLoaded]);
 
   // Sessions of a finished task show as done; nothing ever set item.completed,
   // so they used to look like work still to do.
@@ -600,7 +606,7 @@ export default function SmartScheduler() {
                   </div>
                   <div className="ml-3">
                     <p className="text-sm text-content-primary">
-                      New assignments have been synced from Schoology!
+                      New assignments came in from your class calendar.
                       <span className="block text-xs text-content-secondary mt-1">
                         Click "Generate Smart Schedule" to include them in your schedule.
                       </span>
@@ -700,7 +706,7 @@ export default function SmartScheduler() {
               {(tasks.length > 0 || (Array.isArray(aiSchedule) && aiSchedule.length > 0)) && (
                 <>
                   <span className="text-xs sm:text-sm text-content-muted mr-2 whitespace-nowrap">
-                    {(() => { const n = (aiSchedule || []).filter(item => !item.completed && !doneTaskIds.has(item.taskId)).length; return `${n} ${n === 1 ? 'session' : 'sessions'}`; })()}
+                    {(() => { const n = Object.values(scheduleByDay).flat().filter(item => !item.completed && !doneTaskIds.has(item.taskId)).length; return `${n} ${n === 1 ? 'session' : 'sessions'}`; })()}
                   </span>
                   <div className="flex rounded-md border border-border overflow-hidden">
                     {['list', 'week', 'month'].map(mode => (

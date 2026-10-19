@@ -1,10 +1,14 @@
 /**
  * Netlify serverless function — acts as a first-party CORS proxy so the
- * browser can fetch Schoology iCal calendar feeds (which don't set CORS
- * headers).  Requests go to /.netlify/functions/cors-proxy?url=<encoded URL>.
+ * browser can fetch Schoology and Canvas iCal calendar feeds (which don't set
+ * CORS headers). Requests go to /.netlify/functions/cors-proxy?url=<encoded URL>.
  *
- * Only whitelisted domains are proxied to prevent open-relay abuse.
+ * Not an open relay: a URL is fetched only if its host is allow-listed OR its
+ * path is a known feed path on a public host (../lib/feedUrl.js; districts use
+ * their own domains). Every redirect hop is re-checked, and only iCal bodies
+ * are returned.
  */
+const { feedKind, resolvesPublic } = require('../lib/feedUrl');
 
 const ALLOWED_HOSTS = [
   'school.district196.org',
@@ -184,25 +188,40 @@ exports.handler = async (event) => {
     };
   }
 
-  if (!isAllowed(parsed.hostname)) {
-    return {
-      statusCode: 403,
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ error: `Domain not allowed: ${parsed.hostname}` }),
-    };
+  const deny = (error) => ({
+    statusCode: 403,
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ error }),
+  });
+  // A host we list, or a Schoology/Canvas feed path on a host that resolves publicly.
+  const hostOk = async (u) => isAllowed(u.hostname) || (u.protocol === 'https:' && await resolvesPublic(u.hostname));
+  if (!isAllowed(parsed.hostname) && !feedKind(parsed)) {
+    return deny("That isn't a Schoology or Canvas calendar feed link.");
   }
+  if (!(await hostOk(parsed))) return deny(`Domain not allowed: ${parsed.hostname}`);
 
   try {
-    const resp = await fetch(targetUrl, {
-      method: 'GET',
-      headers: {
-        Accept: 'text/calendar, application/calendar, text/plain, */*',
-        // Use a browser-like UA — some school servers block bot-like agents
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-      },
-      redirect: 'follow',
-    });
+    // Follow redirects by hand so each hop is checked: an allowed host must
+    // not be able to bounce the proxy to a private address.
+    let current = parsed;
+    let resp;
+    for (let hop = 0; ; hop++) {
+      resp = await fetch(current.toString(), {
+        method: 'GET',
+        headers: {
+          Accept: 'text/calendar, application/calendar, text/plain, */*',
+          // Use a browser-like UA — some school servers block bot-like agents
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        },
+        redirect: 'manual',
+      });
+      const loc = resp.status >= 300 && resp.status < 400 && resp.headers.get('location');
+      if (!loc) break;
+      if (hop >= 4) return deny('Too many redirects');
+      current = new URL(loc, current);
+      if (!(await hostOk(current))) return deny(`Redirect to a host that isn't allowed: ${current.hostname}`);
+    }
 
     const body = await resp.text();
 
@@ -219,6 +238,15 @@ exports.handler = async (event) => {
           error: `Upstream returned HTTP ${resp.status}`,
           preview: body.substring(0, 300),
         }),
+      };
+    }
+
+    // Only calendars come back, so the proxy can't be used to read other pages.
+    if (!body.includes('BEGIN:VCALENDAR')) {
+      return {
+        statusCode: 502,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'That link did not return a calendar feed.' }),
       };
     }
 

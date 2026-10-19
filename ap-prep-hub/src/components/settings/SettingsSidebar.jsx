@@ -39,7 +39,7 @@ export const SETTINGS_SECTIONS = [
       { id: 'settings-study-advanced', label: 'Advanced Features' },
     ],
   },
-  { id: 'settings-schoology', label: 'Schoology',          icon: Link2 },
+  { id: 'settings-schoology', label: 'Class calendar',     icon: Link2 },
   { id: 'settings-blackout',  label: 'Blackout Schedule',  icon: CalendarOff },
   { id: 'settings-account',   label: 'Account Security',   icon: Lock },
 ];
