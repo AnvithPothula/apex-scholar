@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { RotateCw, Brain, CheckCircle, X, Target, TrendingUp, Trophy, FileQuestion, HelpCircle, Download, Sparkles } from 'lucide-react';
+import { RotateCw, Brain, CheckCircle, X, Target, TrendingUp, Trophy, FileQuestion, HelpCircle, Printer, Sparkles, MinusCircle } from 'lucide-react';
 import { Button, Card, Badge, Input } from '../ui/UIComponents';
 import { createPageUrl } from '../../utils/helpers';
 import { estimateForSavedTest, calculatorUrl } from '../../utils/testToScore';
@@ -9,7 +9,8 @@ import AnimatedCounter from '../ui/AnimatedCounter';
 import MarkdownRenderer from '../MarkdownRenderer';
 import LaTeXRenderer from '../LaTeXRenderer';
 import { buildRubricItems, attachScoresToRubric } from '../../utils/testUtils';
-import { buildWhyWrongPrompt, missFromResult } from '../../utils/whyWrong';
+import { buildWhyWrongPrompt, missFromResult, resultStatus, wasSkipped } from '../../utils/whyWrong';
+import SourcePane, { hasSourceMaterial } from './SourcePane';
 import { staggerContainer, staggerItem, shakeWrong, popCorrect } from '../../utils/animations';
 
 const ResultsPanel = ({
@@ -37,7 +38,8 @@ const ResultsPanel = ({
   const [regrading, setRegrading] = useState(false);
   const [regradeNote, setRegradeNote] = useState('');
   // Hooks must run before the early return, so compute this here.
-  const missedCount = (testResults?.questionResults || []).filter((r) => !r.correct && !r.ungraded).length;
+  // Wrong or partial credit; skipped questions aren't misses and aren't queued.
+  const missedCount = (testResults?.questionResults || []).filter((r) => ['wrong', 'partial'].includes(resultStatus(r))).length;
   const ungradedCount = (testResults?.questionResults || []).filter((r) => r.ungraded).length;
   // Nothing was graded (e.g. an FRQ-only test during an AI outage). An
   // "Estimated AP Score" of 1 would be a verdict on work nobody read.
@@ -67,6 +69,13 @@ const ResultsPanel = ({
   };
 
   if (!testResults) return null;
+
+  // Older or trimmed saved tests can lack questionResults (that used to crash
+  // this page); a question with no result shows as not graded.
+  const qResults = Array.isArray(safeTestResults?.questionResults) ? safeTestResults.questionResults : [];
+  const resultFor = (q) => qResults.find((r) => r.questionId === q.id)
+    || { questionId: q.id, ungraded: true, score: 0, maxPoints: 0, userAnswer: userAnswers?.[q.id] };
+  const answered = (r) => !wasSkipped(r?.userAnswer) || r?.photoCount > 0;
 
   return (
     <div className="min-h-screen bg-base-950 text-content-primary">
@@ -103,7 +112,10 @@ const ResultsPanel = ({
             <Card className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <p className="text-h4 font-display text-content-primary">
-                  {missedCount} {missedCount === 1 ? 'question' : 'questions'} added to your review queue
+                  {/* Misses are queued at submit; reopening an old test adds nothing. */}
+                  {testResults?.fromHistory
+                    ? `${missedCount} ${missedCount === 1 ? 'question' : 'questions'} from this test went to your review queue`
+                    : `${missedCount} ${missedCount === 1 ? 'question' : 'questions'} added to your review queue`}
                 </p>
                 <p className="text-body-sm text-content-secondary mt-1">
                   They come back on a spaced schedule until you get them right.
@@ -227,7 +239,7 @@ const ResultsPanel = ({
           >
             <Card className="p-3 sm:p-4 md:p-6 text-center">
               <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-warning-400 mb-1 md:mb-2">
-                {questions.filter(q => userAnswers[q.id] !== undefined).length}
+                {questions.filter((q) => answered(resultFor(q))).length}
               </div>
               <p className="text-content-secondary mb-1">Questions Answered</p>
               <p className="text-sm text-content-muted">
@@ -300,44 +312,67 @@ const ResultsPanel = ({
               viewport={{ once: true, margin: '-40px' }}
             >
               {questions.map((question, index) => {
-                const result = safeTestResults.questionResults.find(r => r.questionId === question.id);
-                const isCorrect = result?.correct;
+                const result = resultFor(question);
+                const status = resultStatus(result);
+                // Skipped and partial credit are not "wrong": no red X, no shake.
+                const look = {
+                  correct: { box: 'bg-success-500', icon: <CheckCircle strokeWidth={1.5} className="w-5 h-5 text-base-950" /> },
+                  partial: { box: 'bg-warning-500', icon: <CheckCircle strokeWidth={1.5} className="w-5 h-5 text-base-950" /> },
+                  wrong: { box: 'bg-error-500', icon: <X strokeWidth={1.5} className="w-5 h-5 text-base-950" /> },
+                  skipped: { box: 'bg-base-800', icon: <MinusCircle strokeWidth={1.5} className="w-5 h-5 text-content-muted" /> },
+                  ungraded: { box: 'bg-base-800', icon: <HelpCircle strokeWidth={1.5} className="w-5 h-5 text-content-muted" /> },
+                }[status];
 
                 return (
                   <motion.div
                     key={question.id}
                     variants={staggerItem}
-                    animate={isCorrect ? popCorrect : shakeWrong}
-                    className="border border-border rounded-lg p-6">
-                    <div className="flex items-start gap-4 mb-4">
-                      <div className={`p-2 rounded-lg ${result?.ungraded ? 'bg-base-800' : isCorrect ? 'bg-success-500' : 'bg-error-500'}`}>
-                        {result?.ungraded ? (
-                          <HelpCircle strokeWidth={1.5} className="w-5 h-5 text-content-muted" />
-                        ) : isCorrect ? (
-                          <CheckCircle strokeWidth={1.5} className="w-5 h-5 text-content-primary" />
-                        ) : (
-                          <X strokeWidth={1.5} className="w-5 h-5 text-content-primary" />
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-3">
-                          <h3 className="font-medium text-content-primary mb-3">Question {index + 1}</h3>
-                          {result?.ungraded ? (
+                    animate={status === 'correct' ? popCorrect : status === 'wrong' ? shakeWrong : undefined}
+                    className="border border-border rounded-lg p-4 sm:p-6">
+                    <div className="flex items-start gap-3 sm:gap-4 mb-4">
+                      <div className={`p-2 rounded-lg shrink-0 ${look.box}`}>{look.icon}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-3 mb-3">
+                          <h3 className="font-medium text-content-primary">Question {index + 1}</h3>
+                          {status === 'ungraded' ? (
                             <Badge variant="warning">Not graded</Badge>
+                          ) : status === 'skipped' ? (
+                            <Badge variant="secondary">Not answered · 0 / {result?.maxPoints || 1} points</Badge>
                           ) : (
-                            <Badge variant={isCorrect ? "success" : "destructive"}>
-                              {result?.score || 0} / {result?.maxPoints || 1} points
+                            <Badge variant={status === 'correct' ? 'success' : status === 'partial' ? 'warning' : 'destructive'}>
+                              {result?.score || 0} / {result?.maxPoints || 1} points{status === 'partial' ? ' · partial credit' : ''}
                             </Badge>
                           )}
                         </div>
+                        {/* The source the question was asked about; collapsed so long
+                            documents don't bury the review. */}
+                        {hasSourceMaterial(question) && (
+                          <details className="mb-4 rounded-lg border border-border-subtle bg-base-850 p-3">
+                            <summary className="cursor-pointer text-sm font-medium text-content-secondary">Show the source</summary>
+                            <div className="mt-3 text-sm text-content-secondary">
+                              <SourcePane currentQuestion={question} tone="app" />
+                            </div>
+                          </details>
+                        )}
                         <div className="text-content-secondary mb-4">
                           <MarkdownRenderer content={renderSafeValue(question.question)} />
                         </div>
+                        {/* FRQ parts: feedback talks about "part (c)", so show what (c) asked. */}
+                        {Array.isArray(question.parts) && question.parts.length > 0 && (
+                          <ol className="mb-4 space-y-2 text-content-secondary">
+                            {question.parts.map((part, i) => (
+                              <li key={i} className="flex gap-2">
+                                <span className="font-semibold shrink-0">({String.fromCharCode(97 + i)})</span>
+                                <div className="flex-1 min-w-0"><LaTeXRenderer content={renderSafeValue(part)} /></div>
+                              </li>
+                            ))}
+                          </ol>
+                        )}
 
                         {/* MCQ Review */}
                         {question.type === 'mcq' && (
                           <div className="space-y-2 mb-4">
-                            {question.options.map((option, i) => {
+                            {(question.options || []).map((option, i) => {
                               const isUserAnswer = result.userAnswer === i;
                               const isCorrectAnswer = result.correctAnswer === i || question.correctAnswer === i;
 
@@ -381,34 +416,50 @@ const ResultsPanel = ({
                                 </div>
                               );
                             })}
+                            {/* The explanation was stored but never shown; the only
+                                way to read one was the "Why was I wrong?" AI call. */}
+                            {(result?.feedback || question.explanation) && (
+                              <div className="mt-3 p-4 bg-base-800 border border-border-strong rounded-lg text-content-secondary">
+                                <h4 className="font-medium text-content-primary mb-1">Explanation</h4>
+                                <LaTeXRenderer content={String(renderSafeValue(question.explanation || result.feedback)).replace(/^(Correct|Incorrect)[.!]\s*/, '')} />
+                              </div>
+                            )}
                           </div>
                         )}
 
                         {/* FRQ Review */}
-                        {(question.type === 'frq' || question.type === 'saq' ||
-                         question.type === 'dbq' || question.type === 'leq' ||
-                         question.type === 'synthesis' || question.type === 'rhetorical-analysis' ||
-                         question.type === 'argumentative' || question.type === 'poetry-analysis' ||
-                         question.type === 'prose-analysis' || question.type === 'open-question' ||
-                         question.type === 'long-frq' || question.type === 'short-frq' ||
-                         question.type === 'calculator-frq' || question.type === 'no-calculator-frq' ||
-                         question.type === 'short-answer' || question.type === 'essays') && (
+                        {question.type !== 'mcq' && (
                           <div className="space-y-4">
                             <div>
                               <h4 className="font-medium text-content-primary mb-2">Your Response:</h4>
                               <div className="p-4 bg-base-800 rounded-lg">
                                 <p className="text-content-secondary whitespace-pre-wrap">
-                                  {renderSafeValue(result?.userAnswer) || 'No response provided'}
+                                  {renderSafeValue(result?.userAnswer) || (result?.photoCount ? 'No typed text; your answer was in the photos.' : 'No response provided')}
                                 </p>
                               </div>
                             </div>
 
+                            {/* Photos are kept on the device; the result keeps what the grader read. */}
+                            {result?.photoCount > 0 && (
+                              <div>
+                                <h4 className="font-medium text-content-primary mb-2">
+                                  What the grader read from your {result.photoCount === 1 ? 'photo' : `${result.photoCount} photos`}:
+                                </h4>
+                                <div className="p-4 bg-base-800 rounded-lg">
+                                  {result.transcript
+                                    ? <div className="text-content-secondary whitespace-pre-line [&_p]:my-0"><LaTeXRenderer content={renderSafeValue(result.transcript).replace(/\n\s*\n+/g, '\n')} /></div>
+                                    : <p className="text-content-muted text-sm">{result.ungraded ? 'Not read yet: this response is ungraded.' : 'The grader did not return a transcript.'}</p>}
+                                  <p className="text-xs text-content-muted mt-2">If something here is misread, the score is based on the misreading. Clearer, closer photos help.</p>
+                                </div>
+                              </div>
+                            )}
+
                             {/* AI Scoring Breakdown */}
-                            {result.breakdown && Object.keys(result.breakdown).length > 0 && (
+                            {result?.breakdown && Object.keys(result.breakdown).length > 0 && (
                               <div>
                                 <h4 className="font-medium text-content-primary mb-2">Score Breakdown:</h4>
                                 <div className="p-4 bg-base-800 border border-border-strong rounded-lg">
-                                  <div className="grid grid-cols-2 gap-4 mb-3">
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4 mb-3">
                                     {renderBreakdownSafely(result.breakdown)}
                                   </div>
                                 </div>
@@ -416,7 +467,7 @@ const ResultsPanel = ({
                             )}
 
                             {/* AI Feedback */}
-                            {result.feedback && (
+                            {result?.feedback && (
                               <div>
                                 <h4 className="font-medium text-content-primary mb-2">AI Feedback:</h4>
                                 <div className="p-4 bg-success-900 border border-success-500/30 rounded-lg space-y-3">
@@ -469,7 +520,7 @@ const ResultsPanel = ({
 
                             {(() => {
                               const qRubric = buildRubricItems(question);
-                              const merged = attachScoresToRubric(qRubric, result.breakdown, result.score);
+                              const merged = attachScoresToRubric(qRubric, result?.breakdown, result?.score);
                               if (!merged || !merged.items || merged.items.length === 0) return null;
                               return (
                                 <div>
@@ -487,7 +538,7 @@ const ResultsPanel = ({
                                       </div>
                                     ))}
                                     {question?.rubric?.scoringGuidelines && (
-                                      <div className="text-content-muted text-xs mt-2">{renderSafeValue(question.rubric.scoringGuidelines)}</div>
+                                      <div className="text-content-muted text-xs mt-2 whitespace-pre-line"><LaTeXRenderer content={renderSafeValue(question.rubric.scoringGuidelines)} /></div>
                                     )}
                                     {Array.isArray(question?.rubric?.keyTerms) && question.rubric.keyTerms.length > 0 && (
                                       <div className="pt-2">
@@ -558,7 +609,7 @@ const ResultsPanel = ({
                             </div>
                           ) : (
                             <div className="flex flex-wrap gap-2">
-                              {!isCorrect && (
+                              {(status === 'wrong' || status === 'partial') && (
                                 <Button
                                   variant="outline"
                                   onClick={() => askWhyWrong(question, result)}
@@ -601,33 +652,11 @@ const ResultsPanel = ({
             Take Another Test
           </Button>
 
-          <Button
-            onClick={() => {
-              const resultsSummary = {
-                subject: selectedSubject,
-                section: selectedSection,
-                score: safeTestResults.percentage,
-                apScore: safeTestResults.apScore,
-                questionsCorrect: safeTestResults.questionResults?.filter(r => r.correct).length || 0,
-                totalQuestions: safeTestResults.questionResults?.length || 0,
-                timeSpent: safeTestResults.timeSpent,
-                date: new Date().toLocaleDateString(),
-                breakdown: safeTestResults.breakdown
-              };
-
-              const dataStr = JSON.stringify(resultsSummary, null, 2);
-              const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-
-              const exportFileDefaultName = `AP-${selectedSubject.replace(/\s+/g, '-')}-Results-${new Date().toISOString().split('T')[0]}.json`;
-
-              const linkElement = document.createElement('a');
-              linkElement.setAttribute('href', dataUri);
-              linkElement.setAttribute('download', exportFileDefaultName);
-              linkElement.click();
-            }}
-          >
-            <Download strokeWidth={1.5} className="w-5 h-5 mr-2" />
-            Save Results
+          {/* Was a raw JSON download. Printing (or "Save as PDF") gives a readable
+              copy; index.css's print rules force light colours and hide app chrome. */}
+          <Button variant="outline" className="print:hidden" onClick={() => window.print()}>
+            <Printer strokeWidth={1.5} className="w-5 h-5 mr-2" />
+            Print or save as PDF
           </Button>
         </motion.div>
       </div>

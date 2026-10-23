@@ -7,7 +7,8 @@
  * delimiter or a currency sign?), the surrounding context disambiguates.
  *
  * Order matters:
- *   1. stripControlChars      — remove invisible bytes that hide commands
+ *   1. restoreEatenLatexEscapes — TAB+"imes" → \times etc. (JSON.parse damage)
+ *      stripControlChars      — remove invisible bytes that hide commands
  *   2. unfenceMathBlocks      — unwrap ```latex / ```math fences
  *   3. normalizeDelimiters    — convert \(...\) and \[...\] to $...$ / $$...$$
  *   4. BARE_LATEX_RE wrap     — wrap bare commands like \theta
@@ -217,6 +218,25 @@ function stripNestedDollarsInExistingBlocks(text) {
 }
 
 /**
+ * Tests saved before jsonParser's protectLatexEscapes fix hold LaTeX whose
+ * backslash JSON.parse ate: TAB + "imes" for \times, BACKSPACE + "eta" for
+ * \beta, FORMFEED + "rac" for \frac, CR + "ho" for \rho. Put the backslash
+ * back. TAB and CR need an exact command tail so real whitespace survives;
+ * backspace and form feed never mean anything in prose. Must run before
+ * protectDollarSigns (see the call) and stripControlChars, which deletes \b
+ * and \f outright.
+ * ponytail: no newline case — LF + "eq" for \neq can't be told from a real
+ * line break; add an inside-$...$ check if those turn up in saved data.
+ */
+function restoreEatenLatexEscapes(text) {
+  return text
+    .replace(/\t(?=(?:ext(?:bf|it|rm|sf|tt)?|heta|imes|riangle|herefore|frac|anh?|au|ilde|op|o)(?![a-zA-Z]))/g, '\\t')
+    .replace(/\r(?=(?:ight(?:arrow)?|angle|ho|floor|ceil)(?![a-zA-Z]))/g, '\\r')
+    .replace(/[\b](?=[a-zA-Z])/g, '\\b')
+    .replace(/\f(?=[a-zA-Z])/g, '\\f');
+}
+
+/**
  * Strip C0 control bytes that occasionally appear in AI output. The worst
  * offender is \f (form-feed, 0x0C) which comes from tokenizer mishaps where
  * \frac becomes \f rac. Keep \t (0x09) and \n (0x0A) — those are legitimate.
@@ -279,12 +299,42 @@ export function repairInlineTables(text) {
   }).join('\n');
 }
 
+// Money. The AI writes "$\$50$", and every $-pairing regex below (and both
+// renderers) took the \$ as a delimiter, so prose between two amounts became
+// garbled math. Pair delimiters escape-aware once, here: a math span that is
+// only an amount becomes plain text, any other \$ inside math becomes
+// \text{\textdollar}, and literal dollars are parked on a placeholder until the end,
+// where they come back as \$ (remark-math reads that as a literal $, and
+// LaTeXRenderer skips it).
+const LITERAL_DOLLAR = '\uE000';
+const ESCAPE_AWARE_MATH = /\$\$[\s\S]*?\$\$|(?<!\\)\$(?:\\.|[^$\n\\])*\$/g;
+// Bare currency in prose ("$100 is the fixed cost"): a $ right before an amount
+// that is followed by a word or punctuation, never by more maths or a closing $.
+const BARE_CURRENCY = /(?<![\\$\w])\$(?=\d[\d,]*(?:\.\d+)?(?![\d$])(?:\s+(?:[a-z]{2,}|[A-Z][a-z])|[.,;:!?)](?![\d$])|\s*$))/gm;
+function protectDollarSigns(input) {
+  const text = input.replace(BARE_CURRENCY, '\\$');
+  if (text.indexOf('\\$') === -1) return text;
+  let out = '';
+  let last = 0;
+  for (const m of text.matchAll(ESCAPE_AWARE_MATH)) {
+    out += text.slice(last, m.index).replace(/\\\$/g, LITERAL_DOLLAR);
+    const money = m[0].match(/^\$\s*\\\$\s*([\d.,]+(?:\s*(?:\\text\{\s*)?(?:thousand|million|billion|trillion)\}?)?)\s*\$$/);
+    out += money
+      ? LITERAL_DOLLAR + money[1].replace(/\\text\{\s*([a-z]+)\}/, ' $1').replace(/\s+/g, ' ')
+      : m[0].replace(/\\\$/g, '\\text{\\textdollar}');
+    last = m.index + m[0].length;
+  }
+  return out + text.slice(last).replace(/\\\$/g, LITERAL_DOLLAR);
+}
+
 export function preprocessContent(content) {
   // Always return a string — downstream renderers assume that.
   if (typeof content !== 'string') return '';
   if (content === '') return '';
 
-  let processed = repairInlineTables(content);
+  // Restore first: protectDollarSigns reads "$50 <TAB>imes" as money followed by
+  // the word "imes" and would turn the opening $ into a literal dollar.
+  let processed = protectDollarSigns(restoreEatenLatexEscapes(repairInlineTables(content)));
 
   // 0. Strip control chars + normalize alternate delimiters BEFORE wrapping.
   // We deliberately do NOT strip nested $ here — doing it before the wrap
@@ -344,5 +394,7 @@ export function preprocessContent(content) {
   // 5. A line that is only $$...$$ is meant as a displayed equation, but
   // remark-math treats one-line $$x$$ as inline maths (small fractions, no
   // centering). Split it onto fence lines so it renders as display maths.
-  return result.replace(/^([ \t]*)\$\$([^$\n]+)\$\$[ \t]*$/gm, (_m, ind, body) => `${ind}$$\n${ind}${body.trim()}\n${ind}$$`);
+  return result
+    .replace(/^([ \t]*)\$\$([^$\n]+)\$\$[ \t]*$/gm, (_m, ind, body) => `${ind}$$\n${ind}${body.trim()}\n${ind}$$`)
+    .split(LITERAL_DOLLAR).join('\\$');
 }

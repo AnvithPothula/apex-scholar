@@ -9,11 +9,11 @@
  * \text and \frac are the two most common commands in chemistry and maths
  * questions, so this silently corrupted a large share of generated content.
  *
- * Mirrors the whitelist repair in services/ai/jsonParser.js.
+ * Exercises protectLatexEscapes from services/ai/jsonParser.js directly.
  */
-const LATEX_ESCAPE = /(?<!\\)\\(?=(?:text|theta|times|triangle|therefore|tfrac|tan|tau|to|frac|forall|floor|neq|nabla|nonumber|not|nu|beta|binom|bullet|bar|rightarrow|rangle|right|rho|upsilon|underline|uparrow|unit)\b)/g;
+import JSONParser, { protectLatexEscapes } from './ai/jsonParser';
 
-const repair = (raw) => raw.replace(LATEX_ESCAPE, '\\\\');
+const repair = protectLatexEscapes;
 const parseAfterRepair = (raw) => JSON.parse(repair(raw)).q;
 
 describe('LaTeX survives JSON parsing', () => {
@@ -43,8 +43,8 @@ describe('LaTeX survives JSON parsing', () => {
   });
 
   it('is wired into the parser, not just defined here', () => {
-    const src = require('fs').readFileSync(
-      require('path').resolve(__dirname, 'ai/jsonParser.js'), 'utf8');
-    expect(src).toMatch(/text\|theta\|times/);
+    // Valid JSON: the first JSON.parse must not get a chance to eat the backslash.
+    const { data } = new JSONParser().parse('{"q":"$S \\to P$ \\text{H}"}');
+    expect(data.q).toBe('$S \\to P$ \\text{H}');
   });
 });

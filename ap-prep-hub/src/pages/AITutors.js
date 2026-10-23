@@ -1674,7 +1674,7 @@ ATTACHMENTS: ${hasFiles ? 'Files attached — analyze them first, describe conte
 FORMATTING:
 - Markdown: **bold**, *italics*, ## headers, bullet lists
 - Tables: Use proper Markdown table syntax with | and --- when presenting data
-- Keep responses under 400 words unless asked for more
+- Keep responses under 400 words unless asked for more (an interactive block doesn't count toward this)
 - No preambles ("Understood", "I'm ready", etc.) and no greetings ("Hello …!") after the first reply
 
 MATH (LaTeX) — strict rules, no exceptions:
@@ -1753,7 +1753,9 @@ RESPONSE STRUCTURE: Direct analysis → 2-3 key concepts → AP application → 
           topP: 0.9,
           // MCQ JSON = question + 4 choices + 4 explanations + LaTeX. 800 was
           // too small and truncated mid-explanations (raw/cut-off JSON bug).
-          maxOutputTokens: mode === 'Practice MCQ' ? 1500 : 1600,
+          // Explanations: room for an apex-sim block (6-10 scenes of JSON),
+          // which cut off at 1600 and fell back to raw code.
+          maxOutputTokens: mode === 'Practice MCQ' ? 1500 : 3200,
           candidateCount: 1
         },
         safetySettings: [

@@ -18,6 +18,7 @@
  */
 
 import React from 'react';
+import MarkdownRenderer from '../MarkdownRenderer';
 
 /** True when a question carries anything worth showing in its own pane. */
 export function hasSourceMaterial(q) {
@@ -30,13 +31,24 @@ export function hasSourceMaterial(q) {
   );
 }
 
+// Source text keeps its line breaks (poems, speeches). Only text with math or
+// a markdown table goes through the markdown renderer; as plain text, Stats
+// tables showed as raw pipes and formulas as raw LaTeX.
+const RICH = /\$|^\s*\|.*\|\s*$/m;
+const SourceText = ({ text, className = '' }) => (RICH.test(String(text || ''))
+  ? <MarkdownRenderer className={className} content={String(text)} />
+  : <div className={`whitespace-pre-wrap ${className}`}>{text}</div>);
+
 /** A source's attribution line, in Bluebook's small sans-serif. */
-const Attribution = ({ children }) => (children ? <p className="font-sans text-sm text-[#555] mt-1">{children}</p> : null);
+const Attribution = ({ children, tone }) => (children
+  ? <p className={`font-sans text-sm mt-1 ${tone === 'app' ? 'text-content-muted' : 'text-[#555]'}`}>{children}</p>
+  : null);
 
 // Plain serif text on white, as Bluebook shows stimulus material: no cards,
 // no coloured bars. Documents and sources run in one scrolling column with
 // their labels, the way the exam lays them out.
-export default function SourcePane({ currentQuestion }) {
+// tone: 'exam' (the white Bluebook screen) or 'app' (results, on theme colours).
+export default function SourcePane({ currentQuestion, tone = 'exam' }) {
   if (!hasSourceMaterial(currentQuestion)) return null;
   const q = currentQuestion;
 
@@ -45,36 +57,37 @@ export default function SourcePane({ currentQuestion }) {
       {q.sources?.length > 0 && q.sources.map((source, i) => (
         <section key={i}>
           <h4 className="font-sans font-bold">Source {String.fromCharCode(65 + i)}</h4>
-          {source.title && <p className="font-semibold mt-1">{source.title}</p>}
-          <Attribution>{[source.source, source.type].filter(Boolean).join(' · ')}</Attribution>
-          <div className="mt-3 whitespace-pre-wrap">{source.content || source.description}</div>
+          {/* The heading already says "Source A"; drop a repeat of it from the title. */}
+          {source.title && <p className="font-semibold mt-1">{String(source.title).replace(/^Source\s+[A-Z0-9]+\s*[:.–-]\s*/i, '')}</p>}
+          <Attribution tone={tone}>{[source.source, source.type].filter(Boolean).join(' · ')}</Attribution>
+          <SourceText className="mt-3" text={source.content || source.description} />
         </section>
       ))}
 
       {q.passage && (
         <section>
-          <Attribution>{q.passageInfo}</Attribution>
-          <div className="mt-3 whitespace-pre-wrap">{q.passage}</div>
+          <Attribution tone={tone}>{q.passageInfo}</Attribution>
+          <SourceText className="mt-3" text={q.passage} />
         </section>
       )}
 
       {q.documents?.length > 0 && q.documents.map((doc, i) => (
         <section key={i}>
           <h4 className="font-sans font-bold">Document {i + 1}</h4>
-          <Attribution>{[doc.source && `Source: ${doc.source}`, doc.date].filter(Boolean).join(', ')}</Attribution>
-          <div className="mt-3 whitespace-pre-wrap">{doc.content}</div>
+          <Attribution tone={tone}>{[doc.source && `Source: ${doc.source}`, doc.date].filter(Boolean).join(', ')}</Attribution>
+          <SourceText className="mt-3" text={doc.content} />
         </section>
       ))}
 
       {/* Standalone stimulus (MCQ/SAQ) when it isn't expressed as documents */}
-      {q.stimulus && !q.documents && (() => {
+      {q.stimulus && !q.documents?.length && (() => {
         const stim = String(q.stimulus || '');
         const sourceMatch = stim.match(/^\s*Source:\s*(.+?)\s*(?:\n|$)/i);
         const content = sourceMatch ? stim.replace(sourceMatch[0], '').trim() : stim;
         return (
           <section>
-            <div className="whitespace-pre-wrap">{content}</div>
-            <Attribution>{sourceMatch && `Source: ${sourceMatch[1].trim()}`}</Attribution>
+            <SourceText text={content} />
+            <Attribution tone={tone}>{sourceMatch && `Source: ${sourceMatch[1].trim()}`}</Attribution>
           </section>
         );
       })()}

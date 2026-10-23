@@ -112,7 +112,7 @@ export async function generateMcqs({
   verify = true,
 }) {
   const prompt = buildBatchMcqPrompt({ subjectName, sourceText, count, instruction });
-  const resp = await geminiService.generateContent(prompt, { temperature: 0.4, maxOutputTokens, task: 'mcqGenerate' });
+  const resp = await geminiService.generateContent(prompt, { temperature: 0.4, maxTokens: maxOutputTokens, task: 'mcqGenerate' });
   const mcqs = parseMcqArray(String(resp || ''));
   if (!verify || !mcqs.length) return mcqs;
   // Whatever wrote the questions must not also be the one checking them.
@@ -153,7 +153,7 @@ ${roster}`;
 
     const resp = await geminiService.generateContent(prompt, {
       temperature: 0,
-      maxOutputTokens: 2000,
+      maxTokens: 2000,
       task: 'verifyMcq',
       // Only practice tests reach this, and they have their own daily budget.
       usageCategory: 'practiceTest',
@@ -214,5 +214,54 @@ export async function verifyOptionMcqs({ subjectName, questions = [], avoidModel
   return questions.filter((q, i) => !(q && q.type === 'mcq' && Array.isArray(q.options)) || kept.has(i));
 }
 
-const mcqGenerator = { coerceMcq, parseSingleMcq, parseMcqArray, buildBatchMcqPrompt, generateMcqs, verifyMcqs, verifyOptionMcqs };
+/**
+ * FRQ answer keys get the same second opinion. Generated rubrics and sample
+ * answers often carry wrong values (grading already re-derives them, but
+ * students still saw the wrong numbers in the rubric box). A different model
+ * solves each part and returns corrected text; nothing is dropped, and any
+ * failure keeps the original key.
+ */
+const KEY_CHECK_TYPES = new Set(['frq', 'calculator-frq', 'no-calculator-frq', 'long-frq', 'short-frq']);
+// Essay subjects have no values to recompute; a "fix" could only rewrite the sample.
+const NO_KEY_CHECK = /Language and Culture|Literature|English|History|Government|Psychology|Geography|Art History|Latin|African American|Music Theory/;
+export async function verifyFrqKeys({ subjectName, questions = [], avoidModel = null, ask = (prompt, opts) => geminiService.generateContent(prompt, opts) }) {
+  if (NO_KEY_CHECK.test(subjectName)) return questions;
+  const frqs = questions
+    .map((q, i) => (q && KEY_CHECK_TYPES.has(q.type) && (q.sampleAnswer || q.rubric?.scoringGuidelines) ? { q, i } : null))
+    .filter(Boolean);
+  if (!frqs.length) return questions;
+  try {
+    const roster = frqs.map(({ q }, n) => {
+      const parts = Array.isArray(q.parts) ? q.parts.map((p, j) => `(${String.fromCharCode(97 + j)}) ${typeof p === 'string' ? p : (p?.text || '')}`).join('\n') : '';
+      return `${n}. ${q.stimulus ? `Source: ${String(q.stimulus).slice(0, 1500)}\n` : ''}${q.question}\n${parts}\nSAMPLE ANSWER: ${q.sampleAnswer || '(none)'}\nSCORING GUIDELINES: ${q.rubric?.scoringGuidelines || '(none)'}`;
+    }).join('\n\n');
+    const prompt = `You are an expert ${subjectName} exam writer checking answer keys. For each free-response question below, solve every part yourself, step by step, in radians unless degrees are stated. Then compare with the sample answer and scoring guidelines.
+
+RESPOND WITH ONLY A JSON ARRAY, one object per question, in order:
+[{"i": 0, "ok": true}] when every value and conclusion in the key is right, or
+[{"i": 0, "ok": false, "sampleAnswer": "...", "scoringGuidelines": "..."}] with the FULL corrected text when anything is wrong.
+Keep the original wording and format; change only wrong numbers, points, and conclusions. Use $...$ for maths. No prose, no code fences.
+
+QUESTIONS:
+${roster}`;
+    const resp = await ask(prompt, { temperature: 0, maxTokens: 6000, task: 'frqGrade', usageCategory: 'practiceTest', avoidModel, timeoutMs: 180000 });
+    const verdicts = parser.parse(String(resp || ''), true);
+    if (!verdicts.success || !Array.isArray(verdicts.data)) return questions;
+    const out = [...questions];
+    for (const v of verdicts.data) {
+      const hit = frqs[Number(v?.i)];
+      if (!hit || v.ok !== false) continue;
+      const q = { ...hit.q };
+      if (typeof v.sampleAnswer === 'string' && v.sampleAnswer.trim()) q.sampleAnswer = v.sampleAnswer;
+      if (typeof v.scoringGuidelines === 'string' && v.scoringGuidelines.trim() && q.rubric) q.rubric = { ...q.rubric, scoringGuidelines: v.scoringGuidelines };
+      out[hit.i] = q;
+    }
+    return out;
+  } catch (e) {
+    console.error('[frq] key check failed, using unchecked key', e);
+    return questions;
+  }
+}
+
+const mcqGenerator = { coerceMcq, parseSingleMcq, parseMcqArray, buildBatchMcqPrompt, generateMcqs, verifyMcqs, verifyOptionMcqs, verifyFrqKeys };
 export default mcqGenerator;

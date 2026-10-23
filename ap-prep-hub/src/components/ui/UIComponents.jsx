@@ -63,6 +63,8 @@ export function cardA11yProps({ onClick, role, tabIndex, onKeyDown } = {}) {
     onKeyDown: (e) => {
       onKeyDown?.(e);
       if (e.defaultPrevented) return;
+      // Keys typed into a field or button inside the card are theirs.
+      if (e.target !== e.currentTarget) return;
       // Space scrolls the page by default; Enter and Space must activate.
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();

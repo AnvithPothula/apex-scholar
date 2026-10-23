@@ -1,4 +1,5 @@
 import errorLogger from './errorLogger';
+import { protectLatexEscapes } from '../services/ai/jsonParser';
 
 /**
  * Pure utility functions extracted from PracticeTests component.
@@ -121,7 +122,8 @@ export const fixLaTeXInText = (text) => {
 
   // Phase 2: Fix LaTeX ONLY inside $...$ delimiters
   // Split text by $ delimiters, process only the math segments
-  const parts = result.split(/(\$\$?[^$]*\$\$?)/g);
+  // Escape-aware: \$ is money, not a delimiter (see latexPreprocess).
+  const parts = result.split(/(\$\$[^$]*\$\$|(?<!\\)\$(?:\\.|[^$\\])*\$)/g);
   result = parts.map(part => {
     // Only process segments that are inside $...$ or $$...$$
     if (part.startsWith('$') && part.endsWith('$')) {
@@ -219,6 +221,16 @@ export const fixLaTeXInQuestions = (questions) => {
       question.sampleAnswer = fixLaTeXInText(question.sampleAnswer);
     }
 
+    // FRQ parts, stimuli and rubrics carry math too, and get the same doubled
+    // backslashes from JSON; they used to be skipped.
+    const fixDeep = (v) => (typeof v === 'string' ? fixLaTeXInText(v)
+      : Array.isArray(v) ? v.map(fixDeep)
+        : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, fixDeep(x)]))
+          : v);
+    if (question.stimulus) question.stimulus = fixDeep(question.stimulus);
+    if (Array.isArray(question.parts)) question.parts = fixDeep(question.parts);
+    if (question.rubric) question.rubric = fixDeep(question.rubric);
+
     // Ensure correct answer is properly formatted
     if (question.correctAnswer && typeof question.correctAnswer === 'object') {
       // If correctAnswer is an object, extract the text
@@ -244,8 +256,9 @@ export const parseAIResponse = (text, startId = 1) => {
     .replace(/^```json\s*/i, '') // Remove opening ```json
     .replace(/^```\s*/i, '') // Remove opening ```
     .replace(/\s*```\s*$/i, '') // Remove closing ```
-    .replace(/```json\n?|\n?```/g, '') // Remove any remaining code block markers
-    .replace(/```\n?|\n?```/g, '') // Remove any remaining backticks
+    // Wrapper fences sit on their own line; fences inside a JSON string (a code
+    // block in a question) follow an escaped \n and must stay.
+    .replace(/(^|\n)[ \t]*```[a-z]*[ \t]*(?=\n|$)/gi, '$1')
     .replace(/^`+|`+$/g, '') // Remove leading/trailing backticks
     .trim();
 
@@ -275,7 +288,7 @@ export const parseAIResponse = (text, startId = 1) => {
   // We walk through the string and fix escapes only inside JSON string literals.
   cleanedText = cleanedText.replace(/"(?:[^"\\]|\\.)*"/g, (match) => {
     // Inside each JSON string value, fix invalid escape sequences (only if not already escaped)
-    return match
+    return protectLatexEscapes(match) // \times, \beta, \neq... are valid escapes, so they'd parse as TAB + "imes" etc.
       .replace(/(?<!\\)\\([^"\\/bfnrtu])/g, '\\\\$1'); // Escape bare backslashes that aren't valid JSON escapes
   });
 
@@ -813,18 +826,39 @@ export const buildRubricItems = (question) => {
     ? question.parts.map((_, i) => String.fromCharCode(97 + i))
     : (question?.parts && typeof question.parts === 'object') ? Object.keys(question.parts) : partLetters(question?.question);
   const per = Math.max(1, Math.floor(total / Math.max(1, parts.length)));
-  parts.forEach((p, idx) => items.push({ id: p, label: `Part ${String(p).toUpperCase()}`, maxPoints: per }));
+  // The rubric usually says what each part is worth ({ part_b: "3 points" });
+  // an even split showed a 3-point part as out of 2.
+  const stated = {};
+  Object.entries(question?.rubric?.pointBreakdown || {}).forEach(([k, v]) => {
+    const n = parseInt(String(v), 10);
+    if (Number.isFinite(n)) stated[partKey(k)] = n;
+  });
+  parts.forEach((p) => items.push({ id: p, label: `Part ${String(p).toUpperCase()}`, maxPoints: stated[partKey(p)] ?? per }));
   return { items, totalPoints: total };
 };
+
+// "part_a", "Part A", "a", "(a)" and "part1" all name part a.
+const partKey = (k) => {
+  const s = String(k).toLowerCase().replace(/^part[\s_-]*/, '').replace(/[^a-z0-9]/g, '');
+  return /^\d+$/.test(s) ? String.fromCharCode(96 + Number(s)) : s;
+};
+
+// Breakdowns are stored either plain ({ part_a: 2 }) or wrapped by the results
+// sanitizer ({ __safe_breakdown: true, parts: [{ name, score }] }).
+const breakdownEntries = (obj) => (obj && obj.__safe_breakdown && Array.isArray(obj.parts)
+  ? obj.parts.map((p) => [p.name, p.score])
+  : Object.entries(obj || {}).filter(([k, v]) => !k.startsWith('__') && (typeof v === 'number' || typeof v === 'string')));
 
 // Merge AI breakdown scores into rubric items; conservative mapping if keys differ
 export const attachScoresToRubric = (rubric, breakdownObj = {}, totalScore = null) => {
   const items = rubric.items.map((it, idx) => ({ ...it, earned: 0 }));
-  const entries = Object.entries(breakdownObj || {});
+  // Reading the wrapped form as plain keys gave Part A 1 point (from `true`)
+  // and every other part 0, whatever the grader actually awarded.
+  const entries = breakdownEntries(breakdownObj);
   if (entries.length > 0) {
     // Try direct key match first
     for (const [k, v] of entries) {
-      const found = items.find(i => i.id === k || i.label.toLowerCase().includes(String(k).toLowerCase()));
+      const found = items.find(i => i.id === k || partKey(i.id) === partKey(k) || i.label.toLowerCase().includes(String(k).toLowerCase()));
       if (found) found.earned = Math.max(0, Math.min(found.maxPoints, Number(v) || 0));
     }
     // If no direct matches produced any earnings, map by index order
@@ -897,4 +931,101 @@ export const isQuestionDuplicate = (newQuestion, existingQuestions) => {
 
     return false;
   });
+};
+
+/**
+ * Split an FRQ written as one block ("stem (a) … (b) …") into a stem and parts.
+ *
+ * Only a real part label counts: "(a)", "(b)", … in order, not glued to a
+ * preceding letter, digit, `$` or `\`. The old /\(([a-z])\)/ also matched the
+ * "(t)" in "h(t)", so the stem was cut at "$h" and the formula became part A.
+ * Also unescapes the literal "\n" some models send (but not \neq, \nabla…).
+ * Returns { stem, parts } or null when there aren't at least two labelled parts.
+ */
+export const splitFrqParts = (text = '') => {
+  const clean = String(text).replace(/\\n(?![a-zA-Z])/g, '\n');
+  const labels = [];
+  // "(a)" anywhere, or "a)" at the start of a line.
+  const re = /(^|[^A-Za-z0-9$\\])\(([a-z])\)\s*|(^|\n)[ \t]*([a-z])\)\s+/g;
+  let m;
+  while ((m = re.exec(clean))) {
+    const lead = m[1] ?? m[3];
+    if ((m[2] || m[4]) !== String.fromCharCode(97 + labels.length)) continue; // a, b, c… in order only
+    labels.push({ at: m.index + lead.length, after: m.index + m[0].length });
+  }
+  if (labels.length < 2) return null;
+  const stem = clean.substring(0, labels[0].at).trim();
+  if (!stem) return null;
+  const parts = labels.map((l, i) => clean.substring(l.after, i + 1 < labels.length ? labels[i + 1].at : clean.length).trim());
+  return { stem, parts };
+};
+
+// Setup inputs: `min`/`max` on <input type=number> don't stop typing, so
+// clamp where the test starts. Bad input falls back rather than breaking.
+export const clampCount = (value, fallback = 1) => {
+  const n = parseInt(value, 10);
+  return Number.isFinite(n) ? Math.min(100, Math.max(1, n)) : fallback;
+};
+export const clampMinutes = (value, fallback) => {
+  const n = parseInt(value, 10);
+  return Number.isFinite(n) && n > 0 ? Math.min(300, n) : fallback;
+};
+
+// FRQ subsection id → the question type the generator writes.
+export const SUBSECTION_TYPE = {
+  'saq-only': 'saq', 'dbq-only': 'dbq', 'leq-only': 'leq',
+  'synthesis-only': 'synthesis', 'rhetorical-only': 'rhetorical-analysis', 'argument-only': 'argumentative',
+  'poetry-only': 'poetry-analysis', 'prose-only': 'prose-analysis', 'open-only': 'open-question',
+};
+export const subsectionType = (id) => SUBSECTION_TYPE[id] || id;
+
+// A full test's parts, read from the subject's config (the hand-written
+// builders had drifted from it: Psychology made 100 + 2, Physics C 50 + 5).
+// A custom count scales every part, keeping at least one of each.
+export const planFullTest = (config, customCount = null) => {
+  const parts = [];
+  for (const section of config?.sections || []) {
+    if (section.id === 'mcq') parts.push({ type: 'mcq', count: section.questions });
+    else if (section.id === 'frq') {
+      const subs = (section.subSections || []).filter((s) => !/^all-/.test(s.id));
+      if (subs.length) subs.forEach((s) => parts.push({ type: subsectionType(s.id), count: s.questions }));
+      else parts.push({ type: 'frq', count: section.questions });
+    }
+  }
+  const total = parts.reduce((n, p) => n + p.count, 0);
+  const scaled = customCount && total
+    ? parts.map((p) => ({ ...p, count: Math.max(1, Math.round(p.count * customCount / total)) }))
+    : parts;
+  return scaled.map((p) => ({ ...p, batchSize: p.type === 'mcq' ? 6 : p.type === 'saq' ? 3 : Math.min(2, p.count) }));
+};
+
+// Format notes for subjects whose questions don't fit the generic prompts
+// ("multi-part (a)(b)(c) with realistic scenarios"): a language essay, CSP's
+// questions about a program, Music Theory part-writing, Latin passages.
+export const examFormatNote = (subject = '', type = 'mcq') => {
+  const lang = (subject.match(/^AP (French|German|Spanish|Italian|Chinese|Japanese) Language/) || [])[1];
+  const mcq = type === 'mcq';
+  if (lang) {
+    if (mcq) return `Reading section only (no audio): each set is a short authentic-style text in ${lang} (article, letter or email, literary excerpt, chart described in text, or ad), with the questions and all answer choices written in ${lang}.`;
+    if (lang === 'Chinese' || lang === 'Japanese') {
+      return `Two written tasks, entirely in ${lang} (no (a)(b)(c) parts): (1) Story Narration: describe a four-picture sequence in words (Picture 1 to Picture 4) and ask the student to narrate the story in ${lang}; (2) Email Response: an email in ${lang} that asks two questions, which the student answers in a reply.`;
+    }
+    return `One Argumentative Essay task like the AP exam, entirely in ${lang} (no (a)(b)(c) parts): pose a debatable question, then give three short sources in ${lang} (an article, a table or chart described in text, and a transcript of an audio report). The student writes a persuasive essay in ${lang} that uses all three sources. Score on the AP 0–5 essay scale.`;
+  }
+  if (/Computer Science Principles/.test(subject)) {
+    return mcq
+      ? 'Use the AP CSP exam reference sheet pseudocode for any code; include some questions on a computing innovation and some "select two answers" items.'
+      : 'Written response like the AP exam: show a short program in AP CSP exam reference sheet pseudocode inside a code block (a procedure with a parameter that uses a list, selection, and iteration), then ask about it: the procedure\'s purpose and inputs/outputs, what a specific call returns and why, and how to find or fix an error or test it.';
+  }
+  if (/Music Theory/.test(subject)) {
+    return mcq
+      ? 'Nonaural questions only (no audio): give any notation as text, with note names and octave numbers, key, meter, and clef.'
+      : 'Written part-writing like the AP exam: realize a figured bass, part-write from Roman numerals, or harmonize a melody. Give the bass line or melody as note names with octave numbers in a stated key; the student answers with chord symbols and SATB voicings as text.';
+  }
+  if (/Latin/.test(subject)) {
+    return mcq
+      ? 'Quote short Latin passages (Pliny\'s Letters, Vergil\'s Aeneid Books 4, 6, 7, 11, 12, or sight passages) with line numbers; questions and choices in English.'
+      : 'Quote a short Latin passage from Pliny or Vergil with line numbers; ask for a literal translation, short-answer analysis of language and content, or an analytical essay comparing two passages, as on the AP exam.';
+  }
+  return '';
 };

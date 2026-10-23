@@ -8,8 +8,8 @@ You can try it at **[apex-scholar.com](https://apex-scholar.com)**.
 ## Features
 
 Apex Scholar has many features, including:
-- AI tutors trained on their respective curriculums
-- AI-generate practice tests
+- AI tutors trained on their respective curriculums, with interactive graphs, worked steps, and playable simulations
+- AI-generate practice tests in the current exam format, where free-response answers can be typed, photographed, or both
 - A learn section that allows students to learn at their own pace
 - Flashcards
 - Diagnostics

@@ -1,6 +1,7 @@
 import { COURSES } from '../data/packs/catalog';
 
 export const AP_SUBJECTS = {
+    "AP African American Studies": { name: "AP African American Studies", short: "AP African American Studies", description: "Explore the history, culture, and movements of the African diaspora.", icon: "📜" },
     "AP Art History": { name: "AP Art History", short: "AP Art History", description: "Explore art across cultures and time periods.", icon: "🎨" },
     "AP Biology": { name: "AP Biology", short: "AP Biology", description: "Dive into the science of living organisms.", icon: "🔬" },
     "AP Business with Personal Finance": { name: "AP Business with Personal Finance", short: "AP Business with Personal Finance", description: "Business, entrepreneurship, and managing your own money.", icon: "💼" },

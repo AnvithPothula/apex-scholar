@@ -10,6 +10,7 @@ import InlineScoreCalculator from './tutors/InlineScoreCalculator';
 import RetryCountdown from './tutors/RetryCountdown';
 import GraphWidget from './tutors/GraphWidget';
 import StepReveal from './tutors/StepReveal';
+import SimWidget from './tutors/SimWidget';
 import CodeBlock from './markdown/CodeBlock';
 import {
   MarkdownTable, MarkdownThead, MarkdownTbody, MarkdownTr, MarkdownTh, MarkdownTd,
@@ -111,6 +112,17 @@ const mdComponents = {
     if (language === 'apex-steps') {
       return (
         <StepReveal
+          spec={text}
+          renderMarkdown={(md) => <MarkdownRenderer content={md} />}
+          fallback={<CodeBlock language="" code={text} />}
+        />
+      );
+    }
+    // ```apex-sim: a branching scenario with meters (checks and balances,
+    // policy responses). Unreadable JSON falls back to the raw block.
+    if (language === 'apex-sim') {
+      return (
+        <SimWidget
           spec={text}
           renderMarkdown={(md) => <MarkdownRenderer content={md} />}
           fallback={<CodeBlock language="" code={text} />}

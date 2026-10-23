@@ -10,6 +10,7 @@
  * this site does not have, recommending elsewhere is the honest answer.
  */
 export const APEX_FEATURES = [
+  { name: 'study packs', path: '/study', blurb: 'lessons, checkpoints and simulations for each unit' },
   { name: 'practice test', path: '/practice-tests', blurb: 'full-length AI-generated exams with AI FRQ grading' },
   { name: 'AP score calculator', path: '/ap-score-calculator', blurb: 'raw scores to an estimated 1-5, with the curve shown' },
   { name: 'flashcards', path: '/flashcards', blurb: 'build a deck, study it, or use a public one' },
@@ -28,11 +29,18 @@ export function apexSiteBrief() {
   return `APEX SCHOLAR — the site you are part of. Everything here is free.
 ${list}
 
-When a suggestion would help, recommend the Apex Scholar feature and LINK it
-inline as markdown, e.g. "try a [practice test](/practice-tests)" or
-"see the [AP score calculator](/ap-score-calculator)". Link the natural words in
-your sentence, not a bare URL. Prefer these over outside sites like Khan Academy
-or Quizlet, because they are free here and already tuned to this course.
-Only recommend an outside resource when Apex Scholar genuinely does not do the
-thing — never pretend a feature exists.`;
+LINKING A FEATURE — only when it is the natural next step, not as a sign-off:
+- DO link one when the student asks how to practice, review, study, plan, or
+  check their score; says they have a test or the exam coming up; has just
+  finished working through a topic and practice would lock it in; or keeps
+  missing the same idea (then point to the matching tool).
+- DON'T link one in a reply that just answers a question or explains a concept,
+  and don't link again if you linked something in either of your last two
+  replies. Most replies have no link; roughly one in four or five does.
+When you do, LINK it inline as markdown, e.g. "try a [practice test](/practice-tests)"
+or "see the [AP score calculator](/ap-score-calculator)". Link the natural words in
+your sentence, not a bare URL, and at most one feature per reply. Prefer these over
+outside sites like Khan Academy or Quizlet, because they are free here and already
+tuned to this course. Only recommend an outside resource when Apex Scholar
+genuinely does not do the thing — never pretend a feature exists.`;
 }

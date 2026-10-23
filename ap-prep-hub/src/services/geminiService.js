@@ -941,17 +941,17 @@ class GeminiService {
    * server-side key and forwards to Google. Returns Google's JSON response.
    * Throws on any proxy/transport failure so callers can dev-fallback.
    */
-  async _requestViaProxy(body, model, context = 'AI proxy', task = '', avoidModel = null) {
+  async _requestViaProxy(body, model, context = 'AI proxy', task = '', avoidModel = null, timeoutMs = 90000) {
     // Serialised through the shared queue. Generating one practice test is ~13
     // calls; firing those alongside the tutor and the solver is how a single
     // student exhausts a key's requests-per-minute without any help from
     // anyone else. The queue also remembers a 429, so the first refusal parks
     // the remaining twelve instead of collecting twelve more.
     const { enqueue } = await import('./aiQueue');
-    return enqueue(() => this._requestViaProxyNow(body, model, context, task, avoidModel));
+    return enqueue(() => this._requestViaProxyNow(body, model, context, task, avoidModel, timeoutMs));
   }
 
-  async _requestViaProxyNow(body, model, context = 'AI proxy', task = '', avoidModel = null) {
+  async _requestViaProxyNow(body, model, context = 'AI proxy', task = '', avoidModel = null, timeoutMs = 90000) {
     const url = this._aiProxyUrl();
     const headers = { 'Content-Type': 'application/json' };
     const appToken = (process.env.REACT_APP_AI_PROXY_APP_TOKEN || '').trim();
@@ -998,8 +998,9 @@ class GeminiService {
     let res;
     try {
       // A request that never answers left the UI on "Thinking..." forever.
-      // 90 s covers the slowest real calls (FRQ grading, test batches).
-      const signal = typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(90000) : undefined;
+      // 90 s covers most calls; grading photographed work passes more, because
+      // the grader reads the photos and re-derives each value before scoring.
+      const signal = typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(timeoutMs || 90000) : undefined;
       res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(payload), signal });
     } catch (e) {
       throw new Error(`${context}: ${e.name === 'TimeoutError' ? 'the AI took too long to answer' : `proxy unreachable (${e.message})`}`);
@@ -1046,12 +1047,12 @@ class GeminiService {
     return data;
   }
 
-  async _requestGoogleWithRotation(body, { context = 'Google API', maxAttempts = 4, model, task, avoidModel = null } = {}) {
+  async _requestGoogleWithRotation(body, { context = 'Google API', maxAttempts = 4, model, task, avoidModel = null, timeoutMs } = {}) {
     // Primary transport: server-side Netlify proxy. Keys live in Netlify env
     // (GEMINI_API_KEY*), never in the client bundle.
     if (this._useProxyFirst()) {
       try {
-        return await this._requestViaProxy(body, model, context, task, avoidModel);
+        return await this._requestViaProxy(body, model, context, task, avoidModel, timeoutMs);
       } catch (e) {
         if (e instanceof RateLimitError) throw e;
         const canDevFallback = process.env.NODE_ENV !== 'production' && apiKeyManager.getTotalKeys() > 0;
@@ -1183,6 +1184,8 @@ class GeminiService {
       maxAttempts: 4,
       task: options.task,
       avoidModel: options.avoidModel || null,
+      // Only callers that ask for more than the default get it (FRQ grading).
+      timeoutMs: options.timeoutMs > 90000 ? options.timeoutMs : undefined,
     });
     const candidate = data?.candidates?.[0];
     const finishReason = candidate?.finishReason;
@@ -1207,22 +1210,22 @@ class GeminiService {
     // Meter against the per-browser AI usage budget (no-op for admins / exempt).
     await aiUsageLimiter.consume(options?.usageCategory);
 
-    // If an image is provided, pass the first as a data URL to Puter
-    let imageArg = undefined;
-    if (Array.isArray(images) && images.length > 0) {
-      const img = images[0];
+    // Every image as a data URL (or a plain URL string).
+    const imageArgs = (Array.isArray(images) ? images : []).map((img) => {
       if (img && (img.data || img.inline_data?.data)) {
         const mime = img.mimeType || img.inline_data?.mime_type || 'image/png';
-        const data = img.data || img.inline_data?.data;
-        imageArg = `data:${mime};base64,${data}`;
-      } else if (typeof img === 'string') {
-        imageArg = img; // assume URL
+        return `data:${mime};base64,${img.data || img.inline_data?.data}`;
       }
+      return typeof img === 'string' ? img : null;
+    }).filter(Boolean);
+    // Puter takes one image per call, so several photos (e.g. a multi-page
+    // FRQ) go straight to the proxy rather than being graded from page one.
+    if (imageArgs.length <= 1) {
+      const text = await this._askPuter(prompt, imageArgs[0], options);
+      // Image answers are checked for hallucinated image descriptions; a bad one goes to the proxy instead.
+      if (text && this._validateResponse(text, { hasImage: imageArgs.length > 0 }).valid) return text;
     }
-    const text = await this._askPuter(prompt, imageArg, options);
-    // Image answers are checked for hallucinated image descriptions; a bad one goes to the proxy instead.
-    if (text && this._validateResponse(text, { hasImage: !!imageArg }).valid) return text;
-    return await this._googleGenerateWithImages(prompt, imageArg, options);
+    return await this._googleGenerateWithImages(prompt, imageArgs, options);
   }
 
   // Internal helper to call Google for image generation with rate limit handling
@@ -1240,14 +1243,15 @@ class GeminiService {
     }
 
     const parts = [{ text: prompt }];
-    if (imageArg && typeof imageArg === 'string') {
-      if (imageArg.startsWith('data:')) {
-        const [meta, b64] = imageArg.split(',');
+    for (const arg of [].concat(imageArg || [])) {
+      if (typeof arg !== 'string') continue;
+      if (arg.startsWith('data:')) {
+        const [meta, b64] = arg.split(',');
         const mime = meta.substring(5, meta.indexOf(';'));
         parts.push({ inline_data: { mime_type: mime, data: b64 } });
       } else {
         // For a remote URL, include it as text; Google's v1 can accept image parts only as inline_data here
-        parts.push({ text: imageArg });
+        parts.push({ text: arg });
       }
     }
     const body = {
@@ -1258,7 +1262,8 @@ class GeminiService {
     const data = await this._requestGoogleWithRotation(body, {
       context: 'Google image API',
       maxAttempts: 4,
-      task: options.task || 'solver'
+      task: options.task || 'solver',
+      timeoutMs: options.timeoutMs,
     });
     if (this.debug) console.debug('[AI] Google.generateWithImages success', { ms: Date.now() - t1 });
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';

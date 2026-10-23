@@ -1,11 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { RotateCw, Flag, X, ChevronDown, ChevronUp, Clock, MoreVertical, Coffee, Settings, LogOut, Bookmark, MapPin } from 'lucide-react';
 import { Button } from '../ui/UIComponents';
 import LaTeXRenderer from '../LaTeXRenderer';
+import MarkdownRenderer from '../MarkdownRenderer';
 import SourcePane, { hasSourceMaterial } from './SourcePane';
+import FrqAnswerBox from './FrqAnswerBox';
 import useSplitPane from '../../hooks/useSplitPane';
 import { useConfirm } from '../../contexts/ConfirmContext';
+import { wasSkipped } from '../../utils/whyWrong';
 
 // Bluebook shows the clock as M:SS (no leading zero on minutes).
 const formatTimeFromSeconds = (seconds) => {
@@ -61,6 +64,8 @@ const TestPanel = ({
   testMarks = { marked: {}, crossed: {} },
   setTestMarks,
   handleAnswerSelect,
+  answerImages = {},
+  setQuestionImages,
   timeRemaining,
   testPaused,
   setTestPaused,
@@ -87,7 +92,33 @@ const TestPanel = ({
   const [timerHidden, setTimerHidden] = useState(false);
   const [menu, setMenu] = useState(null); // 'directions' | 'more' | 'nav' | null
   const [reviewing, setReviewing] = useState(false);
+  const settingsRef = useRef(null);
+  useEffect(() => {
+    const d = settingsRef.current;
+    if (showSettings && d && !d.open && d.showModal) d.showModal();
+  }, [showSettings]);
   const currentQuestion = questions?.[currentQuestionIndex];
+
+  // Arrows move between questions and 1–4 pick an answer, but only while the
+  // question is on screen: on Check Your Work or with a menu or dialog open,
+  // they changed answers the student couldn't see.
+  useEffect(() => {
+    if (reviewing || menu || showSettings || testPaused) return undefined;
+    const onKey = (e) => {
+      const el = e.target;
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
+      // Never hijack typing: arrows in an FRQ answer move the caret.
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+      if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
+      if (e.key === 'ArrowLeft' && currentQuestionIndex > 0) setCurrentQuestionIndex(currentQuestionIndex - 1);
+      else if (e.key === 'ArrowRight' && currentQuestionIndex < questions.length - 1) setCurrentQuestionIndex(currentQuestionIndex + 1);
+      else if (/^[1-4]$/.test(e.key) && currentQuestion?.type === 'mcq' && Number(e.key) <= (currentQuestion.options?.length || 0)) {
+        handleAnswerSelect(currentQuestion.id, Number(e.key) - 1);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [reviewing, menu, showSettings, testPaused, currentQuestionIndex, questions, currentQuestion, setCurrentQuestionIndex, handleAnswerSelect]);
   // Only split when there's source material; a lone question beside an empty
   // column looks broken. Bluebook centres single-column questions the same way.
   const splitLayout = hasSourceMaterial(currentQuestion);
@@ -138,11 +169,13 @@ const TestPanel = ({
   const isMcq = currentQuestion.type === 'mcq' && Array.isArray(currentQuestion.options);
   const isAnswered = (q) => {
     const v = userAnswers[q.id];
-    return v !== undefined && v !== null && v !== '';
+    return (v !== undefined && v !== null && v !== '') || (answerImages[q.id] || []).length > 0;
   };
   const crossedHere = crossed[qid] || [];
   const isLast = currentQuestionIndex === questions.length - 1;
-  const sectionTitle = SECTION_TITLES[selectedSection] || String(selectedSection || '').toUpperCase();
+  // A full test spans both sections; label by the question on screen (it read "FULL").
+  const sectionTitle = SECTION_TITLES[selectedSection === 'full' ? (currentQuestion?.type === 'mcq' ? 'mcq' : 'frq') : selectedSection]
+    || String(selectedSection || '').toUpperCase();
   const lowTime = timeRemaining < 300;
 
   const toggleCross = (i) => {
@@ -157,13 +190,16 @@ const TestPanel = ({
   };
   const goTo = (i) => { setReviewing(false); setMenu(null); setCurrentQuestionIndex(i); };
   const submit = async () => {
-    if (await confirm({ title: 'Submit test?', message: 'You won\'t be able to change your answers after this.', confirmText: 'Submit', destructive: false })) {
+    // Say how many are blank (4 of 6 were, unmentioned). Photos count as answers.
+    const blank = (questions || []).filter((q) => wasSkipped(userAnswers[q.id]) && !answerImages[q.id]?.length).length;
+    const message = `${blank ? `${blank} of ${questions.length} questions ${blank === 1 ? 'is' : 'are'} unanswered. ` : ''}You won't be able to change your answers after this.`;
+    if (await confirm({ title: 'Submit test?', message, confirmText: 'Submit', destructive: false, theme: 'light' })) {
       handleSubmitTest();
     }
   };
   const exit = async () => {
     setMenu(null);
-    if (await confirm({ title: 'Exit the test?', message: 'Your answers on this test will be lost.', confirmText: 'Exit' })) resetTest();
+    if (await confirm({ title: 'Exit the test?', message: 'Your answers on this test will be lost.', confirmText: 'Exit', theme: 'light' })) resetTest();
   };
 
   const pill = 'h-8 sm:h-9 px-3.5 sm:px-5 rounded-full text-sm sm:text-[15px] font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--bb-blue)]';
@@ -206,8 +242,14 @@ const TestPanel = ({
     <div data-theme="light" className="bluebook fixed inset-0 z-[70] flex flex-col">
       {/* Settings (from the More menu) */}
       {showSettings && (
-        <div className="fixed inset-0 bg-black/50 z-[80] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Settings">
-          <div className="bg-white rounded-lg border border-[#d0d0d0] w-full max-w-md shadow-xl">
+        // Native modal <dialog>: traps focus, closes on Escape, page behind is inert.
+        <dialog
+          ref={settingsRef}
+          aria-label="Settings"
+          onCancel={(e) => { e.preventDefault(); setShowSettings(false); }}
+          className="bg-transparent p-4 w-full max-w-md backdrop:bg-black/50 text-[var(--bb-ink)]"
+        >
+          <div className="bg-white rounded-lg border border-[#d0d0d0] w-full shadow-xl">
             <div className="flex items-center justify-between p-5 border-b border-[#d0d0d0]">
               <h3 className="text-lg font-semibold">Settings</h3>
               <button type="button" onClick={() => setShowSettings(false)} aria-label="Close settings"><X strokeWidth={1.5} className="w-5 h-5" /></button>
@@ -226,7 +268,7 @@ const TestPanel = ({
               <button type="button" onClick={() => setShowSettings(false)} className={bluePill}>Done</button>
             </div>
           </div>
-        </div>
+        </dialog>
       )}
 
       {/* Click-away layer for open pop-ups */}
@@ -364,8 +406,12 @@ const TestPanel = ({
               </div>
               <div className="bb-dash mb-5" />
 
-              <div className="bb-serif text-[17px] leading-relaxed">
-                <LaTeXRenderer content={currentQuestion.question || ''} />
+              {/* Keep the stem's line breaks; a stem with a code block (CS) goes
+                  through the markdown renderer, which lays the program out. */}
+              <div className="bb-serif text-[17px] leading-relaxed whitespace-pre-line">
+                {/```/.test(currentQuestion.question || '')
+                  ? <div className="whitespace-normal"><MarkdownRenderer content={currentQuestion.question} /></div>
+                  : <LaTeXRenderer content={currentQuestion.question || ''} />}
               </div>
 
               {currentQuestion.worksList?.length > 0 && (
@@ -389,7 +435,7 @@ const TestPanel = ({
                 <ol className="bb-serif mt-4 space-y-3 text-[16px]">
                   {currentQuestion.parts.map((part, i) => (
                     <li key={i} className="flex gap-2">
-                      <span className="font-bold shrink-0">{letter(i)}.</span>
+                      <span className="font-bold shrink-0">({letter(i).toLowerCase()})</span>
                       <div className="flex-1 min-w-0"><LaTeXRenderer content={part} /></div>
                     </li>
                   ))}
@@ -446,16 +492,14 @@ const TestPanel = ({
                     <span className="font-semibold">{TYPE_LABELS[currentQuestion.type] || 'Written Response'}</span>
                     {currentQuestion.timeframe && <span className="text-[#555]">Suggested time: {currentQuestion.timeframe}</span>}
                   </div>
-                  <textarea
+                  <FrqAnswerBox
+                    key={qid}
                     value={renderSafeValue(userAnswers[qid])}
-                    onChange={(e) => handleAnswerSelect(qid, e.target.value)}
-                    aria-label={`Response to question ${currentQuestionIndex + 1}`}
-                    placeholder="Type your response here."
-                    className="bb-serif w-full min-h-[16rem] p-4 rounded-md border border-[var(--bb-ink)] bg-white text-[16px] leading-relaxed text-[var(--bb-ink)] placeholder:text-[#777] focus:outline-none focus:ring-2 focus:ring-[var(--bb-blue)] resize-y"
+                    onChange={(text) => handleAnswerSelect(qid, text)}
+                    images={answerImages[qid] || []}
+                    onImagesChange={(imgs) => setQuestionImages?.(qid, imgs)}
+                    ariaLabel={`Response to question ${currentQuestionIndex + 1}`}
                   />
-                  <div className="text-right text-xs text-[#555] mt-1">
-                    {renderSafeValue(userAnswers[qid]).trim().split(/\s+/).filter(Boolean).length} words
-                  </div>
                 </div>
               )}
             </div>

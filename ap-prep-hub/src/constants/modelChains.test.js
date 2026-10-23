@@ -104,3 +104,17 @@ describe('chainFor', () => {
     expect(chainFor('somethingNew', null, 0, { rand: () => 1 })).toEqual(MODEL_CHAINS.interactive);
   });
 });
+
+describe('imageChainFor: which models see an image', () => {
+  const { imageChainFor } = require('./modelChains');
+  it('photographed FRQs are graded by the premium order, never Gemma', () => {
+    const { name, models } = imageChainFor('frqGrade');
+    expect(name).toBe('premium');
+    expect(models[0]).toBe(MODEL_CHAINS.premium[0]);
+    expect(models.some((m) => m.startsWith('gemma-'))).toBe(false);
+  });
+  it('other image requests use vision', () => {
+    expect(imageChainFor('solver').name).toBe('vision');
+    expect(imageChainFor('tutorChat').name).toBe('vision');
+  });
+});

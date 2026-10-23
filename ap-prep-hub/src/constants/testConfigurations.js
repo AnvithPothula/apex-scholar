@@ -4,8 +4,8 @@
 
 export const TEST_CONFIGURATIONS = {
   // Section timings/counts from the 2026 CED: 60 MCQ in 70 min (60%), the
-  // Business Canvas Project validation question in 25 min (15%), and three
-  // free-response questions in 65 min (25%).
+  // Business Canvas Project validation question (25 min) plus three
+  // free-response questions (65 min): 4 FRQs in 90 min.
   //
   // Only Units 1-4 are listed: the CED states Unit 5 "is not assessed on the AP
   // Exam", so offering it as a practice-test filter would generate questions
@@ -13,8 +13,8 @@ export const TEST_CONFIGURATIONS = {
   'AP Business with Personal Finance': {
     sections: [
       { id: 'mcq', name: 'Multiple Choice', time: 70, questions: 60, description: 'Business concepts and personal finance' },
-      { id: 'frq', name: 'Free Response', time: 65, questions: 3, description: 'Personal finance and business strategy' },
-      { id: 'full', name: 'Full Practice Test', time: 135, questions: 63, description: 'Complete exam simulation' }
+      { id: 'frq', name: 'Free Response', time: 90, questions: 4, description: 'Project validation, personal finance, concept application, business decision' },
+      { id: 'full', name: 'Full Practice Test', time: 160, questions: 64, description: 'Complete exam simulation' }
     ],
     units: [
       { id: 'unit1', name: 'Unit 1: Businesses, Competition, and New Ideas', description: 'Markets, competitive advantage, PESTEL, ethics, supply chains' },
@@ -161,11 +161,13 @@ export const TEST_CONFIGURATIONS = {
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
+  // Text-only practice: listening (MCQ Part A) and the spoken tasks need audio,
+  // so tests use Reading (Part B) and the written task(s), per the current CED.
   'AP Chinese Language and Culture': {
     sections: [
-      { id: 'mcq', name: 'Multiple Choice', time: 100, questions: 70, description: 'Listening (40min) + Reading (60min)' },
-      { id: 'frq', name: 'Free Response', time: 90, questions: 2, description: 'Writing (2 tasks), no speaking tasks' },
-      { id: 'full', name: 'Full Practice Test', time: 190, questions: 72, description: 'Complete exam simulation' }
+      { id: 'mcq', name: 'Multiple Choice', time: 40, questions: 30, description: 'Reading (Part B); listening needs audio' },
+      { id: 'frq', name: 'Free Response', time: 30, questions: 2, description: 'Story Narration and Email Response (written tasks)' },
+      { id: 'full', name: 'Full Practice Test', time: 70, questions: 32, description: 'Reading and written tasks' }
     ],
     units: [
       { id: 'unit1', name: 'Unit 1: Personal and Public Identity', topics: ['Personal relationships', 'Family', 'Individual identity', 'Community values'] },
@@ -179,9 +181,9 @@ export const TEST_CONFIGURATIONS = {
   },
   'AP Computer Science A': {
     sections: [
-      { id: 'mcq', name: 'Multiple Choice', time: 90, questions: 40, description: 'Code analysis, algorithms, OOP' },
+      { id: 'mcq', name: 'Multiple Choice', time: 90, questions: 42, description: 'Code analysis, algorithms, OOP' },
       { id: 'frq', name: 'Free Response', time: 90, questions: 4, description: 'Q1: Methods & Control Structures, Q2: Classes, Q3: Arrays/ArrayLists, Q4: 2D Arrays/Algorithms' },
-      { id: 'full', name: 'Full Practice Test', time: 180, questions: 44, description: 'Complete exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 180, questions: 46, description: 'Complete exam simulation' }
     ],
     units: [
       { id: 'unit1', name: 'Unit 1: Primitive Types', topics: ['Variables', 'Data types', 'Expressions', 'Assignment statements'] },
@@ -199,7 +201,18 @@ export const TEST_CONFIGURATIONS = {
   },
   'AP Computer Science Principles': {
     sections: [
-      { id: 'mcq', name: 'Multiple Choice', time: 120, questions: 70, description: 'Computational thinking and programming concepts' }
+      { id: 'mcq', name: 'Multiple Choice', time: 120, questions: 70, description: 'Computational thinking and programming concepts' },
+      // On the exam these ask about the student's own Create task; practice
+      // questions supply a short program to answer about instead.
+      { id: 'frq', name: 'Written Response', time: 60, questions: 2, description: 'Two written-response questions about a provided program' },
+      { id: 'full', name: 'Full Practice Test', time: 180, questions: 72, description: 'Complete exam simulation' }
+    ],
+    units: [
+      { id: 'unit1', name: 'Big Idea 1: Creative Development' },
+      { id: 'unit2', name: 'Big Idea 2: Data' },
+      { id: 'unit3', name: 'Big Idea 3: Algorithms and Programming' },
+      { id: 'unit4', name: 'Big Idea 4: Computing Systems and Networks' },
+      { id: 'unit5', name: 'Big Idea 5: Impact of Computing' }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
@@ -227,17 +240,34 @@ export const TEST_CONFIGURATIONS = {
   },
   'AP Physics C: Mechanics': {
     sections: [
-      { id: 'mcq', name: 'Multiple Choice', time: 45, questions: 35, description: 'Classical mechanics with calculus' },
-      { id: 'frq', name: 'Free Response', time: 45, questions: 3, description: 'Calculus-based mechanics problems' },
-      { id: 'full', name: 'Full Practice Test', time: 90, questions: 38, description: 'Complete exam simulation' }
+      { id: 'mcq', name: 'Multiple Choice', time: 85, questions: 42, description: 'Classical mechanics with calculus' },
+      { id: 'frq', name: 'Free Response', time: 95, questions: 4, description: 'Calculus-based mechanics problems' },
+      { id: 'full', name: 'Full Practice Test', time: 180, questions: 46, description: 'Complete exam simulation' }
+    ],
+    units: [
+      { id: 'unit1', name: 'Unit 1: Kinematics' },
+      { id: 'unit2', name: 'Unit 2: Force and Translational Dynamics' },
+      { id: 'unit3', name: 'Unit 3: Work, Energy, and Power' },
+      { id: 'unit4', name: 'Unit 4: Linear Momentum' },
+      { id: 'unit5', name: 'Unit 5: Torque and Rotational Dynamics' },
+      { id: 'unit6', name: 'Unit 6: Energy and Momentum of Rotating Systems' },
+      { id: 'unit7', name: 'Unit 7: Oscillations' }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
   'AP Physics C: Electricity and Magnetism': {
     sections: [
-      { id: 'mcq', name: 'Multiple Choice', time: 45, questions: 35, description: 'Electromagnetism with calculus' },
-      { id: 'frq', name: 'Free Response', time: 45, questions: 3, description: 'Calculus-based E&M problems' },
-      { id: 'full', name: 'Full Practice Test', time: 90, questions: 38, description: 'Complete exam simulation' }
+      { id: 'mcq', name: 'Multiple Choice', time: 85, questions: 42, description: 'Electromagnetism with calculus' },
+      { id: 'frq', name: 'Free Response', time: 95, questions: 4, description: 'Calculus-based E&M problems' },
+      { id: 'full', name: 'Full Practice Test', time: 180, questions: 46, description: 'Complete exam simulation' }
+    ],
+    units: [
+      { id: 'unit8', name: 'Unit 8: Electric Charges, Fields, and Gauss’s Law' },
+      { id: 'unit9', name: 'Unit 9: Electric Potential' },
+      { id: 'unit10', name: 'Unit 10: Conductors and Capacitors' },
+      { id: 'unit11', name: 'Unit 11: Electric Circuits' },
+      { id: 'unit12', name: 'Unit 12: Magnetic Fields and Electromagnetism' },
+      { id: 'unit13', name: 'Unit 13: Electromagnetic Induction' }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
@@ -398,9 +428,9 @@ export const TEST_CONFIGURATIONS = {
   },
   'AP Physics 2: Algebra-Based': {
     sections: [
-      { id: 'mcq', name: 'Multiple Choice', time: 90, questions: 50, description: 'Advanced physics concepts' },
-      { id: 'frq', name: 'Free Response', time: 90, questions: 5, description: 'Complex problem solving and lab analysis' },
-      { id: 'full', name: 'Full Practice Test', time: 180, questions: 55, description: 'Complete exam simulation' }
+      { id: 'mcq', name: 'Multiple Choice', time: 85, questions: 42, description: 'Advanced physics concepts' },
+      { id: 'frq', name: 'Free Response', time: 95, questions: 4, description: 'Complex problem solving and lab analysis' },
+      { id: 'full', name: 'Full Practice Test', time: 180, questions: 46, description: 'Complete exam simulation' }
     ],
     units: [
       { id: 'unit1', name: 'Unit 1: Fluids', topics: ['Fluid statics', 'Buoyancy', 'Fluid dynamics', 'Bernoulli\'s equation'] },
@@ -446,9 +476,9 @@ export const TEST_CONFIGURATIONS = {
   },
   'AP Psychology': {
     sections: [
-      { id: 'mcq', name: 'Multiple Choice', time: 70, questions: 100, description: 'Psychological concepts and research methods' },
-      { id: 'frq', name: 'Free Response', time: 50, questions: 2, description: 'Application and analysis questions' },
-      { id: 'full', name: 'Full Practice Test', time: 120, questions: 102, description: 'Complete exam simulation' }
+      { id: 'mcq', name: 'Multiple Choice', time: 90, questions: 75, description: 'Psychological concepts and research methods' },
+      { id: 'frq', name: 'Free Response', time: 70, questions: 2, description: 'Article Analysis Question and Evidence-Based Question' },
+      { id: 'full', name: 'Full Practice Test', time: 160, questions: 77, description: 'Complete exam simulation' }
     ],
     units: [
       { id: 'unit1', name: 'Unit 1: Scientific Foundations of Psychology', topics: ['History and approaches', 'Research methods', 'Statistical analysis', 'Ethics in research'] },
@@ -497,6 +527,14 @@ export const TEST_CONFIGURATIONS = {
       },
       { id: 'full', name: 'Full Practice Test', time: 130, questions: 63, description: 'Complete exam simulation' }
     ],
+    units: [
+      { id: 'unit1', name: 'Unit 1: Basic Economic Concepts' },
+      { id: 'unit2', name: 'Unit 2: Economic Indicators and the Business Cycle' },
+      { id: 'unit3', name: 'Unit 3: National Income and Price Determination' },
+      { id: 'unit4', name: 'Unit 4: Financial Sector' },
+      { id: 'unit5', name: 'Unit 5: Long-Run Consequences of Stabilization Policies' },
+      { id: 'unit6', name: 'Unit 6: Open Economy—International Trade and Finance' }
+    ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
   'AP Microeconomics': {
@@ -516,6 +554,14 @@ export const TEST_CONFIGURATIONS = {
       },
       { id: 'full', name: 'Full Practice Test', time: 130, questions: 63, description: 'Complete exam simulation' }
     ],
+    units: [
+      { id: 'unit1', name: 'Unit 1: Basic Economic Concepts' },
+      { id: 'unit2', name: 'Unit 2: Supply and Demand' },
+      { id: 'unit3', name: 'Unit 3: Production, Cost, and the Perfect Competition Model' },
+      { id: 'unit4', name: 'Unit 4: Imperfect Competition' },
+      { id: 'unit5', name: 'Unit 5: Factor Markets' },
+      { id: 'unit6', name: 'Unit 6: Market Failure and the Role of Government' }
+    ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
   'AP U.S. Government and Politics': {
@@ -523,6 +569,13 @@ export const TEST_CONFIGURATIONS = {
       { id: 'mcq', name: 'Multiple Choice', time: 80, questions: 55, description: 'Political concepts and institutions' },
       { id: 'frq', name: 'Free Response', time: 100, questions: 4, description: 'Concept Application, Quantitative Analysis, Court Comparison, Argumentative Essay' },
       { id: 'full', name: 'Full Practice Test', time: 180, questions: 59, description: 'Complete exam simulation' }
+    ],
+    units: [
+      { id: 'unit1', name: 'Unit 1: Foundations of American Democracy' },
+      { id: 'unit2', name: 'Unit 2: Interactions Among Branches of Government' },
+      { id: 'unit3', name: 'Unit 3: Civil Liberties and Civil Rights' },
+      { id: 'unit4', name: 'Unit 4: American Political Ideologies and Beliefs' },
+      { id: 'unit5', name: 'Unit 5: Political Participation' }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
@@ -532,59 +585,70 @@ export const TEST_CONFIGURATIONS = {
       { id: 'frq', name: 'Free Response', time: 75, questions: 3, description: 'Concept application, spatial analysis, data interpretation' },
       { id: 'full', name: 'Full Practice Test', time: 135, questions: 63, description: 'Complete exam simulation' }
     ],
+    units: [
+      { id: 'unit1', name: 'Unit 1: Thinking Geographically' },
+      { id: 'unit2', name: 'Unit 2: Population and Migration Patterns and Processes' },
+      { id: 'unit3', name: 'Unit 3: Cultural Patterns and Processes' },
+      { id: 'unit4', name: 'Unit 4: Political Patterns and Processes' },
+      { id: 'unit5', name: 'Unit 5: Agriculture and Rural Land-Use Patterns and Processes' },
+      { id: 'unit6', name: 'Unit 6: Cities and Urban Land-Use Patterns and Processes' },
+      { id: 'unit7', name: 'Unit 7: Industrial and Economic Development Patterns and Processes' }
+    ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
+  // Text-only practice: listening (MCQ Part A) and the spoken tasks need audio,
+  // so tests use Reading (Part B) and the written task(s), per the current CED.
   'AP French Language and Culture': {
     sections: [
-      { id: 'mcq', name: 'Multiple Choice', time: 100, questions: 70, description: 'Listening (40min) + Reading (60min)' },
-      { id: 'frq', name: 'Free Response', time: 90, questions: 2, description: 'Writing (2 tasks), no speaking tasks' },
-      { id: 'full', name: 'Full Practice Test', time: 190, questions: 72, description: 'Complete exam simulation' }
+      { id: 'mcq', name: 'Multiple Choice', time: 40, questions: 30, description: 'Reading (Part B); listening needs audio' },
+      { id: 'frq', name: 'Free Response', time: 40, questions: 1, description: 'Argumentative Essay (the written task)' },
+      { id: 'full', name: 'Full Practice Test', time: 80, questions: 31, description: 'Reading and the argumentative essay' }
     ],
     units: [
-      { id: 'unit1', name: 'Unit 1: Families and Communities', topics: ['Family structure', 'Community traditions', 'Cultural values', 'Social relationships'] },
-      { id: 'unit2', name: 'Unit 2: Personal and Public Identity', topics: ['Individual identity', 'Social identity', 'Cultural identity', 'Personal values'] },
-      { id: 'unit3', name: 'Unit 3: Beauty and Aesthetics', topics: ['Arts and literature', 'Fashion and style', 'Architecture', 'Cultural expressions'] },
-      { id: 'unit4', name: 'Unit 4: Science and Technology', topics: ['Innovation', 'Communication technology', 'Medical advances', 'Environmental technology'] },
-      { id: 'unit5', name: 'Unit 5: Contemporary Life', topics: ['Education', 'Careers', 'Leisure activities', 'Urban vs rural life'] },
-      { id: 'unit6', name: 'Unit 6: Global Challenges', topics: ['Environmental issues', 'Economic challenges', 'Social justice', 'Global cooperation'] }
+      { id: 'unit1', name: 'Unit 1: Families and Communities' },
+      { id: 'unit2', name: 'Unit 2: Language and Culture' },
+      { id: 'unit3', name: 'Unit 3: Art and Creativity' },
+      { id: 'unit4', name: 'Unit 4: Science and Technology' },
+      { id: 'unit5', name: 'Unit 5: Contemporary Life' },
+      { id: 'unit6', name: 'Unit 6: Global Contexts' }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
   'AP German Language and Culture': {
     sections: [
-      { id: 'mcq', name: 'Multiple Choice', time: 100, questions: 70, description: 'Listening (40min) + Reading (60min)' },
-      { id: 'frq', name: 'Free Response', time: 90, questions: 2, description: 'Writing (2 tasks), no speaking tasks' },
-      { id: 'full', name: 'Full Practice Test', time: 190, questions: 72, description: 'Complete exam simulation' }
+      { id: 'mcq', name: 'Multiple Choice', time: 40, questions: 30, description: 'Reading (Part B); listening needs audio' },
+      { id: 'frq', name: 'Free Response', time: 40, questions: 1, description: 'Argumentative Essay (the written task)' },
+      { id: 'full', name: 'Full Practice Test', time: 80, questions: 31, description: 'Reading and the argumentative essay' }
     ],
     units: [
-      { id: 'unit1', name: 'Unit 1: Families and Communities', topics: ['Family dynamics', 'Community involvement', 'Social customs', 'Regional differences'] },
-      { id: 'unit2', name: 'Unit 2: Personal and Public Identity', topics: ['Individual expression', 'Cultural heritage', 'National identity', 'Personal beliefs'] },
-      { id: 'unit3', name: 'Unit 3: Beauty and Aesthetics', topics: ['German arts', 'Music and literature', 'Design and architecture', 'Cultural traditions'] },
-      { id: 'unit4', name: 'Unit 4: Science and Technology', topics: ['German innovations', 'Engineering', 'Environmental technology', 'Digital culture'] },
-      { id: 'unit5', name: 'Unit 5: Contemporary Life', topics: ['Education system', 'Work-life balance', 'Social welfare', 'Urban planning'] },
-      { id: 'unit6', name: 'Unit 6: Global Challenges', topics: ['European integration', 'Immigration', 'Climate change', 'Economic cooperation'] }
+      { id: 'unit1', name: 'Unit 1: Families and Communities' },
+      { id: 'unit2', name: 'Unit 2: Language and Culture' },
+      { id: 'unit3', name: 'Unit 3: Art and Creativity' },
+      { id: 'unit4', name: 'Unit 4: Science and Technology' },
+      { id: 'unit5', name: 'Unit 5: Contemporary Life' },
+      { id: 'unit6', name: 'Unit 6: Global Contexts' }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
   'AP Spanish Language and Culture': {
     sections: [
-      { id: 'mcq', name: 'Multiple Choice', time: 100, questions: 70, description: 'Listening (40min) + Reading (60min)' },
-      { id: 'frq', name: 'Free Response', time: 90, questions: 2, description: 'Writing (2 tasks), no speaking tasks' },
-      { id: 'full', name: 'Full Practice Test', time: 190, questions: 72, description: 'Complete exam simulation' }
+      { id: 'mcq', name: 'Multiple Choice', time: 40, questions: 30, description: 'Reading (Part B); listening needs audio' },
+      { id: 'frq', name: 'Free Response', time: 40, questions: 1, description: 'Argumentative Essay (the written task)' },
+      { id: 'full', name: 'Full Practice Test', time: 80, questions: 31, description: 'Reading and the argumentative essay' }
     ],
     units: [
-      { id: 'unit1', name: 'Unit 1: Families and Communities', topics: ['Family relationships', 'Community traditions', 'Social customs', 'Cultural celebrations'] },
-      { id: 'unit2', name: 'Unit 2: Personal and Public Identity', topics: ['Individual identity', 'Cultural heritage', 'Social roles', 'Personal values'] },
-      { id: 'unit3', name: 'Unit 3: Beauty and Aesthetics', topics: ['Hispanic arts', 'Literature and poetry', 'Music and dance', 'Visual arts'] },
-      { id: 'unit4', name: 'Unit 4: Science and Technology', topics: ['Medical advances', 'Communication technology', 'Environmental science', 'Innovation'] },
-      { id: 'unit5', name: 'Unit 5: Contemporary Life', topics: ['Education systems', 'Career opportunities', 'Entertainment', 'Daily routines'] },
-      { id: 'unit6', name: 'Unit 6: Global Challenges', topics: ['Immigration', 'Economic development', 'Environmental issues', 'Social justice'] }
+      { id: 'unit1', name: 'Unit 1: Families and Communities' },
+      { id: 'unit2', name: 'Unit 2: Language and Culture' },
+      { id: 'unit3', name: 'Unit 3: Art and Creativity' },
+      { id: 'unit4', name: 'Unit 4: Science and Technology' },
+      { id: 'unit5', name: 'Unit 5: Contemporary Life' },
+      { id: 'unit6', name: 'Unit 6: Global Contexts' }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
   'AP Spanish Literature and Culture': {
     sections: [
-      { id: 'mcq', name: 'Multiple Choice', time: 90, questions: 50, description: 'Text Analysis (30min) + Reading (60min)' },
+      { id: 'mcq', name: 'Multiple Choice', time: 60, questions: 50, description: 'Reading analysis (Part B); listening needs audio' },
       {
         id: 'frq',
         name: 'Free Response',
@@ -597,43 +661,92 @@ export const TEST_CONFIGURATIONS = {
           { id: 'all-frq', name: 'All FRQs', time: 100, questions: 4, description: '2 Short Answer + 2 Essays' }
         ]
       },
-      { id: 'full', name: 'Full Practice Test', time: 190, questions: 54, description: 'Complete exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 160, questions: 54, description: 'Reading and all four free-response questions' }
+    ],
+    units: [
+      { id: 'unit1', name: 'Unit 1: La época medieval' },
+      { id: 'unit2', name: 'Unit 2: El siglo XVI' },
+      { id: 'unit3', name: 'Unit 3: El siglo XVII' },
+      { id: 'unit4', name: 'Unit 4: La literatura romántica, realista y naturalista' },
+      { id: 'unit5', name: 'Unit 5: La Generación del 98 y el Modernismo' },
+      { id: 'unit6', name: 'Unit 6: Teatro y poesía del siglo XX' },
+      { id: 'unit7', name: 'Unit 7: El Boom latinoamericano' },
+      { id: 'unit8', name: 'Unit 8: Escritores contemporáneos de Estados Unidos y España' }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
   'AP Italian Language and Culture': {
     sections: [
-      { id: 'mcq', name: 'Multiple Choice', time: 100, questions: 70, description: 'Listening (40min) + Reading (60min)' },
-      { id: 'frq', name: 'Free Response', time: 90, questions: 4, description: 'Writing (2 tasks) + Speaking (2 tasks)' },
-      { id: 'full', name: 'Full Practice Test', time: 190, questions: 74, description: 'Complete exam simulation' }
+      { id: 'mcq', name: 'Multiple Choice', time: 40, questions: 30, description: 'Reading (Part B); listening needs audio' },
+      { id: 'frq', name: 'Free Response', time: 40, questions: 1, description: 'Argumentative Essay (the written task)' },
+      { id: 'full', name: 'Full Practice Test', time: 80, questions: 31, description: 'Reading and the argumentative essay' }
+    ],
+    units: [
+      { id: 'unit1', name: 'Unit 1: Families and Communities' },
+      { id: 'unit2', name: 'Unit 2: Language and Culture' },
+      { id: 'unit3', name: 'Unit 3: Art and Creativity' },
+      { id: 'unit4', name: 'Unit 4: Science and Technology' },
+      { id: 'unit5', name: 'Unit 5: Contemporary Life' },
+      { id: 'unit6', name: 'Unit 6: Global Contexts' }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
   'AP Japanese Language and Culture': {
     sections: [
-      { id: 'mcq', name: 'Multiple Choice', time: 100, questions: 70, description: 'Listening (40min) + Reading (60min)' },
-      { id: 'frq', name: 'Free Response', time: 90, questions: 4, description: 'Writing (2 tasks) + Speaking (2 tasks)' },
-      { id: 'full', name: 'Full Practice Test', time: 190, questions: 74, description: 'Complete exam simulation' }
+      { id: 'mcq', name: 'Multiple Choice', time: 40, questions: 30, description: 'Reading (Part B); listening needs audio' },
+      { id: 'frq', name: 'Free Response', time: 30, questions: 2, description: 'Story Narration and Email Response (written tasks)' },
+      { id: 'full', name: 'Full Practice Test', time: 70, questions: 32, description: 'Reading and written tasks' }
+    ],
+    units: [
+      { id: 'unit1', name: 'Unit 1: Families and Communities' },
+      { id: 'unit2', name: 'Unit 2: Language and Culture' },
+      { id: 'unit3', name: 'Unit 3: Art and Creativity' },
+      { id: 'unit4', name: 'Unit 4: Science and Technology' },
+      { id: 'unit5', name: 'Unit 5: Contemporary Life' },
+      { id: 'unit6', name: 'Unit 6: Global Contexts' }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
   'AP Latin': {
     sections: [
-      { id: 'mcq', name: 'Multiple Choice', time: 60, questions: 50, description: 'Vergil & Caesar passages' },
+      { id: 'mcq', name: 'Multiple Choice', time: 65, questions: 52, description: 'Sight and syllabus prose and poetry sets' },
+      { id: 'frq', name: 'Free Response', time: 115, questions: 5, description: 'Translation, analysis, and essay on Pliny and Vergil' },
+      { id: 'full', name: 'Full Practice Test', time: 180, questions: 57, description: 'Complete exam simulation' }
+    ],
+    units: [
+      { id: 'unit1', name: 'Unit 1: Teacher’s Choice – Latin Prose' },
+      { id: 'unit2', name: 'Unit 2: Pliny’s Letters: Eruption of Mt. Vesuvius' },
+      { id: 'unit3', name: 'Unit 3: Pliny’s Letters: Ghosts and Apparitions, Letters to Trajan and Calpurnia' },
+      { id: 'unit4', name: 'Unit 4: Teacher’s Choice – Latin Poetry and Vergil’s Aeneid' },
+      { id: 'unit5', name: 'Unit 5: Vergil’s Aeneid, Excerpts from Books 4, 6, 7, 11, and 12' },
+      { id: 'unit6', name: 'Unit 6: Course Project and Teacher’s Choice – Latin Poetry' }
+    ],
+    difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
+  },
+  // 60 MCQ (70 min); Section II is 3 SAQs and a DBQ (85 min). The project
+  // validation question depends on the student's own project, so it's left out.
+  'AP African American Studies': {
+    sections: [
+      { id: 'mcq', name: 'Multiple Choice', time: 70, questions: 60, description: 'Source-based sets on texts, images, and data' },
       {
         id: 'frq',
         name: 'Free Response',
-        time: 120,
-        questions: 3,
+        time: 85,
+        questions: 4,
         description: 'Choose FRQ type or take all',
         subSections: [
-          { id: 'translation', name: 'Translation Only', time: 40, questions: 1, description: 'Translation passage' },
-          { id: 'short-answer', name: 'Short Answer Only', time: 40, questions: 1, description: 'Short answer questions' },
-          { id: 'essay', name: 'Essay Only', time: 40, questions: 1, description: 'Analytical essay' },
-          { id: 'all-frq', name: 'All FRQs', time: 120, questions: 3, description: 'Translation + Short Answer + Essay' }
+          { id: 'saq-only', name: 'SAQ Only', time: 40, questions: 3, description: 'Three short-answer questions' },
+          { id: 'dbq-only', name: 'DBQ Only', time: 45, questions: 1, description: 'Document-based question' },
+          { id: 'all-frq', name: 'All FRQs', time: 85, questions: 4, description: '3 SAQs + DBQ' }
         ]
       },
-      { id: 'full', name: 'Full Practice Test', time: 180, questions: 53, description: 'Complete exam simulation' }
+      { id: 'full', name: 'Full Practice Test', time: 155, questions: 64, description: 'Complete exam simulation' }
+    ],
+    units: [
+      { id: 'unit1', name: 'Unit 1: Origins of the African Diaspora' },
+      { id: 'unit2', name: 'Unit 2: Freedom, Enslavement, and Resistance' },
+      { id: 'unit3', name: 'Unit 3: The Practice of Freedom' },
+      { id: 'unit4', name: 'Unit 4: Movements and Debates' }
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
@@ -668,22 +781,13 @@ export const TEST_CONFIGURATIONS = {
     ],
     difficulties: ['Easy', 'Medium', 'Hard', 'Standard AP Test']
   },
+  // Aural MCQs, dictation and sight-singing need audio, so practice covers the
+  // nonaural MCQs (Part B) and the three written FRQs (Q5–7).
   'AP Music Theory': {
     sections: [
-      { id: 'mcq', name: 'Multiple Choice', time: 80, questions: 75, description: 'Pitch, rhythm, harmony, and form analysis' },
-      {
-        id: 'frq',
-        name: 'Free Response',
-        time: 80,
-        questions: 7,
-        description: 'Choose FRQ type or take all',
-        subSections: [
-          { id: 'written-frq', name: 'Written FRQs Only', time: 60, questions: 5, description: 'Part-writing, harmonization, and composition' },
-          { id: 'aural-frq', name: 'Aural Skills Only', time: 20, questions: 2, description: 'Sight-singing and melodic dictation' },
-          { id: 'all-frq', name: 'All FRQs', time: 80, questions: 7, description: '5 Written + 2 Aural FRQs' }
-        ]
-      },
-      { id: 'full', name: 'Full Practice Test', time: 160, questions: 82, description: 'Complete exam simulation' }
+      { id: 'mcq', name: 'Multiple Choice', time: 35, questions: 33, description: 'Nonaural (Part B); aural questions need audio' },
+      { id: 'frq', name: 'Free Response', time: 45, questions: 3, description: 'Part-writing (figured bass, Roman numerals) and harmonization' },
+      { id: 'full', name: 'Full Practice Test', time: 80, questions: 36, description: 'Nonaural MCQs and written FRQs' }
     ],
     units: [
       { id: 'unit1', name: 'Unit 1: Pitch, Scales, and Key Signatures', topics: ['Staff notation', 'Major scales', 'Key signatures', 'Intervals'] },
@@ -699,8 +803,20 @@ export const TEST_CONFIGURATIONS = {
   },
   'AP Precalculus': {
     sections: [
-      { id: 'mcq', name: 'Multiple Choice', time: 120, questions: 40, description: 'Part A: 28Q (80min, no calc) + Part B: 12Q (40min, calc)' },
-      { id: 'full', name: 'Full Practice Test', time: 120, questions: 40, description: 'Complete exam simulation' }
+      { id: 'mcq', name: 'Multiple Choice', time: 105, questions: 42, description: 'Part A: 29Q (65min, no calc) + Part B: 13Q (40min, calc)' },
+      {
+        id: 'frq',
+        name: 'Free Response',
+        time: 70,
+        questions: 4,
+        description: 'Choose calculator vs non-calculator FRQs',
+        subSections: [
+          { id: 'calculator-frq', name: 'Calculator FRQ', time: 35, questions: 2, description: 'Graphing calculator required' },
+          { id: 'no-calculator-frq', name: 'No Calculator FRQ', time: 35, questions: 2, description: 'No calculator permitted' },
+          { id: 'all-frq', name: 'All FRQs', time: 70, questions: 4, description: 'Complete FRQ section' }
+        ]
+      },
+      { id: 'full', name: 'Full Practice Test', time: 175, questions: 46, description: 'Complete exam simulation' }
     ],
     units: [
       { id: 'unit1', name: 'Unit 1: Polynomial and Rational Functions', topics: ['Polynomial functions', 'Rates of change', 'Complex zeros', 'Rational functions'] },

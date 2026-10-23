@@ -14,7 +14,7 @@
 // Keep the handoff well inside a sane request size. Cards already cap question
 // at 1000 and explanation at 1500 (services/srs.js), but results-panel
 // questions come straight from the generator and are unbounded.
-const LIMITS = { question: 1200, answer: 800, explanation: 1200, stimulus: 1500 };
+const LIMITS = { question: 2500, answer: 800, explanation: 1200, stimulus: 1500 };
 
 const clean = (v, max) => {
   if (v === null || v === undefined) return '';
@@ -25,6 +25,29 @@ const clean = (v, max) => {
 /** True when the student never answered (skipped), rather than answered wrongly. */
 export function wasSkipped(userAnswer) {
   return clean(userAnswer, LIMITS.answer) === '';
+}
+
+/**
+ * How a scored question went: 'correct' | 'partial' | 'wrong' | 'skipped' | 'ungraded'.
+ * Skipping is not answering wrong, and an 8/9 FRQ is partial credit, not a miss.
+ * Older saved results have no `skipped` flag, so it is re-derived from the answer.
+ */
+export function resultStatus(result = {}) {
+  if (!result || result.ungraded) return 'ungraded';
+  if (result.skipped || (wasSkipped(result.userAnswer) && !(result.photoCount > 0))) return 'skipped';
+  const max = Number(result.maxPoints) || 0;
+  const score = Number(result.score) || 0;
+  if (max > 0 && score >= max) return 'correct';
+  return score > 0 ? 'partial' : 'wrong';
+}
+
+/** The full question text: an FRQ's stem plus its labelled parts (a), (b)… */
+export function questionWithParts(question = {}) {
+  const stem = question.question || question.prompt || '';
+  const parts = Array.isArray(question.parts) ? question.parts : [];
+  return parts.length
+    ? `${stem}\n${parts.map((p, i) => `(${String.fromCharCode(97 + i)}) ${typeof p === 'string' ? p : (p?.text || p?.question || '')}`).join('\n')}`
+    : stem;
 }
 
 /**
@@ -113,7 +136,8 @@ export function missFromResult(question = {}, result = {}, subject = '') {
     subject,
     unit: question.unit || null,
     stimulus: question.stimulus || '',
-    question: question.question || question.prompt || '',
+    // Parts included: "why was part (c) wrong" is unanswerable from the stem alone.
+    question: questionWithParts(question),
     userAnswer: isMcq ? asChoice(result.userAnswer) : result.userAnswer,
     correctAnswer: isMcq ? asChoice(correctIdx) : '',
     explanation: result.feedback || question.explanation || '',

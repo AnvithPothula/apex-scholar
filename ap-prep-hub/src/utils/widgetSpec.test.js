@@ -55,3 +55,30 @@ describe('parseStepsSpec', () => {
     expect(parseStepsSpec('{"steps": []}')).toBeNull();
   });
 });
+
+describe('parseSimSpec', () => {
+  const { parseSimSpec } = require('./widgetSpec');
+  const spec = {
+    title: 'A bill becomes law?',
+    meters: [{ id: 'power', label: 'Presidential power', value: 50 }],
+    start: 'bill',
+    scenes: {
+      bill: { text: 'Congress passes a bill.', choices: [
+        { label: 'Veto it', next: 'veto', effects: { power: 10, bogus: 5 }, feedback: 'You check Congress.' },
+        { label: 'Lose the bill', next: 'nowhere' },
+      ] },
+      veto: { text: 'Congress needs two-thirds to override.' },
+    },
+  };
+  it('keeps valid choices and meters, drops dangling links and unknown meters', () => {
+    const out = parseSimSpec(JSON.stringify(spec));
+    expect(out.start).toBe('bill');
+    expect(out.scenes.bill.choices).toHaveLength(1);
+    expect(out.scenes.bill.choices[0].effects).toEqual({ power: 10 });
+    expect(out.scenes.veto.choices).toHaveLength(0); // an ending
+  });
+  it('rejects a sim that cannot be played', () => {
+    expect(parseSimSpec('{"scenes": {"a": {"text": "only one"}}}')).toBeNull();
+    expect(parseSimSpec('not json')).toBeNull();
+  });
+});

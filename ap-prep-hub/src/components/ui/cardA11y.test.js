@@ -33,6 +33,14 @@ describe('cardA11yProps', () => {
     expect(onClick).not.toHaveBeenCalled();
   });
 
+  it('leaves Enter/Space typed in a field inside the card alone', () => {
+    // The custom time/count cards hold number inputs.
+    const onClick = jest.fn();
+    const e = { ...fakeEvent(' '), target: 'input', currentTarget: 'card' };
+    cardA11yProps({ onClick }).onKeyDown(e);
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
   it('leaves a non-clickable Card out of the tab order', () => {
     expect(cardA11yProps({})).toBeNull();
   });

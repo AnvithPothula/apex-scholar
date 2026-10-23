@@ -5,3 +5,6 @@ out
 .remotion
 *.log
 dist
+.capture-profile
+capture/frames
+public/clips

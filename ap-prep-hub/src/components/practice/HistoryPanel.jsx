@@ -2,19 +2,13 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { staggerContainer, staggerItem } from '../../utils/animations';
 import { ArrowLeft, Clock } from 'lucide-react';
-import { Button, Card, Badge } from '../ui/UIComponents';
+import { Button, Card, Badge, cardA11yProps } from '../ui/UIComponents';
 import { estimateForSavedTest } from '../../utils/testToScore';
 
 const HistoryPanel = ({
   testHistory,
   setCurrentView,
-  setTestResults,
-  setQuestions,
-  setUserAnswers,
-  setSelectedSubject,
-  setSelectedSection,
-  sanitizeResultsData,
-  emergencyCleanResults,
+  openSavedTest,
 }) => {
   return (
     <div className="min-h-screen bg-base-950 text-content-primary">
@@ -73,19 +67,9 @@ const HistoryPanel = ({
                 whileHover={{ scale: 1.01, y: -2 }}
                 transition={{ layout: { duration: 0.25, ease: [0.22, 1, 0.36, 1] } }}
                 className="cursor-pointer"
-                onClick={() => {
-                  console.log('HISTORY: Loading test results:', test.results);
-                  const sanitizedResults = sanitizeResultsData(test.results);
-                  console.log('HISTORY: Sanitized test results:', sanitizedResults);
-                  const emergencyCleanedResults = emergencyCleanResults(sanitizedResults);
-                  console.log('HISTORY: Emergency cleaned test results:', emergencyCleanedResults);
-                  setTestResults({ ...emergencyCleanedResults, docId: test.id });
-                  setQuestions(test.questions || []);
-                  setUserAnswers(test.userAnswers || {});
-                  setSelectedSubject(test.subject);
-                  setSelectedSection(test.section);
-                  setCurrentView('results');
-                }}
+                {...cardA11yProps({ onClick: () => openSavedTest(test) })}
+                aria-label={`View results for your ${test.subject} test`}
+                onClick={() => openSavedTest(test)}
               >
                 <Card className="p-6 hover:bg-base-850/50 transition-colors">
                   <div className="flex items-center justify-between">

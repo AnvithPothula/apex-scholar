@@ -149,3 +149,19 @@ describe('looksLikeReasoningLeak', () => {
     expect(looksLikeReasoningLeak(null)).toBe(false);
   });
 });
+
+describe('resultStatus', () => {
+  const { resultStatus, questionWithParts } = require('./whyWrong');
+  it('separates skipped, partial, wrong, correct and ungraded', () => {
+    expect(resultStatus({ userAnswer: undefined, score: 0, maxPoints: 1 })).toBe('skipped');
+    expect(resultStatus({ userAnswer: '', score: 0, maxPoints: 9, photoCount: 2 })).toBe('wrong');
+    expect(resultStatus({ userAnswer: 'x', score: 8, maxPoints: 9 })).toBe('partial');
+    expect(resultStatus({ userAnswer: 2, score: 0, maxPoints: 1 })).toBe('wrong');
+    expect(resultStatus({ userAnswer: 2, score: 1, maxPoints: 1 })).toBe('correct');
+    expect(resultStatus({ ungraded: true, userAnswer: 'x' })).toBe('ungraded');
+  });
+  it('appends lettered parts to the stem', () => {
+    expect(questionWithParts({ question: 'Stem', parts: ['Find f(2).', { text: 'Justify.' }] }))
+      .toBe('Stem\n(a) Find f(2).\n(b) Justify.');
+  });
+});

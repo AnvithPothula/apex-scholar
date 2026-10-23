@@ -1,8 +1,19 @@
 import React, { useState, useMemo } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Brain, Home, ArrowLeft, ChevronRight, Trophy, XCircle, CheckCircle2, Sparkles } from 'lucide-react';
+import { Brain, ArrowLeft, ArrowRight, ChevronRight, Trophy, XCircle, CheckCircle2, Sparkles, BookOpen, MessageSquare, ClipboardList, Layers, CalendarDays, Home } from 'lucide-react';
 import useDocumentMeta from '../hooks/useDocumentMeta';
+import { suggestRoute } from '../utils/suggestRoute';
+
+// Where a lost student most likely wanted to be.
+const QUICK_LINKS = [
+  { to: '/study', label: 'Study packs', Icon: BookOpen },
+  { to: '/ai-tutors', label: 'AI tutors', Icon: MessageSquare },
+  { to: '/practice-tests', label: 'Practice tests', Icon: ClipboardList },
+  { to: '/flashcards', label: 'Flashcards', Icon: Layers },
+  { to: '/smart-scheduler', label: 'Schedule', Icon: CalendarDays },
+  { to: '/', label: 'Home', Icon: Home },
+];
 
 // Each question has 4 choices — one correct funny answer, three distractors
 const QUESTIONS = [
@@ -102,6 +113,10 @@ export default function NotFound() {
   useDocumentMeta({ title: 'Page not found — Apex Scholar' });
   const navigate = useNavigate();
   const location = useLocation();
+  const suggestion = useMemo(() => suggestRoute(location.pathname), [location.pathname]);
+  // "Back" only means something with in-app history; from an outside link it
+  // would leave the site. location.key is 'default' on the first page loaded.
+  const canGoBack = location.key !== 'default';
   const [questionOrder] = useState(() => {
     const indices = QUESTIONS.map((_, i) => i);
     for (let i = indices.length - 1; i > 0; i--) {
@@ -222,15 +237,53 @@ export default function NotFound() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
             >
-              <p className="text-content-muted text-xs mt-1.5 font-medium">
-                Page not found — but here's a pop quiz
+              <p className="text-content-primary text-base mt-2 font-semibold">
+                This page doesn't exist
               </p>
               {location.pathname !== '/' && (
-                <p className="text-content-muted text-[10px] mt-1 font-mono truncate px-8">
+                <p className="text-content-muted text-xs mt-1 font-mono truncate px-8">
                   {location.pathname}
                 </p>
               )}
             </motion.div>
+          </div>
+
+          <div className="px-5 pb-5 space-y-3">
+            {suggestion && (
+              <button
+                type="button"
+                onClick={() => navigate(suggestion.path)}
+                className="w-full flex items-center justify-between gap-3 rounded-md bg-content-primary text-base-950 px-4 py-3 text-sm font-semibold hover:opacity-90 transition-opacity"
+              >
+                <span className="text-left">Did you mean <span className="underline underline-offset-2">{suggestion.label}</span>?</span>
+                <ArrowRight className="w-4 h-4 shrink-0" strokeWidth={1.5} />
+              </button>
+            )}
+            <nav aria-label="Go to" className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {QUICK_LINKS.map(({ to, label, Icon }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  className="flex items-center gap-2 rounded-md border border-border bg-base-900/40 hover:bg-base-800 hover:border-border-strong px-3 py-2.5 text-sm text-content-secondary hover:text-content-primary transition-colors"
+                >
+                  <Icon className="w-4 h-4 shrink-0 text-content-muted" strokeWidth={1.5} />
+                  {label}
+                </Link>
+              ))}
+            </nav>
+            {canGoBack && (
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="w-full inline-flex items-center justify-center gap-1.5 py-2 text-sm text-content-muted hover:text-content-primary transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" strokeWidth={1.5} /> Go back
+              </button>
+            )}
+          </div>
+
+          <div className="border-t border-border px-5 pt-4 pb-1">
+            <p className="text-xs font-semibold text-content-muted uppercase tracking-wider">While you're here: the AP 404 exam</p>
           </div>
 
           <AnimatePresence mode="wait">
@@ -253,14 +306,14 @@ export default function NotFound() {
                       transition={{ duration: 0.3 }}
                     />
                   </div>
-                  <span className="text-[10px] text-content-muted font-mono whitespace-nowrap">{questionNum}/{totalQuestions}</span>
+                  <span className="text-xs text-content-muted font-mono whitespace-nowrap">{questionNum}/{totalQuestions}</span>
                 </div>
 
                 {/* Question */}
                 <div className="mb-3">
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-lg">{currentQuestion.icon}</span>
-                    <span className="text-[10px] font-bold text-content-muted/80 uppercase tracking-wider">{currentQuestion.subject}</span>
+                    <span className="text-xs font-bold text-content-muted uppercase tracking-wider">{currentQuestion.subject}</span>
                   </div>
                   <p className="text-content-primary text-sm font-medium leading-relaxed">{currentQuestion.question}</p>
                 </div>
@@ -300,7 +353,7 @@ export default function NotFound() {
                            answered && isSelected && !isCorrect ? <XCircle className="w-3.5 h-3.5" /> :
                            choiceLabels[i]}
                         </span>
-                        <span className="text-xs leading-relaxed">{choice}</span>
+                        <span className="text-sm leading-relaxed">{choice}</span>
                       </motion.button>
                     );
                   })}
@@ -370,31 +423,10 @@ export default function NotFound() {
             )}
           </AnimatePresence>
 
-          {/* Navigation buttons */}
-          <div className="px-5 pb-5 flex gap-2.5">
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => navigate(-1)}
-              className="flex-1 py-2.5 px-3 bg-base-800/40 hover:bg-base-800/70 border border-border-strong rounded-sm text-content-muted hover:text-content-primary text-xs font-medium flex items-center justify-center gap-1.5 transition-all"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" strokeWidth={1.5} />
-              Go Back
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => navigate('/ai-tutors')}
-              className="flex-1 py-2.5 px-3 bg-content-primary hover:bg-content-primary rounded-sm text-base-950 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-raised"
-            >
-              <Home className="w-3.5 h-3.5" strokeWidth={1.5} />
-              Back to Studying
-            </motion.button>
-          </div>
         </div>
 
         {/* Footer */}
-        <p className="text-center text-content-muted text-[10px] mt-3 font-medium">
+        <p className="text-center text-content-muted text-xs mt-3 font-medium">
           There is no AP exam for finding missing pages. Yet.
         </p>
       </motion.div>

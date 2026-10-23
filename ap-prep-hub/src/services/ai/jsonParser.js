@@ -1,5 +1,23 @@
 import errorLogger from '../../utils/errorLogger';
 
+// LaTeX commands whose first letter is also a JSON escape character.
+//
+// `\times`, `\text{}`, `\beta`, `\frac{}`, `\neq`, `\rho` are all VALID JSON
+// escapes followed by letters, so JSON.parse succeeds and silently turns them
+// into TAB + "imes", BACKSPACE + "eta", FORMFEED + "rac", NEWLINE + "eq"... —
+// a saved Macro test read "$50 <TAB>imes 4$". This has to run BEFORE the first
+// JSON.parse, not as a repair: the parse doesn't fail, it corrupts.
+//
+//   \b \f + letter    — backspace / form feed never appear in real AI prose.
+//   \u + non-hex      — always invalid JSON, so doubling is strictly a fix.
+//   \t \n \r          — real escapes, so only whole command names are matched;
+//                       "one.\nNext" or "\nnot" stay newlines.
+const LATEX_ESCAPE_COLLISION_RE =
+  /(?<!\\)\\(?=[bf][a-zA-Z]|u(?![0-9a-fA-F]{4})|(?:text(?:bf|it|rm|sf|tt)?|theta|times|triangle|therefore|tfrac|tanh|tan|tau|tilde|top|to|neq|nabla|nonumber|notin|not|nu|rightarrow|right|rangle|rho|rfloor|rceil)(?![a-zA-Z]))/g;
+
+/** Double the backslash of LaTeX commands that would otherwise parse as JSON escapes. */
+export const protectLatexEscapes = (text) => text.replace(LATEX_ESCAPE_COLLISION_RE, '\\\\');
+
 /**
  * JSONParser — Robust JSON extraction and repair pipeline for AI responses.
  *
@@ -49,8 +67,10 @@ class JSONParser {
       .replace(/^```json\s*/gi, '')
       .replace(/^```\s*/gi, '')
       .replace(/\s*```\s*$/gi, '')
-      .replace(/```json\n?|\n?```/g, '')
-      .replace(/```\n?|\n?```/g, '')
+      // Only fences on a line of their own wrap the JSON. Fences inside a
+      // string (a code block in a question) follow an escaped \n and must stay:
+      // stripping them flattened CS programs into one line.
+      .replace(/(^|\n)[ \t]*```[a-z]*[ \t]*(?=\n|$)/gi, '$1')
       .replace(/^`+|`+$/g, '')
       .trim();
 
@@ -62,6 +82,7 @@ class JSONParser {
       .replace(/\u00A0/g, ' ')
       .replace(/\r\n/g, '\n')
       .replace(/\r/g, '\n');
+    cleaned = protectLatexEscapes(cleaned);
 
     // Step 2: Try direct parsing
     try {
@@ -149,22 +170,6 @@ class JSONParser {
       t => t.replace(/,,+/g, ','),
       // Fix empty array elements
       t => t.replace(/\[\s*,/g, '[').replace(/,\s*\]/g, ']'),
-      // LaTeX commands whose first letter is also a JSON escape character.
-      //
-      // The generic repair below deliberately leaves \b \f \n \r \t \u alone
-      // because those ARE valid JSON escapes. In question text they almost
-      // never are: `\text{}` became TAB + "ext{", `\frac{}` became FORMFEED +
-      // "rac{", `\to` became TAB + "o" — a live review card read "S o P"
-      // instead of "S → P". Since \text and \frac are the two most common
-      // commands in chemistry and maths questions, this corrupted a large share
-      // of generated content.
-      //
-      // A whitelist, not a blanket rule: a genuine \n newline inside a string
-      // must keep working, so only these exact command names are protected.
-      t => t.replace(
-        /(?<!\\)\\(?=(?:text|theta|times|triangle|therefore|tfrac|tan|tau|to|frac|forall|floor|neq|nabla|nonumber|not|nu|beta|binom|bullet|bar|rightarrow|rangle|right|rho|upsilon|underline|uparrow|unit)\b)/g,
-        '\\\\'
-      ),
       // Fix invalid escape sequences that aren't valid JSON (only if not already escaped)
       t => t.replace(/(?<!\\)\\([^"\\/bfnrtu])/g, '\\\\$1'),
       // Fix missing quotes on keys (basic)

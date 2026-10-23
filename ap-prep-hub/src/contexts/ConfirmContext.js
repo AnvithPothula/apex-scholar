@@ -25,6 +25,8 @@ export function ConfirmProvider({ children }) {
         confirmText: opts.confirmText || 'Confirm',
         cancelText: opts.cancelText || 'Cancel',
         destructive: opts.destructive !== false,
+        // 'light' over the white exam screen, where the dark app dialog clashed.
+        theme: opts.theme,
       });
     });
   }, []);
@@ -63,6 +65,7 @@ function ConfirmDialog({ state, onResult }) {
     <AnimatePresence>
       {state && (
         <motion.div
+          data-theme={state.theme}
           className="fixed inset-0 z-[110] flex items-center justify-center p-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -103,7 +106,7 @@ function ConfirmDialog({ state, onResult }) {
               </Button>
               <Button
                 ref={confirmRef}
-                variant={state.destructive ? 'destructive' : 'default'}
+                variant={state.destructive ? 'destructive' : 'primary'}
                 size="sm"
                 onClick={() => onResult(true)}
               >

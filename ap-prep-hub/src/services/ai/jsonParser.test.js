@@ -91,4 +91,22 @@ describe('JSONParser', () => {
       expect(result.success).toBe(false);
     });
   });
+
+  // Real saved Macro test (practiceTests/fibvSavOILjssUMKSGSi): this JSON is
+  // otherwise valid, so JSON.parse "succeeded" and \times became TAB + "imes".
+  describe('parse — LaTeX commands that collide with JSON escapes', () => {
+    it('keeps \\t \\b \\f \\n \\r \\u LaTeX commands intact in valid JSON', () => {
+      const input = String.raw`{"e": "$\$50 \times 4$, \frac{1}{\text{rr}}, \theta, \tan x, \beta, \bar{x}, \neq, \nu, \rho, \left( \right), \textbf{a}, \underline{b}"}`;
+      const result = parser.parse(input);
+      expect(result.success).toBe(true);
+      expect(result.data.e).toBe(String.raw`$\$50 \times 4$, \frac{1}{\text{rr}}, \theta, \tan x, \beta, \bar{x}, \neq, \nu, \rho, \left( \right), \textbf{a}, \underline{b}`);
+      expect(result.data.e).not.toMatch(/[\t\b\f\r]/);
+    });
+
+    it('leaves real JSON escapes and already-escaped commands alone', () => {
+      const input = String.raw`{"e": "One.\nNext line\nnot this\taé \\times"}`;
+      const result = parser.parse(input);
+      expect(result.data.e).toBe('One.\nNext line\nnot this\taé \\times');
+    });
+  });
 });

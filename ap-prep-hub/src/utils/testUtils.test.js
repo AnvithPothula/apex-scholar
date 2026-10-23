@@ -108,6 +108,14 @@ describe('parseAIResponse', () => {
     expect(result[0].question).toBe('What is mitosis?');
   });
 
+  it('keeps \\times and \\text from becoming TAB + "imes" in valid JSON', () => {
+    const json = String.raw`[{"question": "Q?", "options": ["A","B","C","D"], "correctAnswer": "A", "type": "mcq", "explanation": "$\$50 \times 4$ so $\frac{1}{\text{rr}}$"}]`;
+    const [q] = parseAIResponse(json, 1);
+    expect(q.explanation).not.toMatch(/\t/);
+    expect(q.explanation).toContain('\\times 4');
+    expect(q.explanation).toContain('\\text{rr}');
+  });
+
   it('handles JSON wrapped in markdown code fences', () => {
     const wrapped = '```json\n[{"question": "Test?", "options": ["A","B","C","D"], "correctAnswer": "A", "type": "mcq"}]\n```';
     const result = parseAIResponse(wrapped, 1);

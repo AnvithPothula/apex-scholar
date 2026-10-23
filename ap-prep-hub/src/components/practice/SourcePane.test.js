@@ -1,4 +1,7 @@
 import { hasSourceMaterial } from './SourcePane';
+// react-markdown ships ESM that CRA's Jest doesn't transform; this test only
+// needs the pure helper.
+jest.mock('../MarkdownRenderer', () => () => null);
 
 describe('hasSourceMaterial', () => {
   it('is false for a plain question, so the layout stays single-column', () => {

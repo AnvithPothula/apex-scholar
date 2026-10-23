@@ -219,3 +219,42 @@ describe('degree marks', () => {
     expect(preprocessContent('angle $30^{\\circ}$ here')).toContain('$30^{\\circ}$');
   });
 });
+
+describe('money (escaped dollars)', () => {
+  it('turns $\\$50$ amounts into literal dollars and keeps prose out of math', () => {
+    const out = preprocessContent('cuts spending by $\\$50$ billion while raising taxes by $\\$50$ billion');
+    expect(out).toBe('cuts spending by \\$50 billion while raising taxes by \\$50 billion');
+  });
+  it('keeps \\$ inside real math as \\textdollar', () => {
+    expect(preprocessContent('Cost is $C = \\$5x + 2$ here')).toBe('Cost is $C = \\text{\\textdollar}5x + 2$ here');
+  });
+  it('leaves an already-escaped prose dollar alone', () => {
+    expect(preprocessContent('It costs \\$5 and $x^2$')).toBe('It costs \\$5 and $x^2$');
+  });
+});
+
+describe('bare currency in prose', () => {
+  it('keeps "$100 is the fixed cost" as text', () => {
+    expect(preprocessContent('Part (b): $100 is the fixed cost.')).toBe('Part (b): \\$100 is the fixed cost.');
+    expect(preprocessContent('from $50 billion to $200 billion')).toBe('from \\$50 billion to \\$200 billion');
+  });
+  it('leaves number-led maths alone', () => {
+    expect(preprocessContent('Solve $2x + 3 = 7$ and $0.75$')).toBe('Solve $2x + 3 = 7$ and $0.75$');
+    expect(preprocessContent('so $2 \\cdot 3 = 6$')).toBe('so $2 \\cdot 3 = 6$');
+  });
+});
+
+// Tests saved before the jsonParser fix hold JSON-eaten backslashes, e.g. the
+// Macro explanation "$\$50 <TAB>imes 4 = ...$".
+describe('JSON-eaten LaTeX escapes in saved strings', () => {
+  it('restores the backslash for TAB/BS/FF/CR + a command tail', () => {
+    const out = preprocessContent('$50 \times 4$ and $\\frac{1}{\text{rr}}$ and $\x08eta + \frac{1}{2} + \rho$');
+    expect(out).toContain('$50 \\times 4$');
+    expect(out).toContain('\\frac{1}{\\text{rr}}');
+    expect(out).toContain('\\beta + \\frac{1}{2} + \\rho');
+  });
+
+  it('leaves real tabs and newlines alone', () => {
+    expect(preprocessContent('a\tb\nnext\tother')).toBe('a\tb\nnext\tother');
+  });
+});

@@ -31,7 +31,8 @@ const loadKaTeX = async () => {
 };
 
 const LaTeXRenderer = ({ content, inline = false }) => {
-  const [katexLoaded, setKatexLoaded] = useState(!!InlineMath);
+  // A counter, so loading KaTeX again after a hot reload still re-renders.
+  const [katexLoaded, setKatexLoaded] = useState(InlineMath ? 1 : 0);
   const [loadError, setLoadError] = useState(null);
 
   // Process basic markdown (bold, italic) in text segments
@@ -41,7 +42,8 @@ const LaTeXRenderer = ({ content, inline = false }) => {
     // Process bold first, then italic
     const parts = [];
     // Pattern: **bold**, *italic*, ***bold-italic***
-    const mdPattern = /(\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|\*(.+?)\*)/g;
+    // and `code` (CS questions name procedures and variables this way)
+    const mdPattern = /(\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|\*(.+?)\*|`([^`\n]+)`)/g;
     let lastIndex = 0;
     let match;
     while ((match = mdPattern.exec(text)) !== null) {
@@ -58,6 +60,8 @@ const LaTeXRenderer = ({ content, inline = false }) => {
       } else if (match[4]) {
         // *italic*
         parts.push(<em key={`md-i-${match.index}`}>{match[4]}</em>);
+      } else if (match[5]) {
+        parts.push(<code key={`md-c-${match.index}`} className="font-mono text-[0.9em]">{match[5]}</code>);
       }
       lastIndex = match.index + match[0].length;
     }
@@ -71,30 +75,36 @@ const LaTeXRenderer = ({ content, inline = false }) => {
   // Detect if content contains LaTeX
   const hasLatex = useCallback((text) => {
     if (typeof text !== 'string') return false;
-    return /\$\$[\s\S]*?\$\$|\$[^$\n]*?\$/.test(text);
+    // Escape-aware: \$ is a literal dollar (money), never a delimiter.
+    return /\$\$[\s\S]*?\$\$|(?<!\\)\$(?:\\.|[^$\n\\])*\$/.test(text);
   }, []);
 
   // Pre-process content to wrap bare LaTeX commands in $...$
   const processed = useMemo(() => preprocessContent(content), [content]);
 
   // Load KaTeX when component mounts and content has LaTeX
+  // Check the module variables too: a hot reload re-runs this module (they go
+  // back to null) while the component keeps katexLoaded = true, which rendered
+  // <null /> and crashed the page.
+  const ready = Boolean(katexLoaded && InlineMath && BlockMath);
   useEffect(() => {
-    if (!processed || !hasLatex(processed) || katexLoaded) return;
+    if (!processed || !hasLatex(processed) || ready) return;
 
     loadKaTeX()
-      .then(() => setKatexLoaded(true))
+      .then(() => setKatexLoaded((n) => n + 1))
       .catch((error) => setLoadError(error));
-  }, [processed, hasLatex, katexLoaded]);
+  }, [processed, hasLatex, ready]);
 
   if (!processed) return null;
 
   // If no LaTeX in content after preprocessing, still process basic markdown (bold/italic)
   if (!hasLatex(processed)) {
-    return inline ? <span>{processMarkdown(processed)}</span> : <div>{processMarkdown(processed)}</div>;
+    const plain = processed.replace(/\\\$/g, '$');
+    return inline ? <span>{processMarkdown(plain)}</span> : <div>{processMarkdown(plain)}</div>;
   }
 
   // Show loading state while KaTeX loads
-  if (!katexLoaded) {
+  if (!ready) {
     if (loadError) {
       return (
         <span className="text-error-400">
@@ -114,7 +124,7 @@ const LaTeXRenderer = ({ content, inline = false }) => {
     if (typeof text !== 'string') return text;
 
     // Pattern to match both inline $...$ and block $$...$$ LaTeX
-    const latexPattern = /(\$\$[\s\S]*?\$\$|\$[^$\n]*?\$)/g;
+    const latexPattern = /(\$\$[\s\S]*?\$\$|(?<!\\)\$(?:\\.|[^$\n\\])*\$)/g;
     const parts = text.split(latexPattern);
 
     return parts.map((part, index) => {
@@ -141,7 +151,7 @@ const LaTeXRenderer = ({ content, inline = false }) => {
         }
       } else {
         // Regular text — process basic markdown (bold/italic)
-        return <span key={`text-${index}-${part.length}`}>{processMarkdown(part)}</span>;
+        return <span key={`text-${index}-${part.length}`}>{processMarkdown(part.replace(/\\\$/g, '$'))}</span>;
       }
     }).filter(Boolean);
   };

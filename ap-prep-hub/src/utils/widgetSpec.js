@@ -136,3 +136,46 @@ export function parseStepsSpec(raw) {
   if (steps.length < 1) return null;
   return { title: str(spec.title, 120), steps, answer: str(spec.answer, 600) };
 }
+
+/**
+ * ```apex-sim: a branching scenario. Each scene offers choices; a choice moves
+ * the meters, explains what happened, and leads to another scene. A scene with
+ * no choices is an ending. Choices pointing at a missing scene are dropped, so
+ * a sloppy spec still plays instead of dead-ending.
+ */
+export function parseSimSpec(raw) {
+  const spec = typeof raw === 'string' ? parseModelJson(raw) : raw;
+  if (!spec || typeof spec !== 'object' || !spec.scenes || typeof spec.scenes !== 'object') return null;
+  // Accept scenes as an object keyed by id, or an array of {id, ...}.
+  const entries = Array.isArray(spec.scenes)
+    ? spec.scenes.map((s, i) => [str(s && s.id, 40) || `s${i + 1}`, s])
+    : Object.entries(spec.scenes);
+  const ids = new Set(entries.slice(0, 16).map(([id]) => String(id)));
+  const meters = (Array.isArray(spec.meters) ? spec.meters : []).slice(0, 3)
+    .map((m) => {
+      const min = finite(num(m && m.min)) ? num(m.min) : 0;
+      const max = finite(num(m && m.max)) && num(m.max) > min ? num(m.max) : 100;
+      const value = finite(num(m && m.value)) ? Math.min(max, Math.max(min, num(m.value))) : (min + max) / 2;
+      return { id: str(m && m.id, 30), label: str(m && m.label, 40) || str(m && m.id, 30), min, max, value };
+    })
+    .filter((m) => m.id);
+  const meterIds = new Set(meters.map((m) => m.id));
+  const scenes = {};
+  for (const [id, s] of entries.slice(0, 16)) {
+    if (!s || typeof s !== 'object') continue;
+    const choices = (Array.isArray(s.choices) ? s.choices : []).slice(0, 4)
+      .map((c) => ({
+        label: str(c && c.label, 140),
+        next: String((c && c.next) ?? ''),
+        feedback: str(c && c.feedback, 800),
+        effects: Object.fromEntries(Object.entries((c && c.effects) || {})
+          .filter(([k, v]) => meterIds.has(k) && finite(num(v)))
+          .map(([k, v]) => [k, num(v)])),
+      }))
+      .filter((c) => c.label && ids.has(c.next));
+    scenes[String(id)] = { text: str(s.text, 1500), choices };
+  }
+  const start = ids.has(String(spec.start)) ? String(spec.start) : entries[0] && String(entries[0][0]);
+  if (Object.keys(scenes).length < 2 || !scenes[start] || !scenes[start].choices.length) return null;
+  return { title: str(spec.title, 120), intro: str(spec.intro, 800), meters, start, scenes };
+}

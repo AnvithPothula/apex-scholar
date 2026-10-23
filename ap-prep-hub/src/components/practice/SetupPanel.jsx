@@ -5,6 +5,8 @@ import { Button, Card, Input, cardA11yProps } from '../ui/UIComponents';
 import CustomDropdown from '../ui/CustomDropdown';
 import ModelSelector, { saveSelectedModel } from '../ui/ModelSelector';
 import { TEST_CONFIGURATIONS, DEFAULT_CONFIG } from '../../constants/testConfigurations';
+import { clampCount, planFullTest } from '../../utils/testUtils';
+import GenerationProgress from './GenerationProgress';
 
 const SetupPanel = ({
   selectedSubject,
@@ -30,13 +32,7 @@ const SetupPanel = ({
   handleStartTest,
   setCurrentView,
   testHistory,
-  setTestResults,
-  setQuestions,
-  setUserAnswers,
-  setSelectedSubjectParent,
-  setSelectedSectionParent,
-  sanitizeResultsData,
-  emergencyCleanResults,
+  openSavedTest,
   subjectOptions,
   getCanonicalSubjectName,
 }) => {
@@ -46,14 +42,12 @@ const SetupPanel = ({
   // Recent-test rows are clickable divs, so they need button semantics or they
   // are invisible to keyboard and screen-reader users. Hoisted out of the JSX
   // so the click and the keyboard path run the exact same code.
-  const openHistoricTest = (test) => {
-    setTestResults(emergencyCleanResults(sanitizeResultsData(test.results)));
-    setQuestions(test.questions || []);
-    setUserAnswers(test.userAnswers || {});
-    setSelectedSubjectParent(test.subject);
-    setSelectedSectionParent(test.section);
-    setCurrentView('results');
-  };
+  const openHistoricTest = openSavedTest;
+  const toggleUnit = (name) => setSelectedUnits((prev) => (prev.includes(name) ? prev.filter((u) => u !== name) : [...prev, name]));
+  // What a custom count turns into (a full test keeps one of each part).
+  const plannedCount = (value) => (selectedSection === 'full'
+    ? planFullTest(currentConfig, clampCount(value)).reduce((n, p) => n + p.count, 0)
+    : clampCount(value));
 
   return (
     <div className="min-h-screen bg-base-950 text-content-primary">
@@ -98,7 +92,11 @@ const SetupPanel = ({
                 Test Configuration
               </h2>
 
-              <div className="space-y-6">
+              {/* Locked while generating: the finished test is filed under
+                  whatever is selected when it lands, so changing the subject
+                  mid-generation mislabelled it. inert also covers the
+                  clickable cards a fieldset wouldn't. */}
+              <div className={`space-y-6 ${isGeneratingTest ? 'opacity-60' : ''}`} inert={isGeneratingTest ? '' : undefined} aria-busy={isGeneratingTest}>
                 {/* Subject Selection */}
                 <div>
                   <label className="block text-sm font-medium text-content-secondary mb-3">
@@ -151,7 +149,7 @@ const SetupPanel = ({
                             </div>
                             <div className="text-right">
                               <div className="text-sm text-content-secondary">{section.time} min</div>
-                              <div className="text-xs text-content-muted">{section.questions} questions</div>
+                              <div className="text-xs text-content-muted">{section.questions} question{section.questions === 1 ? '' : 's'}</div>
                             </div>
                           </div>
                         </div>
@@ -197,7 +195,7 @@ const SetupPanel = ({
                                 </div>
                                 <div className="text-right">
                                   <div className="text-sm text-content-secondary">{subSection.time} min</div>
-                                  <div className="text-xs text-content-muted">{subSection.questions} questions</div>
+                                  <div className="text-xs text-content-muted">{subSection.questions} question{subSection.questions === 1 ? '' : 's'}</div>
                                 </div>
                               </div>
                             </div>
@@ -235,13 +233,9 @@ const SetupPanel = ({
                       {(currentConfig?.units || []).map((unit) => (
                         <div
                           key={unit.name}
-                          onClick={() => {
-                            setSelectedUnits(prev =>
-                              prev.includes(unit.name)
-                                ? prev.filter(u => u !== unit.name)
-                                : [...prev, unit.name]
-                            );
-                          }}
+                          {...cardA11yProps({ onClick: () => toggleUnit(unit.name) })}
+                          aria-pressed={selectedUnits.includes(unit.name)}
+                          onClick={() => toggleUnit(unit.name)}
                           className={`p-3 rounded-lg border cursor-pointer transition-all ${
                             selectedUnits.includes(unit.name)
                               ? 'border-success-500 bg-success-900'
@@ -251,11 +245,11 @@ const SetupPanel = ({
                           <div className="flex items-center space-x-2">
                             <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
                               selectedUnits.includes(unit.name)
-                                ? 'border-content-primary bg-content-primary'
+                                ? 'border-success-500 bg-success-500'
                                 : 'border-border-strong'
                             }`}>
                               {selectedUnits.includes(unit.name) && (
-                                <svg className="w-3 h-3 text-content-primary" fill="currentColor" viewBox="0 0 20 20">
+                                <svg className="w-3 h-3 text-base-950" fill="currentColor" viewBox="0 0 20 20">
                                   <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
                                 </svg>
                               )}
@@ -287,6 +281,8 @@ const SetupPanel = ({
                     </label>
                     <div className="space-y-3">
                       <div
+                        {...cardA11yProps({ onClick: () => setUseDefaultTime(true) })}
+                        aria-pressed={useDefaultTime}
                         onClick={() => setUseDefaultTime(true)}
                         className={`p-3 rounded-lg border cursor-pointer transition-all ${
                           useDefaultTime
@@ -299,16 +295,22 @@ const SetupPanel = ({
                           <span className="text-success-400 font-medium">
                             {(() => {
                               const section = currentConfig.sections.find(s => s.id === selectedSection);
-                              if (selectedSection === 'frq' && selectedSubSection && section?.subSections) {
-                                const subSection = section.subSections.find(sub => sub.id === selectedSubSection);
-                                return `${subSection?.time || 90} minutes`;
+                              const sub = selectedSection === 'frq' && selectedSubSection
+                                ? section?.subSections?.find(x => x.id === selectedSubSection) : null;
+                              const time = sub?.time || section?.time || 90;
+                              const count = sub?.questions || section?.questions;
+                              // Same scaling as handleStartTest: the official pace for a custom count.
+                              if (!useDefaultQuestionCount && customQuestionCount && count) {
+                                return `${Math.max(1, Math.round(time * plannedCount(customQuestionCount) / count))} minutes`;
                               }
-                              return `${section?.time || 90} minutes`;
+                              return `${time} minutes`;
                             })()}
                           </span>
                         </div>
                       </div>
                       <div
+                        {...cardA11yProps({ onClick: () => setUseDefaultTime(false) })}
+                        aria-pressed={!useDefaultTime}
                         onClick={() => setUseDefaultTime(false)}
                         className={`p-3 rounded-lg border cursor-pointer transition-all ${
                           !useDefaultTime
@@ -355,6 +357,8 @@ const SetupPanel = ({
                     </label>
                     <div className="space-y-3">
                       <div
+                        {...cardA11yProps({ onClick: () => setUseDefaultQuestionCount(true) })}
+                        aria-pressed={useDefaultQuestionCount}
                         onClick={() => setUseDefaultQuestionCount(true)}
                         className={`p-3 rounded-lg border cursor-pointer transition-all ${
                           useDefaultQuestionCount
@@ -367,16 +371,17 @@ const SetupPanel = ({
                           <span className="text-success-400 font-medium">
                             {(() => {
                               const section = currentConfig.sections.find(s => s.id === selectedSection);
-                              if (selectedSection === 'frq' && selectedSubSection && section?.subSections) {
-                                const subSection = section.subSections.find(sub => sub.id === selectedSubSection);
-                                return `${subSection?.questions || section?.questions || 0} questions`;
-                              }
-                              return `${section?.questions || 0} questions`;
+                              const sub = selectedSection === 'frq' && selectedSubSection
+                                ? section?.subSections?.find(x => x.id === selectedSubSection) : null;
+                              const n = sub?.questions || section?.questions || 0;
+                              return `${n} question${n === 1 ? '' : 's'}`;
                             })()}
                           </span>
                         </div>
                       </div>
                       <div
+                        {...cardA11yProps({ onClick: () => setUseDefaultQuestionCount(false) })}
+                        aria-pressed={!useDefaultQuestionCount}
                         onClick={() => setUseDefaultQuestionCount(false)}
                         className={`p-3 rounded-lg border cursor-pointer transition-all ${
                           !useDefaultQuestionCount
@@ -418,6 +423,13 @@ const SetupPanel = ({
                 transition={{ delay: 0.3 }}
                 className="mt-8 pt-6 border-t border-border"
               >
+                {isGeneratingTest ? (
+                  <GenerationProgress
+                    generated={generationProgress.generated}
+                    total={generationProgress.total}
+                    section={selectedSection}
+                  />
+                ) : (
                 <Button
                   onClick={handleStartTest}
                   disabled={(() => {
@@ -425,16 +437,10 @@ const SetupPanel = ({
                     const hasSubSections = selectedSection === 'frq' && sectionConfig?.subSections && sectionConfig.subSections.length > 0;
 
                     return !selectedSubject || !selectedSection ||
-                           (hasSubSections && !selectedSubSection) || isGeneratingTest;
+                           (hasSubSections && !selectedSubSection);
                   })()}
                   className="w-full py-4 text-lg"
                 >
-                  {isGeneratingTest ? (
-                    <div className="flex items-center gap-3">
-                      <div className="w-5 h-5 border-2 border-border border-t-transparent rounded-full animate-spin"></div>
-                      Generating... {generationProgress.generated}/{generationProgress.total} questions
-                    </div>
-                  ) : (
                     <div className="flex items-center gap-3">
                       <Play strokeWidth={1.5} className="w-6 h-6" />
                       Generate & Start Test
@@ -443,8 +449,8 @@ const SetupPanel = ({
                         // generation time. Reading only the section config made
                         // the button promise "80 questions" while the test
                         // actually generated the custom number.
-                        const custom = parseInt(customQuestionCount, 10);
-                        if (!useDefaultQuestionCount && Number.isFinite(custom) && custom > 0) {
+                        if (!useDefaultQuestionCount && customQuestionCount) {
+                          const custom = plannedCount(customQuestionCount);
                           return ` (${custom} question${custom === 1 ? '' : 's'})`;
                         }
 
@@ -456,11 +462,11 @@ const SetupPanel = ({
                           questionsCount = subSectionConfig?.questions || questionsCount;
                         }
 
-                        return questionsCount > 0 ? ` (${questionsCount} questions)` : '';
+                        return questionsCount > 0 ? ` (${questionsCount} question${questionsCount === 1 ? '' : 's'})` : '';
                       })()}
                     </div>
-                  )}
                 </Button>
+                )}
               </motion.div>
             </Card>
           </motion.div>
@@ -482,8 +488,8 @@ const SetupPanel = ({
                 <div className="flex items-start gap-3">
                   <Target strokeWidth={1.5} className="w-5 h-5 text-content-secondary mt-0.5" />
                   <div>
-                    <h4 className="font-medium text-content-primary mb-3">Adaptive Questions</h4>
-                    <p className="text-sm text-content-muted">AI generates questions tailored to your difficulty level</p>
+                    <h4 className="font-medium text-content-primary mb-3">Real Exam Format</h4>
+                    <p className="text-sm text-content-muted">Question types, counts and timing follow the current College Board exam</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
