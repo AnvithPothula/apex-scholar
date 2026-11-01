@@ -127,7 +127,7 @@ for (const [subj, s] of [...perSubject.entries()].sort((a, b) => b[1].bad / b[1]
 // meant a --firestore run with no --out fell through to the input DEFAULT and
 // silently overwrote the sample's flagged file with 3,560 bank rows.
 const base = args.out
-  || (args.firestore ? 'docs/research/bank' : String(args.input).replace(/\.jsonl$/, ''));
+  || (args.firestore ? 'docs/research/bank' : String(args.input || 'docs/research/sample.jsonl').replace(/\.jsonl$/, ''));
 const out = `${base}.flagged.jsonl`;
 await writeFile(out, flagged.map((f) => JSON.stringify(f)).join('\n') + '\n', 'utf8');
 console.log(`\nwrote ${flagged.length} flagged items -> ${out}`);

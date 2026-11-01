@@ -7,7 +7,7 @@ import { Button, Card, Badge, Input } from '../components/ui/UIComponents';
 import ProgressIndicator from '../components/ui/ProgressIndicator';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { packForSubject } from '../data/packs';
 import { AP_SUBJECTS, subjectName, subjectSlug } from '../constants/subjects';
 import geminiService, { RateLimitError } from '../services/geminiService';
@@ -65,6 +65,7 @@ const DiagnosticTypes = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
   const { subject } = useParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -303,6 +304,7 @@ const DiagnosticTypes = () => {
         questionsAnswered: questions.length,
         correctAnswers: result.correctAnswers,
         scorePercent: result.accuracy,
+        kind: 'diagnostic',
       });
 
       // (No local history state — diagnostic results are persisted to
@@ -814,9 +816,9 @@ const DiagnosticTypes = () => {
                 <div className="w-12 h-12 bg-base-750 rounded-full flex items-center justify-center text-content-primary font-bold text-lg mx-auto mb-4">
                   2
                 </div>
-                <h3 className="font-semibold text-content-primary mb-2">AI Analysis</h3>
+                <h3 className="font-semibold text-content-primary mb-2">Scored by Topic</h3>
                 <p className="text-sm text-content-muted">
-                  Our AI analyzes your responses and identifies knowledge gaps
+                  Your answers are scored topic by topic, so you can see exactly where the gaps are
                 </p>
               </div>
               <div className="text-center">
@@ -1097,7 +1099,7 @@ const DiagnosticTypes = () => {
                 get personalized study recommendations, and access detailed analytics.
               </p>
               <Button
-                onClick={() => navigate('/login')}
+                onClick={() => navigate('/login', { state: { from: location } })}
                 className="bg-content-primary hover:bg-content-primary px-8 py-3 text-lg"
               >
                 Get Started Free

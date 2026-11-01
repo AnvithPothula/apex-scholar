@@ -82,7 +82,7 @@ export async function createClass(user, { name, subjects = [] } = {}) {
       // for display only.
       ownerIds: [user.uid],
       ownerId: user.uid,
-      ownerName: sanitizeDisplayName(user.displayName),
+      ownerName: sanitizeDisplayName(publicName(user)),
       // 0, not 1 — the joinClass call immediately below increments it. Seeding
       // it at 1 made every class report one more member than it had.
       memberCount: 0,
@@ -120,6 +120,16 @@ export async function getClass(code) {
  *
  * @returns {'joined'|'already'|'notfound'|'error'}
  */
+// The name a classmate sees. Email sign-ups only ever had `fullName` (from the
+// sign-up form), never `displayName`, so they showed as "Anonymous" on every
+// leaderboard. Not the email-prefix stand-in AuthContext uses before the
+// profile loads: that isn't a name the student chose to show.
+function publicName(user) {
+  if (user?.displayName) return user.displayName;
+  const prefix = user?.email ? user.email.split('@')[0] : null;
+  return user?.fullName && user.fullName !== prefix ? user.fullName : '';
+}
+
 export async function joinClass(user, code, displayName) {
   if (!user?.uid) return 'error';
   const id = normalizeClassCode(code);
@@ -133,7 +143,7 @@ export async function joinClass(user, code, displayName) {
 
     const memberRef = doc(db, 'classes', id, 'members', user.uid);
     const existing = await getDoc(memberRef);
-    const name = sanitizeDisplayName(displayName || user.displayName);
+    const name = sanitizeDisplayName(displayName || publicName(user));
 
     if (existing.exists()) {
       await setDoc(memberRef, { displayName: name, lastActive: serverTimestamp() }, { merge: true });
@@ -263,7 +273,9 @@ export async function getLeaderboard(code) {
     });
     return rankMembers(rows).slice(0, MAX_MEMBERS_SHOWN);
   } catch (e) {
-    console.error('[classes] getLeaderboard failed', e);
+    // Someone who hasn't joined can't read the roster, by design (the join
+    // page asks before joining). Not an error worth logging.
+    if (e?.code !== 'permission-denied') console.error('[classes] getLeaderboard failed', e);
     return [];
   }
 }

@@ -4,7 +4,7 @@
 //   node capture/record.mjs <shot> [...]   record shots (see shots.mjs)
 //   node capture/record.mjs --all          record every shot
 //
-// Chrome's screencast captures at device pixels (1440x900 at 2x = 2880x1800),
+// Chrome's screencast captures at device pixels (1440x900 at 3x = 4320x2700),
 // so the film can push in on a detail without going soft. Frames arrive only
 // when the page repaints; ffmpeg rebuilds a constant 60 fps clip from their
 // timestamps. Clicks are logged to <shot>.json so Remotion can draw a smooth
@@ -17,16 +17,26 @@ import { fileURLToPath } from 'node:url';
 import { SHOTS } from './shots.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const PROFILE = path.join(here, '..', '.capture-profile');
+// Playwright's bundled "Chrome for Testing" crashed on launch on macOS
+// (SIGBUS BUS_ADRALN) when opened as a window, so the installed Google Chrome
+// is the default. CAPTURE_BROWSER=chromium switches back to the bundled one.
+// Each browser keeps its own profile: a profile written by one Chrome build
+// can fail to open in another.
+const BROWSER = process.env.CAPTURE_BROWSER || 'chrome';
+const PROFILE = path.join(here, '..', BROWSER === 'chromium' ? '.capture-profile' : `.capture-profile-${BROWSER}`);
 const OUT = path.join(here, '..', 'public', 'clips');
 const BASE = process.env.APP_URL || 'http://localhost:3000';
 const VIEWPORT = { width: 1440, height: 900 };
 const FPS = 60;
+// Device pixels per CSS pixel. 3 gives the 4K master footage it never has to upscale.
+const SCALE = Number(process.env.CAPTURE_SCALE || 3);
+const W = VIEWPORT.width * SCALE, H = VIEWPORT.height * SCALE;
 
 const open = () => chromium.launchPersistentContext(PROFILE, {
+  ...(BROWSER === 'chromium' ? {} : { channel: BROWSER }),
   headless: false,
   viewport: VIEWPORT,
-  deviceScaleFactor: 2,
+  deviceScaleFactor: SCALE,
   colorScheme: 'dark',
   args: ['--hide-scrollbars'],
 });
@@ -43,8 +53,12 @@ async function record(name) {
   const shot = SHOTS[name];
   if (!shot) throw new Error(`No shot "${name}". Shots: ${Object.keys(SHOTS).join(', ')}`);
   const ctx = await open();
+  // The film is dark; the app reads its theme from localStorage before render.
+  await ctx.addInitScript(() => localStorage.setItem('apex-scholar-theme', 'dark'));
   const page = ctx.pages()[0] || await ctx.newPage();
-  await page.goto(`${BASE}${shot.url}`, { waitUntil: 'networkidle' });
+  // Not 'networkidle': Firestore's listen channel keeps the network busy forever.
+  await page.goto(`${BASE}${shot.url}`, { waitUntil: 'load' });
+  await page.waitForTimeout(2500);
   await shot.prepare?.(page);
 
   const frameDir = path.join(here, 'frames', name);
@@ -52,11 +66,15 @@ async function record(name) {
   fs.mkdirSync(frameDir, { recursive: true });
   const cdp = await ctx.newCDPSession(page);
   const frames = [];
-  // Ack first and keep frames in memory: acking only after writing a large
-  // image to disk made Chrome wait and drop most frames of every movement.
+  // Ack first, then write without waiting: acking only after a large image hit
+  // the disk made Chrome drop most frames of every movement, and holding them all
+  // in memory ran out of it on long takes (a 100 s FRQ grade is ~5,000 frames).
+  const writes = [];
   cdp.on('Page.screencastFrame', ({ data, metadata, sessionId }) => {
     cdp.send('Page.screencastFrameAck', { sessionId }).catch(() => {});
-    frames.push({ data, t: metadata.timestamp });
+    const file = path.join(frameDir, `${String(frames.length).padStart(5, '0')}.jpg`);
+    frames.push({ file, t: metadata.timestamp });
+    writes.push(fs.promises.writeFile(file, Buffer.from(data, 'base64')));
   });
 
   const events = [];
@@ -66,18 +84,27 @@ async function record(name) {
   const act = {
     page,
     wait: (ms) => page.waitForTimeout(ms),
+    // Every click and typed field gets a still beat before (the drawn cursor
+    // glides in while nothing moves) and after (the result can be read).
     async click(selector) {
-      const box = await page.locator(selector).first().boundingBox();
+      const el = page.locator(selector).first();
+      await el.scrollIntoViewIfNeeded();
+      await page.waitForTimeout(600);
+      const box = await el.boundingBox();
       if (box) log('click', { x: box.x + box.width / 2, y: box.y + box.height / 2 });
-      await page.locator(selector).first().click();
+      await el.click();
+      await page.waitForTimeout(500);
     },
-    async type(selector, text, delay = 55) {
-      const box = await page.locator(selector).first().boundingBox();
+    async type(selector, text, delay = 90) {
+      const el = page.locator(selector).first();
+      await page.waitForTimeout(600);
+      const box = await el.boundingBox();
       if (box) log('type', { x: box.x + 24, y: box.y + box.height / 2, text });
-      await page.locator(selector).first().click();
+      await el.click();
       await page.keyboard.type(text, { delay });
+      await page.waitForTimeout(500);
     },
-    async scroll(dy, ms = 1200) {
+    async scroll(dy, ms = 3000) {
       log('scroll', { dy });
       await page.evaluate(({ dy, ms }) => new Promise((done) => {
         // The app scrolls an inner panel, not always the window: use whichever
@@ -95,32 +122,76 @@ async function record(name) {
         requestAnimationFrame(step);
       }), { dy, ms });
     },
+    async hover(selector, ms = 600) {
+      const box = await page.locator(selector).first().boundingBox();
+      if (box) log('move', { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+      await page.locator(selector).first().hover();
+      await page.waitForTimeout(ms);
+    },
+    // Drags a range input's thumb to `value` over `ms`, like a hand would.
+    async drag(selector, value, ms = 1200) {
+      const el = page.locator(selector).first();
+      const { min, max, cur } = await el.evaluate((i) => ({ min: +i.min || 0, max: +(i.max || 100), cur: +i.value }));
+      const box = await el.boundingBox();
+      const xAt = (v) => box.x + 8 + ((v - min) / (max - min)) * (box.width - 16);
+      const y = box.y + box.height / 2;
+      const steps = Math.max(10, Math.round(ms / 16));
+      log('drag', { x: xAt(cur), y, toX: xAt(value), ms });
+      const ev = events[events.length - 1]; const began = Date.now();
+      await page.mouse.move(xAt(cur), y);
+      await page.mouse.down();
+      for (let i = 1; i <= steps; i++) {
+        const k = i / steps; const e = k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2;
+        await page.mouse.move(xAt(cur) + (xAt(value) - xAt(cur)) * e, y);
+        await page.waitForTimeout(ms / steps);
+      }
+      await page.mouse.up();
+      ev.ms = Date.now() - began; // repaints slow the moves; the cursor layer needs the real length
+
+    },
+    // Smooth-scrolls until `selector` sits `offset` px below the top of the viewport.
+    async scrollTo(selector, ms = 1200, offset = 140) {
+      const top = await page.locator(selector).first().evaluate((e) => e.getBoundingClientRect().top);
+      await this.scroll(top - offset, ms);
+    },
   };
 
-  await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 95, everyNthFrame: 1, maxWidth: 2880, maxHeight: 1800 });
+  await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 95, everyNthFrame: 1, maxWidth: W, maxHeight: H });
   await page.waitForTimeout(400);
-  await shot.run(act);
+  try {
+    await shot.run(act);
+  } catch (e) {
+    // Leave evidence of where it stopped.
+    await page.screenshot({ path: path.join(here, 'frames', `${name}-error.png`) }).catch(() => {});
+    await ctx.close();
+    throw e;
+  }
   await page.waitForTimeout(600);
   await cdp.send('Page.stopScreencast');
+  // Frames only arrive on repaints, so a still ending would be cut at the last one.
+  const tEnd = Date.now() / 1000;
   await ctx.close();
 
   if (frames.length < 2) throw new Error(`Only ${frames.length} frame(s) captured for ${name}`);
-  frames.forEach((f, i) => {
-    f.file = path.join(frameDir, `${String(i).padStart(5, '0')}.jpg`);
-    fs.writeFileSync(f.file, Buffer.from(f.data, 'base64'));
-  });
+  await Promise.all(writes);
   // Hold each frame until the next one arrived, then resample to 60 fps.
   const list = frames.map((f, i) => {
-    const dur = i + 1 < frames.length ? Math.max(1 / FPS, frames[i + 1].t - f.t) : 0.5;
+    const dur = i + 1 < frames.length ? Math.max(1 / FPS, frames[i + 1].t - f.t) : Math.max(0.5, tEnd - f.t);
     return `file '${f.file}'\nduration ${dur.toFixed(4)}`;
   }).join('\n') + `\nfile '${frames[frames.length - 1].file}'\n`;
   const listFile = path.join(frameDir, 'list.txt');
   fs.writeFileSync(listFile, list);
   const mp4 = path.join(OUT, `${name}.mp4`);
   const ff = spawnSync('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', listFile,
-    '-vf', `fps=${FPS},scale=2880:1800:flags=lanczos,format=yuv420p`, '-c:v', 'libx264', '-crf', '14', '-preset', 'slow', mp4]);
+    '-vf', `fps=${FPS},scale=${W}:${H}:flags=lanczos,format=yuv420p`, '-c:v', 'libx264', '-crf', '14', '-preset', 'slow', mp4]);
   if (ff.status !== 0) throw new Error(ff.stderr.toString());
-  fs.writeFileSync(path.join(OUT, `${name}.json`), JSON.stringify({ viewport: VIEWPORT, scale: 2, fps: FPS, events }, null, 2));
+  // Event times are from t0; the clip starts at the first frame, so shift them.
+  const lag = frames[0].t - t0;
+  const duration = Math.max(tEnd, frames[frames.length - 1].t + 0.5) - frames[0].t;
+  fs.writeFileSync(path.join(OUT, `${name}.json`), JSON.stringify({
+    viewport: VIEWPORT, scale: SCALE, fps: FPS, duration,
+    events: events.map((e) => ({ ...e, t: e.t - lag })),
+  }, null, 2));
   console.log(`${name}: ${frames.length} frames -> ${path.relative(process.cwd(), mp4)}`);
 }
 

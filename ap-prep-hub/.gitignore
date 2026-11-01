@@ -37,3 +37,5 @@ yarn-error.log*
 
 # Derived from a sweep run — reproduce with scripts/sweep-item-flaws.mjs
 docs/research/*.flagged.jsonl
+docs/research/bank.keys.*
+docs/research/bank.revisions.*

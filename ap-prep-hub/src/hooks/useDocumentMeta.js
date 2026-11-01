@@ -8,9 +8,19 @@ import { useEffect } from 'react';
  * route sets its own, and blanking in between would leave a flash of the
  * generic title in the tab.
  */
-export default function useDocumentMeta({ title, description, canonical }) {
+export default function useDocumentMeta({ title, description, canonical, robots }) {
   useEffect(() => {
     if (title) document.title = title;
+
+    if (robots) {
+      let tag = document.querySelector('meta[name="robots"]');
+      if (!tag) {
+        tag = document.createElement('meta');
+        tag.setAttribute('name', 'robots');
+        document.head.appendChild(tag);
+      }
+      tag.setAttribute('content', robots);
+    }
 
     if (description) {
       let tag = document.querySelector('meta[name="description"]');
@@ -31,5 +41,5 @@ export default function useDocumentMeta({ title, description, canonical }) {
       }
       link.setAttribute('href', canonical);
     }
-  }, [title, description, canonical]);
+  }, [title, description, canonical, robots]);
 }

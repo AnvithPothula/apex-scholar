@@ -1,5 +1,5 @@
 /**
- * The response log is append-only and nothing reads it yet, which is exactly
+ * The response log is append-only and little reads it yet, which is exactly
  * the situation where a silent defect survives for months and then turns out to
  * have poisoned every row. These tests pin the three properties that decide
  * whether the data is usable when something finally does read it:
@@ -16,11 +16,17 @@ jest.mock('firebase/firestore', () => ({
   doc: jest.fn(),
   serverTimestamp: jest.fn(),
   writeBatch: jest.fn(),
+  query: jest.fn(),
+  where: jest.fn(),
+  limit: jest.fn(),
+  getDocs: jest.fn(),
 }));
 jest.mock('../config/firestore', () => ({ db: {} }));
 
 const firestore = require('firebase/firestore');
-const { normalizeRow, logResponses, logResponse, SOURCES } = require('./responseLog');
+const {
+  normalizeRow, logResponses, logResponse, SOURCES, ROWS_PER_SET, flattenSets, getMyResponses,
+} = require('./responseLog');
 
 const row = (over = {}) => ({
   itemId: 'q1', subject: 'AP Statistics', source: 'practiceTest',
@@ -34,8 +40,8 @@ const row = (over = {}) => ({
 beforeEach(() => {
   mockCommit.mockReset().mockImplementation(() => Promise.resolve());
   mockSet.mockReset();
-  firestore.collection.mockImplementation(() => ({ __col: 'responses' }));
-  firestore.doc.mockImplementation(() => ({ __doc: true }));
+  firestore.collection.mockImplementation((_db, name) => ({ __col: name }));
+  firestore.doc.mockImplementation((col) => ({ __doc: col.__col }));
   firestore.serverTimestamp.mockImplementation(() => '__ts');
   firestore.writeBatch.mockImplementation(() => ({ set: mockSet, commit: mockCommit }));
 });
@@ -106,21 +112,53 @@ describe('the field firestore.rules actually checks', () => {
 });
 
 describe('logResponses', () => {
-  it('writes one document per row', async () => {
-    expect(await logResponses('u1', [row(), row({ itemId: 'q2' })])).toBe(2);
-    expect(mockSet).toHaveBeenCalledTimes(2);
+  const written = () => mockSet.mock.calls.map(([ref, data]) => ({ col: ref.__doc, data }));
+
+  it('writes one responseSets document per test, holding every row', async () => {
+    // One write instead of one per answer: Firebase's free plan allows 20,000
+    // writes a day for the whole site.
+    expect(await logResponses('u1', [row(), row({ itemId: 'q2', correct: true })])).toBe(2);
     expect(mockCommit).toHaveBeenCalledTimes(1);
+    const sets = written();
+    expect(sets).toHaveLength(1);
+    expect(sets[0].col).toBe('responseSets');
+    expect(sets[0].data).toMatchObject({ userId: 'u1', source: 'practiceTest', subject: 'AP Statistics', count: 2, at: '__ts' });
+    expect(sets[0].data.rows.map((r) => [r.itemId, r.chosen, r.correct])).toEqual([['q1', 2, false], ['q2', 2, true]]);
   });
 
-  it('chunks past the Firestore batch limit instead of losing the tail', async () => {
+  it('keeps serverTimestamp out of the rows, which Firestore refuses inside arrays', async () => {
+    await logResponses('u1', [row()]);
+    const [set] = written();
+    for (const r of set.data.rows) {
+      expect(r).not.toHaveProperty('at');
+      expect(r).not.toHaveProperty('userId');
+    }
+  });
+
+  it('splits a very long session into several sets in one commit', async () => {
     const many = Array.from({ length: 1000 }, (_, i) => row({ itemId: `q${i}` }));
     expect(await logResponses('u1', many)).toBe(1000);
-    expect(mockSet).toHaveBeenCalledTimes(1000);
-    expect(mockCommit).toHaveBeenCalledTimes(3); // 450 + 450 + 100
+    expect(mockCommit).toHaveBeenCalledTimes(1);
+    const sets = written();
+    expect(sets).toHaveLength(Math.ceil(1000 / ROWS_PER_SET));
+    expect(sets.reduce((n, s) => n + s.data.rows.length, 0)).toBe(1000);
+    expect(Math.max(...sets.map((s) => s.data.rows.length))).toBeLessThanOrEqual(ROWS_PER_SET);
+  });
+
+  it('falls back to one document per row when the new rules are not deployed yet', async () => {
+    mockCommit
+      .mockImplementationOnce(() => Promise.reject(Object.assign(new Error('denied'), { code: 'permission-denied' })))
+      .mockImplementation(() => Promise.resolve());
+    expect(await logResponses('u1', [row(), row({ itemId: 'q2' })])).toBe(2);
+    const legacy = written().filter((w) => w.col === 'responses');
+    expect(legacy.map((w) => w.data.itemId)).toEqual(['q1', 'q2']);
+    expect(legacy[0].data).toMatchObject({ userId: 'u1', at: '__ts' });
   });
 
   it('never throws at the caller when the write fails', async () => {
     mockCommit.mockImplementation(() => Promise.reject(new Error('offline')));
+    await expect(logResponses('u1', [row()])).resolves.toBe(0);
+    mockCommit.mockImplementation(() => Promise.reject(Object.assign(new Error('denied'), { code: 'permission-denied' })));
     await expect(logResponses('u1', [row()])).resolves.toBe(0);
   });
 
@@ -138,5 +176,53 @@ describe('logResponses', () => {
 
   it('logResponse writes a single row', async () => {
     expect(await logResponse('u1', row())).toBe(1);
+  });
+});
+
+describe('reading the log back', () => {
+  it('flattens sets into the same rows a responses document holds', () => {
+    const at = { toMillis: () => 5 };
+    expect(flattenSets([{ userId: 'u1', at, rows: [{ itemId: 'q1', correct: true }, null] }, { rows: 'junk' }, null]))
+      .toEqual([{ itemId: 'q1', correct: true, userId: 'u1', at }]);
+  });
+
+  it('returns rows from sets and from older per-answer documents', async () => {
+    firestore.query.mockImplementation((col) => col);
+    firestore.getDocs.mockImplementation(async (col) => ({
+      docs: (col.__col === 'responseSets'
+        ? [{ userId: 'u1', at: 1, rows: [{ itemId: 'a', subject: 'AP Biology', unit: 'u1', correct: true }, { itemId: 'b', correct: false }] }]
+        : [{ userId: 'u1', itemId: 'old', correct: true, at: 0 }]
+      ).map((d) => ({ data: () => d })),
+    }));
+    const rows = await getMyResponses('u1');
+    expect(rows.map((r) => r.itemId)).toEqual(['a', 'b', 'old']);
+    expect(rows[0]).toMatchObject({ userId: 'u1', subject: 'AP Biology', unit: 'u1', correct: true, at: 1 });
+  });
+
+  it('still returns what it can when one collection fails to read', async () => {
+    firestore.query.mockImplementation((col) => col);
+    firestore.getDocs.mockImplementation(async (col) => {
+      if (col.__col === 'responses') throw new Error('offline');
+      return { docs: [{ data: () => ({ userId: 'u1', rows: [{ itemId: 'a', correct: true }] }) }] };
+    });
+    expect((await getMyResponses('u1')).map((r) => r.itemId)).toEqual(['a']);
+    expect(await getMyResponses('')).toEqual([]);
+  });
+});
+
+describe('responseSets rules', () => {
+  it('are append-only, owner-only, and cap rows at ROWS_PER_SET', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const rules = fs.readFileSync(path.resolve(__dirname, '..', '..', 'firestore.rules'), 'utf8');
+    const start = rules.indexOf('match /responseSets/');
+    expect(start).toBeGreaterThan(-1);
+    const rest = rules.slice(start + 1);
+    const end = rest.indexOf('match /');
+    const block = rest.slice(0, end === -1 ? rest.length : end);
+    expect(block).toMatch(/allow read: if ownsExisting\(\)/);
+    expect(block).toMatch(/allow create: if ownsIncoming\(\)/);
+    expect(block).toMatch(/allow update, delete: if false/);
+    expect(block).toMatch(new RegExp(`rows\\.size\\(\\) <= ${ROWS_PER_SET}\\b`));
   });
 });

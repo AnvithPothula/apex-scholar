@@ -16,7 +16,7 @@ const SchoologyCallback = lazy(retryingImport(() =>
 ));
 import GuestGate from './components/GuestGate';
 import { metaFor } from './constants/routeMeta';
-import { canonicalFor } from './utils/pageMeta';
+import { canonicalFor, INDEX_ROBOTS } from './utils/pageMeta';
 import useDocumentMeta from './hooks/useDocumentMeta';
 import { Calendar, FileQuestion, Zap, Calculator, Settings as SettingsIcon, Activity, Brain, TrendingUp, Users } from 'lucide-react';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -82,21 +82,69 @@ function RouteMeta() {
     // Canonicalise to the path itself. Passing undefined when there is no entry
     // leaves whatever the owning page set, rather than stamping the homepage.
     canonical: meta ? canonicalFor(pathname) : undefined,
+    robots: meta ? meta.robots || INDEX_ROBOTS : undefined,
   });
   return null;
 }
 
 // Per-feature copy shown to guests on the sign-in upsell (GuestGate).
 // AI Tutors is intentionally absent — it's open to guests.
+// `heading` and `about` are for the indexed pages: Googlebot is a guest, so
+// without them each of these ranked on a 60-word sign-in card.
 const FEATURES = {
-  scheduler:   { icon: Calendar,     title: 'Smart Scheduler',  preview: '/guest-previews/scheduler.jpg',   blurb: 'Sign in for free to build an AI study schedule that adapts to your subjects, deadlines, and Schoology assignments.' },
-  practice:    { icon: FileQuestion, title: 'Practice Tests',    preview: '/guest-previews/practice.jpg',    blurb: 'Sign in for free to generate full-length AP practice tests with timed sections and detailed scoring.' },
-  flashcards:  { icon: Zap,          title: 'Flashcards',        preview: '/guest-previews/flashcards.jpg',  blurb: 'Sign in for free to create, study, and share flashcard decks with spaced repetition.' },
-  solver:      { icon: Calculator,   title: 'Problem Solver',    preview: '/guest-previews/solver.jpg',      blurb: 'Sign in for free to get step-by-step solutions to any problem from a photo or text.' },
+  scheduler: {
+    icon: Calendar, title: 'Smart Scheduler', preview: '/guest-previews/scheduler.jpg',
+    heading: 'AP study scheduler with Schoology sync',
+    blurb: 'Sign in for free to build an AI study schedule that adapts to your subjects, deadlines, and Schoology assignments.',
+    about: [
+      'Add your assignments, tests and AP exam dates, or pull them in from Schoology.',
+      'The scheduler spreads study sessions across the days before each deadline, inside the hours you choose to study, and skips the times you block off.',
+      'When plans change, rebuild the schedule and everything you have not done yet moves to a new slot.',
+    ],
+  },
+  practice: {
+    icon: FileQuestion, title: 'Practice Tests', preview: '/guest-previews/practice.jpg',
+    heading: 'AP practice tests, generated and scored',
+    blurb: 'Sign in for free to generate full-length AP practice tests with timed sections and detailed scoring.',
+    about: [
+      'Pick a subject and the units you want, and get a practice test in the format of the real AP exam: multiple-choice questions, plus free-response questions for the subjects that have them.',
+      'Sections are timed like the real exam. Every answer choice comes with an explanation, and free responses are graded against the scoring rubric, point by point.',
+      'Your results become a predicted 1–5 score and a list of the units to work on next. Every question you miss goes into your review queue.',
+    ],
+  },
+  flashcards: {
+    icon: Zap, title: 'Flashcards', preview: '/guest-previews/flashcards.jpg',
+    heading: 'AP flashcards with spaced repetition',
+    blurb: 'Sign in for free to create, study, and share flashcard decks with spaced repetition.',
+    about: [
+      'Make a deck for any AP class, or import a set you already have from Quizlet.',
+      'Spaced repetition schedules every card: the ones you know come back later, the ones you miss come back soon.',
+      'Share a deck publicly so classmates can study it, or study decks other students have shared.',
+    ],
+  },
+  solver: {
+    icon: Calculator, title: 'Problem Solver', preview: '/guest-previews/solver.jpg',
+    heading: 'AP problem solver, step by step',
+    blurb: 'Sign in for free to get step-by-step solutions to any problem from a photo or text.',
+    about: [
+      'Take a photo of a problem or type it in. The solver works through it step by step, so you see the method and not just the answer.',
+      'Each solution lists the key concepts it uses and the common mistakes to watch for.',
+      'Built for AP math and science: calculus, precalculus, statistics, physics, chemistry and more.',
+    ],
+  },
   settings:    { icon: SettingsIcon, title: 'Settings',          preview: '/guest-previews/settings.jpg',    blurb: 'Sign in for free to pick your AP subjects, customize your tutor, and manage your account.' },
   diagnostics: { icon: Activity,     title: 'Diagnostics',       preview: '/guest-previews/diagnostics.jpg', blurb: 'Sign in for free to run a diagnostic that pinpoints your strengths and weak spots per subject.' },
   review:      { icon: Brain,        title: 'Review',            blurb: 'Sign in for free to turn every question you miss into a spaced-repetition card that comes back until it sticks.' },
-  practiceHub: { icon: FileQuestion, title: 'Practice',          blurb: 'Sign in for free to take AP practice tests, study flashcards, and review every question you have missed.' },
+  practiceHub: {
+    icon: FileQuestion, title: 'Practice',
+    heading: 'AP practice: tests, flashcards and review',
+    blurb: 'Sign in for free to take AP practice tests, study flashcards, and review every question you have missed.',
+    about: [
+      'Practice tests in the format of the real AP exam, scored with a predicted 1–5.',
+      'Flashcard decks with spaced repetition, your own or ones other students have shared.',
+      'A review queue built from every question you got wrong, so each one comes back until you get it right.',
+    ],
+  },
   progress:    { icon: TrendingUp,   title: 'Progress',          blurb: 'Sign in for free to track your accuracy, streaks, and measured weak spots across every AP subject.' },
   classes:     { icon: Users,        title: 'Classes',           blurb: 'Sign in for free to join your class or club with a link and compare progress on a shared leaderboard.' },
 };

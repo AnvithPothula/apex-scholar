@@ -1,5 +1,6 @@
 import {
   consume,
+  refund,
   consumeTestDaily,
   setBypass,
   setUser,
@@ -27,7 +28,7 @@ describe('aiUsageLimiter general budget (guest/localStorage)', () => {
   test('allows tasks until the 5-hour budget is spent, then throws', async () => {
     const sends = Math.ceil(GUEST_5H_LIMIT / TASK_COST.tutor);
     for (let i = 0; i < sends; i++) {
-      await expect(consume('tutor')).resolves.toBeUndefined();
+      await expect(consume('tutor')).resolves.toBe(true);
     }
     await expect(consume('tutor')).rejects.toBeInstanceOf(AiUsageLimitError);
     await expect(consume('ask')).rejects.toMatchObject({ code: 'ai_usage_limit', scope: '5h' });
@@ -50,7 +51,7 @@ describe('aiUsageLimiter general budget (guest/localStorage)', () => {
       week: { start: Date.now(), count: 1 },
       testDay: { day: '1970-01-01', count: 0 },
     }));
-    await expect(consume('general')).resolves.toBeUndefined();
+    await expect(consume('general')).resolves.toBe(true);
   });
 
   test('enforces the weekly cap independently of the 5h window', async () => {
@@ -66,12 +67,35 @@ describe('aiUsageLimiter general budget (guest/localStorage)', () => {
   test('exempt categories and admins are never metered', async () => {
     expect(isExempt('practiceTest')).toBe(true);
     for (let i = 0; i < 40; i++) {
-      await expect(consume('practiceTest')).resolves.toBeUndefined();
+      await expect(consume('practiceTest')).resolves.toBe(false);
     }
     setBypass(true);
     for (let i = 0; i < 40; i++) {
-      await expect(consume('general')).resolves.toBeUndefined();
+      await expect(consume('general')).resolves.toBe(false);
     }
+  });
+
+  test('a refund gives back what a failed call was charged, never below zero', async () => {
+    await consume('solver');
+    await consume('tutor');
+    await refund('solver');
+    expect(peekGeneral().fiveHourRemaining).toBe(GUEST_5H_LIMIT - TASK_COST.tutor);
+    await refund('flashcards');
+    expect(peekGeneral().fiveHourRemaining).toBe(GUEST_5H_LIMIT);
+  });
+
+  test('a refund leaves a window alone once it has rolled over', async () => {
+    const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000;
+    const state = {
+      fiveHour: { start: sixHoursAgo, count: 200 },
+      week: { start: Date.now(), count: 200 },
+      testDay: { day: '1970-01-01', count: 0 },
+    };
+    localStorage.setItem(KEY, JSON.stringify(state));
+    await refund('tutor');
+    const after = JSON.parse(localStorage.getItem(KEY));
+    expect(after.fiveHour).toEqual(state.fiveHour);
+    expect(after.week.count).toBe(200 - TASK_COST.tutor);
   });
 });
 

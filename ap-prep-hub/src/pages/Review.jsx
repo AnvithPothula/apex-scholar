@@ -535,7 +535,7 @@ export default function Review() {
       {lastInterval && (
         <p className="text-caption text-content-muted mt-4 flex items-center gap-1.5">
           <RotateCcw className="w-3.5 h-3.5" strokeWidth={1.5} />
-          Last card scheduled for {formatDue(lastInterval)}.
+          Last card comes back {formatDue(lastInterval)}.
         </p>
       )}
     </Shell>

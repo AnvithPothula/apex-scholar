@@ -354,10 +354,10 @@ const Settings = () => {
     setTimeout(() => setMessage(''), 3500);
   }, []);
 
-  const handleNameSave = async () => {
+  const handleNameSave = useCallback(async () => {
     if (!user?.uid) return;
     const trimmed = displayName.trim();
-    if (trimmed === (user?.displayName || user?.fullName || '')) return;
+    if (!trimmed || trimmed === (user?.displayName || user?.fullName || '')) return;
     try {
       await updateUserProfile({ displayName: trimmed });
       setMessage('Name updated!');
@@ -367,7 +367,14 @@ const Settings = () => {
       setMessage('Error: Could not save your name.');
       setTimeout(() => setMessage(''), 5000);
     }
-  };
+  }, [user, displayName, updateUserProfile]);
+
+  // Save shortly after typing stops, not only on blur: leaving the page
+  // straight from the field never blurred it, so the new name was lost.
+  useEffect(() => {
+    const t = setTimeout(handleNameSave, 1200);
+    return () => clearTimeout(t);
+  }, [handleNameSave]);
 
   const handleGradientSelect = async (gradient) => {
     if (!user?.uid || gradient === user?.avatarGradient) {

@@ -29,7 +29,11 @@ async function safely(label, fn) {
 /**
  * A finished practice test.
  * @param {string} userId
- * @param {object} info { subject, questionsAnswered, correctAnswers, durationMinutes, scorePercent }
+ * @param {object} info { subject, questionsAnswered, correctAnswers, durationMinutes, scorePercent, kind }
+ *   kind: 'test' (default) for a real practice test. The start check and
+ *   diagnostics pass their own kind: they still count as study (streak, weekly
+ *   chart) but not toward the practice-test achievements, which they used to
+ *   unlock without a test ever being taken.
  */
 export async function recordPracticeTest(userId, info = {}) {
   if (!userId) return;
@@ -40,10 +44,11 @@ export async function recordPracticeTest(userId, info = {}) {
     durationMinutes = 0,
     scorePercent = null,
     fullLength = false,
+    kind = 'test',
   } = info;
 
   await Promise.all([
-    safely('practice test achievement', () =>
+    kind === 'test' && safely('practice test achievement', () =>
       achievementsService.trackActivity(userId, 'complete_practice_test', {
         score: scorePercent,
         subject,

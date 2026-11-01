@@ -32,6 +32,17 @@ export function studyWindowEnd(date, endHour) {
   return end;
 }
 
+// Shortest session the day scheduler will book (see generateCognitiveOptimizedDaySchedule).
+const MIN_SESSION_MINUTES = 15;
+
+/** The last date key ('yyyy-MM-dd') a task may be scheduled on, or null for no limit. */
+function deadlineKey(task) {
+  const raw = task.deadline || task.dueDate;
+  if (!raw) return null;
+  const d = typeof raw.toDate === 'function' ? raw.toDate() : new Date(raw);
+  return Number.isNaN(d.getTime()) ? null : format(startOfDay(d), 'yyyy-MM-dd');
+}
+
 // Gate debug logging behind development mode to avoid console spam in production
 const IS_DEV = process.env.NODE_ENV === 'development';
 const debugLog = IS_DEV ? (...args) => console.log(...args) : () => {}; // eslint-disable-line no-console
@@ -1584,6 +1595,19 @@ class IntelligentScheduler {
     for (let i = 0; i < 14; i++) {
       const day = new Date(now);
       day.setDate(day.getDate() + i);
+
+      // Today only counts if a session still fits in what's left of the study
+      // window. At 9:40 pm with the default 10 pm end, today got the first
+      // sessions of every task, none of them fit, and the student saw "Could
+      // not generate a schedule" for work due next week.
+      if (i === 0) {
+        const endHour = this.userPreferences.studyEndTime ?? DEFAULT_STUDY_END_HOUR;
+        const minutesLeft = (studyWindowEnd(day, endHour) - now) / 60000;
+        if (minutesLeft < MIN_SESSION_MINUTES + 15) {
+          debugLog(`⏭️ Skipping today: only ${Math.max(0, Math.round(minutesLeft))} minutes left in the study window`);
+          continue;
+        }
+      }
       
       // Skip weekends if user preference is set
       if (!this.userPreferences.weekendStudy && isWeekend(day)) {
@@ -2127,9 +2151,24 @@ class IntelligentScheduler {
     debugLog("🧠 Merging schedule with cognitive optimization...");
     
     const mergedSchedule = { ...existingSchedule };
-    
-    // Process each day's new allocations
-    Object.entries(newAllocations).forEach(([dateKey, newTasks]) => {
+
+    // Sessions a day had no room for move to the next day, as long as that is
+    // still on or before the task's deadline. Allocation assigns days by
+    // cognitive load alone, without knowing what times are actually free, so
+    // a full day (or an evening with the window nearly closed) used to drop
+    // its overflow silently.
+    let carried = [];
+    const dayKeys = Object.keys(newAllocations).sort();
+
+    // Process each day's new allocations, in date order so overflow moves forward
+    dayKeys.forEach((dateKey) => {
+      const stillAllowed = carried.filter((t) => {
+        const due = deadlineKey(t);
+        // No deadline, or already overdue when scheduling started: keep trying.
+        return !due || due < dayKeys[0] || dateKey <= due;
+      });
+      const newTasks = [...stillAllowed, ...newAllocations[dateKey]];
+      carried = [];
       if (newTasks.length === 0) {
         // No new tasks for this day, keep existing schedule
         if (!mergedSchedule[dateKey]) {
@@ -2144,7 +2183,9 @@ class IntelligentScheduler {
       // Generate schedule for new tasks with cognitive optimization
       const [year, month, day] = dateKey.split('-').map(Number);
       const currentDay = new Date(year, month - 1, day);
-      const newDaySchedule = this.generateCognitiveOptimizedDaySchedule(newTasks, currentDay, existingDaySchedule);
+      const unplaced = [];
+      const newDaySchedule = this.generateCognitiveOptimizedDaySchedule(newTasks, currentDay, existingDaySchedule, unplaced);
+      carried = unplaced;
       
       // Combine existing and new schedule items
       const combinedSchedule = [...existingDaySchedule, ...newDaySchedule];
@@ -2180,7 +2221,7 @@ class IntelligentScheduler {
    * Generate cognitive-optimized day schedule
    * Uses circadian rhythms, cognitive load theory, and optimal session timing
    */
-  generateCognitiveOptimizedDaySchedule(tasks, date, existingDaySchedule = []) {
+  generateCognitiveOptimizedDaySchedule(tasks, date, existingDaySchedule = [], unplaced = null) {
     debugLog(`🧠 generateCognitiveOptimizedDaySchedule called for ${format(date, 'yyyy-MM-dd')}`);
     debugLog(`📝 Allocated tasks count: ${tasks?.length || 0}`);
     debugLog(`📋 Existing day schedule items: ${existingDaySchedule?.length || 0}`);
@@ -2205,10 +2246,15 @@ class IntelligentScheduler {
       preferredTimeSlots: t.preferredTimeSlots
     })));
     
+    // Whatever doesn't fit today is reported back through `unplaced` (when the
+    // caller passes an array) so it can be tried on a later day.
+    const leftOver = (task) => { if (unplaced) unplaced.push(task); };
+
     for (const task of cognitiveOptimizedTasks) {
       if (remainingCognitiveCapacity <= 0.1) {
         debugLog(`🧠 Cognitive capacity exhausted for ${format(date, 'yyyy-MM-dd')}`);
-        break;
+        leftOver(task);
+        continue;
       }
       
       debugLog(`🧠 Processing cognitive task: ${task.taskName || task.name}`);
@@ -2216,8 +2262,9 @@ class IntelligentScheduler {
       // Calculate session duration based on cognitive factors
       const sessionDuration = this.calculateCognitiveSessionDuration(task, remainingCognitiveCapacity);
       
-      if (sessionDuration < 15) {
-        debugLog(`⏭️ Skipping task ${task.taskName || task.name} - session too short (${sessionDuration}min < 15min)`);
+      if (sessionDuration < MIN_SESSION_MINUTES) {
+        debugLog(`⏭️ Skipping task ${task.taskName || task.name} - session too short (${sessionDuration}min < ${MIN_SESSION_MINUTES}min)`);
+        leftOver(task);
         continue;
       }
       
@@ -2236,6 +2283,7 @@ class IntelligentScheduler {
         debugLog(`🧠 Remaining cognitive capacity: ${remainingCognitiveCapacity.toFixed(2)}`);
       } else {
         debugLog(`❌ No optimal time slot found for cognitive task: ${task.taskName || task.name}`);
+        leftOver(task);
       }
     }
     
@@ -2361,21 +2409,25 @@ class IntelligentScheduler {
     
     // Round to standard time increments (5-minute intervals for shorter sessions, 15-minute for longer)
     const roundedDuration = this.roundToStandardIncrement(adjustedDuration);
-    
-    return roundedDuration;
+
+    // Never leave a remainder too short to schedule: it would be skipped on
+    // every later day and the task would come up short (a 90-minute task got
+    // 45 + 40 and lost the last 5). Fold it into this session instead.
+    if (allocatedMinutes > roundedDuration && allocatedMinutes - roundedDuration < MIN_SESSION_MINUTES) {
+      return Math.round(allocatedMinutes);
+    }
+    // Nor schedule more than the task needs.
+    return Math.min(roundedDuration, Math.round(allocatedMinutes));
   }
 
   /**
    * Round duration to standard time increments for cleaner scheduling
    */
   roundToStandardIncrement(duration) {
-    // For shorter sessions (≤30 min), round to 5-minute increments
-    if (duration <= 30) {
+    // Up to an hour, 5-minute increments. Rounding 31-60 to the nearest 10
+    // turned a 45-minute task into a 50-minute session.
+    if (duration <= 60) {
       return Math.round(duration / 5) * 5;
-    }
-    // For medium sessions (≤60 min), round to 10-minute increments  
-    else if (duration <= 60) {
-      return Math.round(duration / 10) * 10;
     }
     // For longer sessions (>60 min), round to 15-minute increments
     else {

@@ -540,11 +540,13 @@ export const ROUTE_META = {
       'One place for AP practice: generated tests, flashcard decks, and a review queue built from the questions you got wrong.',
   },
   '/login': {
-    // In the sitemap, so it needs its own canonical like any other URL.
-    // Low search value, but a login page silently claiming to be the homepage
-    // is exactly the bug this table exists to remove.
+    // Needs its own canonical: a login page silently claiming to be the
+    // homepage is exactly the bug this table exists to remove. Not indexed
+    // (2026-10-24): it was one of only two pages Google listed, under the
+    // homepage's title, and no one searches for a sign-in form.
     title: 'Sign in — Apex Scholar',
     description: 'Sign in to Apex Scholar to save your progress, decks and study schedule across devices.',
+    robots: 'noindex, follow',
   },
   '/privacy': {
     title: 'Privacy Policy — Apex Scholar',
@@ -559,25 +561,31 @@ export const ROUTE_META = {
   // Signed-in pages. Not in the sitemap, but useDocumentMeta never resets, so
   // without an entry a client-side hop from /flashcards to /progress left the
   // tab titled "AP Flashcards…" (and GA logged the page view under that title).
+  // A guest (and a crawler) sees only a sign-in prompt here, so not indexed.
   '/progress': {
     title: 'Your Progress — Apex Scholar',
     description: 'Accuracy, streaks, weekly activity and measured weak spots across every AP subject you practise.',
+    robots: 'noindex, follow',
   },
   '/review': {
     title: 'Review Queue — Apex Scholar',
     description: 'Spaced-repetition review of every practice question you missed, scheduled to come back before you forget it.',
+    robots: 'noindex, follow',
   },
   '/classes': {
     title: 'Classes — Apex Scholar',
     description: 'Join a class or club with a link and compare practice-test accuracy on a shared leaderboard.',
+    robots: 'noindex, follow',
   },
   '/diagnostics': {
     title: 'Diagnostics — Apex Scholar',
     description: 'A short diagnostic per AP subject that pinpoints which units you already know and which need work.',
+    robots: 'noindex, follow',
   },
   '/settings': {
     title: 'Settings — Apex Scholar',
     description: 'Choose your AP subjects, personalise the AI tutor, and manage email preferences and integrations.',
+    robots: 'noindex, follow',
   },
 };
 
@@ -586,5 +594,16 @@ export function metaFor(pathname) {
   if (!pathname) return null;
   // Trailing slashes are the same page; Netlify serves both.
   const p = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
-  return ROUTE_META[p] || null;
+  if (ROUTE_META[p]) return ROUTE_META[p];
+  // A class's page (and join link) kept the homepage's title, so the tab
+  // said nothing about it.
+  if (p.startsWith('/classes/')) return CLASS_JOIN_META;
+  return null;
 }
+
+const CLASS_JOIN_META = {
+  // Members and invitees both land here, so it names the page, not the step.
+  title: 'Class leaderboard — Apex Scholar',
+  description: 'A class on Apex Scholar. Join with this link to see the leaderboard and compare practice-test accuracy.',
+  robots: 'noindex, follow',
+};

@@ -92,6 +92,15 @@ describe('itemFlaws', () => {
     expect(detectFlaws(item({ choices: ['3', '  ', '5', '6'] }))).toContain('blank_choice');
   });
 
+  it('quarantines an explanation where the model second-guesses itself', () => {
+    const talky = item({ explanations: ['too low', 'right. Wait, let\'s recheck: 2+2=4.', 'too high', 'way too high'] });
+    expect(detectFlaws(talky)).toContain('model_self_talk');
+    expect(scoreItem(talky).fatal).toContain('model_self_talk');
+    expect(detectFlaws(item({ explanations: ['too low', 'right', 'too high', 'none match the sum'] }))).toContain('model_self_talk');
+    expect(detectFlaws(item({ explanations: ['you may have to wait for it', 'right', 'too high', 'way too high'] })))
+      .not.toContain('model_self_talk');
+  });
+
   it('never lets an advisory flaw alone make an item "unacceptable"', () => {
     // Tarrant's 2+ threshold is a real claim about item quality. A detector the
     // literature scores at F1 0.00-0.71 must not be able to trip it.

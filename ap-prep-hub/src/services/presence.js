@@ -48,7 +48,10 @@ export async function recordPresence(uid, existing, deps) {
   // brand-new account (existing === null) gets its real createdAt from the
   // creation write in AuthContext; stamping it here as a "backfill" mislabelled
   // every genuine sign-up and hid them from the new-user count.
-  if (existing && !existing.createdAt) {
+  // `undefined`, not falsy: an email sign-up's own creation write is still
+  // pending when this runs, and a pending serverTimestamp reads back as null.
+  // Treating that null as "missing" stamped every email sign-up as a backfill.
+  if (existing && existing.createdAt === undefined) {
     patch.createdAt = serverTimestamp();
     patch.createdAtIsBackfill = true;
   }

@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Trophy, Star, TrendingUp, Award, Target, BookOpen, Zap, Clock, BarChart3, Medal, Crown, AlertCircle, ChevronRight, Download } from 'lucide-react';
 import { Card, Button, Badge, Progress } from '../components/ui/UIComponents';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { cn, createPageUrl } from '../utils/helpers';
 import achievementsService from '../services/achievementsService';
 import dataService from '../services/dataService';
@@ -197,6 +197,7 @@ const processWeeklyActivity = (studySessions) => {
 const ProgressPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   // Planned filter state — wired up in a future update
   // eslint-disable-next-line no-unused-vars
   const [selectedTimeframe, setSelectedTimeframe] = useState('month');
@@ -456,17 +457,23 @@ const ProgressPage = () => {
     return Math.round(totalAccuracy / studySessions.length);
   };
 
+  // This week's session accuracy against the rest of the 30 days loaded.
+  // It used to split the sessions in half by count and call that "vs. last
+  // month", counting sessions with no accuracy (flashcard reviews) as 0%, so
+  // a one-day-old account read "-12% vs. last month". Null (no line shown)
+  // until both sides have a couple of scored sessions.
   const calculateImprovement = (studySessions) => {
-    if (studySessions.length < 2) return '+0%';
+    const weekAgo = new Date();
+    weekAgo.setHours(0, 0, 0, 0);
+    weekAgo.setDate(weekAgo.getDate() - 6);
+    const scored = studySessions.filter((s) => typeof s.accuracy === 'number' && s.timestamp?.toDate);
+    const recent = scored.filter((s) => s.timestamp.toDate() >= weekAgo);
+    const older = scored.filter((s) => s.timestamp.toDate() < weekAgo);
+    if (recent.length < 2 || older.length < 2) return null;
 
-    const recent = studySessions.slice(0, Math.floor(studySessions.length / 2));
-    const older = studySessions.slice(Math.floor(studySessions.length / 2));
-
-    const recentAvg = recent.reduce((sum, s) => sum + (s.accuracy || 0), 0) / recent.length;
-    const olderAvg = older.reduce((sum, s) => sum + (s.accuracy || 0), 0) / older.length;
-
-    const improvement = recentAvg - olderAvg;
-    return improvement > 0 ? `+${Math.round(improvement)}%` : `${Math.round(improvement)}%`;
+    const avg = (list) => list.reduce((sum, s) => sum + s.accuracy, 0) / list.length;
+    const improvement = Math.round(avg(recent) - avg(older));
+    return improvement > 0 ? `+${improvement}%` : `${improvement}%`;
   };
 
 
@@ -476,7 +483,7 @@ const ProgressPage = () => {
       totalStudyTime: '0 minutes',
       questionsAnswered: 0,
       accuracy: 0,
-      improvement: '+0%',
+      improvement: null,
       rank: 'Beginner'
     },
     subjects: [],
@@ -503,7 +510,7 @@ const ProgressPage = () => {
     red: 'var(--color-error-400)',
   }[level] || 'var(--color-text-muted)');
 
-  const BentoStatCard = ({ icon: Icon, label, value, change, color = "text-content-primary", iconBg = "bg-base-800" }) => (
+  const BentoStatCard = ({ icon: Icon, label, value, change, changeLabel, color = "text-content-primary", iconBg = "bg-base-800" }) => (
     <Card className="p-5 flex flex-col justify-between">
       <div className="flex items-center gap-2 mb-3">
         <div className={cn("p-2 rounded-sm", iconBg)}>
@@ -515,7 +522,7 @@ const ProgressPage = () => {
         <p className="text-h2 font-display text-content-primary">{value}</p>
         {change && (
           <p className={cn("text-caption mt-1", change.startsWith('+') && change !== '+0%' ? 'text-success-400' : 'text-content-muted')}>
-            {change} vs. last month
+            {change} {changeLabel}
           </p>
         )}
       </div>
@@ -979,6 +986,7 @@ const ProgressPage = () => {
                     label="Accuracy"
                     value={`${progressData.overall.accuracy}%`}
                     change={progressData.overall.improvement}
+                    changeLabel="this week vs. the 3 weeks before"
                     color="text-content-primary"
                     iconBg="bg-base-800"
                   />
@@ -1333,7 +1341,7 @@ const ProgressPage = () => {
                     Create a free account to unlock analytics, AI study recommendations, and achievement tracking.
                   </p>
                   <Button
-                    onClick={() => navigate('/login')}
+                    onClick={() => navigate('/login', { state: { from: location } })}
                     className="w-full"
                     size="lg"
                   >

@@ -75,6 +75,7 @@ const ALLOWED_ORIGINS = Array.from(
 const REQUIRED_APP_TOKEN = process.env.AI_PROXY_APP_TOKEN || process.env.APP_PROXY_TOKEN;
 const RATE_LIMIT_WINDOW_MS = Number(process.env.AI_PROXY_RATE_LIMIT_WINDOW_MS || 60_000);
 const RATE_LIMIT_MAX_REQUESTS = Number(process.env.AI_PROXY_RATE_LIMIT_MAX_REQUESTS || 60);
+const ATTEMPT_TIMEOUT_MS = Number(process.env.AI_PROXY_ATTEMPT_TIMEOUT_MS || 25_000);
 const requestBuckets = new Map();
 
 // ---------------------------------------------------------------------------
@@ -522,6 +523,11 @@ exports.handler = async (event) => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ contents, generationConfig, safetySettings }),
+          // One slow project (measured: 61 s for a five-token reply while nine
+          // other keys answered in under 2 s) must not eat the function's whole
+          // time limit. A timeout lands in the catch below, which rests the pair
+          // and moves to the next key.
+          signal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS),
         });
         if (!resp.ok) {
           if (resp.status === 400) {

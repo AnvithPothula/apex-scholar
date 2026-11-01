@@ -37,7 +37,7 @@ export default function SubjectStep({ selected, onChange, returning = false }) {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search all 40 AP subjects…"
+          placeholder={`Search all ${all.length} AP subjects…`}
           aria-label="Search AP subjects"
           className="w-full bg-base-800 border border-border rounded-md pl-9 pr-3 py-2 text-body-sm text-content-primary placeholder:text-content-muted focus:outline-none focus:ring-2 focus:ring-primary-400"
         />

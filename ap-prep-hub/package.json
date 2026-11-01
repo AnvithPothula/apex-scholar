@@ -12,7 +12,6 @@
     "framer-motion": "^11.2.10",
     "katex": "^0.16.22",
     "lucide-react": "^0.395.0",
-    "netlify": "^26.0.2",
     "pdfjs-dist": "^5.4.394",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -53,8 +52,5 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
-  },
-  "devDependencies": {
-    "@testing-library/jest-dom": "^6.8.0"
   }
 }

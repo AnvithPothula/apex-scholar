@@ -75,6 +75,42 @@ class RateLimitError extends Error {
 }
 
 /**
+ * Words for a router refusal. The router says which limit applied (`scope`):
+ * the whole site at its per-minute ceiling, this student's share of the hour
+ * while many people are on, or too much in one minute.
+ */
+export function rateLimitMessage(scope, retryAfter) {
+  const s = Math.max(1, Math.round(Number(retryAfter) || 60));
+  const wait = s < 60 ? `${s} seconds` : `${Math.ceil(s / 60)} minute${Math.ceil(s / 60) === 1 ? '' : 's'}`;
+  if (scope === 'share' || scope === 'group') {
+    return `A lot of students are using the AI right now, so everyone gets an equal share. Yours refills in about ${wait}.`;
+  }
+  if (scope === 'burst') return `That's a lot of AI requests in one minute. Try again in ${wait}.`;
+  return `AI service is busy. Please wait ${wait} and try again.`;
+}
+
+/**
+ * A random id this browser keeps, sent only for signed-out requests. It lets
+ * the router give each guest on a shared school IP their own share. Not an
+ * identity: a private window gets a new one, and the router caps the IP too.
+ */
+function guestDeviceId() {
+  const KEY = 'apex.guestDevice.v1';
+  try {
+    let id = localStorage.getItem(KEY);
+    if (!id) {
+      const bytes = new Uint8Array(12);
+      window.crypto.getRandomValues(bytes);
+      id = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+      localStorage.setItem(KEY, id);
+    }
+    return id;
+  } catch {
+    return '';
+  }
+}
+
+/**
  * Sanitize user input to prevent prompt injection attacks
  * This should be applied to any user-provided text before including it in AI prompts
  */
@@ -247,14 +283,17 @@ class GeminiService {
    * With 11 API keys this should rarely trigger — it's the last resort
    * after all keys have been tried.
    */
-  _handleRateLimit(error, context = '') {
-    const retryAfter = 30; // 30 seconds — shorter because 11 keys absorb most load
+  _handleRateLimit(error, context = '', retryAfter = 30, message = null) {
+    // The proxy path passes the server's real wait. It used to be a fixed 30 s
+    // here, and since this throws, the caller's own RateLimitError carrying the
+    // real number never ran: every countdown said 30 s, even for an hour-long
+    // fair-share wait, so students retried into the same refusal.
     this._rateLimitUntil = Date.now() + (retryAfter * 1000);
-    
+
     console.error(`[AI] Rate limit hit${context ? ` during ${context}` : ''}:`, error.message);
-    
+
     throw new RateLimitError(
-      `AI service is temporarily unavailable due to high demand. Please wait ${retryAfter} seconds and try again.`,
+      message || `AI service is temporarily unavailable due to high demand. Please wait ${retryAfter} seconds and try again.`,
       retryAfter
     );
   }
@@ -836,8 +875,7 @@ class GeminiService {
     this._throwIfRateLimited();
     // Meter against the per-browser AI usage budget (no-op for admins and for
     // exempt categories like practice tests). Throws AiUsageLimitError if over.
-    await aiUsageLimiter.consume(options?.usageCategory);
-    const requestPromise = this._doGenerateContent(prompt, options);
+    const requestPromise = this._metered(options?.usageCategory, () => this._doGenerateContent(prompt, options));
     this._addToCache(requestHash, requestPromise);
     // Evict once settled. Settled results used to stay cached for 5 minutes —
     // including FAILURES — so "try again" replayed the same error or the same
@@ -848,6 +886,21 @@ class GeminiService {
     );
 
     return await requestPromise;
+  }
+
+  /**
+   * Charge the usage budget, run the call, and refund the charge if the call
+   * fails. A server error, rate limit or timeout used to cost the student the
+   * same share of their 5-hour budget as a real answer.
+   */
+  async _metered(category, run) {
+    const charged = await aiUsageLimiter.consume(category);
+    try {
+      return await run();
+    } catch (e) {
+      if (charged) aiUsageLimiter.refund(category);
+      throw e;
+    }
   }
 
   _throwIfRateLimited() {
@@ -988,11 +1041,18 @@ class GeminiService {
     const picked = this._userModel;
     const googleModel = picked && picked !== 'gemini-2.0-flash'
       && /^(models\/)?(google\/)?(gemini-|gemma-)/i.test(picked) ? picked : undefined;
+    const signedIn = Boolean(headers['Authorization']);
     const payload = {
       ...(googleModel ? { model: googleModel } : {}),
       ...(task ? { task } : {}),
       // Ask the router to start on a different model (MCQ verification).
       ...(avoidModel ? { avoidModel } : {}),
+      // How long the router may spend walking keys and models before it must
+      // answer, so it gives up a few seconds before this tab's own timer does.
+      budgetMs: Math.max(10000, (timeoutMs || 90000) - 5000),
+      // Guests behind one school IP each get their own fair share instead of
+      // splitting one (the router still caps the IP as a whole).
+      ...(!signedIn ? { guestId: guestDeviceId() } : {}),
       ...body,
     };
     let res;
@@ -1020,8 +1080,7 @@ class GeminiService {
       // the limit independently and earns its own 429.
       const { setCooldown } = await import('./aiQueue');
       setCooldown(retryAfter);
-      this._handleRateLimit(new Error(`${context}: proxy rate limited`), context);
-      throw new RateLimitError(`AI service is busy. Please wait ${retryAfter} seconds and try again.`, retryAfter);
+      this._handleRateLimit(new Error(`${context}: proxy rate limited`), context, retryAfter, rateLimitMessage(body && body.scope, retryAfter));
     }
 
     // A non-JSON body means the function isn't actually running (e.g. plain
@@ -1208,8 +1267,10 @@ class GeminiService {
   async generateWithImages(prompt, images = [], options = {}) {
     this._throwIfRateLimited();
     // Meter against the per-browser AI usage budget (no-op for admins / exempt).
-    await aiUsageLimiter.consume(options?.usageCategory);
+    return this._metered(options?.usageCategory, () => this._generateWithImagesNow(prompt, images, options));
+  }
 
+  async _generateWithImagesNow(prompt, images, options) {
     // Every image as a data URL (or a plain URL string).
     const imageArgs = (Array.isArray(images) ? images : []).map((img) => {
       if (img && (img.data || img.inline_data?.data)) {
@@ -1280,8 +1341,10 @@ class GeminiService {
     console.log('[AI] generateFromPayload called');
     this._throwIfRateLimited();
     // Meter against the per-browser AI usage budget (no-op for admins / exempt).
-    await aiUsageLimiter.consume(payload?.usageCategory);
+    return this._metered(payload?.usageCategory, () => this._generateFromPayloadNow(payload));
+  }
 
+  async _generateFromPayloadNow(payload) {
     // Translate payload.contents into a single prompt string for Puter
     // Flatten all contents into a single prompt string for Puter
     const contents = Array.isArray(payload?.contents) ? payload.contents : [];

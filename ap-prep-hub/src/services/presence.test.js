@@ -48,6 +48,17 @@ describe('recordPresence', () => {
     expect(patch.lastSeenAt).toBe('__ts');
   });
 
+  it('does not take a pending creation write for a missing createdAt', async () => {
+    // Email sign-up writes the doc, then auth fires and reads it back before
+    // the server has answered: serverTimestamp() reads as null until then.
+    const d = deps();
+    localStorage.clear();
+    await recordPresence('u1', { email: 'x', createdAt: null, createdAtIsBackfill: false }, d);
+    const [, patch] = d.setDoc.mock.calls[0];
+    expect(patch).not.toHaveProperty('createdAt');
+    expect(patch).not.toHaveProperty('createdAtIsBackfill');
+  });
+
   it('never overwrites an existing createdAt', async () => {
     // The whole point: a March signup relabelled as September would make every
     // cohort number a lie.

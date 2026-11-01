@@ -9,9 +9,18 @@ import { review, GRADE } from './srs';
 
 const DAY = 24 * 60 * 60 * 1000;
 
-/** "today" / "tomorrow" / "in 5 days" — for prose. */
+/** "in 10 minutes" / "tomorrow" / "in 5 days" — for prose. */
 export function formatDue(due, now = Date.now()) {
-  const days = Math.round((due - now) / DAY);
+  const ms = due - now;
+  // Under a day, say how long. "Again" schedules a card 10 minutes out, and
+  // rounding that to "today" read as if the miss had been put off.
+  if (ms > 0 && ms < DAY) {
+    const mins = Math.max(1, Math.round(ms / 60000));
+    if (mins < 60) return `in ${mins} ${mins === 1 ? 'minute' : 'minutes'}`;
+    const hours = Math.round(mins / 60);
+    return `in ${hours} ${hours === 1 ? 'hour' : 'hours'}`;
+  }
+  const days = Math.round(ms / DAY);
   if (days <= 0) return 'today';
   if (days === 1) return 'tomorrow';
   return `in ${days} days`;

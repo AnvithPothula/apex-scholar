@@ -39,6 +39,10 @@ activation problem again, not a modelling problem.
 One append-only collection. Write on every graded interaction: practice test item,
 diagnostic item, flashcard grade, review-queue item.
 
+Since 2026-10-24 the rows are stored batched, one `responseSets/{autoId}`
+document per test with these fields (minus `at`) in its `rows` array, to save
+Firestore's free daily writes. `getMyResponses` returns them flat, as below.
+
 ```
 responses/{autoId}
   userId         string     // NOT `uid` — firestore.rules ownsIncoming() reads userId

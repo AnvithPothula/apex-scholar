@@ -126,10 +126,13 @@ export function TaskModal({ task, onClose, onSave, isOpen }) {
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="task-modal-title"
         className="bg-base-850 rounded-md shadow-floating w-full max-w-md max-h-[90vh] flex flex-col border border-border mx-auto"
       >
         <div className="p-4 sm:p-6 border-b border-border bg-base-850">
-          <h3 className="text-lg sm:text-xl font-semibold text-content-primary">{task ? 'Edit Task' : 'Create New Task'}</h3>
+          <h3 id="task-modal-title" className="text-lg sm:text-xl font-semibold text-content-primary">{task ? 'Edit Task' : 'Create New Task'}</h3>
           <p className="text-xs sm:text-sm text-content-secondary mt-1">Fill in the details below to {task ? 'update' : 'create'} your task</p>
         </div>
         

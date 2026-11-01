@@ -94,9 +94,23 @@ export function setBypass(value) {
   bypass = !!value;
 }
 
+// The last copy of users/{uid}/usage/ai this tab read or wrote. The usage
+// meter refreshes every minute and after every AI call; reading Firestore each
+// time cost a signed-in student about 60 reads an hour on the tutor page,
+// against a free-plan budget of 50,000 reads a day for the whole site. Every
+// consume() still runs its transaction, so the caps stay exact; only the meter
+// can lag another device by up to REMOTE_TTL_MS.
+const REMOTE_TTL_MS = 5 * 60 * 1000;
+let remote = null; // { uid, state, at }
+
+function remember(state, now = Date.now()) {
+  if (currentUid) remote = { uid: currentUid, state, at: now };
+}
+
 /** Tell the limiter who is signed in (null for guests). Called from AuthContext. */
 export function setUser(uid) {
   currentUid = uid || null;
+  if (remote && remote.uid !== currentUid) remote = null;
   notify();
 }
 
@@ -213,31 +227,41 @@ function assertGeneralUnderCap(state, now) {
  * Meter one general AI call at its task's cost. Throws AiUsageLimitError when
  * over the 5-hour or weekly cap. No-op for admins and exempt categories.
  * Async: signed-in users hit Firestore (transaction); guests use localStorage.
+ * Resolves true when it actually charged, so a caller knows a refund is owed.
  */
 export async function consume(category) {
-  if (bypass || isExempt(category)) return;
+  if (bypass || isExempt(category)) return false;
   const now = Date.now();
   const cost = costOf(category);
 
   if (currentUid) {
+    let seen = null; // what the transaction read, plus this call's cost
     try {
       const { db, doc, runTransaction, serverTimestamp } = await getFirebase();
       const ref = doc(db, 'users', currentUid, 'usage', 'ai');
       await runTransaction(db, async (tx) => {
         const snap = await tx.get(ref);
         const state = normalize(snap.exists() ? snap.data() : {});
+        seen = state;
         const { fiveHour, week } = assertGeneralUnderCap(state, now); // throws if over
         fiveHour.count += cost;
         week.count += cost;
         tx.set(ref, { fiveHour, week, updatedAt: serverTimestamp() }, { merge: true });
+        seen = { ...state, fiveHour, week };
       });
+      remember(seen);
     } catch (e) {
-      if (e instanceof AiUsageLimitError) throw e; // real limit hit
+      if (e instanceof AiUsageLimitError) {
+        if (seen) remember(seen);
+        throw e; // real limit hit
+      }
       // Firestore/network error -> fail open (don't block the user).
       errorLogger.debug('aiUsageLimiter consume failed (fail-open)', { error: e?.message });
+      notify();
+      return false;
     }
     notify();
-    return;
+    return true;
   }
 
   // Guest path (localStorage).
@@ -246,6 +270,50 @@ export async function consume(category) {
   fiveHour.count += cost;
   week.count += cost;
   saveLocal({ ...state, fiveHour, week });
+  notify();
+  return true;
+}
+
+/**
+ * Give back what consume() charged for a call that then failed (server error,
+ * rate limit, timeout). The budget is charged before the call so a burst can't
+ * slip past the cap, but a student shouldn't lose 2% of their 5-hour window
+ * to an outage on our side. Only windows that haven't rolled over since are
+ * credited, never below zero. Never throws.
+ */
+export async function refund(category) {
+  if (bypass || isExempt(category)) return;
+  const now = Date.now();
+  const cost = costOf(category);
+  const credit = (bucket, durationMs) => {
+    const live = rollWindow(bucket, durationMs, now);
+    return live.start === bucket?.start ? { start: live.start, count: Math.max(0, live.count - cost) } : bucket;
+  };
+
+  if (currentUid) {
+    try {
+      const { db, doc, runTransaction, serverTimestamp } = await getFirebase();
+      const ref = doc(db, 'users', currentUid, 'usage', 'ai');
+      let seen = null;
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists()) return;
+        const state = normalize(snap.data());
+        const fiveHour = credit(state.fiveHour, FIVE_HOURS_MS);
+        const week = credit(state.week, WEEK_MS);
+        tx.set(ref, { fiveHour, week, updatedAt: serverTimestamp() }, { merge: true });
+        seen = { ...state, fiveHour, week };
+      });
+      if (seen) remember(seen);
+    } catch (e) {
+      errorLogger.debug('aiUsageLimiter refund failed', { error: e?.message });
+    }
+    notify();
+    return;
+  }
+
+  const state = loadLocal();
+  saveLocal({ ...state, fiveHour: credit(state.fiveHour, FIVE_HOURS_MS), week: credit(state.week, WEEK_MS) });
   notify();
 }
 
@@ -267,6 +335,7 @@ export async function consumeTestDaily() {
   if (bypass) return;
 
   if (currentUid) {
+    let seen = null;
     try {
       const { db, doc, runTransaction, serverTimestamp } = await getFirebase();
       const ref = doc(db, 'users', currentUid, 'usage', 'ai');
@@ -281,7 +350,9 @@ export async function consumeTestDaily() {
         }
         testDay = { day: todayStr(), count: testDay.count + 1 };
         tx.set(ref, { testDay, updatedAt: serverTimestamp() }, { merge: true });
+        seen = { ...state, testDay };
       });
+      remember(seen);
     } catch (e) {
       if (e instanceof AiUsageLimitError) throw e;
       errorLogger.debug('aiUsageLimiter consumeTestDaily failed (fail-open)', { error: e?.message });
@@ -360,10 +431,15 @@ export async function getUsageStatus() {
     return { bypassed: true, general: null, test: null };
   }
   if (currentUid) {
+    if (remote && remote.uid === currentUid && now - remote.at < REMOTE_TTL_MS) {
+      return snapshotFrom(remote.state, now);
+    }
     try {
       const { db, doc, getDoc } = await getFirebase();
       const snap = await getDoc(doc(db, 'users', currentUid, 'usage', 'ai'));
-      return snapshotFrom(normalize(snap.exists() ? snap.data() : {}), now);
+      const state = normalize(snap.exists() ? snap.data() : {});
+      remember(state, now);
+      return snapshotFrom(state, now);
     } catch (e) {
       errorLogger.debug('aiUsageLimiter getUsageStatus failed', { error: e?.message });
       return snapshotFrom(loadLocal(), now); // fallback
@@ -388,6 +464,7 @@ const aiUsageLimiter = {
   setUser,
   isExempt,
   consume,
+  refund,
   assertGeneralAvailable,
   costOf,
   consumeTestDaily,

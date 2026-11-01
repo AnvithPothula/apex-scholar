@@ -33,22 +33,10 @@ export const LogoMark: React.FC<{ size?: number; glow?: boolean }> = ({
           width: "100%",
           height: "100%",
           objectFit: "contain",
+          // The artwork's corners are opaque black; round them off like an app icon.
+          borderRadius: "22%",
         }}
       />
-    </div>
-  );
-};
-
-export const WordMark: React.FC<{ className?: string }> = ({
-  className = "",
-}) => {
-  return (
-    <div
-      className={`font-display font-bold tracking-tight ${className}`}
-      style={{ letterSpacing: "-0.02em" }}
-    >
-      <span className="text-content-primary">Apex</span>{" "}
-      <span className="text-primary-400">Scholar</span>
     </div>
   );
 };

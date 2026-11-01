@@ -45,6 +45,42 @@ const esc = (s) =>
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 
+const HIDDEN = 'position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;';
+
+// The hubs every page's crawler block links to, so a crawler that does not run
+// JavaScript can still walk from any page to the rest of the site.
+const EXPLORE = [
+  ['/study', 'Free AP unit lessons'],
+  ['/ap-score-calculator', 'AP score calculators'],
+  ['/study/timelines/ap-us-history', 'APUSH timeline'],
+  ['/start', 'Free AP score check'],
+  ['/ai-tutors', 'AI tutors for every AP subject'],
+];
+const exploreList = () =>
+  `<ul>${EXPLORE.map(([href, label]) => `<li><a href="${href}">${esc(label)}</a></li>`).join('')}</ul>`;
+
+/**
+ * index.html's JSON-LD (Organization, WebSite, SoftwareApplication) describes
+ * the homepage. Every other page gets a BreadcrumbList instead, or nothing:
+ * the same organisation markup on ~140 pages is noise, and Google shows a
+ * breadcrumb trail in place of the URL for pages that have one.
+ */
+function setStructuredData(html, crumbs) {
+  let out = html.replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>/g, '');
+  if (crumbs && crumbs.length > 1) {
+    const ld = {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: crumbs.map(([name, href], i) => ({
+        '@type': 'ListItem', position: i + 1, name, item: `${ORIGIN}${href}`,
+      })),
+    };
+    const json = JSON.stringify(ld).replace(/</g, '\\u003c');
+    out = out.replace('</head>', `<script type="application/ld+json">${json}</script></head>`);
+  }
+  return out;
+}
+
 /** Replace the content of a single meta/link tag, matched by its identifying attribute. */
 function setTag(html, matcher, attr, value) {
   const re = new RegExp(`(<(?:meta|link)[^>]*${matcher}[^>]*${attr}=")[^"]*(")`, 'i');
@@ -91,6 +127,7 @@ export function buildBody(subject, model, description, allSubjects, slugFor, cur
         </p>
         <h2>Other AP score calculators</h2>
         <ul>${others}</ul>
+        ${exploreList()}
       </div>`;
 }
 
@@ -134,11 +171,24 @@ async function main() {
     html = setTag(html, 'name="twitter:title"', 'content', title);
     html = setTag(html, 'name="twitter:description"', 'content', description);
     html = setTag(html, 'rel="canonical"', 'href', canonical);
+    html = setStructuredData(html, [
+      ['Apex Scholar', '/'],
+      ['AP Score Calculators', '/ap-score-calculator'],
+      ...(page.subject ? [[page.subject, `/ap-score-calculator/${page.slug}`]] : []),
+    ]);
 
     if (page.subject) {
       const model = AP_SCORE_MODELS[page.subject];
       const body = buildBody(page.subject, model, description, subjects, slugFor, curveRows);
       html = html.replace(FALLBACK, body);
+    } else {
+      html = html.replace(FALLBACK, `
+      <div style="${HIDDEN}">
+        <h1>AP Score Calculators</h1>
+        <p>${esc(description)}</p>
+        <ul>${subjects.map((s) => `<li><a href="/ap-score-calculator/${slugFor(s)}">${esc(s)} score calculator</a></li>`).join('')}</ul>
+        ${exploreList()}
+      </div>`);
     }
 
     await writeFile(page.file, html, 'utf8');
@@ -165,34 +215,53 @@ async function main() {
     html = setTag(html, 'name="twitter:title"', 'content', m.title);
     html = setTag(html, 'name="twitter:description"', 'content', m.description);
     html = setTag(html, 'rel="canonical"', 'href', canonical);
-    // Study packs: crawlers get the topic list and summaries, like the
-    // calculators get their curve tables.
-    const packEntry = route.startsWith('/study/') && PACKS[route.slice('/study/'.length)];
+    if (m.robots) html = setTag(html, 'name="robots"', 'content', m.robots);
+
+    const study = route.startsWith('/study/') ? route.slice('/study/'.length) : null;
+    const packEntry = study && PACKS[study];
+    const classPacks = study && !packEntry ? Object.entries(PACKS).filter(([slug]) => slug.startsWith(`${study}/`)) : [];
+    const heading = m.title.split(' — ')[0];
+    let crumbs = null;
+    let body;
     if (packEntry) {
+      // Study packs: crawlers get the topic list and summaries, like the
+      // calculators get their curve tables.
       const pack = { ...(await loadEsm(`src/data/packs/${packEntry.file}.js`)).default, ...packEntry.overrides };
-      html = html.replace(FALLBACK, `
-      <div style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;">
+      const classId = study.split('/')[0];
+      crumbs = [['Apex Scholar', '/'], ['Learn', '/study'], [pack.subject, `/study/${classId}`], [pack.unit, route]];
+      body = `
         <h1>${esc(pack.subject)} ${esc(pack.unit)}</h1>
         <p>${esc(pack.intro)}</p>
         ${pack.sections.map((s) => `<h2>${esc(s.id)} ${esc(s.title)}</h2><p>${esc(s.summary)}</p>`).join('\n        ')}
-      </div>`);
-    }
-    const classPacks = Object.entries(PACKS).filter(([slug]) => slug.startsWith(`${route.slice('/study/'.length)}/`));
-    if (route.startsWith('/study/') && !packEntry && classPacks.length) {
-      html = html.replace(FALLBACK, `
-      <div style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;">
-        <h1>${esc(classPacks[0][1].subject)} study packs</h1>
-        <ul>${classPacks.map(([slug, p]) => `<li><a href="/study/${slug}">${esc(p.title)}</a></li>`).join('')}</ul>
-      </div>`);
-    }
-    if (route === '/study') {
-      html = html.replace(FALLBACK, `
-      <div style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;">
+        <p><a href="/study/${classId}">More ${esc(pack.subject)} units</a></p>`;
+    } else if (classPacks.length) {
+      const subject = classPacks[0][1].subject;
+      crumbs = [['Apex Scholar', '/'], ['Learn', '/study'], [subject, route]];
+      body = `
+        <h1>${esc(subject)} study packs</h1>
+        <p>${esc(m.description)}</p>
+        <ul>${classPacks.map(([slug, p]) => `<li><a href="/study/${slug}">${esc(p.title)}</a></li>`).join('')}</ul>`;
+    } else if (route === '/study') {
+      crumbs = [['Apex Scholar', '/'], ['Learn', '/study']];
+      body = `
         <h1>Study packs</h1>
+        <p>${esc(m.description)}</p>
         <ul>${[...new Set(Object.keys(PACKS).map((slug) => slug.split('/')[0]))].map((id) => `<li><a href="/study/${id}">${esc(Object.entries(PACKS).find(([slug]) => slug.startsWith(`${id}/`))[1].subject)}</a></li>`).join('')}</ul>
-        <ul>${Object.entries(PACKS).map(([slug, p]) => `<li><a href="/study/${slug}">${esc(p.subject)} ${esc(p.title)}</a></li>`).join('')}</ul>
-      </div>`);
+        <ul>${Object.entries(PACKS).map(([slug, p]) => `<li><a href="/study/${slug}">${esc(p.subject)} ${esc(p.title)}</a></li>`).join('')}</ul>`;
+    } else {
+      // Everything else (the score check, tutors, legal pages...) used to keep
+      // the homepage's own crawler text, so to anything that does not run
+      // JavaScript each of them read as a copy of the homepage.
+      if (route.startsWith('/study/timelines/')) crumbs = [['Apex Scholar', '/'], ['Learn', '/study'], [heading.split(',')[0], route]];
+      body = `
+        <h1>${esc(heading)}</h1>
+        <p>${esc(m.description)}</p>`;
     }
+    html = setStructuredData(html, crumbs);
+    html = html.replace(FALLBACK, `
+      <div style="${HIDDEN}">${body}
+        ${exploreList()}
+      </div>`);
     const file = path.join(BUILD, `${route.slice(1)}.html`);
     await mkdir(path.dirname(file), { recursive: true });
     await writeFile(file, html, 'utf8');

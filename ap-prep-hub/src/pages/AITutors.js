@@ -1103,11 +1103,16 @@ const AITutors = () => {
       const docRef = await addDoc(collection(db, 'conversations', conversationId, 'messages'), messageData);
       console.log('Message saved successfully with ID:', docRef.id);
       
-      // Update conversation's last message and updated time
-      await updateDoc(doc(db, 'conversations', conversationId), {
-        lastMessage: message.content.slice(0, 50) + (message.content.length > 50 ? '...' : ''),
-        updatedAt: serverTimestamp()
-      });
+      // Update conversation's last message and updated time. Not for the
+      // student's own message: the reply a few seconds later overwrites both
+      // fields, and each update is a Firestore write plus a read on every open
+      // conversation list (free plan: 20,000 writes a day for the whole site).
+      if (message.type !== 'user') {
+        await updateDoc(doc(db, 'conversations', conversationId), {
+          lastMessage: message.content.slice(0, 50) + (message.content.length > 50 ? '...' : ''),
+          updatedAt: serverTimestamp()
+        });
+      }
       
       return docRef.id;
     } catch (error) {
@@ -2214,7 +2219,7 @@ ${retrySpec}
             {isGuest && (
               <button
                 type="button"
-                onClick={() => navigate('/login')}
+                onClick={() => navigate('/login', { state: { from: location } })}
                 className="mt-2 w-full text-left text-xs text-content-muted hover:text-content-primary bg-base-800 border border-border rounded-md px-2.5 py-1.5 transition-colors"
               >
                 You're browsing as a guest. <span className="text-content-primary font-medium">Sign in</span> to save &amp; sync your chats.
@@ -2851,7 +2856,7 @@ ${retrySpec}
                   You've used 100% of your {usageBlock === usageGen.week ? 'weekly' : '5-hour'} AI limit. It resets in {aiUsageLimiter.humanizeUntil(usageBlock.resetAt || Date.now())}.
                 </span>
                 {isGuest && (
-                  <Button onClick={() => navigate('/login')} className="h-8 px-3 text-xs flex-shrink-0">
+                  <Button onClick={() => navigate('/login', { state: { from: location } })} className="h-8 px-3 text-xs flex-shrink-0">
                     Sign in for more
                   </Button>
                 )}
@@ -2865,7 +2870,7 @@ ${retrySpec}
                 {isGuest && (
                   <button
                     type="button"
-                    onClick={() => navigate('/login')}
+                    onClick={() => navigate('/login', { state: { from: location } })}
                     className="text-content-primary font-medium hover:underline"
                   >
                     Sign in for a bigger limit

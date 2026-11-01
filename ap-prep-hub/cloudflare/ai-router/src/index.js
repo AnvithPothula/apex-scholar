@@ -7,11 +7,12 @@
  * as a drop-in: set REACT_APP_AI_PROXY_URL to the deployed Worker URL.
  *
  * Secrets (wrangler secret put): GEMINI_API_KEY, GEMINI_API_KEY_2 .. _11.
- * Bindings (wrangler.jsonc): KV namespace CACHE.
+ * Bindings (wrangler.jsonc): KV namespace CACHE, Durable Object GOVERNOR.
  *
- * ponytail: no Firebase-token verify / per-user quota here yet (the client
- * limiter still applies, and CORS is origin-locked). Add jose+JWKS verify if
- * abuse shows up. No semantic cache yet — exact only; add when hit-rate is low.
+ * Per-user limits live in the Governor (below): one global Durable Object that
+ * sizes each student's share from how much free capacity is left today and how
+ * many people are asking for it. KV holds only the answer cache.
+ * No semantic cache yet — exact only; add when hit-rate is low.
  */
 
 const CORS_METHODS = 'POST, OPTIONS';
@@ -240,7 +241,11 @@ function cors(origin, allowed) {
     // Retry-After is useless unless it is exposed: without it here the browser
     // hides the header from JS, res.headers.get('retry-after') returns null, and
     // every countdown falls back to a made-up 60 seconds.
-    'Access-Control-Expose-Headers': 'X-Apex-Model, X-Apex-Cache, Retry-After, X-Apex-Tier',
+    'Access-Control-Expose-Headers': 'X-Apex-Model, X-Apex-Cache, Retry-After, X-Apex-Tier, X-Apex-Load',
+    // Without this the browser re-sends the OPTIONS preflight before nearly
+    // every POST (Chrome's default is 5 seconds), so each AI call costs two
+    // Worker requests against the daily request allowance. 7200 is Chrome's cap.
+    'Access-Control-Max-Age': '7200',
     'Vary': 'Origin',
     'Content-Type': 'application/json',
   };
@@ -369,33 +374,443 @@ async function verifyIdToken(token, projectId) {
   } catch { return null; }
 }
 
+// ---------------------------------------------------------------------------
+// Load-adaptive admission: the Governor.
+//
+// The free keys are a fixed pool: about 12,000 good answers a day across the
+// eleven projects (two flash-lite models at 500 RPD each, plus a few -flash
+// requests), refilled at midnight Pacific, and roughly 330 requests a minute.
+// Gemma's deep pool sits underneath, but it is overflow, not capacity (see
+// MODEL_CHAINS). No setting makes that pool bigger, so the only lever is how
+// it is shared:
+//
+//   quiet   -> nobody is limited below HOURLY_MAX; one student can use a lot.
+//   busy    -> the pool left until midnight is split max-min fairly: light
+//              users are never touched, heavy users are trimmed toward an
+//              equal share, never below HOURLY_MIN.
+//   slammed -> the whole site is held to RPM_CAPACITY per minute, and the
+//              overflow gets a few-second "busy" wait instead of a pile of
+//              doomed requests into Google.
+//
+// Replaced a KV counter per uid. KV on the free plan allows 1,000 writes a
+// day, and that counter wrote on EVERY call, so the 500th AI call of the day
+// made put() throw, the throw escaped fetch(), and every AI request failed
+// with no CORS headers until 00:00 UTC. It also wrote the same key more than
+// once a second for a classroom behind one IP, which KV rejects outright.
+//
+// One global Durable Object holds the counts, so every isolate in every colo
+// sees the same numbers. If it is unreachable, each isolate falls back to its
+// own GovernorState — weaker (it only sees its own traffic) but never a
+// reason to refuse a student.
+// ---------------------------------------------------------------------------
+
+export const GOVERNOR_DEFAULTS = {
+  dailyCapacity: 12000,  // good answers per Pacific day, all keys together
+  rpmCapacity: 400,      // site-wide requests per minute (lets some overflow reach Gemma)
+  hourlyMax: 60,         // a signed-in student's ceiling when the site is quiet
+  hourlyMin: 6,          // ...and the floor when it is busy
+  guestHourlyMax: 20,    // guests get a smaller share of the same pool
+  guestHourlyMin: 3,
+  burstPerMinute: 12,    // one practice test is ~13 calls spread over a few minutes
+  // Guests are told apart by a random id their browser keeps, which anyone can
+  // rotate, so all guests behind one IP also share this ceiling. It is sized
+  // for a classroom on a school network, not for one person.
+  groupHourlyMax: 400,
+};
+
+const HOUR_MS = 60 * 60 * 1000;
+const MINUTE_MS = 60 * 1000;
+const CAP_REFRESH_MS = 5000;
+const MAX_CALLERS = 50000;
+const MAX_COOLING = 2048;
+
+export function governorConfig(env = {}) {
+  const num = (name, fallback) => {
+    const n = Number(env[name]);
+    return Number.isFinite(n) && n > 0 ? n : fallback;
+  };
+  const d = GOVERNOR_DEFAULTS;
+  return {
+    dailyCapacity: num('DAILY_CAPACITY', d.dailyCapacity),
+    rpmCapacity: num('RPM_CAPACITY', d.rpmCapacity),
+    hourlyMax: num('HOURLY_MAX', d.hourlyMax),
+    hourlyMin: num('HOURLY_MIN', d.hourlyMin),
+    guestHourlyMax: num('GUEST_HOURLY_MAX', d.guestHourlyMax),
+    guestHourlyMin: num('GUEST_HOURLY_MIN', d.guestHourlyMin),
+    burstPerMinute: num('BURST_PER_MINUTE', d.burstPerMinute),
+    groupHourlyMax: num('GROUP_HOURLY_MAX', d.groupHourlyMax),
+  };
+}
+
+/** Pacific calendar day, the unit Google's per-day quotas reset on. */
+export function pacificDay(now = Date.now()) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date(now));
+}
+
 /**
- * Fixed-window counter in KV. Returns 0 when the call is allowed, otherwise the
- * seconds until the window rolls (which is what the client counts down).
+ * Weighted max-min fair cap. Each entry is { used, weight }; a caller's share
+ * is weight * cap. Returns the largest cap such that
+ *   sum(min(used, weight * cap)) <= budget,
+ * or Infinity when everyone's usage already fits — then nobody is limited.
  *
- * ponytail: KV is eventually consistent, so a burst fanned across colos can
- * overshoot the limit. Fine — this is an abuse ceiling, not a billing meter,
- * and aiUsageLimiter is the tighter number users actually feel.
+ * This is what makes the limit track load: one student alone on the site is
+ * never capped, and a thousand of them split what is left evenly, with the
+ * people asking for less unaffected.
  */
-async function overQuota(env, key, limit, windowSec) {
-  if (!env.CACHE || !limit) return 0;
-  const nowSec = Math.floor(Date.now() / 1000);
-  const bucket = Math.floor(nowSec / windowSec);
-  const k = `q:${key}:${bucket}`;
-  const used = Number(await env.CACHE.get(k)) || 0;
-  if (used >= limit) return Math.max(1, (bucket + 1) * windowSec - nowSec);
-  await env.CACHE.put(k, String(used + 1), { expirationTtl: windowSec * 2 });
-  return 0;
+export function fairCap(entries, budget) {
+  const list = entries
+    .filter((e) => e && e.used > 0 && e.weight > 0)
+    .map((e) => ({ level: e.used / e.weight, used: e.used, weight: e.weight }))
+    .sort((a, b) => a.level - b.level);
+  const total = list.reduce((s, e) => s + e.used, 0);
+  if (total <= budget) return Infinity;
+  let spent = 0;
+  let weightLeft = list.reduce((s, e) => s + e.weight, 0);
+  for (const e of list) {
+    const cap = Math.max(0, budget - spent) / weightLeft;
+    if (e.level >= cap) return cap;
+    spent += e.used;
+    weightLeft -= e.weight;
+  }
+  return Infinity;
+}
+
+const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
+
+/**
+ * The Governor's state, with no Cloudflare APIs in it so it can be tested and
+ * reused as the per-isolate fallback. Every method takes `now` explicitly.
+ */
+export class GovernorState {
+  constructor(cfg = GOVERNOR_DEFAULTS) {
+    this.cfg = { ...GOVERNOR_DEFAULTS, ...cfg };
+    this.callers = new Map();   // who -> { guest, hits: [ms, ...] } within the last hour
+    this.groups = new Map();    // guest IP -> [ms, ...] within the last hour
+    this.minute = [];           // site-wide admissions within the last minute
+    this.day = '';
+    this.usedToday = 0;
+    this.cooling = new Map();   // `${keyIdx}:${model}` -> ms until it may be tried again
+    this.capCache = { at: -Infinity, cap: Infinity, budget: Infinity, lastHour: 0 };
+    this.sweptAt = 0;
+  }
+
+  _roll(now) {
+    const day = pacificDay(now);
+    if (day !== this.day) {
+      this.day = day;
+      this.usedToday = 0;
+      this.capCache.at = -Infinity;
+    }
+    while (this.minute.length && this.minute[0] <= now - MINUTE_MS) this.minute.shift();
+    if (now - this.sweptAt > 30000) {
+      this.sweptAt = now;
+      for (const [who, rec] of this.callers) {
+        if (!rec.hits.length || rec.hits[rec.hits.length - 1] <= now - HOUR_MS) this.callers.delete(who);
+      }
+      for (const [group, hits] of this.groups) {
+        if (!hits.length || hits[hits.length - 1] <= now - HOUR_MS) this.groups.delete(group);
+      }
+      for (const [pair, until] of this.cooling) if (until <= now) this.cooling.delete(pair);
+    }
+  }
+
+  /** Good answers per hour the rest of today can sustain. */
+  hourBudget(now) {
+    const remaining = Math.max(0, this.cfg.dailyCapacity - this.usedToday);
+    const hoursLeft = Math.max(1, secondsUntilPacificMidnight(now) / 3600);
+    return remaining / hoursLeft;
+  }
+
+  _baseCap(now) {
+    if (now - this.capCache.at < CAP_REFRESH_MS) return this.capCache.cap;
+    const guestWeight = this.cfg.guestHourlyMax / this.cfg.hourlyMax;
+    const entries = [];
+    let lastHour = 0;
+    for (const rec of this.callers.values()) {
+      let used = 0;
+      for (let i = rec.hits.length - 1; i >= 0 && rec.hits[i] > now - HOUR_MS; i--) used++;
+      lastHour += used;
+      entries.push({ used, weight: rec.guest ? guestWeight : 1 });
+    }
+    const budget = this.hourBudget(now);
+    this.capCache = { at: now, cap: fairCap(entries, budget), budget, lastHour };
+    return this.capCache.cap;
+  }
+
+  /** This caller's hourly allowance right now. */
+  capFor(guest, now) {
+    const base = this._baseCap(now);
+    const c = this.cfg;
+    if (guest) {
+      const scaled = base === Infinity ? Infinity : Math.floor(base * (c.guestHourlyMax / c.hourlyMax));
+      return clamp(scaled, c.guestHourlyMin, c.guestHourlyMax);
+    }
+    return clamp(Math.floor(base), c.hourlyMin, c.hourlyMax);
+  }
+
+  /** 0 = idle, 1 = burning today's pool exactly as fast as it can last. */
+  pressure(now) {
+    this._baseCap(now);
+    const { budget, lastHour } = this.capCache;
+    if (!(budget > 0)) return lastHour > 0 ? 1 : 0;
+    return Math.min(1, lastHour / budget);
+  }
+
+  /**
+   * Admit or refuse one AI call. Refusals carry the seconds until this caller
+   * may try again and which limit applied, so the client can say something
+   * truer than "busy":
+   *   busy  — the whole site is at its per-minute ceiling (seconds)
+   *   group — every guest on this IP together hit GROUP_HOURLY_MAX (minutes)
+   *   burst — this caller sent too much in the last minute (seconds)
+   *   share — this caller used their share of the hour (minutes)
+   */
+  admit({ who, guest = false, group = null } = {}, now = Date.now()) {
+    this._roll(now);
+    const c = this.cfg;
+    if (this.minute.length >= c.rpmCapacity) {
+      // Spread the retries over a few seconds so the next minute does not
+      // open with the same stampede.
+      const wait = Math.ceil((this.minute[0] + MINUTE_MS - now) / 1000) + Math.floor(Math.random() * 5);
+      return { ok: false, scope: 'busy', retryAfter: Math.max(1, wait) };
+    }
+    let groupHits = null;
+    if (group) {
+      groupHits = this.groups.get(group) || [];
+      while (groupHits.length && groupHits[0] <= now - HOUR_MS) groupHits.shift();
+      if (groupHits.length >= c.groupHourlyMax) {
+        const gate = groupHits[groupHits.length - c.groupHourlyMax];
+        return { ok: false, scope: 'group', retryAfter: Math.max(1, Math.ceil((gate + HOUR_MS - now) / 1000)) };
+      }
+    }
+    const id = String(who || 'unknown');
+    let rec = this.callers.get(id);
+    if (!rec) {
+      if (this.callers.size >= MAX_CALLERS) {
+        this.sweptAt = 0; // force the idle-caller sweep before growing further
+        this._roll(now);
+      }
+      rec = { guest: !!guest, hits: [] };
+      this.callers.set(id, rec);
+    }
+    while (rec.hits.length && rec.hits[0] <= now - HOUR_MS) rec.hits.shift();
+
+    let inMinute = 0;
+    for (let i = rec.hits.length - 1; i >= 0 && rec.hits[i] > now - MINUTE_MS; i--) inMinute++;
+    if (inMinute >= c.burstPerMinute) {
+      const oldest = rec.hits[rec.hits.length - inMinute];
+      return { ok: false, scope: 'burst', retryAfter: Math.max(1, Math.ceil((oldest + MINUTE_MS - now) / 1000)) };
+    }
+
+    const cap = this.capFor(rec.guest, now);
+    if (rec.hits.length >= cap) {
+      // The hit that has to age out before this caller is back under the cap.
+      const gate = rec.hits[rec.hits.length - cap];
+      return { ok: false, scope: 'share', cap, retryAfter: Math.max(1, Math.ceil((gate + HOUR_MS - now) / 1000)) };
+    }
+
+    rec.hits.push(now);
+    if (groupHits) {
+      groupHits.push(now);
+      this.groups.set(group, groupHits);
+    }
+    this.minute.push(now);
+    this.usedToday++;
+    return { ok: true, cap, pressure: Math.round(this.pressure(now) * 100) / 100 };
+  }
+
+  /** Pairs another isolate found out of quota, so nobody re-learns them. */
+  report(events, now = Date.now()) {
+    if (!Array.isArray(events)) return;
+    for (const e of events.slice(0, 64)) {
+      if (!e || typeof e.pair !== 'string' || !(e.until > now)) continue;
+      const until = Math.min(e.until, now + 24 * HOUR_MS);
+      if ((this.cooling.get(e.pair) || 0) < until) this.cooling.set(e.pair, until);
+    }
+    if (this.cooling.size > MAX_COOLING) this.cooling.clear();
+  }
+
+  coolingList(now = Date.now()) {
+    const out = [];
+    for (const [pair, until] of this.cooling) if (until > now) out.push([pair, until]);
+    return out;
+  }
+
+  stats(now = Date.now()) {
+    this._roll(now);
+    this.capCache.at = -Infinity; // a dashboard read should not show a 5 s old number
+    this._baseCap(now);
+    return {
+      day: this.day,
+      usedToday: this.usedToday,
+      dailyCapacity: this.cfg.dailyCapacity,
+      lastMinute: this.minute.length,
+      lastHour: this.capCache.lastHour,
+      hourBudget: Math.round(this.capCache.budget),
+      activeCallers: this.callers.size,
+      userCap: this.capFor(false, now),
+      guestCap: this.capFor(true, now),
+      pressure: Math.round(this.pressure(now) * 100) / 100,
+      coolingPairs: this.coolingList(now).length,
+    };
+  }
+
+  /** What survives a Durable Object restart: today's spend and dead pairs. */
+  snapshot(now = Date.now()) {
+    return { day: this.day, usedToday: this.usedToday, cooling: this.coolingList(now) };
+  }
+
+  restore(snap, now = Date.now()) {
+    if (!snap || typeof snap !== 'object') return;
+    if (snap.day === pacificDay(now)) {
+      this.day = snap.day;
+      this.usedToday = Number(snap.usedToday) || 0;
+    }
+    this.report((snap.cooling || []).map(([pair, until]) => ({ pair, until })), now);
+  }
+}
+
+/**
+ * The Durable Object. One instance ("global") serves the whole site; at this
+ * app's scale that is a few dozen requests a second against a ceiling in the
+ * hundreds. Counts live in memory and today's spend is saved every 30 seconds,
+ * so a restart cannot hand out the day's pool a second time.
+ */
+export class Governor {
+  constructor(state, env) {
+    this.state = state;
+    this.gov = new GovernorState(governorConfig(env));
+    this.savedAt = 0;
+    state.blockConcurrencyWhile(async () => {
+      try {
+        const snap = await state.storage.get('snapshot');
+        if (snap) this.gov.restore(snap, Date.now());
+      } catch { /* a fresh day is a safe default */ }
+    });
+  }
+
+  async fetch(request) {
+    let body;
+    try { body = await request.json(); } catch { return json({ error: 'Invalid JSON' }, 400, {}); }
+    const now = Date.now();
+    let out;
+    if (body.op === 'admit') {
+      out = { ...this.gov.admit(body, now), cooling: this.gov.coolingList(now) };
+    } else if (body.op === 'report') {
+      this.gov.report(body.events, now);
+      out = { ok: true };
+    } else if (body.op === 'stats') {
+      out = this.gov.stats(now);
+    } else {
+      return json({ error: 'Unknown op' }, 400, {});
+    }
+    if (now - this.savedAt > 30000) {
+      this.savedAt = now;
+      try { await this.state.storage.put('snapshot', this.gov.snapshot(now)); } catch { /* next save retries */ }
+    }
+    return json(out, 200, { 'Content-Type': 'application/json' });
+  }
+}
+
+// Per-isolate stand-in for when the Durable Object is unbound or unreachable.
+let localGovernor = null;
+
+/** Ask the global Governor. null means "decide locally"; it never throws. */
+async function askGovernor(env, body, timeoutMs = 1500) {
+  if (!env.GOVERNOR) return null;
+  try {
+    const stub = env.GOVERNOR.get(env.GOVERNOR.idFromName('global'));
+    const call = stub.fetch('https://governor/', { method: 'POST', body: JSON.stringify(body) })
+      .then((res) => (res.ok ? res.json() : null));
+    let timer;
+    const timeout = new Promise((resolve) => { timer = setTimeout(() => resolve(null), timeoutMs); });
+    try {
+      return await Promise.race([call, timeout]);
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch {
+    return null;
+  }
+}
+
+async function admitCall(env, who, guest, group) {
+  const verdict = await askGovernor(env, { op: 'admit', who, guest, group });
+  if (verdict && typeof verdict.ok === 'boolean') {
+    // Share what every other isolate has learned about dead (key, model) pairs.
+    for (const [pair, until] of verdict.cooling || []) {
+      if ((pairCooldown.get(pair) || 0) < until) pairCooldown.set(pair, until);
+    }
+    return verdict;
+  }
+  if (!localGovernor) localGovernor = new GovernorState(governorConfig(env));
+  return localGovernor.admit({ who, guest, group }, Date.now());
+}
+
+// ---------------------------------------------------------------------------
+// Upstream time limits.
+//
+// Measured 2026-10-24 with a five-token prompt on all eleven keys: nine
+// answered in 0.5-2 s, one took 12.7 s, one took 61.6 s, and one returned 503.
+// With no timeout the router sat on the 61 s answer while the client's own
+// 90 s timer ran out, so the student saw "took too long" although ten other
+// keys were idle. Each attempt now gets a ceiling sized to the chain's output,
+// and the whole walk stops before the client gives up on it.
+// ---------------------------------------------------------------------------
+export const ATTEMPT_TIMEOUT_MS = {
+  interactive: 25000,
+  verify: 45000,
+  bulk: 60000,
+  vision: 90000,
+  premium: 120000,
+};
+const DEFAULT_BUDGET_MS = 85000;     // the client aborts at 90 s unless it says otherwise
+const MAX_BUDGET_MS = 175000;        // FRQ grading asks for 180 s
+// Free-plan Workers may make 50 subrequests per request. JWKS, the Governor and
+// KV need a few; eleven models times five keys would need 55.
+const MAX_UPSTREAM_ATTEMPTS = 12;
+
+/** How long the walk may run, from the client's own deadline (payload.budgetMs). */
+export function walkBudgetMs(requested) {
+  const n = Number(requested);
+  if (!Number.isFinite(n) || n <= 0) return DEFAULT_BUDGET_MS;
+  return clamp(n, 10000, MAX_BUDGET_MS);
+}
+
+// Only tasks whose answers repeat across students are worth a KV write: the
+// free plan allows 1,000 a day, and a multi-turn tutor history or a student's
+// own FRQ never repeats. A first tutor message often does ("explain
+// photosynthesis"), so single-turn tutorChat is cached too.
+const CACHE_TASKS = new Set(['explain', 'reviewCard', 'lessonTeach']);
+export function isCacheable(task, contents) {
+  if (CACHE_TASKS.has(task)) return true;
+  return (task === 'tutorChat' || task === '') && Array.isArray(contents) && contents.length === 1;
 }
 
 export default {
-  async fetch(req, env) {
+  async fetch(req, env, ctx) {
     const allowed = String(env.ALLOWED_ORIGINS || '')
       .split(',').map((s) => s.trim()).filter(Boolean);
     const origin = req.headers.get('origin') || '';
     const headers = cors(origin, allowed);
+    // Work that must not hold up (or fail) the student's answer.
+    const later = (p) => {
+      const safe = Promise.resolve(p).catch(() => {});
+      if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(safe);
+    };
 
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers });
+
+    // Launch-day dashboard: aggregate load numbers only, no uids or IPs.
+    // Off unless STATS_TOKEN is set; then GET /stats?token=<STATS_TOKEN>.
+    if (req.method === 'GET' && new URL(req.url).pathname === '/stats') {
+      const token = new URL(req.url).searchParams.get('token');
+      if (!env.STATS_TOKEN || token !== env.STATS_TOKEN) return json({ error: 'Not found' }, 404, headers);
+      const stats = await askGovernor(env, { op: 'stats' });
+      return json(stats || { error: 'Governor unreachable' }, stats ? 200 : 503, headers);
+    }
     if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405, headers);
 
     // Optional shared-token gate. CORS only stops browsers, so without this the
@@ -426,37 +841,46 @@ export default {
     // even a free hit off someone else's answer.
     const bearer = /^Bearer\s+(.+)$/i.exec(req.headers.get('authorization') || '');
     const uid = bearer ? await verifyIdToken(bearer[1], env.FIREBASE_PROJECT_ID) : null;
-    let quotaWait;
-    if (uid) {
-      // Mirrors AI_PROXY_5H_LIMIT in netlify/functions/ai-proxy.js, which
-      // enforces the same ceiling per uid in Firestore.
-      quotaWait = await overQuota(env, `u:${uid}`, Number(env.USER_QUOTA || 200), 5 * 60 * 60);
-    } else {
+    if (!uid) {
       // An unverified caller is a guest — whether that's a real visitor on the
       // tutor page or someone who lifted the app token out of the bundle. Same
       // deal either way: chat only, no images (an image forces the `vision`
-      // chain regardless of task, which is the expensive pool), per-IP ceiling.
+      // chain regardless of task, which is the expensive pool), smaller share.
       if (!GUEST_TASKS.has(task) || hasImage) {
         return json({ error: 'Sign in to use this feature.' }, 403, headers);
       }
-      const ip = req.headers.get('cf-connecting-ip') || 'unknown';
-      quotaWait = await overQuota(env, `g:${ip}`, Number(env.GUEST_QUOTA || 40), 60 * 60);
-    }
-    if (quotaWait) {
-      return json({ error: 'AI usage limit reached', retryAfter: quotaWait }, 429, {
-        ...headers,
-        'Retry-After': String(quotaWait),
-      });
     }
     headers['X-Apex-Tier'] = uid ? 'user' : 'guest';
 
     // ---- Cache (skip images: base64 blows up keys and rarely repeats) ----
+    // A hit costs no Gemini quota, so it is served even to a caller who is
+    // over their share. Every KV call is best-effort: on the free plan reads
+    // stop at 100,000 a day and writes at 1,000, and running out must cost
+    // the cache, never the answer.
     let cacheKey = null;
-    if (!hasImage && env.CACHE) {
-      cacheKey = await sha256(JSON.stringify({ contents: normalizeForCache(contents), generationConfig, task }));
-      const hit = await env.CACHE.get(cacheKey);
-      if (hit) return new Response(hit, { status: 200, headers: { ...headers, 'X-Apex-Cache': 'hit' } });
+    if (!hasImage && env.CACHE && isCacheable(task, contents)) {
+      try {
+        cacheKey = await sha256(JSON.stringify({ contents: normalizeForCache(contents), generationConfig, task }));
+        const hit = await env.CACHE.get(cacheKey);
+        if (hit) return new Response(hit, { status: 200, headers: { ...headers, 'X-Apex-Cache': 'hit' } });
+      } catch { /* KV unavailable or over its daily limit — answer uncached */ }
     }
+
+    // ---- Load-adaptive share (see the Governor) ----
+    // A guest is their browser's random id within their IP, so thirty students
+    // on one school network each get a share instead of splitting one.
+    const ip = req.headers.get('cf-connecting-ip') || 'unknown';
+    const guestId = typeof payload.guestId === 'string' ? payload.guestId.replace(/[^\w-]/g, '').slice(0, 40) : '';
+    const who = uid ? `u:${uid}` : `g:${ip}:${guestId}`;
+    const verdict = await admitCall(env, who, !uid, uid ? null : `ip:${ip}`);
+    if (!verdict.ok) {
+      const retryAfter = verdict.retryAfter || 60;
+      return json({ error: 'AI usage limit reached', scope: verdict.scope, retryAfter }, 429, {
+        ...headers,
+        'Retry-After': String(retryAfter),
+      });
+    }
+    if (Number.isFinite(verdict.pressure)) headers['X-Apex-Load'] = String(verdict.pressure);
 
     // ---- Task -> model chain, with an explicit Google model jumping the queue ----
     // Same rule as imageChainFor() in src/constants/modelChains.js: images use `vision`
@@ -489,6 +913,22 @@ export default {
     let rateLimited = false;
 
     const now = Date.now();
+    const deadline = now + walkBudgetMs(payload.budgetMs);
+    const attemptCap = ATTEMPT_TIMEOUT_MS[chainName] || ATTEMPT_TIMEOUT_MS.interactive;
+    let attempts = 0;
+    let timedOut = false;
+    // (key, model) pairs this request found dead, for every other isolate.
+    const learned = [];
+    const remember = (keyIdx, m, secs) => {
+      coolPair(pairCooldown, keyIdx, m, Date.now(), secs);
+      learned.push({ pair: `${keyIdx}:${m}`, until: pairCooldown.get(`${keyIdx}:${m}`) });
+    };
+    const finish = (response) => {
+      if (learned.length) later(askGovernor(env, { op: 'report', events: learned }));
+      return response;
+    };
+
+    walk:
     for (const m of models) {
       const version = versionFor(m);
       // Walk the whole ring, but only SPEND an attempt on a pair that isn't
@@ -498,17 +938,21 @@ export default {
         const keyIdx = (start + i) % API_KEYS.length;
         if (pairIsCooling(pairCooldown, keyIdx, m, now)) continue;
         spent++;
+        const left = deadline - Date.now();
+        if (++attempts > MAX_UPSTREAM_ATTEMPTS || left < 2000) break walk;
         const key = API_KEYS[keyIdx];
         const url = `https://generativelanguage.googleapis.com/${version}/models/${m}:generateContent?key=${key}`;
+        let resp;
         try {
-          const resp = await fetch(url, {
+          resp = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ contents, generationConfig, safetySettings }),
+            signal: AbortSignal.timeout(Math.min(attemptCap, left)),
           });
           if (!resp.ok) {
             if (resp.status === 400) {
-              return new Response(await resp.text(), { status: 400, headers: { ...headers, 'X-Apex-Model': m } });
+              return finish(new Response(await resp.text(), { status: 400, headers: { ...headers, 'X-Apex-Model': m } }));
             }
             // A 5xx (503 UNAVAILABLE) means Google's capacity for THIS MODEL is
             // gone — every key sees it simultaneously. Verified directly: on one
@@ -529,6 +973,7 @@ export default {
               // student-facing wait below still uses the short delay, since
               // another pair usually answers long before then.
               coolPair(pairCooldown, keyIdx, m, Date.now(), isDailyQuota(errBody) ? secondsUntilPacificMidnight() : secs);
+              learned.push({ pair: `${keyIdx}:${m}`, until: pairCooldown.get(`${keyIdx}:${m}`) });
               // Soonest moment ANY attempted pair frees up. This is what the
               // client counts down; without it the UI invents a number.
               const wait = secs > 0 ? secs : 60;
@@ -538,10 +983,23 @@ export default {
             continue; // 401/403/404/429 are key-scoped -> next key
           }
           const body = await resp.text();
-          if (cacheKey) await env.CACHE.put(cacheKey, body, { expirationTtl: 60 * 60 * 24 * 30 });
-          return new Response(body, { status: 200, headers: { ...headers, 'X-Apex-Model': m, 'X-Apex-Cache': 'miss' } });
+          // The write happens after the answer is on its way, and its failure is
+          // swallowed. It used to sit inside this try: once the free plan's
+          // 1,000 daily KV writes were gone, put() threw AFTER a good answer,
+          // the catch below took it for an upstream failure, and the walk asked
+          // the next key — up to 55 Gemini calls to deliver nothing but a 502.
+          if (cacheKey) later(env.CACHE.put(cacheKey, body, { expirationTtl: 60 * 60 * 24 * 30 }));
+          return finish(new Response(body, { status: 200, headers: { ...headers, 'X-Apex-Model': m, 'X-Apex-Cache': cacheKey ? 'miss' : 'skip' } }));
         } catch (err) {
-          lastErr = err.message;
+          if (err && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
+            // Slow is per project, not per model (one key took 61 s while nine
+            // others answered in under 2 s), so rest this pair and try the next.
+            timedOut = true;
+            lastErr = `${m}: no answer in ${Math.round(Math.min(attemptCap, left) / 1000)}s`;
+            remember(keyIdx, m, 30);
+          } else {
+            lastErr = err && err.message ? err.message : String(err);
+          }
         }
       }
     }
@@ -550,13 +1008,16 @@ export default {
     // status code lets the client tell them apart.
     if (rateLimited) {
       const retryAfter = soonestRetry || 60;
-      return json(
+      return finish(json(
         { error: 'All models are rate limited right now', detail: lastErr, retryAfter },
         429,
         { ...headers, 'Retry-After': String(retryAfter) }
-      );
+      ));
     }
-    return json({ error: 'All API attempts failed', detail: lastErr }, 502, headers);
+    if (timedOut || Date.now() >= deadline - 2000) {
+      return finish(json({ error: 'The AI took too long to answer', detail: lastErr }, 504, headers));
+    }
+    return finish(json({ error: 'All API attempts failed', detail: lastErr }, 502, headers));
   },
 };
 

@@ -25,16 +25,30 @@
  * Append-only by rule (firestore.rules allows create, never update or delete).
  * A response is a record of something that happened; there is no legitimate
  * reason to edit one, and an editable history is not evidence.
+ *
+ * Storage: one `responseSets` document per test or diagnostic, holding its rows
+ * in `rows`, rather than one `responses` document per answer (2026-10-24).
+ * Firebase's free plan allows 20,000 writes a day for the whole site, and a
+ * 50-question test spent 50 of them here alone. A set costs one write and one
+ * read. Rows keep the same fields, minus `at`: Firestore does not allow
+ * serverTimestamp() inside an array, so a set's rows share its `at`.
+ * getMyResponses and email-weekly read both collections and return the same
+ * flat rows as before, so older `responses` documents still count.
  */
 import { collection, doc, writeBatch, serverTimestamp, query, where, limit, getDocs } from 'firebase/firestore';
 import { db } from '../config/firestore';
 
 export const SOURCES = ['practiceTest', 'diagnostic', 'flashcard', 'review', 'lesson'];
 
-// Firestore caps a batch at 500 writes. A practice test is ~60 items, so this
-// only ever bites if a caller passes something pathological — chunk anyway
-// rather than losing the tail of a long session silently.
+// Firestore caps a batch at 500 writes. Only the legacy one-document-per-row
+// path below comes near it.
 const BATCH_LIMIT = 450;
+
+// Rows per responseSets document. A practice test is ~60 items, so a set is one
+// document in practice; past this a call splits into several rather than
+// risking Firestore's 1 MiB document limit. firestore.rules enforces the same
+// cap, and responseLog.test.js checks the two agree.
+export const ROWS_PER_SET = 250;
 
 const asInt = (v) => (Number.isInteger(v) ? v : null);
 const asStr = (v) => (typeof v === 'string' && v.trim() ? v.trim() : null);
@@ -72,15 +86,51 @@ export function normalizeRow(row, uid) {
   };
 }
 
+/** A normalised row as stored inside a set: the set carries userId and `at`. */
+function setRow({ userId, at, ...rest }) {
+  return rest;
+}
+
 /**
- * Write responses. Never throws and never blocks the caller — a logging hiccup
- * must not cost a student their results screen.
+ * Write responses: one responseSets document per call (per ROWS_PER_SET rows).
+ * Never throws and never blocks the caller — a logging hiccup must not cost a
+ * student their results screen.
  * Returns the number of rows written (0 on any failure), for tests.
  */
 export async function logResponses(uid, rows) {
   if (!uid || !Array.isArray(rows) || rows.length === 0) return 0;
   const clean = rows.map((r) => normalizeRow(r, uid)).filter(Boolean);
   if (!clean.length) return 0;
+  try {
+    const col = collection(db, 'responseSets');
+    const batch = writeBatch(db);
+    for (let i = 0; i < clean.length; i += ROWS_PER_SET) {
+      const chunk = clean.slice(i, i + ROWS_PER_SET);
+      const sources = [...new Set(chunk.map((r) => r.source))];
+      const subjects = [...new Set(chunk.map((r) => r.subject).filter(Boolean))];
+      batch.set(doc(col), {
+        userId: uid,
+        source: sources.length === 1 ? sources[0] : 'mixed',
+        subject: subjects.length === 1 ? subjects[0] : null,
+        count: chunk.length,
+        rows: chunk.map(setRow),
+        at: serverTimestamp(),
+      });
+    }
+    await batch.commit();
+    return clean.length;
+  } catch (e) {
+    // The rules for responseSets ship with `firebase deploy --only
+    // firestore:rules`, separately from the site. If the site goes out first,
+    // every set is refused; fall back to the old per-row documents so no
+    // answers are lost in between.
+    if (e?.code === 'permission-denied') return logRowsLegacy(clean);
+    console.debug('[responseLog] write failed (non-fatal)', e?.message || e);
+    return 0;
+  }
+}
+
+async function logRowsLegacy(clean) {
   try {
     const col = collection(db, 'responses');
     for (let i = 0; i < clean.length; i += BATCH_LIMIT) {
@@ -95,24 +145,46 @@ export async function logResponses(uid, rows) {
   }
 }
 
+/**
+ * Flat rows from responseSets documents, in the shape a `responses` document
+ * has: each row gets the set's userId and `at`.
+ */
+export function flattenSets(sets) {
+  const out = [];
+  for (const set of sets || []) {
+    if (!set || !Array.isArray(set.rows)) continue;
+    for (const r of set.rows) {
+      if (r && typeof r === 'object') out.push({ ...r, userId: set.userId, at: set.at ?? null });
+    }
+  }
+  return out;
+}
+
 /** Single-row convenience for the review and flashcard paths. */
 export const logResponse = (uid, row) => logResponses(uid, [row]);
 
 /**
- * This student's own logged answers, for per-topic mastery. [] on failure:
- * a read error must never blank the Progress page.
+ * This student's own logged answers, for per-topic mastery: rows from their
+ * responseSets plus any older one-per-answer `responses` documents. [] on
+ * failure: a read error must never blank the Progress page.
  *
  * ponytail: no orderBy (that needs a userId+at composite index), so past the
- * cap it's an arbitrary 2,000 rather than the newest. Add the index and
+ * cap it's an arbitrary selection rather than the newest. Add the index and
  * orderBy('at', 'desc') once anyone answers that many.
  */
 export async function getMyResponses(uid, max = 2000) {
   if (!uid) return [];
-  try {
-    const snap = await getDocs(query(collection(db, 'responses'), where('userId', '==', uid), limit(max)));
-    return snap.docs.map((d) => d.data());
-  } catch (e) {
-    console.debug('[responseLog] read failed (non-fatal)', e?.message || e);
-    return [];
-  }
+  const mine = (name, n) => getDocs(query(collection(db, name), where('userId', '==', uid), limit(n)))
+    .then((snap) => snap.docs.map((d) => d.data()))
+    .catch((e) => {
+      console.debug(`[responseLog] ${name} read failed (non-fatal)`, e?.message || e);
+      return [];
+    });
+  // A set is one read for a whole test, so this stays far below the 2,000 reads
+  // the one-document-per-answer log cost a heavy user on every Progress visit.
+  const [sets, legacy] = await Promise.all([
+    mine('responseSets', Math.max(1, Math.ceil(max / 10))),
+    mine('responses', max),
+  ]);
+  return [...flattenSets(sets), ...legacy].slice(0, max);
 }

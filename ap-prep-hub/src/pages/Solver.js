@@ -47,6 +47,7 @@ const SolverPage = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const fileInputRef = useRef(null);
+  const solutionRef = useRef(null);
   const [selectedImage, setSelectedImage] = useState(null);
   const [questionText, setQuestionText] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('');
@@ -74,6 +75,16 @@ const SolverPage = () => {
       loadSolverHistory();
     }
   }, [user, loadSolverHistory]);
+
+  // The answer renders below the input form, out of sight on a laptop and
+  // well below the fold on a phone, so bring it into view when it arrives
+  // (or when a past solution is picked from the history list).
+  useEffect(() => {
+    if (!solution || !solutionRef.current) return;
+    let reduce = false;
+    try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* old browser */ }
+    solutionRef.current.scrollIntoView?.({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+  }, [solution]);
 
   const handleImageUpload = (event) => {
     const file = event.target.files?.[0];
@@ -536,7 +547,7 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
 
         {/* Solution Display */}
         {solution && (
-          <div className="mb-8">
+          <div className="mb-8 scroll-mt-20" ref={solutionRef}>
             <Card className="p-4 sm:p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold text-content-primary">Solution</h2>
@@ -567,7 +578,7 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
               {/* Step-by-Step Solution */}
               <div className="space-y-3 mb-4">
                 <h3 className="text-base font-semibold text-content-primary">Step-by-Step Solution</h3>
-                {solution.steps.map((step, index) => (
+                {(solution.steps || []).map((step, index) => (
                   <motion.div
                     key={index}
                     initial={{ opacity: 0, y: 10 }}
@@ -580,7 +591,7 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
                         {step.step}
                       </div>
                       <div className="flex-1">
-                        <h4 className="font-semibold text-content-primary text-sm mb-1">{step.title}</h4>
+                        <div role="heading" aria-level={4} className="font-semibold text-content-primary text-sm mb-1"><MarkdownRenderer content={step.title} /></div>
                         <div className="text-content-secondary text-sm mb-1"><MarkdownRenderer content={step.content} /></div>
                         <div className="text-xs text-content-muted"><MarkdownRenderer content={step.explanation} /></div>
                       </div>
@@ -609,6 +620,19 @@ Return ONLY valid JSON (no code fences, no extra text) with this exact structure
                       </Badge>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* Common mistakes: the prompt has always asked for these, but
+                  they were never shown. */}
+              {Array.isArray(solution.commonMistakes) && solution.commonMistakes.filter(Boolean).length > 0 && (
+                <div className="mt-4">
+                  <h3 className="text-base font-semibold text-content-primary mb-2">Common Mistakes</h3>
+                  <ul className="list-disc pl-5 space-y-1 text-sm text-content-secondary">
+                    {solution.commonMistakes.filter(Boolean).map((mistake, index) => (
+                      <li key={index}><MarkdownRenderer content={String(mistake)} /></li>
+                    ))}
+                  </ul>
                 </div>
               )}
             </Card>

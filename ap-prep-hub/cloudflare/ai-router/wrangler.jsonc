@@ -9,6 +9,14 @@
   "routes": [
     { "pattern": "ai.apex-scholar.com", "custom_domain": true }
   ],
+  // One global Durable Object holds the per-student counts. SQLite-backed is
+  // the only kind the Workers Free plan allows.
+  "durable_objects": {
+    "bindings": [{ "name": "GOVERNOR", "class_name": "Governor" }]
+  },
+  "migrations": [
+    { "tag": "v1-governor", "new_sqlite_classes": ["Governor"] }
+  ],
   // KV id is filled by `wrangler kv namespace create CACHE` (or the Cloudflare
   // connector). Vars set here; the 11 GEMINI_API_KEY* are secrets (see README).
   "kv_namespaces": [
@@ -22,10 +30,17 @@
     // missing, every signed-in student silently drops to the guest tier and
     // practice tests start returning 403.
     "FIREBASE_PROJECT_ID": "ai-study-helper-f2f24",
-    // Per-uid calls per 5h (matches AI_PROXY_5H_LIMIT on the Netlify proxy),
-    // and per-IP calls per hour for unauthenticated guests. Both are abuse
-    // ceilings well above real use; aiUsageLimiter is the user-facing cap.
-    "USER_QUOTA": "120",
-    "GUEST_QUOTA": "40"
+    // Load-adaptive limits, read by the Governor (src/index.js). DAILY_CAPACITY
+    // is the good-answer pool for ALL keys together per Pacific day; raise it
+    // if keys are added or billing is turned on. A student's hourly share
+    // floats between HOURLY_MIN (site busy) and HOURLY_MAX (site quiet).
+    "DAILY_CAPACITY": "12000",
+    "RPM_CAPACITY": "400",
+    "HOURLY_MAX": "60",
+    "HOURLY_MIN": "6",
+    "GUEST_HOURLY_MAX": "20",
+    "GUEST_HOURLY_MIN": "3",
+    "BURST_PER_MINUTE": "12",
+    "GROUP_HOURLY_MAX": "400"
   }
 }

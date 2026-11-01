@@ -2,20 +2,18 @@
   "name": "apex-scholar-video",
   "version": "1.0.0",
   "private": true,
-  "description": "Promotional video for Apex Scholar — AI-powered AP exam prep platform.",
+  "description": "Apex Scholar launch film, built from real app footage.",
   "scripts": {
     "dev": "remotion studio",
     "studio": "remotion studio",
-    "render": "remotion render ApexScholarPromo out/apex-scholar.mp4",
-    "render:gif": "remotion render ApexScholarPromo out/apex-scholar.gif --codec=gif",
+    "render": "remotion render LaunchFilm out/launch-film-1080p.mp4",
+    "render:4k": "remotion render LaunchFilm out/launch-film-2160p.mp4 --scale=2",
     "upgrade": "remotion upgrade"
   },
   "dependencies": {
     "@remotion/bundler": "4.0.402",
     "@remotion/cli": "4.0.402",
-    "@remotion/fonts": "4.0.402",
     "@remotion/google-fonts": "4.0.402",
-    "@remotion/tailwind-v4": "4.0.402",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "remotion": "4.0.402"
@@ -24,7 +22,6 @@
     "@types/react": "19.0.0",
     "@types/web": "0.0.166",
     "playwright": "^1.60.0",
-    "tailwindcss": "^4.0.0",
     "typescript": "5.8.2"
   }
 }

@@ -17,6 +17,12 @@ describe('formatDue', () => {
     expect(formatDue(NOW + DAY, NOW)).toBe('tomorrow');
     expect(formatDue(NOW + 5 * DAY, NOW)).toBe('in 5 days');
   });
+
+  it('says how long when it is less than a day away', () => {
+    expect(formatDue(NOW + 10 * 60 * 1000, NOW)).toBe('in 10 minutes');
+    expect(formatDue(NOW + 30 * 1000, NOW)).toBe('in 1 minute');
+    expect(formatDue(NOW + 3 * 60 * 60 * 1000, NOW)).toBe('in 3 hours');
+  });
 });
 
 describe('intervalLabel', () => {

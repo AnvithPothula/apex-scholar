@@ -36,7 +36,7 @@ Music only. No voiceover anywhere. Chapters follow a student's year, like Sill's
 | | **Close** | | | |
 | 23 | 1:10 | Free and open source. | | Plain dark card |
 | 24 | 1:12 | Built by a student. | | Plain dark card |
-| 25 | 1:14 | Apex Scholar | 37 AP courses. apex-scholar.com | Logo and wordmark |
+| 25 | 1:14 | Apex Scholar | Free for everyone. apex-scholar.com | Logo and wordmark |
 | 25 (legal) | 1:14 | | AP is a registered trademark of College Board, which is not affiliated with and does not endorse Apex Scholar. | Small line at the bottom |
 
 ## Vertical clips (9:16, music and on-screen text, one chapter each)

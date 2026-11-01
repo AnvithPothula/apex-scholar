@@ -26,6 +26,7 @@ import SetupPanel from '../components/practice/SetupPanel';
 import TestPanel from '../components/practice/TestPanel';
 import ResultsPanel from '../components/practice/ResultsPanel';
 import { toImageParts, saveAnswerImages, loadAnswerImages, clearAnswerImages } from '../utils/answerImages';
+import { saveLocalProgress, loadLocalProgress, clearLocalProgress, pickNewerProgress, cloudSaveDue } from '../services/testProgressStore';
 
 // TEST_CONFIGURATIONS and DEFAULT_CONFIG are now imported from ../constants/testConfigurations
 // Points per short free-response question on the real exams that have them.
@@ -962,6 +963,7 @@ Format as JSON:
             setResumable(null);
             // Photos stay in memory for a regrade of this result; the device copy goes.
             clearAnswerImages(`${user.uid}_inprogress`);
+            clearLocalProgress(user.uid);
             await deleteDoc(doc(db, 'testProgress', `${user.uid}_inprogress`));
           } catch (error) {
             console.error('Error clearing saved progress after submit:', error);
@@ -1071,15 +1073,21 @@ Format as JSON:
     if (!user || testStarted) return;
     let cancelled = false;
     (async () => {
-      try {
-        const snap = await getDoc(doc(db, 'testProgress', `${user.uid}_inprogress`));
-        if (cancelled || !snap.exists()) return;
-        const data = snap.data();
+      // This browser's copy is usually the newer one: Firestore only gets a
+      // copy every few minutes (services/testProgressStore).
+      const local = loadLocalProgress(user.uid);
+      const offer = (data) => {
         // Only offer a resume we can actually honour: without the question set
         // there is nothing to restore, and offering it would be a lie.
-        if (!Array.isArray(data.questions) || data.questions.length === 0) return;
+        if (cancelled || !data || !Array.isArray(data.questions) || data.questions.length === 0) return;
         setResumable({ ...data, subject: subjectName(data.subject), questionCount: data.questions.length });
+      };
+      try {
+        const snap = await getDoc(doc(db, 'testProgress', `${user.uid}_inprogress`));
+        if (cancelled) return;
+        offer(pickNewerProgress(local, snap.exists() ? snap.data() : null));
       } catch (e) {
+        offer(local);
         // Resuming is optional, so a failed lookup must never look like a
         // breakage. permission-denied here just means the updated testProgress
         // rule isn't deployed yet; anything else is worth seeing.
@@ -1097,6 +1105,7 @@ Format as JSON:
     setResumable(null);
     if (!user) return;
     clearAnswerImages(`${user.uid}_inprogress`);
+    clearLocalProgress(user.uid);
     try {
       await deleteDoc(doc(db, 'testProgress', `${user.uid}_inprogress`));
     } catch (e) {
@@ -1154,7 +1163,15 @@ Format as JSON:
   // state through a ref.
   useEffect(() => {
     if (autoSyncEnabled && testStarted && user) {
-      const saveProgress = async () => {
+      // Local-first (services/testProgressStore): every tick and every change
+      // saves to this browser; Firestore gets a copy only when cloudSaveDue
+      // says so, and always when the tab is hidden or left. The 30 s tick used
+      // to rewrite the whole test to Firestore (~360 writes per 3-hour exam),
+      // and the save after each answer added ~55 more per test, against a
+      // free-plan budget of 20,000 writes a day for the whole site.
+      let lastCloudSig = '';
+      let lastCloudWrite = 0;
+      const saveProgress = async (force = false) => {
         try {
           // Deep sanitize function to remove undefined values.
           // NOTE: serverTimestamp() returns a FieldValue sentinel — an object.
@@ -1189,8 +1206,12 @@ Format as JSON:
           // Photo-only answers count too (the photos themselves are on the device).
           const hasPhotos = Object.values(live.answerImages || {}).some((a) => a?.length);
           if (Object.keys(live.userAnswers || {}).length === 0 && !hasPhotos) return;
-
-          const progressData = deepSanitize({
+          const sig = JSON.stringify([
+            live.userAnswers, live.testMarks, live.currentQuestionIndex, live.questions.length,
+            Object.values(live.answerImages || {}).map((a) => a?.length || 0),
+          ]);
+          const now = Date.now();
+          const base = {
             userId: user.uid,
             subject: live.selectedSubject || '',
             section: live.selectedSection || '',
@@ -1205,12 +1226,17 @@ Format as JSON:
             currentQuestionIndex: live.currentQuestionIndex || 0,
             timeRemaining: live.timeRemaining || 0,
             timeLimitMinutes: live.timeLimitMinutes || 0,
-            lastSaved: serverTimestamp()
-          });
+            savedAtMs: now,
+          };
+          const localOk = saveLocalProgress(user.uid, deepSanitize({ ...base, lastSaved: now }));
+          if (!cloudSaveDue({ force: force === true, localOk, changed: sig !== lastCloudSig, now, lastCloudWrite })) return;
+          const progressData = deepSanitize({ ...base, lastSaved: serverTimestamp() });
 
           // Use setDoc with deterministic ID to upsert instead of creating a new doc every 30s
           const progressRef = doc(db, 'testProgress', `${user.uid}_inprogress`);
           await setDoc(progressRef, progressData);
+          lastCloudSig = sig;
+          lastCloudWrite = Date.now();
         } catch (error) {
           console.error('Error saving progress:', error);
         }
@@ -1221,14 +1247,15 @@ Format as JSON:
       // Also save when the tab is hidden. On a reload or close the page unloads
       // before Firestore's write lands (checked: a reload kept the old answer),
       // so the real guard is the save a few seconds after each change, below.
-      const onHide = () => { if (document.visibilityState === 'hidden') saveProgress(); };
+      const onHide = () => { if (document.visibilityState === 'hidden') saveProgress(true); };
+      const onLeave = () => saveProgress(true);
       document.addEventListener('visibilitychange', onHide);
-      window.addEventListener('pagehide', saveProgress);
+      window.addEventListener('pagehide', onLeave);
       return () => {
         saveProgressRef.current = null;
         clearInterval(saveInterval);
         document.removeEventListener('visibilitychange', onHide);
-        window.removeEventListener('pagehide', saveProgress);
+        window.removeEventListener('pagehide', onLeave);
       };
     }
   }, [autoSyncEnabled, testStarted, user]);

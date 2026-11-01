@@ -13,10 +13,10 @@
     <link rel="apple-touch-icon" sizes="192x192" href="%PUBLIC_URL%/Apex_Scholar_Logo_NoText.png" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
 
-    <!-- Canonical & alt-language -->
+    <!-- Canonical. scripts/prerender.mjs rewrites it per page. No hreflang:
+         the site is English only, and copies of this head on every page told
+         Google the homepage was each page's English version. -->
     <link rel="canonical" href="https://apex-scholar.com/" />
-    <link rel="alternate" hreflang="en" href="https://apex-scholar.com/" />
-    <link rel="alternate" hreflang="x-default" href="https://apex-scholar.com/" />
 
     <!-- DNS prefetch for origins we may hit later in the session.
          Lighthouse flagged earlier preconnect entries here as unused on the
@@ -42,13 +42,13 @@
     <title>Apex Scholar — AI Tutors, Practice Tests &amp; Smart Scheduler for AP Exams</title>
     <meta
       name="description"
-      content="Apex Scholar is the all-in-one AI study platform for AP exam prep. Subject-trained AI tutors, full-length AI-generated practice tests with rubric scoring, smart Schoology-integrated scheduling, flashcards with spaced repetition, a photo problem solver, and unit-by-unit diagnostics — free."
+      content="Free AP exam prep: subject-specific AI tutors, generated practice tests, flashcards with spaced repetition, and a study scheduler. No cost, no ads."
     />
     <meta name="keywords" content="AP exam prep, AP study tool, AI tutor, AP practice tests, AP Calculus help, AP Biology tutor, AP Chemistry practice, AP U.S. History, AP English Language and Composition, AP Statistics, free AP study, AP flashcards, AP problem solver, college board, advanced placement, smart scheduler, Schoology integration, study planner, AP score predictor, FRQ grader, MCQ practice" />
     <meta name="author" content="Apex Scholar" />
+    <!-- The one robots tag: per-page noindex (sign-in, 404) rewrites it, and a
+         separate googlebot/bingbot "index" tag would contradict that. -->
     <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
-    <meta name="googlebot" content="index, follow" />
-    <meta name="bingbot" content="index, follow" />
     <meta name="classification" content="Education" />
     <meta name="category" content="Education" />
     <meta name="rating" content="General" />
@@ -84,14 +84,12 @@
       "url": "https://apex-scholar.com/",
       "logo": "https://apex-scholar.com/Apex_Scholar_Logo.png",
       "image": "https://apex-scholar.com/og-image.png",
-      "description": "AI-powered study platform for Advanced Placement (AP) exam preparation, offering subject-trained AI tutors, AI-generated practice tests, smart scheduling, flashcards, a problem solver, and diagnostics.",
-      "sameAs": [
-        "https://twitter.com/ApexScholarApp",
-        "https://www.instagram.com/apexscholarapp",
-        "https://www.linkedin.com/company/apex-scholar"
-      ]
+      "description": "AI-powered study platform for Advanced Placement (AP) exam preparation, offering subject-trained AI tutors, AI-generated practice tests, smart scheduling, flashcards, a problem solver, and diagnostics."
     }
     </script>
+    <!-- No "sameAs" until the accounts exist (none did on 2026-10-24). Add the
+         YouTube channel, and Instagram if it is made, as a "sameAs" array above:
+         it is how Google ties the site to its profiles. -->
 
     <!-- JSON-LD: WebSite + SearchAction -->
     <script type="application/ld+json">
@@ -145,72 +143,10 @@
     }
     </script>
 
-    <!-- JSON-LD: FAQPage — these answers help AI assistants and Google's
-         AI Overviews quote your site directly. -->
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "FAQPage",
-      "mainEntity": [
-        {
-          "@type": "Question",
-          "name": "What is Apex Scholar?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Apex Scholar is a free, AI-powered study platform built specifically for Advanced Placement (AP) exam preparation. It combines subject-trained AI tutors, AI-generated full-length practice tests with rubric grading, a Smart Scheduler that syncs with Schoology, flashcards with spaced repetition, a photo problem solver, and unit-level diagnostics in one app."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "Is Apex Scholar free?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Yes — Apex Scholar is free for students. There is no trial period or paywall on the AI tutors, practice tests, scheduler, flashcards, or solver."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "Which AP subjects does Apex Scholar support?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Apex Scholar supports all major AP subjects, including AP Calculus AB & BC, AP Biology, AP Chemistry, AP Physics 1: Algebra-Based, AP Physics C, AP Statistics, AP U.S. History, AP World History: Modern, AP European History, AP U.S. Government and Politics, AP English Language and Composition, AP English Literature and Composition, AP Psychology, AP Computer Science A, AP Computer Science Principles, AP Environmental Science, AP Microeconomics, AP Macroeconomics, AP Human Geography, and more — over 39 subjects total."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "How does the AI tutor work?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Each AI tutor is trained on subject-specific College Board frameworks, MCQ patterns, and FRQ rubrics. You can chat one-on-one with the tutor about any unit topic, get FRQs graded against the official rubric, work through practice problems step-by-step, and receive personalized explanations that match your learning style."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "Does Apex Scholar grade FRQs (free-response questions)?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Yes. Apex Scholar's AI grades FRQs against the official College Board rubric, awarding partial credit point-by-point and explaining where points were earned or lost."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "Does Apex Scholar integrate with Schoology?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Yes. The Smart Scheduler can pull assignments and due dates from Schoology and automatically generates focused study blocks around them, respecting your free time, exam dates, and blackout schedule."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "How does the photo problem solver work?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Snap a photo of any problem (math, physics, chemistry, etc.) or paste it as text. The Solver returns a step-by-step LaTeX-rendered solution rather than just an answer, so you can learn the method."
-          }
-        }
-      ]
-    }
-    </script>
+    <!-- No FAQPage markup: Google requires the questions to be visible on the
+         page (the homepage shows the score check instead), and this head is
+         copied onto every prerendered page, which would repeat one FAQ ~140
+         times. The same answers are in /llms-full.txt for AI assistants. -->
 
     <!-- Puter.js: optional. Students who connect their own Puter account can
          pick Puter models; everyone else uses Apex Scholar's AI proxy. -->
@@ -311,7 +247,7 @@
   </head>
   <body>
     <noscript>
-      <h1>Apex Scholar — AI-Powered AP Exam Prep</h1>
+      <p><strong>Apex Scholar — AI-Powered AP Exam Prep</strong></p>
       <p>
         Apex Scholar is a free study platform for Advanced Placement exams featuring
         AI tutors trained on every AP subject, AI-generated full-length practice tests
@@ -354,6 +290,14 @@
           Photomath, and a study planner into one app — all powered by AI tutors that
           understand the College Board frameworks for every AP subject.
         </p>
+        <h2>Free, no account needed</h2>
+        <ul>
+          <li><a href="/study">Free AP unit lessons</a></li>
+          <li><a href="/ap-score-calculator">AP score calculators</a></li>
+          <li><a href="/study/timelines/ap-us-history">APUSH timeline</a></li>
+          <li><a href="/start">Free AP score check</a></li>
+          <li><a href="/ai-tutors">AI tutors for every AP subject</a></li>
+        </ul>
         <p>
           Apex Scholar is at <a href="https://apex-scholar.com/">apex-scholar.com</a>.
         </p>

@@ -238,6 +238,20 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // The same log, one document per test or diagnostic with its answers in
+    // `rows` (src/services/responseLog.js). Written instead of /responses since
+    // 2026-10-24 to save Firestore's free daily writes. Append-only for the same
+    // reason. The row cap matches ROWS_PER_SET and keeps a set far below
+    // Firestore's 1 MiB document limit.
+    match /responseSets/{setId} {
+      allow read: if ownsExisting();
+      allow create: if ownsIncoming()
+        && request.resource.data.rows is list
+        && request.resource.data.rows.size() > 0
+        && request.resource.data.rows.size() <= 250;
+      allow update, delete: if false;
+    }
+
     // Diagnostic results at root level - accessible by owner
     match /diagnosticResults/{resultId} {
       allow read: if ownsExisting();

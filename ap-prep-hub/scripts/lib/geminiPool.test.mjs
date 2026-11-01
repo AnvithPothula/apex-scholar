@@ -91,3 +91,10 @@ test('Pacific-day helpers', () => {
   assert.equal(pacificDay(t), '2026-09-29');
   assert.equal(msUntilPacificMidnight(t), 14 * 3600 * 1000);
 });
+
+test('a call can avoid models, for a second opinion from a different one', async () => {
+  const h = harness();
+  const pool = createPool({ keys: ['k1'], models: LITES, reserve: 0, ...h });
+  for (let i = 0; i < 6; i++) await pool.call({}, { avoid: new Set(['gemini-3.1-flash-lite']) });
+  assert.ok(h.calls.every((c) => c.model === 'gemini-3.5-flash-lite'));
+});

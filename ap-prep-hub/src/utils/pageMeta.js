@@ -50,21 +50,40 @@ const ALIASES = {
 
 export const aliasesFor = (subject) => ALIASES[subject] || [];
 
-/** Under ~65 chars survives untruncated in a result listing; long course
- *  names drop the brand rather than being shortened. */
-export function scoreCalculatorTitle(subject) {
-  if (!subject) return 'AP Score Calculator — Apex Scholar';
-  const full = `${subject} Score Calculator — Apex Scholar`;
-  return full.length <= 65 ? full : `${subject} Score Calculator`;
+/** The May exam a page is for: from August on, next May's (the AP year runs
+ *  with the school year, as in services/academicYear, which this file can't
+ *  import because the prerender loads it on its own). */
+export function examYear(now = new Date()) {
+  return now.getMonth() >= 7 ? now.getFullYear() + 1 : now.getFullYear();
 }
 
-export function scoreCalculatorDescription(subject) {
+/** Under ~65 chars survives untruncated in a result listing; long course
+ *  names drop the brand rather than being shortened. The year is there
+ *  because students search "ap bio score calculator 2027", and every page
+ *  ranking above us had it. */
+export function scoreCalculatorTitle(subject, now = new Date()) {
+  const year = examYear(now);
+  if (!subject) return `AP Score Calculator ${year} — Apex Scholar`;
+  const full = `${subject} Score Calculator ${year} — Apex Scholar`;
+  return full.length <= 65 ? full : `${subject} Score Calculator ${year}`;
+}
+
+/** Kept near 160 characters, where a result snippet is cut off. */
+export function scoreCalculatorDescription(subject, now = new Date()) {
   if (!subject) {
     return 'Free AP score calculators for every subject. Turn raw section scores into an estimated 1–5 and see the curve behind it.';
   }
-  const names = [subject, ...aliasesFor(subject)];
-  return `Free ${subject} score calculator. Enter your multiple-choice and free-response points to see your estimated AP score out of 5, plus the raw score you need for each grade. Also searched as ${names.join(', ')}.`;
+  const aliases = aliasesFor(subject);
+  const name = aliases.length ? `${subject} (${aliases.join(', ')})` : subject;
+  const base = `Free ${name} score calculator for ${examYear(now)}. Enter your multiple-choice and free-response points to get a predicted 1–5`;
+  const full = `${base} and the points to the next score.`;
+  return full.length <= 165 ? full : `${base}.`;
 }
+
+/** index.html's robots value, for pages search engines should list. */
+export const INDEX_ROBOTS = 'index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1';
+/** For pages with nothing to search for (sign-in, a 404, signed-in screens). */
+export const NOINDEX_ROBOTS = 'noindex, follow';
 
 export function canonicalFor(path, origin = 'https://apex-scholar.com') {
   const clean = String(path || '/').split('?')[0].split('#')[0].replace(/\/+$/, '');

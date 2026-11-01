@@ -191,7 +191,7 @@ Check weekly (5 minutes):
 | New sign-ups per week, by channel | GA key event `sign_up` × session source | a named channel producing sign-ups every week |
 | Finished the first diagnostic in the first session | GA / Firestore aggregate | ≥ 50% of sign-ups |
 | Came back within 7 days (D7) | Firestore `lastSeenAt` aggregate | ≥ 20% |
-| Answers logged per week | `responses` count | ≥ 2,000 once a channel is running |
+| Answers logged per week | sum of `count` in `responseSets` (plus older `responses` docs) | ≥ 2,000 once a channel is running |
 | Class members | `members` collection-group count | one class with ≥ 15 members |
 
 ## Calendar to May 2027

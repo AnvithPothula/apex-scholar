@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { RotateCcw, BookmarkPlus, Check } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -10,6 +10,7 @@ import { useAuth } from '../../contexts/AuthContext';
  * being read never loads it.
  */
 function SaveToSet({ cards, defaultName, subject }) {
+  const location = useLocation();
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState('new');
@@ -73,7 +74,7 @@ function SaveToSet({ cards, defaultName, subject }) {
       )}
       {open && !user && (
         <p className="text-body-sm text-content-secondary">
-          <Link to="/login" className="text-primary-400 underline">Sign in for free</Link> to save these cards to your own flashcards.
+          <Link to="/login" state={{ from: location }} className="text-primary-400 underline">Sign in for free</Link> to save these cards to your own flashcards.
           <button type="button" onClick={() => setOpen(false)} className="ml-2 text-content-muted underline">Cancel</button>
         </p>
       )}

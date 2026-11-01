@@ -106,18 +106,17 @@ ap-prep-hub/
       Flashcards.js     # Flashcard system
       Solver.js         # Problem solver
       Settings.js       # User settings
-      Learn.js          # Learning content
       Review.jsx        # Spaced-repetition review queue
       Diagnostics.js    # Unit-level diagnostic assessments
       ScoreCalculator.jsx  # Public AP score calculators (no account needed)
       NotFound.jsx      # 404 page
     components/
       ui/               # Shared UI primitives (Button, Card, Input, etc.)
-      tutors/           # AI tutor components (ChatMessage, SubjectSelector)
+      tutors/           # AI tutor components (MCQCard, SimWidget, SubjectSelector)
       scheduler/        # Scheduler components (CalendarGrid, TaskCard)
       settings/         # Settings components
       auth/             # Login, OAuth callbacks
-      tools/            # Solver tools (FileUpload, CalculatorPad)
+      tools/            # Solver tools (CalculatorPad)
       Layout.jsx        # App shell with navigation
       ErrorBoundary.jsx # React error boundary
       MarkdownRenderer.jsx  # Markdown + math rendering
@@ -180,43 +179,51 @@ Re-runs skip bundles that already exist, so an interrupted run is safe to repeat
 
 ## AI capacity
 
-Two things bound how many students the site can serve at once.
+**The pool is fixed.** All eleven Gemini keys answer server-side (probed
+2026-10-24). On the free tier that is roughly 12,000 good answers per Pacific
+day (two 3.x flash-lite models at ~500 RPD each, times eleven projects) and ~330 RPM, with
+Gemma as overflow only (see "Model choice" below). Turning billing on is the
+only way to grow it.
 
-**1. Only one of the eleven Gemini keys works server-side.** Probed directly
-against `generateContent`: key 1 is `API_KEY_SERVICE_BLOCKED`, keys 2-7 and
-9-11 return `403 ... Requests from referer <empty> are blocked`, key 8 is the
-only 200. The HTTP-referrer restriction is correct for `REACT_APP_GEMINI_API_KEY*`
-(those are inlined into the client bundle) but the same values are also in
-`GEMINI_API_KEYS`, which is what the *server* paths read. Fix in Google Cloud
-Console: keep the referrer-restricted keys for the browser, issue a separate
-unrestricted or IP-restricted set for the server.
+**One practice test is ~13 model calls** (55 MCQs in batches of 6, plus SAQ,
+DBQ and LEQ), so the pool is about 900 full tests a day if nothing else ran.
 
-**2. One practice test is ~13 model calls**, not one — 55 MCQs in batches of 6,
-plus SAQ, DBQ and LEQ. With the per-user cap of one test per day:
+**How the Worker shares it** (`cloudflare/ai-router`, the `Governor` Durable
+Object). Every uncached call is admitted or refused by one global counter:
 
-Usable per key per day: 1,000 requests across the two 3.x flash-lite models,
-plus 100 spread across six -flash models, over a Gemma floor of 28,800 that is
-only good for overflow (see "Model choice" below).
+| Check | Default | Refusal `scope` |
+|---|---|---|
+| Site-wide calls per minute | 400 (`RPM_CAPACITY`) | `busy` |
+| Guests behind one IP, per hour | 400 (`GROUP_HOURLY_MAX`) | `group` |
+| One student, per minute | 12 (`BURST_PER_MINUTE`) | `burst` |
+| One student, per hour (floats) | 6 to 60 (`HOURLY_MIN`/`HOURLY_MAX`); guests 3 to 20 | `share` |
 
-| Daily active users | Calls/day | 1 working key (~1,100 RPD) | 11 keys (~12,100 RPD) |
-|---|---|---|---|
-| 80 | 1,040 | at the limit | fine |
-| 300 | 3,900 | ~4x over | fine |
+The hourly share is the load-adaptive part. Each hour gets
+`(DAILY_CAPACITY - used today) / hours left until Pacific midnight`; when the
+last hour's demand fits, everyone gets `HOURLY_MAX`, and when it doesn't, the
+cap drops to the max-min fair level (light users keep everything, heavy users
+are trimmed equally), never below `HOURLY_MIN`. A refusal is a 429 with
+`Retry-After` and the client shows "everyone gets an equal share, yours
+refills in about N minutes".
 
-Burst matters too: 13 sequential calls at 15 RPM is ~52 s of rate-limit budget
-per test on one key, versus ~5 s across eleven.
+If the Durable Object is unreachable the Worker falls back to a per-isolate
+copy of the same rules rather than failing open or closed. KV (the 30-day
+response cache) is best-effort: a KV error never fails an AI request, which
+matters on the Workers Free plan's 1,000 writes/day.
 
-What already absorbs load: diagnostics cost zero model calls (they read the
-pre-generated question bank), the router caches responses in KV for 30 days,
-`aiUsageLimiter` caps each user at one test per day plus a pooled general
-budget, and `services/aiQueue.js` serialises a tab's outbound calls so one
-student's practice test cannot exhaust a key's RPM on its own.
+Each Gemini attempt has its own timeout (25 s interactive, longer for
+verify/bulk/vision/premium) inside the client's overall budget, so one hung
+project moves on to the next key instead of eating the whole request (a 61 s
+hang was measured on one key).
 
-Ordering *between* students would need shared server state — a Durable Object.
-It is not built, because a queue redistributes scarcity rather than creating
-capacity, and a rate limit now returns Google's real RetryInfo delay so clients
-back off accurately instead of hammering. Revisit once the keys are fixed and
-the numbers are 11x different.
+What else absorbs load: diagnostics cost zero model calls (they read the
+pre-generated question bank), identical explain/review/lesson and single-turn
+tutor calls are served from the KV cache, `aiUsageLimiter` caps each user at
+one test per day plus a pooled budget, and `services/aiQueue.js` serialises a
+tab's outbound calls.
+
+Live numbers: `GET https://ai.apex-scholar.com/stats?token=<STATS_TOKEN>`
+(404 unless the secret is set).
 
 ## Model choice
 

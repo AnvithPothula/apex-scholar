@@ -69,6 +69,11 @@ export const TIER = {
   all_of_the_above: 'revise',
   none_of_the_above: 'revise',
   true_false_options: 'quarantine',
+  // The explanation shows the model second-guessing itself ("Wait, let's
+  // re-check", "None match"). Every hit read by hand in the 2026-10-24 sweep
+  // had a wrong or missing key, and isUsableQuestion already refuses to serve
+  // these, so this is how the sweep finds them to delete or rewrite.
+  model_self_talk: 'quarantine',
   fill_in_the_blank: 'revise',
   longest_option_correct: 'revise',
   negative_stem: 'revise',
@@ -120,6 +125,20 @@ const TRUEFALSE = /^(true|false)\b/i;
 // common in ordinary prose to flag - it fires on "is not defined at x = 2".
 const NEG_STEM = /\b(NOT|EXCEPT|LEAST|FALSE|INCORRECT)\b/;
 const BLANK = /(_{3,}|\.{4,})/;
+// Kept in step with SELF_TALK in services/questionBank.js (both files must stay
+// import-free, so they can't share it). 24 hits in 989 items, no clean ones.
+const SELF_TALK = [
+  /\bwait\b\s*[,.!:]/i,
+  /\blet'?s re-?(check|compute|calculate|evaluate)\b/i,
+  /\bre-?eval(uating)?\b\s*[:,]/i,
+  /\bcheck(ing)? (the )?math\b/i,
+  /\bnone (of the (options|choices) )?match\b/i,
+  /\bmight be rounded or\b/i,
+  /\blet me (re-?)?(check|calculate|compute)\b/i,
+  /\bhmm\b/i,
+  /\bbut checking\b/i,
+  /\brequires? checking\b/i,
+];
 
 const numeric = (s) => {
   const m = String(s).trim().match(/^[-+]?\$?\s*(\d[\d,]*(?:\.\d+)?)\s*(%|[a-zA-Z/°]{0,6})?$/);
@@ -168,6 +187,9 @@ export function detectFlaws(item) {
   if (choices.some((c) => NOTA.test(String(c)))) flaws.push('none_of_the_above');
   if (choices.length > 0 && choices.every((c) => TRUEFALSE.test(String(c).trim()))) {
     flaws.push('true_false_options');
+  }
+  if ([stem, ...expl].some((t) => SELF_TALK.some((re) => re.test(String(t || ''))))) {
+    flaws.push('model_self_talk');
   }
 
   // ---- revise: answerable, but it cues or distorts ----

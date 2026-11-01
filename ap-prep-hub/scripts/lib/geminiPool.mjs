@@ -73,6 +73,7 @@ export function createPool({
   sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
   log = () => {},
   maxWaitMs = 5 * 60 * 1000,
+  timeoutMs = 120_000,
 }) {
   if (!Array.isArray(keys) || !keys.length) throw new Error('geminiPool: no keys');
   if (!Array.isArray(models) || !models.length) throw new Error('geminiPool: no models');
@@ -120,12 +121,13 @@ export function createPool({
   }
 
   /** The best pair to use now, or the soonest moment one frees up. */
-  function choose() {
+  function choose(avoid) {
     rollDay();
     let best = null;
     let soonest = Infinity;
     const t = now();
     for (const m of models) {
+      if (avoid?.has(m)) continue;
       for (let k = 0; k < keys.length; k++) {
         const at = readyAt(k, m);
         if (at > t) { soonest = Math.min(soonest, at); continue; }
@@ -138,10 +140,11 @@ export function createPool({
     return best || { waitUntil: soonest };
   }
 
-  async function call(body) {
+  /** `avoid`: models this call must not use (e.g. a second opinion from a different model). */
+  async function call(body, { avoid } = {}) {
     let lastError = 'no attempt';
     for (let attempt = 0; attempt < 40; attempt++) {
-      const pick = choose();
+      const pick = choose(avoid);
       if (pick.waitUntil !== undefined) {
         if (!Number.isFinite(pick.waitUntil)) {
           throw new BudgetExhaustedError(
@@ -165,10 +168,13 @@ export function createPool({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
+          signal: AbortSignal.timeout(timeoutMs),
         });
       } catch (e) {
         lastError = `${m} key ${k + 1}: ${e.message}`;
-        coolUntil.set(pk, now() + 10_000);
+        // A model that hangs hangs for every key: rest the model, not the pair.
+        if (e?.name === 'TimeoutError') modelDownUntil.set(m, now() + 5 * 60_000);
+        else coolUntil.set(pk, now() + 10_000);
         continue;
       }
 

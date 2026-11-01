@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowRight, BookOpen, Clock, Gauge, ListChecks, Brain, FileQuestion, RotateCcw, Target } from 'lucide-react';
 import { Button, Card } from '../components/ui/UIComponents';
 import MarkdownRenderer from '../components/MarkdownRenderer';
@@ -38,8 +38,7 @@ import MarketLab from '../components/study/MarketLab';
 import PackQuestion from '../components/study/PackQuestion';
 import SelectionAsk from '../components/study/SelectionAsk';
 import { useAuth } from '../contexts/AuthContext';
-import { logResponses } from '../services/responseLog';
-import srs from '../services/srs';
+import { queueAnswer, flushOutbox } from '../services/lessonOutbox';
 import { trackEvent } from '../utils/analytics';
 import { PACKS } from '../data/packs';
 import { COURSES, courseUnits } from '../data/packs/catalog';
@@ -100,6 +99,7 @@ export default function StudyPack() {
 function StudyPackView({ slug, uid }) {
   const entry = PACKS[slug];
   const navigate = useNavigate();
+  const location = useLocation();
   const [pack, setPack] = useState(null);
   const [topics, setTopics] = useState({});      // topic id -> 'mastered' | 'shaky', as of the start of this pass
   const [resume, setResume] = useState(null);    // { pass, summary } of an unfinished pass, offered on the choose screen
@@ -182,6 +182,26 @@ function StudyPackView({ slug, uid }) {
   }, [pack, mode, stage, preIndex, answers, expanded, topics, liveTopics, plan, results, uid, slug]);
   useEffect(() => () => { if (pending.current) saveRemote(uid, slug, pending.current); }, [uid, slug]);
 
+  // Answers and misses go out together (services/lessonOutbox.js): after a
+  // quiet minute, at 15 answers, when the tab is hidden, and on leaving the
+  // unit. Anything a closed tab didn't send goes the next time Learn opens.
+  const flushTimer = useRef(null);
+  const flush = useCallback(() => {
+    clearTimeout(flushTimer.current);
+    flushOutbox(uid);
+  }, [uid]);
+  useEffect(() => {
+    flush(); // leftovers from a tab that closed before it could send
+    const onHide = () => { if (document.visibilityState === 'hidden') flush(); };
+    document.addEventListener('visibilitychange', onHide);
+    window.addEventListener('pagehide', flush);
+    return () => {
+      document.removeEventListener('visibilitychange', onHide);
+      window.removeEventListener('pagehide', flush);
+      flush();
+    };
+  }, [flush, slug]);
+
   if (!entry) {
     const course = COURSES.find((c) => slug.startsWith(`${c.id}/`));
     const planned = course && courseUnits(course).find((u) => u.slug === slug);
@@ -215,7 +235,7 @@ function StudyPackView({ slug, uid }) {
       import('../services/activityTracker').then((m) => m.recordLearnSession(uid, pack.subject));
     }
     const original = kind === 'pre' || kind === 'more' ? s.precheck : s.checkpoints[i];
-    logResponses(uid, [{
+    const row = {
       itemId: `${pack.slug}#${s.id}#${kind}${i ?? ''}`,
       subject: pack.subject,
       unit: s.title,
@@ -223,19 +243,20 @@ function StudyPackView({ slug, uid }) {
       chosen: original.choices.indexOf(q.choices[chosen]), // authored order, so distractors line up across students
       correct,
       msToAnswer: ms,
-    }]);
-    if (!correct && kind !== 'pre') {
-      srs.addMisses(uid, [{
-        question: q.question,
-        subject: pack.subject,
-        unit: s.title,
-        options: q.choices,
-        correctIndex: q.answer,
-        userAnswer: q.choices[chosen],
-        correctAnswer: q.choices[q.answer],
-        explanation: q.explanations[chosen] || q.explanations[q.answer],
-      }]);
-    }
+    };
+    const miss = !correct && kind !== 'pre' ? {
+      question: q.question,
+      subject: pack.subject,
+      unit: s.title,
+      options: q.choices,
+      correctIndex: q.answer,
+      userAnswer: q.choices[chosen],
+      correctAnswer: q.choices[q.answer],
+      explanation: q.explanations[chosen] || q.explanations[q.answer],
+    } : null;
+    clearTimeout(flushTimer.current);
+    if (queueAnswer(uid, row, miss) >= 15) flush();
+    else flushTimer.current = setTimeout(flush, 60000);
   };
 
   // A new pass starts clean but keeps everything learned about each topic.
@@ -278,15 +299,16 @@ function StudyPackView({ slug, uid }) {
     const shaky = pack.sections.filter((s) => topics[s.id] === 'shaky');
     return (
       <div className="max-w-3xl mx-auto px-4 py-8">
-        <button type="button" onClick={() => navigate(`/study/${slug.split('/')[0]}`)}
-          className="text-body-sm text-content-muted hover:text-content-primary">← {pack.subject} units</button>
+        {/* A link, not a button, so crawlers can walk back up to the class. */}
+        <Link to={`/study/${slug.split('/')[0]}`}
+          className="text-body-sm text-content-muted hover:text-content-primary">← {pack.subject} units</Link>
         <p className="text-label text-content-muted uppercase tracking-wide mt-4">{pack.subject} · Learn</p>
         <h1 className="text-h1 font-bold text-content-primary mt-1">{pack.unit}</h1>
         <p className="text-body text-content-secondary mt-3">{pack.intro}</p>
         <p className="text-body-sm text-content-muted mt-2">On the exam: {pack.examWeight}. {pack.sections.length} topics.</p>
         {!uid && (
           <p className="text-body-sm text-content-muted mt-2">
-            Your progress is saved on this device. <button type="button" onClick={() => navigate('/login')} className="underline text-primary-400">Sign in</button> to keep it on every device.
+            Your progress is saved on this device. <button type="button" onClick={() => navigate('/login', { state: { from: location } })} className="underline text-primary-400">Sign in</button> to keep it on every device.
           </p>
         )}
 
@@ -334,13 +356,21 @@ function StudyPackView({ slug, uid }) {
             To work on: {shaky.map((s) => s.title).join(', ')}.
           </p>
         )}
+        {/* Each topic opens to its key idea. Besides letting a student peek
+            before choosing, it is the unit's study-guide text in the page
+            itself, which is what a search for "unit 1 study guide" matches. */}
         <ul className="mt-8 space-y-1.5 text-body-sm text-content-secondary">
           {pack.sections.map((s) => {
             const chip = STATUS_CHIP[topics[s.id]];
             return (
-              <li key={s.id} className="flex items-start gap-2">
-                <span className="flex-1"><span className="text-content-muted">{s.id}</span> {s.title}</span>
-                {chip && <span className={`shrink-0 text-caption px-1.5 rounded border ${chip.className}`}>{chip.label}</span>}
+              <li key={s.id}>
+                <details className="group">
+                  <summary className="flex items-start gap-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden hover:text-content-primary">
+                    <span className="flex-1"><span className="text-content-muted">{s.id}</span> {s.title}</span>
+                    {chip && <span className={`shrink-0 text-caption px-1.5 rounded border ${chip.className}`}>{chip.label}</span>}
+                  </summary>
+                  {s.summary && <MarkdownRenderer content={s.summary} className="mt-1 mb-3 pl-8 text-content-secondary" />}
+                </details>
               </li>
             );
           })}

@@ -3,6 +3,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Brain, ArrowLeft, ArrowRight, ChevronRight, Trophy, XCircle, CheckCircle2, Sparkles, BookOpen, MessageSquare, ClipboardList, Layers, CalendarDays, Home } from 'lucide-react';
 import useDocumentMeta from '../hooks/useDocumentMeta';
+import { NOINDEX_ROBOTS } from '../utils/pageMeta';
 import { suggestRoute } from '../utils/suggestRoute';
 
 // Where a lost student most likely wanted to be.
@@ -110,7 +111,10 @@ function FloatingSymbol({ symbol }) {
 }
 
 export default function NotFound() {
-  useDocumentMeta({ title: 'Page not found — Apex Scholar' });
+  // The SPA fallback serves every unknown URL with status 200 and the
+  // homepage's head, so without noindex Google files each one as a soft 404
+  // that claims to be the homepage.
+  useDocumentMeta({ title: 'Page not found — Apex Scholar', robots: NOINDEX_ROBOTS });
   const navigate = useNavigate();
   const location = useLocation();
   const suggestion = useMemo(() => suggestRoute(location.pathname), [location.pathname]);

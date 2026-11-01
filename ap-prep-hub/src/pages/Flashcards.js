@@ -7,7 +7,7 @@ import { recordFlashcardStudy, recordDeckCreated } from '../services/activityTra
 import { Button, Card, Input } from '../components/ui/UIComponents';
 import ProgressIndicator from '../components/ui/ProgressIndicator';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { AP_SUBJECTS, shortSubjectName, courseTitle } from '../constants/subjects';
 import geminiService, { RateLimitError } from '../services/geminiService';
 import dataService from '../services/dataService';
@@ -74,6 +74,7 @@ const CustomDropdown = ({ options, value, onChange, placeholder, className = "" 
 const FlashcardsPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const confirm = useConfirm();
   const [searchQuery, setSearchQuery] = useState('');
@@ -898,6 +899,9 @@ const FlashcardsPage = () => {
                 <div className="mb-4 flex items-center gap-3">
                   <button
                     type="button"
+                    role="switch"
+                    aria-checked={isPublicDeck}
+                    aria-label="Make this deck public"
                     onClick={() => setIsPublicDeck(!isPublicDeck)}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
                       isPublicDeck ? 'bg-content-primary' : 'bg-base-750'
@@ -1060,6 +1064,9 @@ const FlashcardsPage = () => {
                 <div className="mb-4 flex items-center gap-3">
                   <button
                     type="button"
+                    role="switch"
+                    aria-checked={isPublicDeck}
+                    aria-label="Make this deck public"
                     onClick={() => setIsPublicDeck(!isPublicDeck)}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
                       isPublicDeck ? 'bg-content-primary' : 'bg-base-750'
@@ -1251,7 +1258,7 @@ const FlashcardsPage = () => {
               <h3 className="text-xl font-bold text-content-secondary mb-2">Sign up to create flashcards</h3>
               <p className="text-content-muted mb-6">Create a free account to build your own custom flashcard decks with AI assistance.</p>
               <Button
-                onClick={() => navigate('/login')}
+                onClick={() => navigate('/login', { state: { from: location } })}
                 className="bg-content-primary text-base-950 hover:opacity-90"
               >
                 Create Account
@@ -1415,6 +1422,9 @@ const FlashcardsPage = () => {
                 <label className="block text-sm font-medium text-content-secondary mb-2">Visibility</label>
                 <button
                   type="button"
+                  role="switch"
+                  aria-checked={!!editingDeck.isPublic}
+                  aria-label="Public deck"
                   onClick={() => setEditingDeck(prev => ({ ...prev, isPublic: !prev.isPublic }))}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
                     editingDeck.isPublic

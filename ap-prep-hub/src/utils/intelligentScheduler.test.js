@@ -441,3 +441,49 @@ describe('createOptimalSessionPlan keeps every minute', () => {
     }
   });
 });
+
+describe('sessions that do not fit move to a later day', () => {
+  const sessions = (schedule) => Object.entries(schedule).flatMap(([day, items]) => items.map((i) => ({ day, ...i })));
+  const homework = (now) => [
+    { id: 'a', name: 'Calc problem set', type: 'homework', difficulty: 'Medium', estimated_time: 90, timeRequired: 1.5, timeSpent: 0, deadline: addDays(now, 7), is_completed: false, subject: 'Math' },
+    { id: 'b', name: 'History reading', type: 'reading', difficulty: 'Easy', estimated_time: 60, timeRequired: 1, timeSpent: 0, deadline: addDays(now, 7), is_completed: false, subject: 'History' },
+  ];
+  afterEach(() => jest.useRealTimers());
+
+  test('in the evening, with the study window nearly closed, everything lands from tomorrow', () => {
+    // 9:40 pm with the default 10 pm end. This used to return an empty
+    // schedule ("Could not generate a schedule") for work due next week.
+    jest.useFakeTimers().setSystemTime(new Date(2026, 9, 26, 21, 40));
+    const now = new Date();
+    const { schedule } = new IntelligentScheduler({}).generateWeeklySchedule(homework(now), now, [], {});
+    const items = sessions(schedule);
+    expect(items.filter((i) => i.day === '2026-10-26')).toHaveLength(0);
+    const minutes = (id) => items.filter((i) => i.taskId === id || i.id === id)
+      .reduce((a, i) => a + (new Date(i.endTime) - new Date(i.startTime)) / 60000, 0);
+    expect(minutes('a')).toBe(90);
+    expect(minutes('b')).toBe(60);
+  });
+
+  test('a day with an hour left keeps what fits and carries the rest, never past the deadline', () => {
+    jest.useFakeTimers().setSystemTime(new Date(2026, 9, 26, 21, 0));
+    const now = new Date();
+    const tasks = homework(now).map((t) => ({ ...t, deadline: addDays(now, 1) }));
+    const { schedule } = new IntelligentScheduler({}).generateWeeklySchedule(tasks, now, [], {});
+    const items = sessions(schedule);
+    expect(items.length).toBeGreaterThan(0);
+    expect(items.every((i) => i.day <= '2026-10-27')).toBe(true);
+    items.filter((i) => i.day === '2026-10-26').forEach((i) => {
+      expect(new Date(i.endTime) <= new Date(2026, 9, 26, 22, 0)).toBe(true);
+    });
+  });
+});
+
+describe('roundToStandardIncrement', () => {
+  it('keeps a 45-minute session at 45 minutes', () => {
+    const { default: Scheduler } = require('./intelligentScheduler');
+    const s = typeof Scheduler === 'function' ? new Scheduler() : Scheduler;
+    expect(s.roundToStandardIncrement(45)).toBe(45);
+    expect(s.roundToStandardIncrement(52)).toBe(50);
+    expect(s.roundToStandardIncrement(70)).toBe(75);
+  });
+});

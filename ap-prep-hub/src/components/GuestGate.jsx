@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Lock } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -21,6 +21,10 @@ import { createPageUrl } from '../utils/helpers';
  * (feature.preview, static asset in public/guest-previews) so the guest sees
  * exactly what the feature looks like — without the crash risk. Falls back to
  * a neutral skeleton if no screenshot is provided.
+ *
+ * Search engines are guests too, so for an indexed page this is the page:
+ * feature.heading is its h1 (matching its title) and feature.about says what
+ * the tool does, below the card.
  */
 export default function GuestGate({ feature, children }) {
   const { user, isGuest, signInWithGoogle } = useAuth();
@@ -110,9 +114,9 @@ export default function GuestGate({ feature, children }) {
           <span className="inline-block mb-3 px-2.5 py-0.5 rounded-full bg-success-900 text-success-400 text-xs font-semibold">
             100% free · No credit card
           </span>
-          <h2 className="text-lg sm:text-xl font-display font-semibold text-content-primary mb-1.5">
-            {feature?.title ? `Unlock ${feature.title} for free` : 'Sign in free to continue'}
-          </h2>
+          <h1 className="text-lg sm:text-xl font-display font-semibold text-content-primary mb-1.5">
+            {feature?.heading || (feature?.title ? `Unlock ${feature.title} for free` : 'Sign in free to continue')}
+          </h1>
           <p className="text-sm text-content-secondary leading-relaxed mb-6">
             {/* Bold every "free" so it can't be missed in the blurb. */}
             {(feature?.blurb || 'Create a free account to unlock this feature, save your progress, and sync across devices.')
@@ -155,17 +159,28 @@ export default function GuestGate({ feature, children }) {
               used to be AI Tutors, so guests never found them. */}
           <p className="mt-5 text-xs text-content-muted">
             Keep exploring as a guest:{' '}
+            {/* Real links, so crawlers can follow them too. */}
             {[['AI Tutors', createPageUrl('AITutors')], ['Learn', '/study'], ['Score calculator', createPageUrl('ApScoreCalculator')]].map(([label, to], i) => (
               <React.Fragment key={to}>
                 {i > 0 && ' · '}
-                <button type="button" onClick={() => navigate(to)} className="underline hover:text-content-primary transition-colors">
+                <Link to={to} className="underline hover:text-content-primary transition-colors">
                   {label}
-                </button>
+                </Link>
               </React.Fragment>
             ))}
           </p>
         </motion.div>
       </div>
+
+      {feature?.about?.length > 0 && (
+        <section className="relative z-10 max-w-md mx-auto px-4 pb-16 -mt-8">
+          <h2 className="text-body font-semibold text-content-primary mb-3">What you get with {feature.title}</h2>
+          <ul className="space-y-2 text-sm text-content-secondary leading-relaxed list-disc pl-5">
+            {feature.about.map((line) => <li key={line}>{line}</li>)}
+          </ul>
+          <p className="mt-4 text-sm text-content-secondary">Free for every student, with no trial and no credit card.</p>
+        </section>
+      )}
     </div>
   );
 }

@@ -41,3 +41,16 @@
 
 /favicon.ico
   Cache-Control: public, max-age=2592000
+
+# Course and Exam Description PDFs (6-42 MB each; the timeline reads them in
+# the browser) and the static curriculum data. Without a max-age every reuse
+# is a revalidation request, and on Netlify's credit plan requests and
+# bandwidth both draw down the same monthly pool that pauses the site at zero.
+/ced/*
+  Cache-Control: public, max-age=604800
+
+/curriculums/*
+  Cache-Control: public, max-age=86400
+
+/guest-previews/*
+  Cache-Control: public, max-age=604800

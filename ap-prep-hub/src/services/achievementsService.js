@@ -8,6 +8,11 @@ export function localDay(d = new Date()) {
 }
 const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 
+// Key order can differ between a Firestore read and a local edit.
+const stableJson = (v) => JSON.stringify(v, (k, x) => (x && typeof x === 'object' && !Array.isArray(x)
+  ? Object.fromEntries(Object.keys(x).sort().map((key) => [key, x[key]]))
+  : x));
+
 class AchievementsService {
   constructor() {
     this.achievements = {
@@ -353,6 +358,7 @@ class AchievementsService {
       
       // Update activity counters
       const activityCounters = userAchievements.activityCounters || {};
+      const countersBefore = stableJson(activityCounters);
       
       switch (activity) {
         case 'study_session': {
@@ -437,7 +443,7 @@ class AchievementsService {
       updates.activityCounters = activityCounters;
       
       // Check for newly unlocked achievements
-      const newAchievements = await this.checkAchievements(userId, activityCounters, updates.studyStreaks, data);
+      const newAchievements = await this.checkAchievements(userId, activityCounters, updates.studyStreaks, data, userAchievements);
       
       if (newAchievements.length > 0) {
         updates.unlockedAchievements = [
@@ -452,6 +458,14 @@ class AchievementsService {
         updates.totalPoints = totalPoints;
       }
       
+      // Nothing moved (a subject already counted today, every tutor message
+      // after the first): skip the write. Firestore's free plan allows 20,000
+      // writes a day for the whole site.
+      if (!updates.studyStreaks && !newAchievements.length
+          && stableJson(activityCounters) === countersBefore) {
+        return newAchievements;
+      }
+
       // Update in Firestore
       const userAchievementsRef = doc(db, 'userAchievements', userId);
       await updateDoc(userAchievementsRef, updates);
@@ -526,8 +540,10 @@ class AchievementsService {
   }
 
   // Check which achievements should be unlocked
-  async checkAchievements(userId, activityCounters, studyStreaks, activityData) {
-    const userAchievements = await this.getUserAchievements(userId);
+  async checkAchievements(userId, activityCounters, studyStreaks, activityData, known = null) {
+    // trackActivity passes the doc it just read; re-reading it cost a second
+    // Firestore read on every tracked activity.
+    const userAchievements = known || await this.getUserAchievements(userId);
     const unlockedIds = userAchievements.unlockedAchievements || [];
     const newAchievements = [];
     

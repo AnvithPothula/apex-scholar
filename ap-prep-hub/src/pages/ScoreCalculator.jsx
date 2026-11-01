@@ -14,7 +14,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import useDocumentMeta from '../hooks/useDocumentMeta';
-import { scoreCalculatorTitle, scoreCalculatorDescription, canonicalFor } from '../utils/pageMeta';
+import { scoreCalculatorTitle, scoreCalculatorDescription, canonicalFor, INDEX_ROBOTS } from '../utils/pageMeta';
 import { Calculator, Info, ChevronDown, Share2 } from 'lucide-react';
 import ScoreCard from '../components/ui/ScoreCard';
 import { Card, Button } from '../components/ui/UIComponents';
@@ -53,10 +53,15 @@ export default function ScoreCalculator() {
   // Per-subject title/description/canonical. Without these every calculator
   // shared the site's generic <title>, so "ap bio score calculator" matched
   // nothing even though the page was public and in the sitemap.
+  // The bare /ap-score-calculator opens on the first subject but is its own
+  // page in the sitemap, so it keeps the picker's meta rather than claiming to
+  // be that subject's calculator (which would make Google drop it as a duplicate).
+  const onPicker = !SUBJECT_BY_SLUG[slug || ''];
   useDocumentMeta({
-    title: scoreCalculatorTitle(subject),
-    description: scoreCalculatorDescription(subject),
-    canonical: canonicalFor(`/ap-score-calculator/${slugFor(subject)}`),
+    title: scoreCalculatorTitle(onPicker ? null : subject),
+    description: scoreCalculatorDescription(onPicker ? null : subject),
+    canonical: canonicalFor(onPicker ? '/ap-score-calculator' : `/ap-score-calculator/${slugFor(subject)}`),
+    robots: INDEX_ROBOTS,
   });
 
   const chooseSubject = (next) => {
@@ -81,7 +86,6 @@ export default function ScoreCalculator() {
     clampRawsForModel(getScoreModel(SUBJECT_BY_SLUG[slug || ''] || MODELLED_SUBJECTS[0]),
       Object.fromEntries(searchParams.entries()))
   );
-  const [showCurve, setShowCurve] = useState(false);
 
   const model = useMemo(() => getScoreModel(subject), [subject]);
   const result = useMemo(() => scoreFor(subject, raws), [subject, raws]);
@@ -102,7 +106,7 @@ export default function ScoreCalculator() {
       <div className="max-w-3xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
         <div className="flex items-center gap-2 mb-2">
           <Calculator className="w-6 h-6 text-content-primary" strokeWidth={1.5} />
-          <h1 className="text-h2 font-display text-content-primary">AP Score Calculator</h1>
+          <h1 className="text-h2 font-display text-content-primary">{onPicker ? 'AP Score Calculator' : `${subject} Score Calculator`}</h1>
         </div>
         <p className="text-body-sm text-content-secondary mb-6">
           Enter your raw section scores to estimate a 1–5.
@@ -225,15 +229,14 @@ export default function ScoreCalculator() {
         )}
 
         {/* The curve. No competitor shows this — which is exactly why it's here. */}
+        {/* A <details>, not a toggled render: closed, the table is still in the
+            page, so a search for "ap bio score cutoffs" can find it. */}
         <Card className="p-0 mb-4 overflow-hidden">
-          <button
-            onClick={() => setShowCurve((v) => !v)}
-            className="w-full flex items-center justify-between p-4 hover:bg-base-800 transition-colors"
-          >
-            <span className="text-body-sm text-content-primary">Show the curve used</span>
-            <ChevronDown className={`w-4 h-4 text-content-muted transition-transform ${showCurve ? 'rotate-180' : ''}`} strokeWidth={1.5} />
-          </button>
-          {showCurve && (
+          <details className="group">
+            <summary className="w-full flex items-center justify-between p-4 hover:bg-base-800 transition-colors cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+              <span className="text-body-sm text-content-primary">Show the {subject} curve used</span>
+              <ChevronDown className="w-4 h-4 text-content-muted transition-transform group-open:rotate-180" strokeWidth={1.5} />
+            </summary>
             <div className="px-4 pb-4">
               <div className="divide-y divide-border-subtle">
                 {rows.map((r) => (
@@ -247,7 +250,7 @@ export default function ScoreCalculator() {
                 ))}
               </div>
             </div>
-          )}
+          </details>
         </Card>
 
         <Card className="p-4 mb-6 border border-warning-500/30 bg-warning-900/10">
@@ -277,6 +280,20 @@ export default function ScoreCalculator() {
             <Button variant="outline">Ask a free AI tutor</Button>
           </Link>
         </div>
+        {/* Real links, so search engines can reach every calculator from any
+            one of them; the subject <select> above is invisible to a crawler. */}
+        <nav aria-label="Score calculators for other AP subjects" className="mt-8">
+          <h2 className="text-body font-semibold text-content-primary mb-2">Score calculators for other AP subjects</h2>
+          <ul className="grid sm:grid-cols-2 gap-x-4 gap-y-1">
+            {MODELLED_SUBJECTS.filter((s) => onPicker || s !== subject).map((s) => (
+              <li key={s}>
+                <Link to={`/ap-score-calculator/${slugFor(s)}`} className="text-body-sm text-content-secondary hover:text-content-primary hover:underline">
+                  {s} score calculator
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
         <p className="text-caption text-content-muted mt-6">
           AP® is a trademark registered by the College Board, which is not affiliated with, and does
           not endorse, Apex Scholar.

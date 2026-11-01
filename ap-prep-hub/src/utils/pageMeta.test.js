@@ -1,18 +1,33 @@
-import { scoreCalculatorTitle, scoreCalculatorDescription, canonicalFor, aliasesFor } from './pageMeta';
+import { scoreCalculatorTitle, scoreCalculatorDescription, canonicalFor, aliasesFor, examYear } from './pageMeta';
 import { MODELLED_SUBJECTS } from '../constants/apScoreModels';
 
+const OCT_2026 = new Date(2026, 9, 29);
+
+describe('examYear', () => {
+  it('is next May from August on, this May before', () => {
+    expect(examYear(new Date(2026, 7, 1))).toBe(2027);
+    expect(examYear(OCT_2026)).toBe(2027);
+    expect(examYear(new Date(2027, 4, 10))).toBe(2027);
+    expect(examYear(new Date(2027, 6, 31))).toBe(2027);
+  });
+});
+
 describe('scoreCalculatorTitle', () => {
-  it('uses the official course name, the one every page shows', () => {
-    expect(scoreCalculatorTitle('AP Biology')).toBe('AP Biology Score Calculator — Apex Scholar');
-    expect(scoreCalculatorTitle('AP U.S. History')).toBe('AP U.S. History Score Calculator — Apex Scholar');
+  it('uses the official course name and the exam year', () => {
+    expect(scoreCalculatorTitle('AP Biology', OCT_2026)).toBe('AP Biology Score Calculator 2027 — Apex Scholar');
+    expect(scoreCalculatorTitle('AP U.S. History', OCT_2026)).toBe('AP U.S. History Score Calculator 2027 — Apex Scholar');
   });
 
   it('drops the brand, not the name, when the name is long', () => {
-    expect(scoreCalculatorTitle('AP Physics C: Electricity and Magnetism')).toBe('AP Physics C: Electricity and Magnetism Score Calculator');
+    expect(scoreCalculatorTitle('AP Physics C: Electricity and Magnetism', OCT_2026)).toBe('AP Physics C: Electricity and Magnetism Score Calculator 2027');
   });
 
   it('has a sensible generic form for the index page', () => {
-    expect(scoreCalculatorTitle(null)).toBe('AP Score Calculator — Apex Scholar');
+    expect(scoreCalculatorTitle(null, OCT_2026)).toBe('AP Score Calculator 2027 — Apex Scholar');
+  });
+
+  it('never runs past 65 characters', () => {
+    MODELLED_SUBJECTS.forEach((s) => expect(scoreCalculatorTitle(s, OCT_2026).length).toBeLessThanOrEqual(65));
   });
 });
 
@@ -21,6 +36,13 @@ describe('scoreCalculatorDescription', () => {
     const d = scoreCalculatorDescription('AP Biology');
     expect(d).toContain('AP Biology');
     expect(d).toContain('AP Bio');
+  });
+
+  it('stays short enough to show in full, and names each subject once', () => {
+    MODELLED_SUBJECTS.forEach((s) => expect(scoreCalculatorDescription(s, OCT_2026).length).toBeLessThanOrEqual(170));
+    const d = scoreCalculatorDescription('AP Biology', OCT_2026);
+    expect(d.split('AP Biology').length).toBe(2);
+    expect(d).toContain('2027');
   });
 
   it('describes what the page does, not just what it is', () => {

@@ -8,3 +8,5 @@ dist
 .capture-profile
 capture/frames
 public/clips
+.capture-profile-*
+capture/backup

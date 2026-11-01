@@ -77,7 +77,31 @@ export function pickBundles(bundleCount, count, rand = Math.random) {
 }
 
 /**
- * Reject anything the UI would render wrongly.
+ * The model thinking out loud inside an explanation ("Wait, let's re-check",
+ * "None match", "might be rounded or a typo"). In the 2026-10-24 sweep of 989
+ * banked items, 24 explanations did this, almost all in the maths subjects, and
+ * every one checked by hand had a wrong or missing answer key: the model lost
+ * track of the answer mid-explanation and wrote that down instead of fixing it.
+ * No clean item matched. Kept in step with SELF_TALK in utils/itemFlaws.js.
+ */
+const SELF_TALK = [
+  /\bwait\b\s*[,.!:]/i,
+  /\blet'?s re-?(check|compute|calculate|evaluate)\b/i,
+  /\bre-?eval(uating)?\b\s*[:,]/i,
+  /\bcheck(ing)? (the )?math\b/i,
+  /\bnone (of the (options|choices) )?match\b/i,
+  /\bmight be rounded or\b/i,
+  /\blet me (re-?)?(check|calculate|compute)\b/i,
+  /\bhmm\b/i,
+  /\bbut checking\b/i,
+  /\brequires? checking\b/i,
+];
+
+export const hasSelfTalk = (q) =>
+  [q.question, ...q.explanations].some((t) => SELF_TALK.some((re) => re.test(String(t || ''))));
+
+/**
+ * Reject anything the UI would render wrongly, or whose key can't be trusted.
  *
  * Bank content is shared and long-lived, so a malformed question written months
  * ago would keep surfacing. Cheaper to drop it here than to guess a repair.
@@ -88,6 +112,7 @@ export function isUsableQuestion(q) {
   if (q.choices.some((c) => typeof c !== 'string' || !c.trim())) return false;
   if (!Number.isInteger(q.correctAnswer) || q.correctAnswer < 0 || q.correctAnswer > 3) return false;
   if (!Array.isArray(q.explanations) || q.explanations.length !== 4) return false;
+  if (hasSelfTalk(q)) return false;
   return true;
 }
 

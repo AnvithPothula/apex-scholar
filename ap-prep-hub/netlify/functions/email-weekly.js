@@ -68,20 +68,31 @@ exports.handler = async () => {
   // The last two weeks of the response log, grouped by student, so the Sunday
   // digest can say what each one actually did. One range query for everyone
   // instead of one per student (a per-student query needs a composite index).
-  // ponytail: reads every response from the last 14 days; at ~1000 weekly
-  // users that's ~60k reads on Sundays. Store a weekly rollup per user if the
-  // free tier's 50k/day starts to bite.
+  // Answers are stored one responseSets document per test (rows inside), and
+  // before 2026-10-24 one `responses` document per answer; read both. A set is
+  // one read for a whole test, so this costs about a test's worth of reads per
+  // active student rather than ~60.
   const responsesByUser = new Map();
+  const add = (userId, r, at) => {
+    if (!userId || !r) return;
+    const list = responsesByUser.get(userId) || [];
+    list.push({ correct: r.correct === true, subject: r.subject, unit: r.unit, atMs: at?.toMillis?.() || 0 });
+    responsesByUser.set(userId, list);
+  };
   if (due.some(({ user }) => cadenceFor(examsFor(user, now), now) === 'weekly')) {
     const since = new Date(now.getTime() - 14 * 86400000);
-    const rs = await db.collection('responses').where('at', '>=', since)
-      .select('userId', 'correct', 'subject', 'unit', 'at').get();
+    const [sets, rs] = await Promise.all([
+      db.collection('responseSets').where('at', '>=', since).select('userId', 'rows', 'at').get(),
+      db.collection('responses').where('at', '>=', since)
+        .select('userId', 'correct', 'subject', 'unit', 'at').get(),
+    ]);
+    sets.forEach((d) => {
+      const s = d.data();
+      for (const r of Array.isArray(s.rows) ? s.rows : []) add(s.userId, r, s.at);
+    });
     rs.forEach((d) => {
       const r = d.data();
-      if (!r.userId) return;
-      const list = responsesByUser.get(r.userId) || [];
-      list.push({ correct: r.correct === true, subject: r.subject, unit: r.unit, atMs: r.at?.toMillis?.() || 0 });
-      responsesByUser.set(r.userId, list);
+      add(r.userId, r, r.at);
     });
   }
 

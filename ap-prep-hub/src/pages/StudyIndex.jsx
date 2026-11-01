@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { BookOpen, ChevronRight, Library, ExternalLink, GraduationCap, Clock, History } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { PACKS } from '../data/packs';
 import { COURSES, courseUnits } from '../data/packs/catalog';
 import { nextUnit, joinCatalog } from '../utils/studyPack';
 import { loadAllPackProgress } from '../services/packProgress';
+import { flushOutbox } from '../services/lessonOutbox';
 import { TIMELINE_CATALOG } from '../data/timelines';
 
 const NEXT_LABEL = { continue: 'Continue here', next: 'Up next', review: 'Worth a review' };
@@ -15,11 +16,14 @@ const NEXT_LABEL = { continue: 'Continue here', next: 'Up next', review: 'Worth 
  * student's own first, then the ones with packs).
  * /study/:subject: that class's units, ready ones with saved progress and the
  * unit to do next, the rest marked "Coming soon".
+ *
+ * Every way into a class, unit or timeline is a real <a href> (Link), not a
+ * button with onClick: search engines only follow links, and these lists are
+ * the only path from the site's pages to its study packs.
  */
 export default function StudyIndex() {
   const { subject } = useParams();
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [progress, setProgress] = useState({});
   const classes = useMemo(() => {
     const mine = new Set(user?.subjects || []);
@@ -31,6 +35,8 @@ export default function StudyIndex() {
 
   useEffect(() => {
     let live = true;
+    // Lesson answers a closed tab never got to send (see lessonOutbox).
+    flushOutbox(user?.uid || null);
     loadAllPackProgress(user?.uid || null, Object.keys(PACKS)).then((p) => live && setProgress(p));
     return () => { live = false; };
   }, [user?.uid]);
@@ -43,7 +49,7 @@ export default function StudyIndex() {
         <Clock className="w-8 h-8 text-content-muted mx-auto" aria-hidden="true" />
         <h1 className="text-h2 font-bold text-content-primary mt-3">{current ? `${current.subject}: coming soon` : 'No lessons for that class yet'}</h1>
         <p className="text-body text-content-secondary mt-2">We're writing these one unit at a time and checking each against the College Board course description.</p>
-        <button type="button" onClick={() => navigate('/study')} className="mt-4 text-primary-400 underline">See every class</button>
+        <Link to="/study" className="mt-4 inline-block text-primary-400 underline">See every class</Link>
       </div>
     );
   }
@@ -53,7 +59,7 @@ export default function StudyIndex() {
     const rec = nextUnit(ready, progress);
     return (
       <div className="max-w-3xl mx-auto px-4 py-8">
-        <button type="button" onClick={() => navigate('/study')} className="text-body-sm text-content-muted hover:text-content-primary">← All classes</button>
+        <Link to="/study" className="text-body-sm text-content-muted hover:text-content-primary">← All classes</Link>
         <h1 className="text-h1 font-bold text-content-primary mt-3">{current.subject}</h1>
         <p className="text-body text-content-secondary mt-2">Pick a unit. Your progress is saved, and each unit adapts to what you've already shown you know.</p>
         <div className="mt-6 space-y-2.5">
@@ -73,7 +79,7 @@ export default function StudyIndex() {
             const pct = sum?.total ? Math.round((sum.answered / sum.total) * 100) : 0;
             const flag = rec?.slug === u.slug ? NEXT_LABEL[rec.why] : null;
             return (
-              <button key={u.slug} type="button" onClick={() => navigate(`/study/${u.slug}`)}
+              <Link key={u.slug} to={`/study/${u.slug}`}
                 className={`w-full flex items-center gap-4 p-4 rounded-lg border bg-base-850 hover:border-primary-500 text-left transition-colors ${flag ? 'border-primary-500/60' : 'border-border-strong'}`}>
                 <BookOpen className="w-5 h-5 text-primary-400 shrink-0" aria-hidden="true" />
                 <span className="flex-1 min-w-0">
@@ -93,7 +99,7 @@ export default function StudyIndex() {
                   )}
                 </span>
                 <ChevronRight className="w-4 h-4 text-content-muted shrink-0" aria-hidden="true" />
-              </button>
+              </Link>
             );
           })}
         </div>
@@ -126,11 +132,11 @@ export default function StudyIndex() {
             </>
           );
           return live ? (
-            <button key={t.slug} type="button" onClick={() => navigate(t.to)}
+            <Link key={t.slug} to={t.to}
               className="w-full flex items-center gap-4 p-4 rounded-lg border border-border-strong bg-base-850 hover:border-primary-500 text-left transition-colors">
               {body}
               <ChevronRight className="w-4 h-4 text-content-muted shrink-0" aria-hidden="true" />
-            </button>
+            </Link>
           ) : (
             <div key={t.slug} className="w-full flex items-center gap-4 p-4 rounded-lg border border-border-subtle bg-base-900 text-left">{body}</div>
           );
@@ -155,11 +161,11 @@ export default function StudyIndex() {
             </>
           );
           return c.ready ? (
-            <button key={c.id} type="button" onClick={() => navigate(`/study/${c.id}`)}
+            <Link key={c.id} to={`/study/${c.id}`}
               className="w-full flex items-center gap-4 p-4 rounded-lg border border-border-strong bg-base-850 hover:border-primary-500 text-left transition-colors">
               {body}
               <ChevronRight className="w-4 h-4 text-content-muted shrink-0" aria-hidden="true" />
-            </button>
+            </Link>
           ) : (
             <div key={c.id} className="w-full flex items-center gap-4 p-4 rounded-lg border border-border-subtle bg-base-900 text-left">{body}</div>
           );

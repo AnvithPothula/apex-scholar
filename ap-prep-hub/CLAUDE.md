@@ -119,7 +119,6 @@ All pages are lazy-loaded via `React.lazy()` in `App.js`.
 - `utils/testUtils.js` — Pure functions extracted from PracticeTests: question sorting, AI response parsing, LaTeX repair, duplicate detection, rubric building
 - `utils/errorLogger.js` — Centralized logging (dev: console, prod: suppressed except errors)
 - `constants/testConfigurations.js` — AP test config data (sections, units, timing) — single source of truth
-- `hooks/useLocalStorage.js` — Typed localStorage hook with JSON parsing
 - `hooks/useMobile.js` — Reactive viewport width hook using matchMedia
 
 ## Key Patterns

@@ -363,7 +363,10 @@ exports.handler = async (event) => {
         const out = await sendBatch(apiKey, from, [r.email], subject, bodyText, unsubUrl);
         return { email: r.email, ...out };
       }));
-      results.forEach((r) => (r.ok ? sent++ : failures.push({ email: r.email, error: r.error })));
+      for (const r of results) {
+        if (r.ok) sent++;
+        else failures.push({ email: r.email, error: r.error });
+      }
     }
 
     return {

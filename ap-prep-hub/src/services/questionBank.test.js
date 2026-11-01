@@ -97,6 +97,23 @@ describe('isUsableQuestion', () => {
     expect(isUsableQuestion(null)).toBe(false);
     expect(isUsableQuestion({})).toBe(false);
   });
+
+  it('rejects items where the model argued with itself in an explanation', () => {
+    // Real explanations from the bank. Each of these items had a wrong or
+    // missing answer key.
+    const withExplanation = (text) => q({ explanations: [text, 'b', 'c', 'd'] });
+    expect(isUsableQuestion(withExplanation('9-k = 6+k leads to 2k=3, wait, 9-6=2k, k=1.5 is correct. Let\'s recheck: 9-k = 6+k'))).toBe(false);
+    expect(isUsableQuestion(withExplanation('yields a=-3 and b=-12, but checking the slope conditions, a+b leads to -3.'))).toBe(false);
+    expect(isUsableQuestion(withExplanation('f(1) = 1 - 1 + 2 + 1 = 3 (Wait, 1-1+2+1=3, checking math: f(1)=3).'))).toBe(false);
+    expect(isUsableQuestion(withExplanation('None match exactly; the closest value might be rounded or a typo.'))).toBe(false);
+  });
+
+  it('keeps ordinary explanations that only share a word with self-talk', () => {
+    const withExplanation = (text) => q({ explanations: [text, 'b', 'c', 'd'] });
+    expect(isUsableQuestion(withExplanation('Workers had to wait for the harvest before they were paid.'))).toBe(true);
+    expect(isUsableQuestion(withExplanation('Check the sign of f\'(x) on each interval.'))).toBe(true);
+    expect(isUsableQuestion(withExplanation('Federal troops withdrew in 1877, ending Reconstruction.'))).toBe(true);
+  });
 });
 
 describe('sampleQuestions', () => {

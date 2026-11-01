@@ -151,7 +151,7 @@ export function Layout({ children }) {
                                     <MessageSquare strokeWidth={1.5} size={16} className="sm:w-[18px] sm:h-[18px]" />
                                 </button>
                                 <Button
-                                    onClick={() => navigate('/login')}
+                                    onClick={() => navigate('/login', { state: { from: location } })}
                                     className="h-8 sm:h-9 px-3 sm:px-4 text-xs sm:text-sm"
                                 >
                                     <LogIn strokeWidth={1.5} size={14} className="mr-1.5" />
@@ -322,8 +322,10 @@ export function Layout({ children }) {
             {/* Onboarding walkthrough — signed-in users only (it writes
                 completion state to Firestore and tours member-only pages) */}
             {/* Not on /start: the first-run check asks for a subject itself
-                and marks onboarding done when it saves. */}
-            {user && location.pathname !== '/start' && (
+                and marks onboarding done when it saves. Not on "/" either:
+                for a new account "/" renders that same check in place (see
+                HomeRedirect), and anyone else is redirected away from it. */}
+            {user && location.pathname !== '/start' && location.pathname !== '/' && (
                 <Suspense fallback={null}>
                     <OnboardingWalkthrough />
                 </Suspense>

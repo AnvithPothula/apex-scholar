@@ -8,6 +8,15 @@ import GoogleIcon from '../ui/GoogleIcon';
 import ApexScholarLogo from '../ui/ApexScholarLogo';
 import { stashPendingConsent } from '../../constants/consent';
 
+const RETURN_KEY = 'apex.auth.returnTo';
+
+// Same-origin app paths only: anything else in storage or state is ignored.
+const safePath = (p) => (typeof p === 'string' && p.startsWith('/') && !p.startsWith('//') && !p.startsWith('/login') ? p : null);
+const pathOf = (loc) => (loc?.pathname ? safePath(`${loc.pathname}${loc.search || ''}${loc.hash || ''}`) : null);
+const readReturnTo = () => { try { return safePath(sessionStorage.getItem(RETURN_KEY)); } catch { return null; } };
+const stashReturnTo = (p) => { try { sessionStorage.setItem(RETURN_KEY, p); } catch { /* private window */ } };
+const clearReturnTo = () => { try { sessionStorage.removeItem(RETURN_KEY); } catch { /* private window */ } };
+
 export function LoginPage() {
     const navigate = useNavigate();
     const location = useLocation();
@@ -25,11 +34,17 @@ export function LoginPage() {
     const [successMessage, setSuccessMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
-    const from = location.state?.from?.pathname || "/";
+    // Where to go after signing in. Production Google sign-in is a full-page
+    // redirect that comes back to /login with fresh history state, so the
+    // destination is also parked in sessionStorage before it leaves. Without
+    // that, every Google sign-in landed on "/" and the Start check's "Sign in to
+    // save the ones you missed" never got back to /start to save them.
+    const from = pathOf(location.state?.from) || readReturnTo() || "/";
 
     // Navigate when user is authenticated
     useEffect(() => {
         if (user && !isLoading) {
+            clearReturnTo();
             navigate(from, { replace: true });
         }
     }, [user, isLoading, navigate, from]);
@@ -110,6 +125,7 @@ export function LoginPage() {
         // reloads, so these choices can't be passed as arguments. AuthContext
         // reads them back when it creates the user document.
         stashPendingConsent({ acceptedTerms: acceptedTerms || !isSignUp, emailOptIn });
+        stashReturnTo(from);
         setIsLoading(true);
         try {
             await signInWithGoogle();
@@ -133,7 +149,7 @@ export function LoginPage() {
                         Study for your AP exams.
                     </h2>
                     <p className="text-lg text-content-secondary leading-relaxed mb-10">
-                        AI tutors, practice tests, flashcards, and a smart study scheduler — all in one place for 39 AP subjects.
+                        AI tutors, practice tests, flashcards, and a smart study scheduler — all in one place for every AP subject.
                     </p>
 
                     <div className="space-y-4 text-sm text-content-muted">

@@ -99,6 +99,7 @@ export default function Start() {
         questionsAnswered: qs.length,
         correctAnswers: correct,
         scorePercent: Math.round((correct / qs.length) * 100),
+        kind: 'start-check',
       });
       // Only a brand-new account takes its subject from here. An existing
       // student checking another subject had it silently added to their AP
@@ -117,8 +118,13 @@ export default function Start() {
   };
 
   // A guest who signed in from the result screen comes back here: restore and save.
+  // Waits for the profile, not just the uid: persist() decides from
+  // user.subjects/firstRunAt whether this is a new account, and before the
+  // profile lands both read as missing, which replaced an existing student's
+  // subjects with this one. For a new Google account the profile only lands
+  // once its user doc exists, so the save can't race the doc's creation either.
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!user?.uid || !user.profileLoaded) return;
     const pending = store.get(FIRST_RUN_PENDING_KEY);
     if (!pending?.questions?.length) return;
     store.del(FIRST_RUN_PENDING_KEY);
@@ -128,7 +134,20 @@ export default function Start() {
     setTimes(pending.times || {});
     setStep('result');
     persist(pending);
-  }, [user?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.uid, user?.profileLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A guest coming back to /start sees their last result (with its "Sign in to
+  // save" offer) instead of a blank picker. It stays parked until they sign in.
+  useEffect(() => {
+    if (user) return;
+    const pending = store.get(FIRST_RUN_PENDING_KEY);
+    if (!pending?.questions?.length) return;
+    setSubject(pending.subject);
+    setQuestions(pending.questions);
+    setAnswers(pending.answers);
+    setTimes(pending.times || {});
+    setStep('result');
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const begin = async (name) => {
     setSubject(name);
@@ -199,9 +218,16 @@ export default function Start() {
     return (
       <div className="max-w-2xl mx-auto px-4 py-8">
         <Brand />
-        <div className="flex items-center justify-between mb-3 text-body-sm text-content-muted">
-          <span>{subject}</span>
-          <span>Question {index + 1} of {questions.length}</span>
+        <div className="flex items-center justify-between gap-3 mb-3 text-body-sm text-content-muted">
+          <h1 className="text-body-sm font-normal">{subject}</h1>
+          <span className="flex items-center gap-3">
+            Question {index + 1} of {questions.length}
+            {/* Focus mode hides the nav, so without this the only way out of a
+                wrong subject was the browser's back button. */}
+            <button type="button" className="underline hover:text-content-secondary" onClick={() => setStep('pick')}>
+              Change subject
+            </button>
+          </span>
         </div>
         <div className="w-full bg-base-800 rounded-full h-1.5 mb-6" aria-hidden="true">
           <div className="bg-primary-500 h-1.5 rounded-full transition-all" style={{ width: `${((index + (answered ? 1 : 0)) / questions.length) * 100}%` }} />
@@ -273,7 +299,7 @@ export default function Start() {
       <div className="max-w-2xl mx-auto px-4 py-8">
         <Brand />
         <Card className="p-6 text-center">
-          <p className="text-label text-content-muted uppercase tracking-wide">{subject} · predicted AP score</p>
+          <h1 className="text-label font-normal text-content-muted uppercase tracking-wide">{subject} · predicted AP score</h1>
           <p className="text-display font-bold text-content-primary my-2">{prediction ? prediction.estimate.score : '—'}</p>
           {prediction && prediction.low !== prediction.high && (
             <p className="text-body-sm text-content-secondary">
@@ -365,7 +391,34 @@ export default function Start() {
       <button type="button" onClick={skip} className="mt-8 text-body-sm text-content-muted hover:text-content-secondary underline">
         Skip, take me to the tutors
       </button>
+      <Explore />
     </div>
+  );
+}
+
+// This screen is the homepage for every new visitor, and Googlebot is always
+// one. With the navigation bars hidden, "Sign in" was its only link, so search
+// engines could not reach any lesson, calculator or timeline from "/".
+const EXPLORE = [
+  { to: '/study', label: 'Free unit lessons for every AP class' },
+  { to: '/ap-score-calculator', label: 'AP score calculators' },
+  { to: '/study/timelines/ap-us-history', label: 'APUSH timeline' },
+  { to: '/ai-tutors', label: 'AI tutors' },
+  { to: '/privacy', label: 'Privacy' },
+  { to: '/terms', label: 'Terms' },
+];
+
+function Explore() {
+  return (
+    <nav aria-label="Explore Apex Scholar" className="mt-10 pt-6 border-t border-border-subtle">
+      <ul className="flex flex-wrap gap-x-5 gap-y-2">
+        {EXPLORE.map(({ to, label }) => (
+          <li key={to}>
+            <Link to={to} className="text-body-sm text-content-muted hover:text-content-primary hover:underline">{label}</Link>
+          </li>
+        ))}
+      </ul>
+    </nav>
   );
 }
 

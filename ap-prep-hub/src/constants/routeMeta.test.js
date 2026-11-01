@@ -10,6 +10,13 @@ import path from 'path';
 import { ROUTE_META, metaFor } from './routeMeta';
 
 describe('routeMeta', () => {
+  it('titles a class page as one, and keeps it out of the index', () => {
+    const m = metaFor('/classes/5Z4MVBXP');
+    expect(m.title).toMatch(/^Class leaderboard/);
+    expect(m.robots).toMatch(/noindex/);
+    expect(metaFor('/classes')).toBe(ROUTE_META['/classes']);
+  });
+
   it('gives every route a distinct title and description', () => {
     const titles = Object.values(ROUTE_META).map((m) => m.title);
     const descs = Object.values(ROUTE_META).map((m) => m.description);
@@ -45,6 +52,16 @@ describe('routeMeta', () => {
     expect(metaFor('/nope')).toBeNull();
     expect(metaFor('')).toBeNull();
     expect(metaFor(undefined)).toBeNull();
+  });
+
+  it('keeps pages marked noindex out of the sitemap', () => {
+    // A sitemap URL that says noindex is a contradiction Search Console
+    // reports as an error ("Submitted URL marked 'noindex'").
+    const xml = fs.readFileSync(path.resolve(__dirname, '..', '..', 'public', 'sitemap.xml'), 'utf8');
+    const listed = new Set([...xml.matchAll(/<loc>https:\/\/apex-scholar\.com([^<]*)<\/loc>/g)].map((m) => m[1] || '/'));
+    const noindex = Object.entries(ROUTE_META).filter(([, m]) => /noindex/.test(m.robots || '')).map(([r]) => r);
+    expect(noindex).toEqual(expect.arrayContaining(['/login', '/settings']));
+    expect(noindex.filter((r) => listed.has(r))).toEqual([]);
   });
 
   it('covers every non-calculator URL in the sitemap', () => {
