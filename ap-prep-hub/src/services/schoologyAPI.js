@@ -86,12 +86,13 @@ class SchoologyAPIService {
    * sees a token — it only gets the display name back.
    */
   async handleOAuthCallback(userId, oauthToken, oauthVerifier) {
-    if (!userId || !oauthToken || !oauthVerifier) {
+    if (!userId || !oauthToken) {
       throw new Error('Missing OAuth callback parameters');
     }
+    // Schoology sends no verifier (OAuth 1.0); pass one only if it comes.
     const result = await callProxy('access_token', {
       oauth_token: oauthToken,
-      oauth_verifier: oauthVerifier,
+      ...(oauthVerifier ? { oauth_verifier: oauthVerifier } : {}),
     });
     return {
       success: true,
@@ -126,6 +127,7 @@ class SchoologyAPIService {
         calendar,
         schoologyName: d.schoologyName || null,
         schoologyUid: d.schoologyUid || null,
+        domain: d.domain || null,
         // Set by the proxy when Schoology answers 401 (90-day token expiry or revoked).
         needsReconnect: !!d.needsReconnect,
         connectedAt: d.connectedAt || null,

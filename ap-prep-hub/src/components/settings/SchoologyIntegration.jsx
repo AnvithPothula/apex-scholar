@@ -13,7 +13,8 @@ import {
   BookOpen,
   AlertCircle,
   Loader,
-  LogOut
+  LogOut,
+  LogIn
 } from 'lucide-react';
 import { Button, Card, CardHeader, CardTitle, CardContent } from '../ui/UIComponents';
 import { useAuth } from '../../contexts/AuthContext';
@@ -41,6 +42,8 @@ export function SchoologyIntegration() {
   const [schoologyName, setSchoologyName] = useState(null);
   const [needsReconnect, setNeedsReconnect] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [schoologyDomain, setSchoologyDomain] = useState('');
+  const [isSigningIn, setIsSigningIn] = useState(false);
 
   // Load integration status on component mount
   const loadIntegrationStatus = useCallback(async () => {
@@ -62,6 +65,7 @@ export function SchoologyIntegration() {
         setOauthConnected(!!conn.oauth);
         setSchoologyName(conn.schoologyName || null);
         setNeedsReconnect(!!conn.needsReconnect);
+        if (conn.domain) setSchoologyDomain(conn.domain);
       } else {
         setOauthConnected(false);
         setSchoologyName(null);
@@ -82,6 +86,20 @@ export function SchoologyIntegration() {
       loadIntegrationStatus();
     }
   }, [user, loadIntegrationStatus]);
+
+  // Leaves for the student's own Schoology host; /schoology-callback brings them back.
+  const handleSchoologySignIn = async (e) => {
+    e?.preventDefault();
+    try {
+      setIsSigningIn(true);
+      setError(null);
+      await schoologyAPI.initiateOAuth(user.uid, schoologyDomain);
+    } catch (err) {
+      console.error('Error starting Schoology sign-in:', err);
+      setError(err?.message || 'Could not start Schoology sign-in.');
+      setIsSigningIn(false);
+    }
+  };
 
   const handleSchoologySignOut = async () => {
     const ok = await confirm({
@@ -166,6 +184,10 @@ export function SchoologyIntegration() {
 
         if (result.pastDueCount > 0) {
           message += `\n${result.pastDueCount} assignments were skipped (past due date).`;
+        }
+
+        if (result.submittedCount > 0) {
+          message += `\n${result.submittedCount} marked done (submitted in Schoology).`;
         }
 
         toast.success(message);
@@ -300,15 +322,13 @@ export function SchoologyIntegration() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Schoology sign-in was removed: the calendar feed is the supported path.
-            This block now renders ONLY for users who connected before the change,
-            so they can still sign out rather than being stuck connected forever. */}
-        {oauthConnected && (
+        {/* Schoology sign-in: optional, on top of the calendar feed. Read-only; it
+            lets sync tick off tasks once the assignment is submitted. */}
         <div className="space-y-3">
           <div className="flex items-center gap-2">
-            <h3 className="font-medium text-content-primary">Schoology Account</h3>
+            <h3 className="font-medium text-content-primary">Schoology sign-in (optional)</h3>
           </div>
-          {(
+          {oauthConnected ? (
             <div className="flex items-center justify-between gap-3 p-3 rounded-md bg-base-800 border border-border">
               <div className="flex items-center gap-2 min-w-0">
                 {needsReconnect
@@ -320,11 +340,17 @@ export function SchoologyIntegration() {
                   </div>
                   <div className="text-xs text-content-muted">
                     {needsReconnect
-                      ? 'This Schoology sign-in has expired (they last 90 days). Sign out here; your calendar feed keeps working.'
-                      : 'Apex stays signed in across sessions.'}
+                      ? 'This sign-in expired (Schoology ends them after 90 days). Sign in again to keep ticking off submitted work.'
+                      : 'Schoology tasks are marked done when you submit them. Read-only: Apex never changes anything in Schoology.'}
                   </div>
                 </div>
               </div>
+              <div className="flex gap-2 flex-shrink-0">
+              {needsReconnect && schoologyDomain && (
+                <Button variant="outline" onClick={handleSchoologySignIn} disabled={isSigningIn}>
+                  {isSigningIn ? <Loader className="w-4 h-4 animate-spin" strokeWidth={1.5} /> : 'Sign in again'}
+                </Button>
+              )}
               <Button
                 variant="outline"
                 onClick={handleSchoologySignOut}
@@ -340,10 +366,44 @@ export function SchoologyIntegration() {
                   </>
                 )}
               </Button>
+              </div>
             </div>
+          ) : (
+            <form onSubmit={handleSchoologySignIn} className="space-y-2">
+              <p className="text-sm text-content-muted">
+                Sign in with Schoology and Apex marks a Schoology task done once you've submitted the assignment.
+                It only reads your own classes and submissions, and never posts or changes anything. Works with the calendar feed below, which brings the assignments in.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="text"
+                  inputMode="url"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  value={schoologyDomain}
+                  onChange={(e) => setSchoologyDomain(e.target.value)}
+                  placeholder="yourschool.schoology.com"
+                  aria-label="Your school's Schoology address"
+                  className="flex-1 min-w-0 px-3 py-2 bg-base-800 border border-border rounded-md text-content-primary placeholder:text-content-muted focus:outline-none focus:ring-2 focus:ring-content-muted"
+                />
+                <Button type="submit" disabled={!schoologyDomain.trim() || isSigningIn} className="flex-shrink-0">
+                  {isSigningIn ? (
+                    <Loader className="w-4 h-4 animate-spin" strokeWidth={1.5} />
+                  ) : (
+                    <>
+                      <LogIn className="w-4 h-4 mr-1.5" strokeWidth={1.5} />
+                      Sign in with Schoology
+                    </>
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-content-muted">
+                The address you use to open Schoology at school, without anything after it.
+              </p>
+            </form>
           )}
         </div>
-        )}
 
         {/* Connection Status (calendar feed) */}
         <div className="space-y-4 border-t border-border-strong pt-4">
@@ -442,7 +502,7 @@ export function SchoologyIntegration() {
               <p className="text-xs text-warning-200 mt-2 break-all">Looks like: https://yourschool.instructure.com/feeds/calendars/user_….ics</p>
             </div>
             <p className="text-xs text-warning-200 sm:col-span-2">
-              The link is private to you, like a password: Apex only uses it to read your due dates. Calendar feeds don't say whether you've turned work in, so mark tasks done yourself.
+              The link is private to you, like a password: Apex only uses it to read your due dates. Calendar feeds don't say whether you've turned work in: sign in with Schoology above to have submitted work ticked off, or mark tasks done yourself.
             </p>
           </div>
         </div>

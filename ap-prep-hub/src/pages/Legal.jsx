@@ -14,7 +14,7 @@ import { Shield, FileText } from 'lucide-react';
 import { createPageUrl } from '../utils/helpers';
 import { CONTACT_EMAIL } from '../constants/contact';
 
-const LAST_UPDATED = 'July 28, 2026';
+const LAST_UPDATED = 'November 1, 2026';
 
 const Section = ({ title, children }) => (
   <section className="space-y-2">
@@ -74,6 +74,19 @@ function PrivacyPolicy() {
         <p>We encourage you to review their respective privacy practices.</p>
       </Section>
 
+      <Section title="Schoology and Canvas">
+        <p>Connecting a class calendar or a Schoology account is optional. If you do:</p>
+        <Bullets
+          items={[
+            <><strong>Calendar feed:</strong> we store the feed link you paste and read assignment titles, due dates, course names and links from it to build your study plan.</>,
+            <><strong>Schoology sign-in:</strong> we store your Schoology name, user ID, school domain and an access token. The token is kept server-side and is never sent to your browser.</>,
+            'Access is read-only: Apex Scholar never posts, submits, edits or deletes anything in Schoology or Canvas.',
+            'We read only your own data, use it only to plan your studying, and never sell it, share it, or use it for advertising.',
+            'Disconnecting in Settings stops all access and deletes the stored token. If you ask us to delete your account, we delete everything we stored.',
+          ]}
+        />
+      </Section>
+
       <Section title="Analytics">
         <p>
           We use Google Analytics 4 to understand which parts of Apex Scholar are actually used, so we know what to
@@ -110,7 +123,7 @@ function PrivacyPolicy() {
         <p>
           We implement appropriate technical measures to protect your personal information, including encrypted
           connections (HTTPS), Firebase security rules, and server-side handling of API keys. Your data is stored in
-          Google Cloud infrastructure via Firebase.
+          Google Cloud infrastructure via Firebase, in the United States.
         </p>
       </Section>
 

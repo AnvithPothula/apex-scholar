@@ -1,7 +1,7 @@
 /**
  * Schoology OAuth Callback Handler.
  *
- * Schoology redirects back here with ?oauth_token=...&oauth_verifier=... after
+ * Schoology redirects back here with ?oauth_token=... (no verifier) after
  * the user authorizes. We hand those off to schoologyAPI.handleOAuthCallback,
  * which exchanges them for an access token (via the Netlify proxy that holds
  * the consumer secret) and persists it to Firestore. After success the user
@@ -36,7 +36,7 @@ export function SchoologyCallback() {
         const err = searchParams.get('error') || searchParams.get('oauth_problem');
 
         if (err) throw new Error(err);
-        if (!oauthToken || !oauthVerifier) {
+        if (!oauthToken) {
           throw new Error('Schoology did not return the expected verification parameters.');
         }
 

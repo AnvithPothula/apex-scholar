@@ -10,14 +10,15 @@
 const crypto = require('crypto');
 
 // Read endpoints the app may use. `me` is resolved to the stored uid before
-// forwarding (see resolveMe). Extend this list when a feature needs more.
+// forwarding (see resolveMe), so submissions are only ever the student's own.
+// Extend this list when a feature needs more.
 const READ_PATHS = [
   /^\/users\/(me|\d+)$/,
   /^\/users\/(me|\d+)\/(sections|grades|events|updates)$/,
   /^\/sections\/\d+$/,
   /^\/sections\/\d+\/(assignments|events|updates|grading_categories|grading_periods|grading_scales)$/,
   /^\/sections\/\d+\/assignments\/\d+$/,
-  /^\/sections\/\d+\/submissions\/\d+\/\d+$/,
+  /^\/sections\/\d+\/submissions\/\d+\/me$/,
   /^\/recent$/,
 ];
 
@@ -32,9 +33,12 @@ function checkApiCall(method, path) {
   return { ok: true };
 }
 
-/** /users/me answers with a 303; use the stored uid so no redirect happens. */
+/** /users/me answers with a 303, and submissions need a user id: use the stored uid. */
 function resolveMe(path, schoologyUid) {
-  return schoologyUid ? path.replace(/^\/users\/me(?=\/|\?|$)/, `/users/${schoologyUid}`) : path;
+  if (!schoologyUid) return path;
+  return path
+    .replace(/^\/users\/me(?=\/|\?|$)/, `/users/${schoologyUid}`)
+    .replace(/^(\/sections\/\d+\/submissions\/\d+)\/me(?=\?|$)/, `$1/${schoologyUid}`);
 }
 
 /**

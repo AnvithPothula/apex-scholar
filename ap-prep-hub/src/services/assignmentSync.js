@@ -6,10 +6,17 @@
 import { collection, doc, addDoc, getDocs, query, where, serverTimestamp, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../config/firestore';
 import { schoologyAPI } from './schoologyAPI';
+import { assignmentIdOf, findSubmitted } from './schoologySubmissions';
+
+// Each check costs a few Schoology requests per section; auto-sync can run every minute.
+const SUBMISSION_CHECK_MS = 10 * 60 * 1000;
+// ponytail: soonest 30 open tasks per check; the rest wait for the next one.
+const SUBMISSION_CHECK_MAX = 30;
 
 class AssignmentSyncService {
   constructor() {
     this.syncIntervals = new Map(); // Track sync intervals for users
+    this.lastSubmissionCheck = new Map(); // userId -> ms
   }
 
   /**
@@ -509,6 +516,14 @@ class AssignmentSyncService {
         }
       }
 
+      // Tick off tasks the student has turned in (needs Schoology sign-in).
+      let submittedCount = 0;
+      try {
+        submittedCount = await this.markSubmittedTasks(userId, isConnected, options);
+      } catch (error) {
+        console.error('Error checking Schoology submissions:', error.message);
+      }
+
       // Update last sync timestamp
       await schoologyAPI.updateLastSync(userId);
 
@@ -519,6 +534,7 @@ class AssignmentSyncService {
         skippedCount,
         pastDueCount,
         errorCount,
+        submittedCount,
         lastSync: new Date()
       };
 
@@ -537,6 +553,34 @@ class AssignmentSyncService {
         errorCount: 0
       };
     }
+  }
+
+  /**
+   * Mark open Schoology tasks done once the assignment is submitted. A task is
+   * ticked at most once (schoologySubmittedAt), so a student who unticks it
+   * keeps it open. Returns how many were ticked.
+   */
+  async markSubmittedTasks(userId, conn, { force = false } = {}) {
+    if (!conn?.oauth || conn.needsReconnect) return 0;
+    const last = this.lastSubmissionCheck.get(userId) || 0;
+    if (!force && Date.now() - last < SUBMISSION_CHECK_MS) return 0;
+    this.lastSubmissionCheck.set(userId, Date.now());
+
+    const snap = await getDocs(query(collection(db, 'users', userId, 'tasks'), where('is_completed', '==', false)));
+    const open = [];
+    snap.forEach((d) => {
+      const task = d.data();
+      const aid = !task.schoologySubmittedAt && assignmentIdOf(task);
+      if (aid) open.push({ aid, ref: d.ref, deadline: task.deadline?.toMillis?.() ?? 0 });
+    });
+    open.sort((a, b) => a.deadline - b.deadline);
+    const todo = open.slice(0, SUBMISSION_CHECK_MAX);
+    if (!todo.length) return 0;
+
+    const done = await findSubmitted(todo.map((t) => t.aid), (path) => schoologyAPI.makeAPIRequest(userId, path));
+    const ticked = todo.filter((t) => done.has(t.aid));
+    await Promise.all(ticked.map((t) => updateDoc(t.ref, { is_completed: true, schoologySubmittedAt: new Date() })));
+    return ticked.length;
   }
 
   /**
@@ -618,7 +662,8 @@ class AssignmentSyncService {
     
     const result = await this.syncAssignments(userId, {
       daysBack: options.daysBack || 7, // Sync more history for manual sync
-      includeCompleted: options.includeCompleted || false
+      includeCompleted: options.includeCompleted || false,
+      force: true, // check submissions now, not on the auto-sync schedule
     });
 
     return result;

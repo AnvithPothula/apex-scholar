@@ -7,7 +7,7 @@
  *
  *   POST ?action=request_token   { callback, domain }
  *     -> { oauth_token, authorize_url }   // authorize on the student's own Schoology host
- *   POST ?action=access_token    { oauth_token, oauth_verifier }
+ *   POST ?action=access_token    { oauth_token, oauth_verifier? }
  *     -> { success, schoologyName, schoologyUid }
  *   POST ?action=api_call        { method: 'GET', path }
  *     -> { status, ok, data }   // signed GET to api.schoology.com/v1{path}
@@ -189,7 +189,8 @@ exports.handler = async (event) => {
       }
       const url = `${SCHOOLOGY_BASE}/oauth/request_token`;
       const params = { ...oauthBase(), oauth_callback: callback };
-      const res = await callSchoology('POST', url, params);
+      // Schoology's token endpoints are GET (POST answers 405).
+      const res = await callSchoology('GET', url, params);
       const text = await res.text();
       if (!res.ok) {
         return {
@@ -211,15 +212,17 @@ exports.handler = async (event) => {
         domain,
         createdAt: FieldValue.serverTimestamp(),
       });
-      const authorize_url = `https://${domain}/oauth/authorize?oauth_token=${encodeURIComponent(oauth_token)}`;
+      // Schoology takes the return URL on the authorize step, not request_token.
+      const authorize_url = `https://${domain}/oauth/authorize?oauth_token=${encodeURIComponent(oauth_token)}&oauth_callback=${encodeURIComponent(callback)}`;
       // Note: no oauth_token_secret returned to the client.
       return { statusCode: 200, headers, body: JSON.stringify({ oauth_token, authorize_url }) };
     }
 
     if (action === 'access_token') {
       const { oauth_token, oauth_verifier } = body;
-      if (!oauth_token || !oauth_verifier) {
-        return { statusCode: 400, headers, body: JSON.stringify({ error: 'oauth_token, oauth_verifier required' }) };
+      // Schoology (OAuth 1.0) returns only oauth_token; a verifier is passed on if present.
+      if (!oauth_token) {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'oauth_token required' }) };
       }
       // Recover the request-token secret we stored server-side at request_token.
       const tempSnap = await oauthTempRef.get();
@@ -230,8 +233,8 @@ exports.handler = async (event) => {
       const domain = tempSnap.data().domain || null;
 
       const url = `${SCHOOLOGY_BASE}/oauth/access_token`;
-      const params = { ...oauthBase(), oauth_token, oauth_verifier };
-      const res = await callSchoology('POST', url, params, oauth_token_secret);
+      const params = { ...oauthBase(), oauth_token, ...(oauth_verifier ? { oauth_verifier } : {}) };
+      const res = await callSchoology('GET', url, params, oauth_token_secret);
       const text = await res.text();
       if (!res.ok) {
         return {

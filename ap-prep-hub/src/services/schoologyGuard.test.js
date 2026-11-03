@@ -5,9 +5,11 @@ describe('Schoology proxy is read-only', () => {
   test('only GET to allow-listed read paths', () => {
     expect(checkApiCall('GET', '/users/me/sections').ok).toBe(true);
     expect(checkApiCall('get', '/sections/12/assignments?start=2026-10-01').ok).toBe(true);
-    expect(checkApiCall('GET', '/sections/12/submissions/34/56').ok).toBe(true);
+    expect(checkApiCall('GET', '/sections/12/submissions/34/me').ok).toBe(true);
+    // Someone else's submissions: never, even if Schoology would allow it.
+    expect(checkApiCall('GET', '/sections/12/submissions/34/56').ok).toBe(false);
     for (const m of ['POST', 'PUT', 'DELETE', 'PATCH']) {
-      expect(checkApiCall(m, '/sections/12/submissions/34/56').ok).toBe(false);
+      expect(checkApiCall(m, '/sections/12/submissions/34/me').ok).toBe(false);
     }
     expect(checkApiCall('GET', '/users/12/delete-everything').ok).toBe(false);
     expect(checkApiCall('GET', '/sections/12/../../users').ok).toBe(false);
@@ -19,6 +21,7 @@ describe('Schoology proxy is read-only', () => {
     expect(resolveMe('/users/me', '777')).toBe('/users/777');
     expect(resolveMe('/users/me/sections', null)).toBe('/users/me/sections');
     expect(resolveMe('/users/meow', '777')).toBe('/users/meow');
+    expect(resolveMe('/sections/12/submissions/34/me', '777')).toBe('/sections/12/submissions/34/777');
   });
 
   test('school domain: bare hosts only', () => {
