@@ -160,7 +160,7 @@ export const AuthProvider = ({ children }) => {
                 setLoading(false);
                 setConnectionError(null); // Clear any previous connection errors
                 // Identify user in Sentry for error attribution
-                errorLogger.setUser({ uid: firebaseUser.uid, email: firebaseUser.email });
+                errorLogger.setUser({ uid: firebaseUser.uid });
                 
                 // Fetch additional data asynchronously
                 const fetchUserData = async () => {

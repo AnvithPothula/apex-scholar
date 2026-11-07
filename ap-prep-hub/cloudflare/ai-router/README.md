@@ -46,6 +46,8 @@ billing is turned on. The rest (`RPM_CAPACITY`, `HOURLY_MAX`/`HOURLY_MIN`,
 `GUEST_HOURLY_MAX`/`GUEST_HOURLY_MIN`, `BURST_PER_MINUTE`, `GROUP_HOURLY_MAX`)
 are described in the app README table.
 
+`GET /load` returns only `{ "load": 0..1 }`, how busy the site is. Open tabs poll it every 5 minutes, which is also how the Governor counts who's online, and the app's per-task AI costs follow it (`TASK_COST_RANGE` in `src/services/aiUsageLimiter.js`).
+
 `/stats` returns the Governor's view: calls today, the current hourly cap for
 students and guests, load, and how many key/model pairs are cooling down.
 

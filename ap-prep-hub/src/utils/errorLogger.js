@@ -99,7 +99,8 @@ const errorLogger = {
   setUser(user) {
     if (sentryEnabled) {
       if (user) {
-        Sentry.setUser({ id: user.uid, email: user.email });
+        // ID only: most users are minors, and the ID is enough to find their errors.
+        Sentry.setUser({ id: user.uid });
       } else {
         Sentry.setUser(null);
       }

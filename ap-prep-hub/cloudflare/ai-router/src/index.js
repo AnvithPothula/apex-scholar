@@ -423,6 +423,27 @@ const MINUTE_MS = 60 * 1000;
 const CAP_REFRESH_MS = 5000;
 const MAX_CALLERS = 50000;
 const MAX_COOLING = 2048;
+const MAX_SESSIONS = 50000;
+
+// Live load for the AI usage meter. Open tabs check in every 5 minutes, so a
+// session counts as online for a little longer than that.
+const PRESENCE_MS = 6.5 * MINUTE_MS;
+const AI_ACTIVE_MS = 15 * MINUTE_MS;
+// Rough calls per hour, for sizing up who just arrived before they've spent much.
+const AI_USER_CALLS_PER_HOUR = 10;
+const VISITOR_CALLS_PER_HOUR = 1;
+
+/**
+ * 0 = idle, 1 = today's pool can't keep up. Takes the higher of what the last
+ * hour actually used and what the people here now would use, against what the
+ * rest of today can sustain. Rounded so it doesn't flicker.
+ */
+export function loadFrom({ lastHour = 0, budget = 0, aiActive = 0, online = 0 }) {
+  const forecast = aiActive * AI_USER_CALLS_PER_HOUR + Math.max(0, online - aiActive) * VISITOR_CALLS_PER_HOUR;
+  const demand = Math.max(lastHour, forecast);
+  if (!(budget > 0)) return demand > 0 ? 1 : 0;
+  return Math.round(clamp(demand / budget, 0, 1) * 20) / 20;
+}
 
 export function governorConfig(env = {}) {
   const num = (name, fallback) => {
@@ -488,6 +509,7 @@ export class GovernorState {
     this.cfg = { ...GOVERNOR_DEFAULTS, ...cfg };
     this.callers = new Map();   // who -> { guest, hits: [ms, ...] } within the last hour
     this.groups = new Map();    // guest IP -> [ms, ...] within the last hour
+    this.sessions = new Map();  // random tab id -> ms it last checked in
     this.minute = [];           // site-wide admissions within the last minute
     this.day = '';
     this.usedToday = 0;
@@ -513,6 +535,7 @@ export class GovernorState {
         if (!hits.length || hits[hits.length - 1] <= now - HOUR_MS) this.groups.delete(group);
       }
       for (const [pair, until] of this.cooling) if (until <= now) this.cooling.delete(pair);
+      for (const [sid, at] of this.sessions) if (at <= now - PRESENCE_MS) this.sessions.delete(sid);
     }
   }
 
@@ -556,6 +579,30 @@ export class GovernorState {
     const { budget, lastHour } = this.capCache;
     if (!(budget > 0)) return lastHour > 0 ? 1 : 0;
     return Math.min(1, lastHour / budget);
+  }
+
+  /** A tab checked in. Random id, memory only, gone after PRESENCE_MS. */
+  heartbeat(sid, now = Date.now()) {
+    this._roll(now);
+    if (sid && (this.sessions.has(sid) || this.sessions.size < MAX_SESSIONS)) this.sessions.set(sid, now);
+  }
+
+  _counts(now) {
+    let aiActive = 0;
+    for (const rec of this.callers.values()) {
+      if (rec.hits.length && rec.hits[rec.hits.length - 1] > now - AI_ACTIVE_MS) aiActive++;
+    }
+    let online = 0;
+    for (const at of this.sessions.values()) if (at > now - PRESENCE_MS) online++;
+    return { aiActive, online: Math.max(online, aiActive) };
+  }
+
+  /** The site's load right now. */
+  load(now = Date.now()) {
+    this._roll(now);
+    this._baseCap(now);
+    const { budget, lastHour } = this.capCache;
+    return loadFrom({ lastHour, budget, ...this._counts(now) });
   }
 
   /**
@@ -654,6 +701,8 @@ export class GovernorState {
       guestCap: this.capFor(true, now),
       pressure: Math.round(this.pressure(now) * 100) / 100,
       coolingPairs: this.coolingList(now).length,
+      ...this._counts(now),
+      load: this.load(now),
     };
   }
 
@@ -703,6 +752,9 @@ export class Governor {
       out = { ok: true };
     } else if (body.op === 'stats') {
       out = this.gov.stats(now);
+    } else if (body.op === 'load') {
+      this.gov.heartbeat(body.sid, now);
+      out = { load: this.gov.load(now) };
     } else {
       return json({ error: 'Unknown op' }, 400, {});
     }
@@ -810,6 +862,21 @@ export default {
       if (!env.STATS_TOKEN || token !== env.STATS_TOKEN) return json({ error: 'Not found' }, 404, headers);
       const stats = await askGovernor(env, { op: 'stats' });
       return json(stats || { error: 'Governor unreachable' }, stats ? 200 : 503, headers);
+    }
+    // Open tabs poll this for the usage meter. Only one number comes back, never
+    // the head counts, and a tab only counts as online from an allowed origin.
+    // ponytail: no token, so a script could inflate the count, but that only
+    // moves costs up to each task's maximum; add a per-IP limit if it's abused.
+    if (req.method === 'GET' && new URL(req.url).pathname === '/load') {
+      const raw = new URL(req.url).searchParams.get('s') || '';
+      const sid = allowed.includes(origin) && /^[a-z0-9]{8,32}$/.test(raw) ? raw : null;
+      let out = await askGovernor(env, { op: 'load', sid });
+      if (!out) {
+        if (!localGovernor) localGovernor = new GovernorState(governorConfig(env));
+        localGovernor.heartbeat(sid, Date.now());
+        out = { load: localGovernor.load(Date.now()) };
+      }
+      return json({ load: out.load }, 200, { ...headers, 'Cache-Control': 'no-store' });
     }
     if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405, headers);
 

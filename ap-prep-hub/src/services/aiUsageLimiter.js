@@ -62,6 +62,56 @@ export const TASK_COST = {
 };
 export const DEFAULT_COST = 15;
 
+// What each task can cost, whatever the load. TASK_COST above is the normal
+// price, charged at half load; quiet hours fall toward min, busy ones rise to max.
+export const TASK_COST_RANGE = {
+  tutor: { min: 10, max: 30 },
+  tutorFile: { min: 20, max: 60 },
+  ask: { min: 5, max: 16 },
+  timelineNote: { min: 5, max: 16 },
+  reviewExplain: { min: 6, max: 20 },
+  solver: { min: 15, max: 50 },
+  solverImage: { min: 25, max: 80 },
+  flashcards: { min: 30, max: 100 },
+  diagnostic: { min: 30, max: 100 },
+  progressInsights: { min: 12, max: 40 },
+};
+const DEFAULT_RANGE = { min: 10, max: 30 };
+
+/** A task's points at a load from 0 (idle) through 0.5 (normal) to 1 (busy). */
+export function costAt(category, load = 0.5) {
+  const base = TASK_COST[category] ?? DEFAULT_COST;
+  const { min, max } = TASK_COST_RANGE[category] ?? DEFAULT_RANGE;
+  const l = Math.min(1, Math.max(0, Number.isFinite(load) ? load : 0.5));
+  return Math.round(l <= 0.5 ? min + (base - min) * (l / 0.5) : base + (max - base) * ((l - 0.5) / 0.5));
+}
+
+export const levelOf = (load) => (load < 0.34 ? 'quiet' : load < 0.67 ? 'normal' : 'busy');
+
+// The latest load from the AI router (services/aiLoad.js). Without a fresh
+// reading, tasks cost their normal price.
+const LOAD_TTL_MS = 15 * 60 * 1000;
+let liveLoad = null; // { load, at }
+
+export function setLoad(load, now = Date.now()) {
+  liveLoad = Number.isFinite(load) ? { load, at: now } : null;
+  notify();
+}
+
+export function currentLoad(now = Date.now()) {
+  return liveLoad && now - liveLoad.at < LOAD_TTL_MS ? liveLoad.load : 0.5;
+}
+
+// What the calls in flight were actually charged, so a refund gives back that
+// amount even if the load moved in between.
+const inFlight = new Map(); // category -> [points, ...]
+const rememberCharge = (category, cost) => inFlight.set(category, [...(inFlight.get(category) || []), cost]);
+function takeCharge(category) {
+  const list = inFlight.get(category) || [];
+  const cost = list.pop();
+  return cost ?? costOf(category);
+}
+
 /** What each task is called on the usage card. */
 export const TASK_LABELS = {
   tutor: 'Tutor reply',
@@ -76,7 +126,7 @@ export const TASK_LABELS = {
   progressInsights: 'Progress analysis',
 };
 
-export const costOf = (category) => TASK_COST[category] ?? DEFAULT_COST;
+export const costOf = (category, load = currentLoad()) => costAt(category, load);
 
 const FIVE_HOURS_MS = 5 * 60 * 60 * 1000;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -260,6 +310,7 @@ export async function consume(category) {
       notify();
       return false;
     }
+    rememberCharge(category, cost);
     notify();
     return true;
   }
@@ -270,6 +321,7 @@ export async function consume(category) {
   fiveHour.count += cost;
   week.count += cost;
   saveLocal({ ...state, fiveHour, week });
+  rememberCharge(category, cost);
   notify();
   return true;
 }
@@ -284,7 +336,7 @@ export async function consume(category) {
 export async function refund(category) {
   if (bypass || isExempt(category)) return;
   const now = Date.now();
-  const cost = costOf(category);
+  const cost = takeCharge(category);
   const credit = (bucket, durationMs) => {
     const live = rollWindow(bucket, durationMs, now);
     return live.start === bucket?.start ? { start: live.start, count: Math.max(0, live.count - cost) } : bucket;
@@ -404,10 +456,13 @@ function snapshotFrom(state, now) {
     resetAt: count > 0 ? start + durationMs : null,
   });
   const cap = caps();
+  const load = currentLoad(now);
 
   return {
     bypassed: bypass,
     guest: !currentUid,
+    level: levelOf(load),
+    costs: Object.fromEntries(Object.keys(TASK_COST).map((k) => [k, costAt(k, load)])),
     general: {
       fiveHour: bucket(fiveHour.count, cap.fiveHour, fiveHour.start, FIVE_HOURS_MS),
       week: bucket(week.count, cap.week, week.start, WEEK_MS),

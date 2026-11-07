@@ -1,7 +1,7 @@
 import React from 'react';
 import { Gauge, Infinity as InfinityIcon, Loader2 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/UIComponents';
-import aiUsageLimiter, { TASK_COST, TASK_LABELS, GENERAL_5H_LIMIT } from '../../services/aiUsageLimiter';
+import aiUsageLimiter, { TASK_LABELS, GENERAL_5H_LIMIT } from '../../services/aiUsageLimiter';
 import useAiUsage from '../../hooks/useAiUsage';
 
 /** One labelled usage meter (% used) with a colour-coded bar. */
@@ -39,6 +39,12 @@ function UsageMeter({ label, pct, atLimit, resetAt, detail }) {
     </div>
   );
 }
+
+const LEVEL_TEXT = {
+  quiet: 'Apex Scholar is quiet right now, so AI uses less of your limit. These amounts change with how busy the site is, within a set range for each action.',
+  normal: 'These amounts change with how busy Apex Scholar is, within a set range for each action.',
+  busy: 'Apex Scholar is busy right now, so AI uses more of your limit. These amounts change with how busy the site is, within a set range for each action.',
+};
 
 // Share of a signed-in 5-hour window, to one decimal when under 1%.
 const pctOf5h = (points) => {
@@ -100,13 +106,14 @@ export default function AiUsageCard() {
             <details className="text-xs text-content-muted">
               <summary className="cursor-pointer text-content-secondary">How much each AI action uses</summary>
               <ul className="mt-2 space-y-1">
-                {Object.keys(TASK_COST).map((k) => (
+                {Object.keys(status.costs).map((k) => (
                   <li key={k} className="flex justify-between gap-3">
                     <span>{TASK_LABELS[k]}</span>
-                    <span className="text-content-secondary tabular-nums">{pctOf5h(TASK_COST[k])} of 5 hours</span>
+                    <span className="text-content-secondary tabular-nums">{pctOf5h(status.costs[k])} of 5 hours</span>
                   </li>
                 ))}
               </ul>
+              <p className="mt-2 text-content-secondary">{LEVEL_TEXT[status.level]}</p>
               <p className="mt-2">Bigger jobs, like a whole flashcard deck, use more than a quick answer. The weekly limit is five 5-hour windows.</p>
             </details>
           </div>

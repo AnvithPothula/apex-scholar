@@ -16,9 +16,9 @@ if (process.env.NODE_ENV === 'production' && process.env.REACT_APP_SENTRY_DSN) {
     environment: process.env.REACT_APP_SENTRY_ENV || 'production',
     release: process.env.REACT_APP_VERSION || undefined,
 
-    // Auto-collect IP address, browser, user agent, etc. with each event.
-    // Useful for debugging — disable if you have stricter PII requirements.
-    sendDefaultPii: true,
+    // Off: don't store IP addresses. Most users are minors, and the user ID set
+    // in errorLogger is all the identity we send. The privacy policy says this.
+    sendDefaultPii: false,
 
     integrations: [
       // Performance monitoring — captures page loads, navigations, API calls

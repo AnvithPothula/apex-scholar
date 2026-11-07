@@ -339,3 +339,52 @@ describe('router handler under failure', () => {
     expect(walkBudgetMs(1)).toBe(10000);
   });
 });
+
+describe('site load for the usage meter', () => {
+  const { GovernorState, GOVERNOR_DEFAULTS, worker } = loadWorker();
+  const noon = Date.UTC(2026, 10, 7, 20); // midday Pacific, so the hour budget is steady
+  const fresh = () => new GovernorState({ ...GOVERNOR_DEFAULTS });
+  const hourBudget = (g) => g.hourBudget(noon);
+
+  test('nobody here is load 0', () => {
+    expect(fresh().load(noon)).toBe(0);
+  });
+
+  test('open tabs and AI users both raise it, AI users far more', () => {
+    const visitors = fresh();
+    for (let i = 0; i < 100; i++) visitors.heartbeat(`tab${i}xxxxx`, noon);
+    const ai = fresh();
+    for (let i = 0; i < 100; i++) ai.admit({ who: `u${i}` }, noon);
+    expect(visitors.load(noon)).toBeGreaterThan(0);
+    expect(ai.load(noon)).toBeGreaterThan(visitors.load(noon));
+  });
+
+  test('tops out at 1 when the people here would outrun the pool', () => {
+    const g = fresh();
+    const needed = Math.ceil(hourBudget(g) / 10) + 5;
+    for (let i = 0; i < needed; i++) g.admit({ who: `u${i}` }, noon);
+    expect(g.load(noon)).toBe(1);
+  });
+
+  test('tabs that stop checking in stop counting, and repeats count once', () => {
+    const g = fresh();
+    for (let i = 0; i < 3; i++) g.heartbeat('samesession1', noon + i);
+    expect(g.stats(noon + 10).online).toBe(1);
+    expect(g.stats(noon + 7 * 60 * 1000).online).toBe(0);
+  });
+
+  test('stats count who is online; GET /load returns only the load', async () => {
+    const env = { ALLOWED_ORIGINS: 'https://apex-scholar.com' };
+    const res = await worker.fetch(
+      new Request('https://ai.apex-scholar.com/load?s=abcdefgh12345', { headers: { origin: 'https://apex-scholar.com' } }),
+      env,
+      { waitUntil() {} },
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get('access-control-allow-origin')).toBe('https://apex-scholar.com');
+    const body = await res.json();
+    expect(Object.keys(body)).toEqual(['load']);
+    expect(body.load).toBeGreaterThanOrEqual(0);
+    expect(body.load).toBeLessThanOrEqual(1);
+  });
+});

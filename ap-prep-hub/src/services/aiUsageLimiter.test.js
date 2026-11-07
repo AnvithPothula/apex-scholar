@@ -13,6 +13,10 @@ import {
   DEFAULT_COST,
   TEST_DAILY_LIMIT,
   getUsageStatus,
+  TASK_COST_RANGE,
+  costAt,
+  setLoad,
+  currentLoad,
 } from './aiUsageLimiter';
 
 const KEY = 'apex.ai.usage.v2';
@@ -140,5 +144,54 @@ describe('practice-test daily budget: check before, spend after', () => {
     const d = new Date();
     const local = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     expect(JSON.parse(localStorage.getItem(KEY)).testDay.day).toBe(local);
+  });
+});
+
+describe('load-based costs', () => {
+  afterEach(() => setLoad(null));
+
+  test('every task costs its min when idle, its normal price at half load, its max when busy', () => {
+    for (const [task, { min, max }] of Object.entries(TASK_COST_RANGE)) {
+      expect(min).toBeLessThan(TASK_COST[task]);
+      expect(max).toBeGreaterThan(TASK_COST[task]);
+      expect(costAt(task, 0)).toBe(min);
+      expect(costAt(task, 0.5)).toBe(TASK_COST[task]);
+      expect(costAt(task, 1)).toBe(max);
+    }
+    expect(Object.keys(TASK_COST_RANGE).sort()).toEqual(Object.keys(TASK_COST).sort());
+  });
+
+  test('out-of-range or missing load stays inside the limits', () => {
+    expect(costAt('tutor', -3)).toBe(TASK_COST_RANGE.tutor.min);
+    expect(costAt('tutor', 9)).toBe(TASK_COST_RANGE.tutor.max);
+    expect(costAt('tutor', NaN)).toBe(TASK_COST.tutor);
+    expect(costAt('somethingNew', 0.5)).toBe(DEFAULT_COST);
+  });
+
+  test('a reading older than 15 minutes falls back to the normal price', () => {
+    const t = Date.now();
+    setLoad(1, t);
+    expect(currentLoad(t + 1000)).toBe(1);
+    expect(currentLoad(t + 16 * 60 * 1000)).toBe(0.5);
+  });
+
+  test('the usage snapshot shows the live costs and level', async () => {
+    setLoad(0);
+    let s = await getUsageStatus();
+    expect(s.costs.tutor).toBe(TASK_COST_RANGE.tutor.min);
+    expect(s.level).toBe('quiet');
+    setLoad(1);
+    s = await getUsageStatus();
+    expect(s.costs.flashcards).toBe(TASK_COST_RANGE.flashcards.max);
+    expect(s.level).toBe('busy');
+  });
+
+  test('a refund gives back what was charged even if the load moved', async () => {
+    setLoad(1);
+    await consume('tutor');
+    expect(peekGeneral().fiveHourRemaining).toBe(GUEST_5H_LIMIT - TASK_COST_RANGE.tutor.max);
+    setLoad(0);
+    await refund('tutor');
+    expect(peekGeneral().fiveHourRemaining).toBe(GUEST_5H_LIMIT);
   });
 });

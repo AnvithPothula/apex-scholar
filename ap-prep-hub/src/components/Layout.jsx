@@ -6,6 +6,7 @@ import { Brain, Calendar, Settings, LogOut, Award, Shield, X, MessageSquare, Bug
 import { Button, Avatar, AvatarFallback, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from './ui/UIComponents';
 import { useAuth } from '../contexts/AuthContext';
 import { createPageUrl, cn } from '../utils/helpers';
+import { startLoadPolling } from '../services/aiLoad';
 import ApexScholarLogo from './ui/ApexScholarLogo';
 import CommandPalette, { CommandPaletteTrigger } from './ui/CommandPalette';
 import PuterAuthPrompt from './auth/PuterAuthPrompt';
@@ -39,6 +40,8 @@ export function Layout({ children }) {
     // flow: no navigation bars, so the only ways out are finishing or "Skip".
     const focusMode = location.pathname === '/' || location.pathname === '/start';
     const [scrolled, setScrolled] = useState(false);
+    useEffect(() => startLoadPolling(), []);
+
     useEffect(() => {
         const onScroll = () => setScrolled(window.scrollY > 10);
         window.addEventListener('scroll', onScroll, { passive: true });
@@ -324,8 +327,10 @@ export function Layout({ children }) {
             {/* Not on /start: the first-run check asks for a subject itself
                 and marks onboarding done when it saves. Not on "/" either:
                 for a new account "/" renders that same check in place (see
-                HomeRedirect), and anyone else is redirected away from it. */}
-            {user && location.pathname !== '/start' && location.pathname !== '/' && (
+                HomeRedirect), and anyone else is redirected away from it.
+                Not on Settings: someone who followed a link there came to change
+                a setting. It opens on the next page they visit. */}
+            {user && location.pathname !== '/start' && location.pathname !== '/' && !location.pathname.startsWith(createPageUrl('Settings')) && (
                 <Suspense fallback={null}>
                     <OnboardingWalkthrough />
                 </Suspense>
