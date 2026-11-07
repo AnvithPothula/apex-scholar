@@ -314,7 +314,9 @@ exports.handler = async (event) => {
       let data;
       try { data = JSON.parse(text); } catch (_) { data = text; }
       // Expired (90-day TTL) or revoked token: tell the UI to ask for a reconnect.
-      const reconnect = res.status === 401;
+      // "The application is not published" is also a 401, but signing in again
+      // can't fix it: only Schoology's App Center approval does.
+      const reconnect = res.status === 401 && !/not published/i.test(text);
       if (reconnect) {
         await db.doc(`users/${uid}/integrations/schoology`).set({ needsReconnect: true }, { merge: true }).catch(() => {});
       }

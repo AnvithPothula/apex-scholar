@@ -8,7 +8,7 @@
  * is sent back to Settings.
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Loader, CheckCircle, XCircle } from 'lucide-react';
 import { schoologyAPI } from '../../services/schoologyAPI';
@@ -24,10 +24,14 @@ export function SchoologyCallback() {
   const { user, loading: authLoading } = useAuth();
   const [status, setStatus] = useState('processing'); // processing | success | error
   const [message, setMessage] = useState('Connecting your Schoology account…');
+  // The request token is single-use: a second exchange (the effect re-runs when
+  // the user object arrives) fails and showed "couldn't connect" after a success.
+  const started = useRef(false);
 
   useEffect(() => {
     // Wait until auth has resolved — we need user.uid to write tokens.
-    if (authLoading) return;
+    if (authLoading || started.current) return;
+    started.current = true;
 
     const run = async () => {
       try {
