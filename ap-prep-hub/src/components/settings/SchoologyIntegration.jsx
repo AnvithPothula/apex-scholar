@@ -23,6 +23,12 @@ import { useConfirm } from '../../contexts/ConfirmContext';
 import schoologyAPI from '../../services/schoologyAPI';
 import assignmentSync from '../../services/assignmentSync';
 
+// Schoology answers every read with 401 "not published" until it approves the
+// app, so sign-in stays hidden until then: set this to true once approved.
+// Reviewers get it from ?schoology=1 (the app's App URL), and accounts already
+// connected keep it so they can sign out.
+const SCHOOLOGY_APPROVED = false;
+
 export function SchoologyIntegration() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -44,6 +50,8 @@ export function SchoologyIntegration() {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [schoologyDomain, setSchoologyDomain] = useState('');
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const reviewLink = new URLSearchParams(window.location.search).has('schoology');
+  const showSignIn = SCHOOLOGY_APPROVED || reviewLink || oauthConnected;
 
   // Load integration status on component mount
   const loadIntegrationStatus = useCallback(async () => {
@@ -100,6 +108,12 @@ export function SchoologyIntegration() {
       setIsSigningIn(false);
     }
   };
+
+  // The review link lands here directly; the card is far down a long page.
+  useEffect(() => {
+    // Instant: the page's smooth scrolling gets cancelled while sections above still load.
+    if (reviewLink && !isLoading) document.getElementById('settings-schoology')?.scrollIntoView({ behavior: 'instant' });
+  }, [reviewLink, isLoading]);
 
   const handleSchoologySignOut = async () => {
     const ok = await confirm({
@@ -324,6 +338,7 @@ export function SchoologyIntegration() {
       <CardContent className="space-y-6">
         {/* Schoology sign-in: optional, on top of the calendar feed. Read-only; it
             lets sync tick off tasks once the assignment is submitted. */}
+        {showSignIn && (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <h3 className="font-medium text-content-primary">Schoology sign-in (optional)</h3>
@@ -404,6 +419,7 @@ export function SchoologyIntegration() {
             </form>
           )}
         </div>
+        )}
 
         {/* Connection Status (calendar feed) */}
         <div className="space-y-4 border-t border-border-strong pt-4">
@@ -502,7 +518,7 @@ export function SchoologyIntegration() {
               <p className="text-xs text-warning-200 mt-2 break-all">Looks like: https://yourschool.instructure.com/feeds/calendars/user_….ics</p>
             </div>
             <p className="text-xs text-warning-200 sm:col-span-2">
-              The link is private to you, like a password: Apex only uses it to read your due dates. Calendar feeds don't say whether you've turned work in: sign in with Schoology above to have submitted work ticked off, or mark tasks done yourself.
+              The link is private to you, like a password: Apex only uses it to read your due dates. Calendar feeds don't say whether you've turned work in, so {showSignIn ? 'sign in with Schoology above to have submitted work ticked off, or mark tasks done yourself.' : 'mark tasks done yourself.'}
             </p>
           </div>
         </div>

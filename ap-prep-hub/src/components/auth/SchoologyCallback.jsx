@@ -77,8 +77,9 @@ export function SchoologyCallback() {
     run();
   }, [authLoading, user, searchParams, navigate]);
 
+  // Only the failure path uses this: keep the sign-in form visible for a retry.
   const goSettings = () => {
-    navigate(createPageUrl('Settings') + '#settings-schoology', { replace: true });
+    navigate(createPageUrl('Settings') + '?schoology=1#settings-schoology', { replace: true });
   };
 
   return (
