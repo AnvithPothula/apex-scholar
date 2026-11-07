@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, disableNetwork, enableNetwork } from 'firebase/firestore';
 import { db } from '../config/firestore';
 import { useAuth, AVATAR_GRADIENTS } from '../contexts/AuthContext';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { auth } from '../config/firebase';
 import { getAvailableSubjects, getSubjectName } from '../constants/comprehensiveCurriculum';
 import { setUserTimezonePreference } from '../utils/timezone';
+import { withStallRecovery } from '../utils/stallRecovery';
 import BlackoutScheduleManager from '../components/settings/BlackoutScheduleManager';
 import { SchoologyIntegration } from '../components/settings/SchoologyIntegration';
 import SettingsSidebar from '../components/settings/SettingsSidebar';
@@ -101,6 +102,7 @@ const Settings = () => {
   });
   const [blackoutDates, setBlackoutDates] = useState(() => getDefaultBlackoutSchedule()); // Initialize with empty schedule
   const [isLoading, setIsLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [message, setMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   // Account security state
@@ -126,15 +128,19 @@ const Settings = () => {
     }
 
     setIsLoading(true);
+    setLoadFailed(false);
     // Only a successful load may enable auto-save. On a failed load the state
     // below is DEFAULTS, and the auto-save that fires when isInitialized flips
     // used to write them over the user's real subjects and blackouts.
     let loaded = false;
 
     try {
-      // Fix: Remove timeout that could cause race conditions
+      // A dead connection would otherwise leave "Loading settings..." up until a reload.
       const userDocRef = doc(db, 'users', user.uid);
-      const userDocSnap = await getDoc(userDocRef);
+      const userDocSnap = await withStallRecovery(
+        () => getDoc(userDocRef),
+        async () => { await disableNetwork(db); await enableNetwork(db); },
+      );
 
       if (userDocSnap.exists()) {
         const data = userDocSnap.data();
@@ -192,13 +198,9 @@ const Settings = () => {
       loaded = true;
     } catch (error) {
       console.error("Error fetching user settings:", error);
-      setMessage("Error: Couldn't load your settings. Changes won't be saved until you reload.");
-      setTimeout(() => setMessage(''), 5000);
-      // Set defaults on error
-      const defaultPrefs = getDefaultStudyPreferences();
-      setUserSubjects([]);
-      setStudyPreferences(defaultPrefs);
-      setBlackoutDates(getDefaultBlackoutSchedule());
+      // No form on a failed load: its defaults would look like the student's real
+      // settings, and with auto-save off any edits would be lost.
+      setLoadFailed(true);
     } finally {
       setIsLoading(false);
       // Mark as initialized after a short delay to prevent immediate auto-save
@@ -409,6 +411,15 @@ const Settings = () => {
     return (
       <div className="flex items-center justify-center min-h-screen bg-base-950">
         <div className="text-lg text-content-secondary">Loading settings...</div>
+      </div>
+    );
+  }
+
+  if (loadFailed) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 min-h-screen bg-base-950 px-4 text-center">
+        <p className="text-lg text-content-secondary" role="alert">Couldn't load your settings. Check your connection and try again.</p>
+        <Button onClick={fetchSettings}>Try again</Button>
       </div>
     );
   }
