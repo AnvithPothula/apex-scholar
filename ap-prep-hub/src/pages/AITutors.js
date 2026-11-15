@@ -1680,6 +1680,8 @@ FORMATTING:
 - Markdown: **bold**, *italics*, ## headers, bullet lists
 - Tables: Use proper Markdown table syntax with | and --- when presenting data
 - Keep responses under 400 words unless asked for more (an interactive block doesn't count toward this)
+- If the student asks for a length or format ("in one sentence", "just the answer", "a list", "briefly"), give exactly that and nothing else: no extra sections, no follow-up question
+- Answer only the newest message; don't re-answer earlier questions in the conversation
 - No preambles ("Understood", "I'm ready", etc.) and no greetings ("Hello …!") after the first reply
 
 MATH (LaTeX) — strict rules, no exceptions:
@@ -1696,7 +1698,7 @@ MATH (LaTeX) — strict rules, no exceptions:
 If asked about a non-${subjectName} topic: "${boundaryLine}"
 If ambiguous: give a brief best-effort answer, then ask one clarifying question.
 
-RESPONSE STRUCTURE: Direct analysis → 2-3 key concepts → AP application → One follow-up question.`;
+RESPONSE STRUCTURE (default, when the student hasn't asked for a length or format): Direct analysis → 2-3 key concepts → AP application → One follow-up question.`;
 
     try {
   // API request with resilient Gemini service (handles retries, rotation, and discovery)

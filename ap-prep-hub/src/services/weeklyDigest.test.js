@@ -38,19 +38,45 @@ describe('cadence', () => {
 });
 
 describe('buildDigest', () => {
-  it('leads with reviews due and includes one question to try', () => {
-    const cards = [{ question: 'Which **organelle** makes ATP?', due: 0 }, { question: 'later', due: Date.UTC(2030, 0, 1) }];
+  it('leads with reviews due and includes one question to try, with its choices', () => {
+    const cards = [
+      { question: 'Which **organelle** makes ATP?', options: ['Ribosome', 'Mitochondrion'], due: 0 },
+      { question: 'later', due: Date.UTC(2030, 0, 1) },
+    ];
     const d = buildDigest({ user: bio, cards, now: SUNDAY });
     expect(d.subject).toBe('1 AP review due');
-    expect(d.body).toContain('**1 question** due for review');
+    expect(d.heading).toBe('1 question is ready for review');
+    expect(d.body).toContain('Review 1 question: https://apex-scholar.com/review');
     expect(d.body).toContain('Which organelle makes ATP?'); // markup stripped from user content
-    expect(d.body).toContain('**AP Biology**: May 3');
+    expect(d.body).toContain('B. Mitochondrion');
+    expect(d.body).toContain('AP Biology: May 3');
+    expect(d.html).toContain('Mitochondrion');
+  });
+
+  it('never prints markdown in the email', () => {
+    const cards = [{ question: 'Which organelle makes ATP?', options: ['Ribosome', 'Mitochondrion'], due: 0 }];
+    const tests = [{ subject: 'AP Biology', results: { apScore: 3 }, createdAtMs: 1 }];
+    const d = buildDigest({ user: bio, cards, tests, now: SUNDAY });
+    for (const out of [d.body, d.html]) expect(out).not.toMatch(/##|\*\*|^- /m);
+  });
+
+  it('skips questions that need something the email cannot show', () => {
+    const { pickTryCard } = require('../../netlify/lib/weeklyDigest');
+    const ok = { question: 'A cell in a hypertonic solution will', options: ['swell', 'shrink'] };
+    expect(pickTryCard([
+      { question: 'The architectural design described reflects which priority?', options: ['a', 'b'] },
+      { question: 'Read the passage.', stimulus: 'Long text', options: ['a', 'b'] },
+      { question: 'If $f(x) = x^2$, what is f(3)?', options: ['6', '9'] },
+      { question: 'No choices stored' },
+      ok,
+    ])).toBe(ok);
+    expect(pickTryCard([{ question: 'The graph shows', options: ['a', 'b'] }])).toBeNull();
   });
 
   it('points an inactive student at the 10-question check', () => {
     const d = buildDigest({ user: {}, now: SUNDAY });
     expect(d.subject).toBe('Your AP week');
-    expect(d.body).toContain('/start');
+    expect(d.body).toContain('Take the 10-question check: https://apex-scholar.com/start');
   });
 
   it('shows the latest predicted score per subject', () => {
@@ -58,13 +84,14 @@ describe('buildDigest', () => {
       { subject: 'AP Biology', results: { apScore: 2 }, createdAtMs: 1 },
       { subject: 'AP Biology', results: { apScore: 4 }, createdAtMs: 2 },
     ];
-    expect(buildDigest({ user: bio, tests, now: SUNDAY }).body).toContain('AP Biology: **4**');
+    expect(buildDigest({ user: bio, tests, now: SUNDAY }).body).toContain('AP Biology: 4 out of 5');
   });
 
   it('switches to the exam-week email', () => {
     const d = buildDigest({ user: bio, now: new Date(Date.UTC(2027, 4, 2, 14)) });
     expect(d.kind).toBe('examWeek');
     expect(d.subject).toBe('Your AP exam is tomorrow');
+    expect(d.heading).toBe('AP Biology is tomorrow');
     expect(buildDigest({ user: bio, now: MONDAY })).toBeNull();
   });
 });
@@ -90,13 +117,13 @@ describe('personalised week', () => {
     const responses = [r(1, true), r(1, false), r(2, false), r(2, false), r(3, true), r(9, false), r(9, false), r(10, false), r(10, false), r(11, false)];
     const d = buildDigest({ user: bio, responses, now: SUNDAY });
     expect(d.subject).toBe('Your week: 5 Qs, 40% right');
-    expect(d.body).toContain('**5 questions** in AP Biology on 3 days, **40%** correct (up from 0% the week before)');
-    expect(d.body).toContain('Most missed: **Cell respiration** (2 of 5). [Ask the tutor about it](https://apex-scholar.com/ai-tutors/biology)');
+    expect(d.body).toContain('You answered 5 questions in AP Biology on 3 days, 40% correct, up from 0% the week before.');
+    expect(d.body).toContain('Most missed: Cell respiration (2 of 5 right). Ask the tutor: https://apex-scholar.com/ai-tutors/biology');
   });
 
   it('nudges a student who went quiet, without the first-timer pitch', () => {
     const d = buildDigest({ user: bio, responses: [r(10, true)], now: SUNDAY });
-    expect(d.body).toContain('Quiet week');
+    expect(d.body).toContain('A quiet week');
     expect(d.body).not.toContain('/start');
   });
 });

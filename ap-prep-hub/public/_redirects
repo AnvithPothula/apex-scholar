@@ -36,5 +36,28 @@
 # Timeline slug renamed to match Learn's (2026-10-16).
 /study/timelines/us-history  /study/timelines/ap-us-history  301
 
-# SPA fallback
-/* /index.html 200
+# App routes without a prerendered file. Anything else falls through to
+# 404.html (written by scripts/prerender.mjs): the same app shell with a real
+# 404 status, so a mistyped URL isn't indexed as a copy of the homepage.
+# Add a line here when App.js gains a route.
+/login                 /index.html  200
+/schoology-callback    /index.html  200
+/start                 /index.html  200
+/study/*               /index.html  200
+/ai-tutors/*           /index.html  200
+/smart-scheduler/*     /index.html  200
+/practice-tests/*      /index.html  200
+/flashcards/*          /index.html  200
+/solver/*              /index.html  200
+/settings/*            /index.html  200
+/diagnostics/*         /index.html  200
+/ap-score-calculator/* /index.html  200
+/privacy               /index.html  200
+/terms                 /index.html  200
+/practice              /index.html  200
+/review                /index.html  200
+/progress              /index.html  200
+/classes/*             /index.html  200
+/join/*                /index.html  200
+/learn/*               /index.html  200
+/Diagnostics/*         /index.html  200

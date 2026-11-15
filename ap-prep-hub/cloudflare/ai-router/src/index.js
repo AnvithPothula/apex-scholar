@@ -836,6 +836,21 @@ export function walkBudgetMs(requested) {
 // own FRQ never repeats. A first tutor message often does ("explain
 // photosynthesis"), so single-turn tutorChat is cached too.
 const CACHE_TASKS = new Set(['explain', 'reviewCard', 'lessonTeach']);
+/**
+ * Whether a 200 from Gemini is an answer worth keeping. A safety block or an
+ * empty candidate is also a 200; cached, it was served for 30 days to everyone
+ * who asked the same thing. A reply cut off at the token limit isn't kept either.
+ */
+export function isCompleteAnswer(body) {
+  try {
+    const c = JSON.parse(body)?.candidates?.[0];
+    const text = (c?.content?.parts || []).map((p) => p?.text || '').join('');
+    return text.trim().length > 0 && (!c.finishReason || c.finishReason === 'STOP');
+  } catch {
+    return false;
+  }
+}
+
 export function isCacheable(task, contents) {
   if (CACHE_TASKS.has(task)) return true;
   return (task === 'tutorChat' || task === '') && Array.isArray(contents) && contents.length === 1;
@@ -1055,7 +1070,7 @@ export default {
           // 1,000 daily KV writes were gone, put() threw AFTER a good answer,
           // the catch below took it for an upstream failure, and the walk asked
           // the next key — up to 55 Gemini calls to deliver nothing but a 502.
-          if (cacheKey) later(env.CACHE.put(cacheKey, body, { expirationTtl: 60 * 60 * 24 * 30 }));
+          if (cacheKey && isCompleteAnswer(body)) later(env.CACHE.put(cacheKey, body, { expirationTtl: 60 * 60 * 24 * 30 }));
           return finish(new Response(body, { status: 200, headers: { ...headers, 'X-Apex-Model': m, 'X-Apex-Cache': cacheKey ? 'miss' : 'skip' } }));
         } catch (err) {
           if (err && (err.name === 'TimeoutError' || err.name === 'AbortError')) {

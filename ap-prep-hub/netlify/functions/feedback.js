@@ -8,6 +8,7 @@
  * browser (EmailJS); this keeps a record even when email fails.
  */
 
+const crypto = require('crypto');
 const { getAdminApp } = require('../lib/firebaseAdmin');
 const { normalizeFeedback } = require('../lib/feedback');
 
@@ -20,16 +21,27 @@ const ALLOWED_ORIGINS = Array.from(new Set([
   'http://localhost:8888',
 ].filter(Boolean)));
 
-// ponytail: per-instance memory, so the limit resets on a cold start; move to
-// Firestore or a KV store if feedback spam ever shows up.
-const RECENT = new Map();
 const WINDOW_MS = 10 * 60 * 1000;
 const MAX_PER_WINDOW = 5;
-function tooMany(key, now = Date.now()) {
-  const hits = (RECENT.get(key) || []).filter((t) => now - t < WINDOW_MS);
-  hits.push(now);
-  RECENT.set(key, hits);
-  return hits.length > MAX_PER_WINDOW;
+/**
+ * Counted in Firestore (server-only `feedbackRate`): function instances don't
+ * share memory and lose it on every cold start, so an in-memory count never
+ * limited anyone for long. The key is hashed, so no IP address is stored.
+ */
+async function tooMany(db, key, now = Date.now()) {
+  try {
+    const id = crypto.createHash('sha256').update(String(key)).digest('hex').slice(0, 32);
+    const ref = db.collection('feedbackRate').doc(id);
+    return await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const hits = ((snap.exists && snap.data().hits) || []).filter((t) => now - t < WINDOW_MS);
+      if (hits.length >= MAX_PER_WINDOW) return true;
+      tx.set(ref, { hits: [...hits, now] });
+      return false;
+    });
+  } catch {
+    return false; // never lose real feedback to a counter that failed
+  }
 }
 
 function getHeader(event, name) {
@@ -39,6 +51,8 @@ function getHeader(event, name) {
 }
 
 const reply = (statusCode, headers, body) => ({ statusCode, headers, body: JSON.stringify(body) });
+
+exports.tooMany = tooMany;
 
 exports.handler = async (event) => {
   const origin = getHeader(event, 'origin');
@@ -67,7 +81,7 @@ exports.handler = async (event) => {
     try { uid = (await app.auth().verifyIdToken(bearer[1])).uid || null; } catch { uid = null; }
   }
   const ip = (getHeader(event, 'x-nf-client-connection-ip') || getHeader(event, 'x-forwarded-for') || 'unknown').split(',')[0].trim();
-  if (tooMany(uid || ip)) return reply(429, headers, { error: 'Too much feedback at once. Try again in a few minutes.' });
+  if (await tooMany(app.firestore(), uid || ip)) return reply(429, headers, { error: 'Too much feedback at once. Try again in a few minutes.' });
 
   let body;
   try { body = JSON.parse(event.body || '{}'); } catch { return reply(400, headers, { error: 'Invalid JSON body' }); }

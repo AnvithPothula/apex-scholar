@@ -13,7 +13,8 @@
  *
  * Env required:
  *   SMTP2GO_API_KEY   send-only API key
- *   MAIL_FROM         e.g. no-reply@apex-scholar.com (must be a verified sender)
+ *   MAIL_FROM         e.g. no-reply@apex-scholar.com (must be a verified sender).
+ *                     A bare address is sent as "Apex Scholar <address>".
  *   UNSUBSCRIBE_SECRET random string used to sign unsubscribe tokens
  *   FIREBASE_PROJECT_ID / FIREBASE_CLIENT_EMAIL / FIREBASE_PRIVATE_KEY
  */
@@ -74,79 +75,70 @@ const escapeHtml = (s) => String(s || '')
  * default. So this is fully inline-styled and degrades to readable text if CSS is
  * dropped entirely. Images are supported in the body but never load-bearing —
  * the message must still read with every image blocked. Light background on
- * purpose — a dark email in a light inbox reads as spam.
+ * purpose: a dark email in a light inbox reads as spam, and clients with a dark
+ * mode darken light emails themselves.
+ *
+ * `heading` is the big title (defaults to the subject), `preheader` the grey
+ * line an inbox shows after the subject, and `cta` the button under the body
+ * (null for none, when the body has its own).
  */
-function buildHtml(bodyHtml, unsubUrl, subject) {
-  // Exact dark-mode tokens from src/index.css, so the email matches the app.
+function buildHtml(bodyHtml, unsubUrl, subject, { heading = subject, preheader = '', cta } = {}) {
   const C = {
-    canvas: '#0a0a0a',      // base-950
-    card: '#171717',        // base-850
-    raised: '#1e1e1e',      // base-800
-    border: '#2e2e2e',      // border-strong
-    text: '#ededef',        // content-primary
-    secondary: '#a0a0a8',   // content-secondary
-    muted: '#9a9aa3',       // content-muted
-    teal: '#2dd4bf',        // primary-400
-    tealDeep: '#0f766e',    // primary-700 — button fill, keeps white text legible
+    canvas: '#f3f4f6',
+    card: '#ffffff',
+    border: '#e5e7eb',
+    text: '#111827',
+    muted: '#6b7280',
+    teal: '#0f766e',        // primary-700: 5.5:1 on white, so links and the button stay readable
   };
+  const button = cta === undefined ? { label: 'Open Apex Scholar', url: 'https://apex-scholar.com' } : cta;
+  // Pad the preheader so clients don't pull body text in after it.
+  const pad = '&nbsp;&zwnj;'.repeat(60);
 
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="color-scheme" content="dark">
-<meta name="supported-color-schemes" content="dark">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
 <title>${escapeHtml(subject || 'Apex Scholar')}</title>
 </head>
 <body style="margin:0;padding:0;background:${C.canvas};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${C.text};-webkit-font-smoothing:antialiased">
-  <!-- Preheader: the grey line a client shows next to the subject. Hidden in
-       the body itself so it isn't duplicated visually. -->
-  <div style="display:none;max-height:0;overflow:hidden;opacity:0">${escapeHtml(subject || '')}</div>
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all">${escapeHtml(preheader || subject || '')}${pad}</div>
 
-  <!-- A full-bleed table, not a div: Outlook ignores background colours on divs,
-       which would leave dark text on its default white and make the whole mail
-       unreadable. The table is the only reliable way to paint the canvas. -->
+  <!-- A full-bleed table, not a div: Outlook ignores background colours on divs. -->
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
          style="background:${C.canvas};margin:0;padding:0">
     <tr>
-      <td align="center" style="padding:32px 16px">
+      <td align="center" style="padding:28px 12px">
         <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;width:100%">
 
           <tr>
-            <td align="center" style="padding-bottom:20px">
-              <div style="font-size:18px;font-weight:700;letter-spacing:-0.3px;color:${C.teal}">Apex Scholar</div>
-              <div style="font-size:12px;color:${C.muted};margin-top:2px">Free AP exam prep</div>
+            <td style="padding:0 4px 14px">
+              <a href="https://apex-scholar.com" style="font-size:17px;font-weight:700;letter-spacing:-0.2px;color:${C.teal};text-decoration:none">Apex Scholar</a>
             </td>
           </tr>
 
           <tr>
-            <td style="background:${C.card};border:1px solid ${C.border};border-radius:14px;padding:32px 28px">
-              ${subject ? `<h1 style="margin:0 0 18px;font-size:20px;line-height:1.35;font-weight:700;color:${C.text}">${escapeHtml(subject)}</h1>` : ''}
+            <td style="background:${C.card};border:1px solid ${C.border};border-radius:12px;padding:28px 28px 30px">
+              ${heading ? `<h1 style="margin:0 0 16px;font-size:22px;line-height:1.3;font-weight:700;color:${C.text}">${escapeHtml(heading)}</h1>` : ''}
               ${bodyHtml}
-              <div style="margin-top:28px">
-                <a href="https://apex-scholar.com"
-                   style="display:inline-block;background:${C.tealDeep};color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:11px 22px;border-radius:8px">
-                  Open Apex Scholar
-                </a>
-              </div>
+              ${button ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px"><tr><td style="background:${C.teal};border-radius:8px"><a href="${button.url}" style="display:inline-block;padding:12px 22px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none">${escapeHtml(button.label)}</a></td></tr></table>` : ''}
             </td>
           </tr>
 
           <tr>
-            <td align="center" style="padding:20px 8px 0">
+            <td style="padding:18px 8px 0">
               <p style="font-size:12px;line-height:1.6;color:${C.muted};margin:0 0 6px">
-                You're receiving this because you're subscribed to Apex Scholar emails.
+                You're getting this because email is turned on for your Apex Scholar account.
+                <a href="${unsubUrl}" style="color:${C.muted};text-decoration:underline">Change email settings or unsubscribe</a>.
               </p>
               <p style="font-size:12px;line-height:1.6;color:${C.muted};margin:0">
-                <a href="${unsubUrl}" style="color:${C.secondary};text-decoration:underline">Unsubscribe</a>
+                <a href="https://apex-scholar.com/privacy" style="color:${C.muted};text-decoration:underline">Privacy</a>
                 &nbsp;·&nbsp;
-                <a href="https://apex-scholar.com/privacy" style="color:${C.secondary};text-decoration:underline">Privacy</a>
-                &nbsp;·&nbsp;
-                <a href="mailto:help@apex-scholar.com" style="color:${C.secondary};text-decoration:underline">help@apex-scholar.com</a>
-              </p>
-              <p style="font-size:11px;color:${C.muted};margin:12px 0 0">
-                AP® is a trademark of the College Board, which is not affiliated with Apex Scholar.
+                <a href="mailto:help@apex-scholar.com" style="color:${C.muted};text-decoration:underline">help@apex-scholar.com</a>
+                &nbsp;·&nbsp; AP® is a trademark of the College Board, which is not affiliated with Apex Scholar.
               </p>
             </td>
           </tr>
@@ -173,11 +165,11 @@ function buildHtml(bodyHtml, unsubUrl, subject) {
  * Supported: **bold**, *italic*, [text](url), # / ## headings, - bullets, and
  * blank-line paragraphs. Everything else is literal text.
  */
-const P = 'margin:0 0 14px;font-size:15px;line-height:1.65;color:#a0a0a8';
-const H1 = 'margin:0 0 12px;font-size:21px;line-height:1.3;color:#ededed;font-weight:700';
-const H2 = 'margin:18px 0 10px;font-size:17px;line-height:1.35;color:#ededed;font-weight:600';
-const LI = 'margin:0 0 6px;font-size:15px;line-height:1.6;color:#a0a0a8';
-const A = 'color:#2dd4bf;text-decoration:underline';
+const P = 'margin:0 0 14px;font-size:15px;line-height:1.65;color:#374151';
+const H1 = 'margin:0 0 12px;font-size:20px;line-height:1.3;color:#111827;font-weight:700';
+const H2 = 'margin:20px 0 10px;font-size:17px;line-height:1.35;color:#111827;font-weight:600';
+const LI = 'margin:0 0 6px;font-size:15px;line-height:1.6;color:#374151';
+const A = 'color:#0f766e;text-decoration:underline';
 // Centred and fluid. Gmail, Outlook and Apple Mail all block remote images by
 // default for a sender you haven't replied to, so an image can decorate the
 // message but must never carry it — hence the alt text requirement below.
@@ -193,12 +185,16 @@ function inlineMarkup(escaped) {
     // [label](https://…) — only http(s), so no javascript: URLs.
     .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
       (_m, label, url) => `<a href="${url}" style="${A}">${label}</a>`)
-    .replace(/\*\*([^*]+)\*\*/g, '<strong style="color:#ededed">$1</strong>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong style="color:#111827">$1</strong>')
     .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
 }
 
 function bodyToHtml(text) {
   return String(text || '')
+    // A heading is always its own block. Typed straight above a list or a
+    // paragraph, it used to swallow the block and print "## " and "- " literally.
+    .replace(/^(#{1,2}\s.*)$/gm, '\n$1\n')
+    .trim()
     .split(/\n{2,}/)
     .map((block) => {
       const lines = block.split('\n');
@@ -232,8 +228,7 @@ function bodyToHtml(text) {
         return `<${tag} style="${style}">${inlineMarkup(escapeHtml(heading[2]))}</${tag}>`;
       }
 
-      // #a0a0a8 = content-secondary. ~7.5:1 on the #171717 card, so it clears
-      // WCAG AA even though email clients never audit this.
+      // #374151 on white is ~10:1, well past WCAG AA.
       return `<p style="${P}">${inlineMarkup(escapeHtml(block)).replace(/\n/g, '<br>')}</p>`;
     })
     .join('');
@@ -379,17 +374,24 @@ exports.handler = async (event) => {
   }
 };
 
-async function sendBatch(apiKey, from, to, subject, bodyText, unsubUrl) {
+/**
+ * `html` replaces the markdown rendering of bodyText (the weekly digest builds
+ * its own); `heading`, `preheader` and `cta` go to buildHtml.
+ */
+// Inboxes show the display name, not the address; a bare address showed as "no-reply".
+const senderOf = (from) => (/</.test(from) ? from : `Apex Scholar <${String(from).trim()}>`);
+
+async function sendBatch(apiKey, from, to, subject, bodyText, unsubUrl, { html, heading, preheader, cta } = {}) {
   try {
     const res = await fetch('https://api.smtp2go.com/v3/email/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Smtp2go-Api-Key': apiKey },
       body: JSON.stringify({
-        sender: from,
+        sender: senderOf(from),
         to,
         subject,
         text_body: `${bodyText}\n\n---\nApex Scholar · https://apex-scholar.com\nUnsubscribe: ${unsubUrl}`,
-        html_body: buildHtml(bodyToHtml(bodyText), unsubUrl, subject),
+        html_body: buildHtml(html ?? bodyToHtml(bodyText), unsubUrl, subject, { heading, preheader, cta }),
         // Mail clients surface this as a native one-click unsubscribe button.
         custom_headers: [
           { header: 'List-Unsubscribe', value: `<${unsubUrl}>` },
@@ -429,3 +431,4 @@ module.exports.buildHtml = buildHtml;
 // Shared with email-weekly.js so both send the same email the same way.
 module.exports.sendBatch = sendBatch;
 module.exports.unsubscribeToken = unsubscribeToken;
+module.exports.senderOf = senderOf;

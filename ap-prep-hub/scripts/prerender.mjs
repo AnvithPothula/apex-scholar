@@ -151,7 +151,9 @@ async function main() {
     file: path.join(BUILD, 'ap-score-calculator', `${slug}.html`),
   }));
   // The picker page itself, at /ap-score-calculator.
-  pages.push({ slug: '', subject: null, file: path.join(BUILD, 'ap-score-calculator', 'index.html') });
+  // A file beside the folder, not folder/index.html: Netlify 301s a folder URL
+  // to add a slash, and the sitemap and canonical both name the no-slash URL.
+  pages.push({ slug: '', subject: null, file: path.join(BUILD, 'ap-score-calculator.html') });
 
   await mkdir(path.join(BUILD, 'ap-score-calculator'), { recursive: true });
 
@@ -268,6 +270,17 @@ async function main() {
     routes += 1;
   }
   console.log(`prerendered ${routes} route heads`);
+
+  // 4. Netlify serves 404.html, with a real 404 status, for any URL that no file
+  // or _redirects rule matches. It's the app shell, so the in-app "Page not
+  // found" screen still renders; crawlers stop indexing typos as the homepage.
+  let notFound = template.replace(/<title>[\s\S]*?<\/title>/i, '<title>Page not found — Apex Scholar</title>');
+  notFound = setTag(notFound, 'name="robots"', 'content', 'noindex, follow');
+  notFound = notFound.replace(FALLBACK, `
+      <div style="${HIDDEN}"><h1>Page not found</h1>
+        ${exploreList()}
+      </div>`);
+  await writeFile(path.join(BUILD, '404.html'), notFound, 'utf8');
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

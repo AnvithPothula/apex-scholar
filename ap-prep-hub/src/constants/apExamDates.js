@@ -2,7 +2,6 @@
 // Updated annually based on College Board's official exam schedule
 // All times are listed in local time - system will default to Central Time if user timezone cannot be detected
 
-import { getTimezoneDisplayString } from '../utils/timezone';
 
 // Note: AP exams are administered at the same local time in each timezone
 // Morning exams: 8:00 AM local time
@@ -278,131 +277,6 @@ export const getCurrentYearExamDates = () => {
   return examDates;
 };
 
-// Review schedule recommendations (when to start reviewing each unit)
-export const getReviewSchedule = async (subject, examDate) => {
-  const exam = new Date(examDate);
-  const reviewSchedule = [];
-  
-  try {
-    // Dynamic import to avoid circular dependency
-    const { getCurriculumData } = await import('./comprehensiveCurriculum.js');
-    const curriculum = await getCurriculumData(subject);
-    const units = curriculum?.units || [];
-    
-    if (units.length === 0) {
-      // Default schedule for subjects without unit data
-      const defaultUnits = ['Unit 1-2', 'Unit 3-4', 'Unit 5-6', 'Final Review'];
-      defaultUnits.forEach((unitName, index) => {
-        const weeksBeforeExam = (defaultUnits.length - index) * 3;
-        const reviewDate = new Date(exam);
-        reviewDate.setDate(exam.getDate() - (weeksBeforeExam * 7));
-        
-        reviewSchedule.push({
-          unit: unitName,
-          startDate: reviewDate.toISOString().split('T')[0],
-          description: `Begin comprehensive review of ${unitName}`
-        });
-      });
-    } else {
-      // Create schedule based on actual curriculum units
-      units.forEach((unit, index) => {
-        // Review earlier units first (chronologically), recent units closer to exam
-        const weeksBeforeExam = (units.length - index) * 2; // 2 weeks per unit review
-        const reviewDate = new Date(exam);
-        reviewDate.setDate(exam.getDate() - (weeksBeforeExam * 7));
-        
-        reviewSchedule.push({
-          unit: unit.name,
-          startDate: reviewDate.toISOString().split('T')[0],
-          description: `Begin reviewing ${unit.name}`,
-          topics: unit.topics?.slice(0, 3) || [] // First 3 topics as preview
-        });
-      });
-      
-      // Add final comprehensive review
-      const finalReviewDate = new Date(exam);
-      finalReviewDate.setDate(exam.getDate() - 14); // 2 weeks before exam
-      
-      reviewSchedule.push({
-        unit: 'Final Review',
-        startDate: finalReviewDate.toISOString().split('T')[0],
-        description: 'Final comprehensive review and practice tests',
-        topics: ['Practice tests', 'Review difficult concepts', 'Time management']
-      });
-    }
-  } catch (error) {
-    console.error('Error generating review schedule:', error);
-    // Fallback schedule
-    const defaultUnits = ['Units 1-3', 'Units 4-6', 'Final Review'];
-    defaultUnits.forEach((unitName, index) => {
-      const weeksBeforeExam = (defaultUnits.length - index) * 3;
-      const reviewDate = new Date(exam);
-      reviewDate.setDate(exam.getDate() - (weeksBeforeExam * 7));
-      
-      reviewSchedule.push({
-        unit: unitName,
-        startDate: reviewDate.toISOString().split('T')[0],
-        description: `Begin comprehensive review of ${unitName}`
-      });
-    });
-  }
-  
-  return reviewSchedule;
-};
-
-// Utility function to get exam info for a subject
-export const getExamInfo = async (subject) => {
-  const currentExamDates = getCurrentYearExamDates();
-  const examInfo = currentExamDates[subject];
-  
-  if (!examInfo) {
-    console.warn(`No exam date found for subject: ${subject}`);
-    return null;
-  }
-  
-  const examDate = new Date(examInfo.date);
-  const today = new Date();
-  const daysUntilExam = Math.ceil((examDate - today) / (1000 * 60 * 60 * 24));
-  
-  const reviewSchedule = await getReviewSchedule(subject, examInfo.date);
-  
-  return {
-    ...examInfo,
-    examDate,
-    daysUntilExam,
-    reviewSchedule
-  };
-};
-
-// Get all subjects with upcoming exams (next 365 days)
-export const getUpcomingExams = async (userSubjects = []) => {
-  const currentExamDates = getCurrentYearExamDates();
-  const today = new Date();
-  const oneYearFromNow = new Date();
-  oneYearFromNow.setFullYear(today.getFullYear() + 1);
-  
-  // Convert user subject keys to exam names and filter
-  const userExamNames = userSubjects.map(subjectKey => SUBJECT_KEY_TO_EXAM_NAME[subjectKey]).filter(Boolean);
-  
-  // Only show exams if user has subjects selected AND we can map them to exam names
-  if (userSubjects.length === 0 || userExamNames.length === 0) {
-    return [];
-  }
-  
-  const examPromises = Object.entries(currentExamDates)
-    .filter(([examName]) => userExamNames.includes(examName))
-    .map(async ([subject, examInfo]) => {
-      const fullExamInfo = await getExamInfo(subject);
-      return fullExamInfo ? { subject, ...fullExamInfo } : null;
-    });
-  
-  const exams = await Promise.all(examPromises);
-  
-  return exams
-    .filter(exam => exam && exam.examDate >= today && exam.examDate <= oneYearFromNow)
-    .sort((a, b) => a.examDate - b.examDate);
-};
-
 // Synchronous version for immediate use (with simplified review schedule)
 // lateTestingSubjects: optional array of subject keys taking the late exam
 export const getUpcomingExamsSync = (userSubjects = [], lateTestingSubjects = []) => {
@@ -477,45 +351,6 @@ export const getUpcomingExamsSync = (userSubjects = [], lateTestingSubjects = []
     // of the exam itself. Compare against the start of today instead.
     .filter(exam => exam.examDate >= startOfToday && exam.examDate <= oneYearFromNow)
     .sort((a, b) => a.examDate - b.examDate);
-};
-
-/**
- * Get exam information with timezone-aware formatting
- * @param {string} examName - Name of the AP exam
- * @returns {Object} Exam info with timezone-aware time display
- */
-export const getExamWithTimezone = (examName) => {
-  const currentExamDates = getCurrentYearExamDates();
-  const examInfo = currentExamDates[examName];
-  if (!examInfo) return null;
-  
-  const timezoneDisplay = getTimezoneDisplayString();
-  
-  return {
-    ...examInfo,
-    timeWithTimezone: `${examInfo.time} ${timezoneDisplay}`,
-    timezone: timezoneDisplay
-  };
-};
-
-/**
- * Get all exams with timezone-aware formatting
- * @returns {Object} All exam dates with timezone information
- */
-export const getAllExamsWithTimezone = () => {
-  const currentExamDates = getCurrentYearExamDates();
-  const timezoneDisplay = getTimezoneDisplayString();
-  const examsWithTimezone = {};
-  
-  Object.entries(currentExamDates).forEach(([examName, examInfo]) => {
-    examsWithTimezone[examName] = {
-      ...examInfo,
-      timeWithTimezone: `${examInfo.time} ${timezoneDisplay}`,
-      timezone: timezoneDisplay
-    };
-  });
-  
-  return examsWithTimezone;
 };
 
 // Default export uses dynamic year resolution

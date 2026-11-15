@@ -56,7 +56,7 @@ const loadWorker = ({ abortAfter = (ms) => ms } = {}) => {
   // eslint-disable-next-line no-new-func
   return new Function('Request', 'Response', 'crypto', 'AbortSignal', `${body}
     return { worker: __default, GovernorState, Governor, fairCap, governorConfig, GOVERNOR_DEFAULTS,
-             walkBudgetMs, isCacheable, pacificDay };`)(Request, Response, webcrypto, AbortSignalShim);
+             walkBudgetMs, isCacheable, isCompleteAnswer, pacificDay };`)(Request, Response, webcrypto, AbortSignalShim);
 };
 
 const MIN = 60 * 1000;
@@ -386,5 +386,44 @@ describe('site load for the usage meter', () => {
     expect(Object.keys(body)).toEqual(['load']);
     expect(body.load).toBeGreaterThanOrEqual(0);
     expect(body.load).toBeLessThanOrEqual(1);
+  });
+});
+
+describe('what gets cached', () => {
+  const { worker, isCompleteAnswer } = loadWorker();
+  const realFetch = global.fetch;
+  afterEach(() => { global.fetch = realFetch; });
+  const reply = (candidate) => JSON.stringify({ candidates: candidate ? [candidate] : [] });
+
+  test('only a finished answer with text counts', () => {
+    expect(isCompleteAnswer(reply({ content: { parts: [{ text: 'Osmosis is...' }] }, finishReason: 'STOP' }))).toBe(true);
+    expect(isCompleteAnswer(reply({ content: { parts: [{ text: 'Osmosis is...' }] } }))).toBe(true);
+    expect(isCompleteAnswer(reply({ finishReason: 'SAFETY' }))).toBe(false);
+    expect(isCompleteAnswer(reply({ content: { parts: [{ text: '  ' }] }, finishReason: 'STOP' }))).toBe(false);
+    expect(isCompleteAnswer(reply({ content: { parts: [{ text: 'cut off mid' }] }, finishReason: 'MAX_TOKENS' }))).toBe(false);
+    expect(isCompleteAnswer(reply(null))).toBe(false);
+    expect(isCompleteAnswer('not json')).toBe(false);
+  });
+
+  test('a safety-blocked 200 is returned but never written to the cache', async () => {
+    const keys = { GEMINI_API_KEY: 'k1' };
+    const puts = [];
+    const env = { ...keys, ALLOWED_ORIGINS: 'https://apex-scholar.com', CACHE: { get: async () => null, put: async (k) => { puts.push(k); } } };
+    const ask = () => new Request('https://ai.apex-scholar.com/', {
+      method: 'POST',
+      headers: { origin: 'https://apex-scholar.com', 'cf-connecting-ip': '9.9.9.9', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'explain osmosis' }] }], task: 'tutorChat', guestId: 'g1' }),
+    });
+    const run = async (body) => {
+      global.fetch = jest.fn(async () => new Response(body, { status: 200, headers: { 'Content-Type': 'application/json' } }));
+      const waits = [];
+      const res = await worker.fetch(ask(), env, { waitUntil: (p) => waits.push(p) });
+      await Promise.all(waits);
+      return res.status;
+    };
+    expect(await run(reply({ finishReason: 'SAFETY' }))).toBe(200);
+    expect(puts).toHaveLength(0);
+    expect(await run(reply({ content: { parts: [{ text: 'Osmosis is...' }] }, finishReason: 'STOP' }))).toBe(200);
+    expect(puts).toHaveLength(1);
   });
 });

@@ -234,7 +234,8 @@ export default function CalendarGrid({
     upcomingExams.forEach(exam => {
       if (exam.reviewSchedule) {
         exam.reviewSchedule.forEach(reviewItem => {
-          const reviewDate = new Date(reviewItem.startDate);
+          // "T00:00:00" makes it local; a bare "2027-03-22" is UTC, a day early in the US.
+          const reviewDate = new Date(`${reviewItem.startDate}T00:00:00`);
           if (isSameDay(reviewDate, date)) {
             reviewItems.push({
               ...reviewItem,

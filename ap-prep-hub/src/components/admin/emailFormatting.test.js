@@ -86,6 +86,14 @@ describe('email body rendering (the real renderer)', () => {
   it('still renders a plain paragraph unchanged', () => {
     expect(bodyToHtml('just words')).toContain('>just words<');
   });
+
+  it('renders a heading typed directly above a list (it used to print "## " and "- ")', () => {
+    const html = bodyToHtml('## Your week\n- one\n- two');
+    expect(html).toContain('<h2');
+    expect(html).toContain('<ul');
+    expect(html).not.toContain('##');
+    expect(html).not.toMatch(/>\s*- /);
+  });
 });
 
 describe('applyImage', () => {
@@ -144,5 +152,14 @@ describe('list rendering (the real renderer)', () => {
   it('still treats a paragraph containing a dash line as a paragraph', () => {
     const html = bodyToHtml('Not a list.\n- but has a dash line');
     expect(html.startsWith('<p')).toBe(true);
+  });
+});
+
+describe('sender name', () => {
+  // eslint-disable-next-line global-require
+  const { senderOf } = require('../../../netlify/functions/email-broadcast');
+  it('sends a bare address as Apex Scholar, and keeps a name that is already set', () => {
+    expect(senderOf('no-reply@apex-scholar.com')).toBe('Apex Scholar <no-reply@apex-scholar.com>');
+    expect(senderOf('Team <hi@apex-scholar.com>')).toBe('Team <hi@apex-scholar.com>');
   });
 });
