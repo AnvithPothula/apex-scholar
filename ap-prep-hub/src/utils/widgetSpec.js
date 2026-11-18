@@ -17,7 +17,7 @@ const repairParser = new JSONParser();
  * (\n \r \t \b \f). "\theta" must become "\\theta", but "\nNext step" is
  * a real newline before a word — so these are matched as whole command names.
  */
-const ESCAPE_LETTER_COMMANDS = /^(n|nabla|ne|neq|neg|nu|ni|not|nleq|ngeq|nmid|newline|nearrow|nwarrow|r|rho|rm|rangle|rceil|rfloor|rbrace|rightarrow|rightleftharpoons|right|rbrack|t|tau|theta|times|tan|tanh|to|top|tilde|text|textbf|textit|textrm|texttt|therefore|triangle|triangleq|b|beta|bar|bf|binom|boxed|begin|bullet|because|bot|breve|big|bigg|bigl|bigr|bigcup|bigcap|f|frac|forall|flat|frown|frak)$/;
+const ESCAPE_LETTER_COMMANDS = /^(n|nabla|ne|neq|neg|nu|ni|not|nleq|ngeq|nmid|newline|nearrow|nwarrow|r|rho|rm|rangle|rceil|rfloor|rbrace|rightarrow|rightleftharpoons|right|rbrack|t|tau|theta|times|tan|tanh|to|top|tilde|text[a-z]*|therefore|triangle|triangleq|b|beta|bar|bf|binom|boxed|begin|bullet|because|bot|breve|big|bigg|bigl|bigr|bigcup|bigcap|f|frac|forall|flat|frown|frak)$/;
 
 /**
  * Parse a model-written JSON object.

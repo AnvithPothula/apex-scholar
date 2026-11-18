@@ -39,7 +39,9 @@ import {
   Scale,
   MapPin,
   Scroll,
-  PenTool
+  PenTool,
+  PanelLeftClose,
+  PanelLeftOpen
 } from 'lucide-react';
 import { Card, CardContent, Button, Input } from '../components/ui/UIComponents';
 import MCQCard from '../components/tutors/MCQCard.jsx';
@@ -50,6 +52,7 @@ import SubjectSelector from '../components/tutors/SubjectSelector.jsx';
 import MarkdownRenderer from '../components/MarkdownRenderer.jsx';
 import ModelSelector, { getDefaultModel, saveSelectedModel, getModelLabel } from '../components/ui/ModelSelector.jsx';
 import { scoringBriefFor } from '../utils/apScore';
+import { dragWidth, releaseSidebar, SIDEBAR_MIN, SIDEBAR_DEFAULT, SIDEBAR_HIDE_AT } from '../utils/sidebarDrag';
 import { apexSiteBrief } from '../constants/apexFeatures';
 import { languageDirective } from '../constants/languageDirective';
 import { getScoreModel } from '../constants/apScoreModels';
@@ -163,6 +166,73 @@ const AITutors = () => {
   const [selectedModel, setSelectedModel] = useState(getDefaultModel);
   const [showCalculator, setShowCalculator] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+  // Desktop: the conversations list can be hidden so the chat uses the width.
+  const [sidebarHidden, setSidebarHidden] = useState(() => {
+    try { return localStorage.getItem('apex.tutorSidebarHidden') === '1'; } catch { return false; }
+  });
+  const setHidden = (hidden) => {
+    setSidebarHidden(hidden);
+    try { localStorage.setItem('apex.tutorSidebarHidden', hidden ? '1' : '0'); } catch { /* private mode */ }
+  };
+  const toggleSidebar = () => setHidden(!sidebarHidden);
+  // Its width is the student's, set by dragging the right edge (desktop and
+  // phone). Dragged narrow enough, it closes.
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    try {
+      const w = Number(localStorage.getItem('apex.tutorSidebarWidth'));
+      return w >= SIDEBAR_MIN && w <= 720 ? w : SIDEBAR_DEFAULT;
+    } catch { return SIDEBAR_DEFAULT; }
+  });
+  const [liveWidth, setLiveWidth] = useState(null); // only while dragging
+  const isDesktop = () => window.matchMedia('(min-width: 1024px)').matches;
+  const sidebarMax = () => Math.min(560, Math.round(window.innerWidth * (isDesktop() ? 0.45 : 0.9)));
+  const closeSidebar = () => (isDesktop() ? setHidden(true) : setShowMobileSidebar(false));
+  const keepWidth = (w) => {
+    setSidebarWidth(w);
+    try { localStorage.setItem('apex.tutorSidebarWidth', String(w)); } catch { /* private mode */ }
+  };
+  const startSidebarDrag = (e) => {
+    if (e.button > 0) return;
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = e.currentTarget.parentElement.getBoundingClientRect().width;
+    const max = sidebarMax();
+    // Without this the drag paints a text selection across the chat.
+    const { userSelect, cursor } = document.body.style;
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+    const move = (ev) => setLiveWidth(dragWidth(startW, ev.clientX - startX, max));
+    const end = (ev) => {
+      document.body.style.userSelect = userSelect;
+      document.body.style.cursor = cursor;
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', end);
+      setLiveWidth(null);
+      const r = releaseSidebar(startW, (ev.clientX ?? startX) - startX, max);
+      if (r.hide) closeSidebar(); else keepWidth(r.width);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+  };
+  const nudgeSidebar = (e) => {
+    const step = e.key === 'ArrowRight' ? 24 : e.key === 'ArrowLeft' ? -24 : 0;
+    if (!step) return;
+    e.preventDefault();
+    const r = releaseSidebar(sidebarWidth, step, sidebarMax());
+    if (r.hide || (step < 0 && sidebarWidth <= SIDEBAR_MIN)) closeSidebar(); else keepWidth(r.width);
+  };
+  const chatWidth = sidebarHidden ? 'max-w-6xl' : 'max-w-4xl';
+  // Fast: the flash-lite models, about 2 s a reply. Thinking: the reasoning
+  // -flash models, slower and scarcer (signed-in students only).
+  const [thinking, setThinking] = useState(() => {
+    try { return localStorage.getItem('apex.tutorThinking') === '1'; } catch { return false; }
+  });
+  const pickThinking = (on) => {
+    setThinking(on);
+    try { localStorage.setItem('apex.tutorThinking', on ? '1' : '0'); } catch { /* private mode */ }
+  };
   const [isSwitchingSubjects, setIsSwitchingSubjects] = useState(false);
   const [subjectSuggestionsState, setSubjectSuggestionsState] = useState([]);
   // Live AI usage (% of the 5-hour and weekly limits), shared by every AI feature.
@@ -1314,7 +1384,7 @@ const AITutors = () => {
       console.log('Generating real AI response for subject:', subjectName);
       
       // Always use the real AI for intelligent, contextual responses
-  const response = await generateKnowledgeableResponse(selectedSubject, userMessage, curriculumData, uploadedFiles, { mode: selectedMode, checkMySteps });
+  const response = await generateKnowledgeableResponse(selectedSubject, userMessage, curriculumData, uploadedFiles, { mode: selectedMode, checkMySteps, thinking: thinking && !isGuest });
       
       if (!response || response.trim().length === 0) {
         throw new Error('Empty response from AI');
@@ -1434,7 +1504,7 @@ const AITutors = () => {
   const generateKnowledgeableResponse = async (subject, userMessage, curriculumData, uploadedFiles = [], opts = {}) => {
     // geminiService is already imported at top of file
     const subjectName = curriculumData?.name || subject;
-    const { mode = 'Explain', checkMySteps = false } = opts;
+    const { mode = 'Explain', checkMySteps = false, thinking: think = false } = opts;
     
     // Build conversation history for context (last 6 messages for optimal performance)
     // IMPORTANT: Only include images from the LATEST message to save tokens.
@@ -1783,8 +1853,9 @@ RESPONSE STRUCTURE (default, when the student hasn't asked for a length or forma
             threshold: "BLOCK_MEDIUM_AND_ABOVE"
           }
         ],
-        timeoutMs: 45000, // 45 second timeout
-        usageCategory: hasFiles ? 'tutorFile' : 'tutor',
+        timeoutMs: think ? 90000 : 45000,
+        task: think ? 'tutorThink' : 'tutorChat',
+        usageCategory: think ? (hasFiles ? 'tutorThinkFile' : 'tutorThink') : (hasFiles ? 'tutorFile' : 'tutor'),
       };
       console.log("Calling enhanced Gemini API with curriculum focus and file analysis...", {
         messagePartsCount: messageParts.length,
@@ -2180,11 +2251,26 @@ ${retrySpec}
           It docks at lg rather than md because it is 320px wide — on an iPad
           in portrait (768px) that is 42% of the screen, which squeezed the
           composer down to 118px. Below lg the chat gets the full width and the
-          sidebar opens over it. */}
+          sidebar opens over it. lg:z-10 keeps its resize handle, which
+          straddles the edge, above the chat column. */}
       {selectedSubject && (
         <div
-          className={`fixed lg:relative z-50 lg:z-auto w-72 sm:w-80 h-full bg-base-850 lg:bg-base-850 border-r border-border flex flex-col transition-transform duration-300 ease-in-out lg:translate-x-0 lg:opacity-100 ${showMobileSidebar ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0 lg:translate-x-0 lg:opacity-100'}`}
+          style={{ width: liveWidth ?? sidebarWidth, maxWidth: '90vw', opacity: liveWidth !== null && liveWidth < SIDEBAR_HIDE_AT ? 0.5 : undefined }}
+          className={`fixed lg:relative z-50 lg:z-10 h-full bg-base-850 lg:bg-base-850 border-r border-border flex flex-col transition-transform duration-300 ease-in-out lg:translate-x-0 lg:opacity-100 ${sidebarHidden ? 'lg:hidden' : ''} ${showMobileSidebar ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0 lg:translate-x-0 lg:opacity-100'}`}
         >
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize conversations. Drag far left to close."
+            aria-valuenow={Math.round(liveWidth ?? sidebarWidth)}
+            tabIndex={0}
+            onPointerDown={startSidebarDrag}
+            onKeyDown={nudgeSidebar}
+            className="group absolute top-0 -right-2 z-10 h-full w-4 cursor-col-resize touch-none focus:outline-none"
+          >
+            <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-transparent group-hover:bg-primary-500/50 group-focus-visible:bg-primary-500" />
+            <span className="absolute left-1/2 top-1/2 h-10 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-border-strong lg:opacity-0 lg:group-hover:opacity-100" />
+          </div>
           {/* Sidebar Header */}
           <div className="p-3 sm:p-4 border-b border-border">
             <div className="flex items-center justify-between">
@@ -2402,6 +2488,18 @@ ${retrySpec}
                 <Button
                   variant="ghost"
                   size="sm"
+                  onClick={toggleSidebar}
+                  className="text-content-secondary hover:text-content-primary hidden lg:flex flex-shrink-0 p-2"
+                  aria-label={sidebarHidden ? 'Show conversations' : 'Hide conversations'}
+                  title={sidebarHidden ? 'Show conversations' : 'Hide conversations'}
+                >
+                  {sidebarHidden
+                    ? <PanelLeftOpen strokeWidth={1.5} className="w-5 h-5" />
+                    : <PanelLeftClose strokeWidth={1.5} className="w-5 h-5" />}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={async () => {
                     // Clean up current conversation if empty before navigating
                     if (activeConversationId && conversations.length > 1) {
@@ -2457,7 +2555,7 @@ ${retrySpec}
 
       {/* Mode Selector — sticky bar */}
       <div className="bg-base-850 border-b border-border z-10">
-        <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 py-2">
+        <div className={`${chatWidth} mx-auto px-3 sm:px-4 md:px-6 py-2`}>
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2" role="group" aria-label="Tutor modes">
             {TUTOR_MODES.map((mode, i) => {
               // Summarize is the one mode that cannot work alone: with nothing
@@ -2503,7 +2601,7 @@ ${retrySpec}
           ~3100px — the blank space under the tutor, and the reason sending a
           message scrolled the whole page instead of the message list. */}
       <div ref={chatContainerRef} className="relative flex-1 overflow-y-auto scroll-touch">
-        <div className="max-w-4xl mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
+        <div className={`${chatWidth} mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6`}>
           {/* Welcome Message */}
           {activeMessages.length === 1 && activeMessages[0].suggestions && (
             <motion.div
@@ -2546,7 +2644,7 @@ ${retrySpec}
                 transition={{ duration: 0.2 }}
                 className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
               >
-                <div className={`flex gap-3 max-w-4xl min-w-0 ${message.type === 'user' ? 'flex-row-reverse' : ''}`}>
+                <div className={`flex gap-3 ${chatWidth} min-w-0 ${message.type === 'user' ? 'flex-row-reverse' : ''}`}>
                   {/* Avatar */}
                   <div className="flex-shrink-0">
                     <div className={`w-10 h-10 rounded-sm flex items-center justify-center ${
@@ -2568,7 +2666,7 @@ ${retrySpec}
                       content's min-content width and the whole message row ran
                       ~30px past the viewport on a phone — giving the chat its
                       own horizontal scrollbar. */}
-                  <div className="flex-1 min-w-0 max-w-2xl">
+                  <div className={`flex-1 min-w-0 ${sidebarHidden ? 'max-w-4xl' : 'max-w-2xl'}`}>
                     <Card className={`${
                       message.type === 'user'
                         ? 'bg-base-750 text-content-primary border border-border'
@@ -2733,7 +2831,7 @@ ${retrySpec}
         transition={{ duration: 0.3 }}
         className="bg-base-850 border-t border-border shadow-raised pb-16 md:pb-0"
       >
-        <div className="max-w-4xl mx-auto p-3 sm:p-4 md:p-6">
+        <div className={`${chatWidth} mx-auto p-3 sm:p-4 md:p-6`}>
           {/* Display uploaded files */}
           {/* Persistent, ref'd file input. Must stay mounted — see handleFileSelect. */}
           <input
@@ -2819,6 +2917,24 @@ ${retrySpec}
             </div>
             
             <div className="flex gap-1.5 sm:gap-2 items-center flex-shrink-0">
+              {/* Puter models (vendor-prefixed ids) answer on the student's own
+                  account, where Fast/Thinking means nothing. */}
+              {!isGuest && !String(selectedModel || '').includes('/') && (
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={thinking}
+                  aria-label="Thinking mode"
+                  title={thinking ? 'Thinking: slower, reasons through harder problems, and uses twice as much of your AI limit. Click for Fast.' : 'Fast: answers in about 2 seconds. Click for Thinking (uses twice as much of your AI limit).'}
+                  onClick={() => pickThinking(!thinking)}
+                  className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg border text-xs sm:text-sm transition-colors ${thinking ? 'border-primary-500/40 bg-primary-500/10 text-primary-400' : 'border-border bg-base-800 hover:bg-base-750 text-content-primary'}`}
+                >
+                  {thinking
+                    ? <Brain className="w-3.5 h-3.5" strokeWidth={1.5} />
+                    : <Zap className="w-3.5 h-3.5 text-content-muted" strokeWidth={1.5} />}
+                  <span className="hidden lg:inline">{thinking ? 'Thinking' : 'Fast'}</span>
+                </button>
+              )}
               <ModelSelector
                 value={selectedModel}
                 onChange={(m) => { setSelectedModel(m); saveSelectedModel(m); }}

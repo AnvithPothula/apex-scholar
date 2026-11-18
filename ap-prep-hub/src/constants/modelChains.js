@@ -29,7 +29,13 @@ export const MODEL_CHAINS = {
   // prompt in this app is an instruction list. It still absorbs overflow at the
   // tail, where a 2-in-3 answer beats none.
   bulk:        ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
-  interactive: ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
+  // Fast tutor mode. Measured 2026-11-17 with a tutor-sized answer: the
+  // lites and 2.5-flash-lite answer in about 2 s; the -flash models returned
+  // 503 or took 6-40+ s, so 2.5-flash-lite now comes before them.
+  interactive: ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-2.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash-preview', 'gemini-2.5-flash', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
+  // Thinking tutor mode: the reasoning -flash models first. They have 20 RPD
+  // per project, so once they run out the lites answer instead.
+  think:       ['gemini-3-flash-preview', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-2.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
   // FRQ grading is the one place output quality is worth the scarce pool, so
   // the newest -flash models lead and the lites catch the overflow.
   premium:     ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
@@ -41,6 +47,7 @@ export const MODEL_CHAINS = {
 
 export const TASK_TO_CHAIN = {
   tutorChat: 'interactive',
+  tutorThink: 'think',
   // `explain` is the review-card explanation, not live chat: high volume, short,
   // and it was competing with tutorChat for the scarce 500-RPD flash-lite pool.
   // Gemma's 14,400 RPD absorbs it and leaves flash-lite for the live tutor.

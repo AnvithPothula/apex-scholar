@@ -1,43 +1,43 @@
 import { COURSES } from '../data/packs/catalog';
 
 export const AP_SUBJECTS = {
-    "AP African American Studies": { name: "AP African American Studies", short: "AP African American Studies", description: "Explore the history, culture, and movements of the African diaspora.", icon: "📜" },
-    "AP Art History": { name: "AP Art History", short: "AP Art History", description: "Explore art across cultures and time periods.", icon: "🎨" },
-    "AP Biology": { name: "AP Biology", short: "AP Biology", description: "Dive into the science of living organisms.", icon: "🔬" },
-    "AP Business with Personal Finance": { name: "AP Business with Personal Finance", short: "AP Business with Personal Finance", description: "Business, entrepreneurship, and managing your own money.", icon: "💼" },
-    "AP Cybersecurity": { name: "AP Cybersecurity", short: "AP Cybersecurity", description: "Find vulnerabilities, stop attacks, secure systems.", icon: "🔐" },
-    "AP Calculus AB": { name: "AP Calculus AB", short: "AP Calculus AB", description: "Master derivatives, integrals, and limits.", icon: "∫" },
-    "AP Calculus BC": { name: "AP Calculus BC", short: "AP Calculus BC", description: "Advanced topics in calculus.", icon: "∬" },
-    "AP Chemistry": { name: "AP Chemistry", short: "AP Chemistry", description: "Understand the composition of matter.", icon: "🧪" },
-    "AP Chinese Language and Culture": { name: "AP Chinese Language and Culture", short: "AP Chinese", description: "Develop your Chinese language skills.", icon: "中文" },
-    "AP Computer Science A": { name: "AP Computer Science A", short: "AP Computer Science A", description: "Learn Java and object-oriented programming.", icon: "💻" },
-    "AP Computer Science Principles": { name: "AP Computer Science Principles", short: "AP CS Principles", description: "Learn the basics of computer science.", icon: "💻" },
-    "AP English Language and Composition": { name: "AP English Language and Composition", short: "AP English Language", description: "Analyze rhetoric and compose arguments.", icon: "✍️" },
-    "AP English Literature and Composition": { name: "AP English Literature and Composition", short: "AP English Literature", description: "Study and interpret literary works.", icon: "📚" },
-    "AP Environmental Science": { name: "AP Environmental Science", short: "AP Environmental Science", description: "Examine the natural world and its challenges.", icon: "🌍" },
-    "AP European History": { name: "AP European History", short: "AP European History", description: "Journey through Europe's past.", icon: "🏰" },
-    "AP French Language and Culture": { name: "AP French Language and Culture", short: "AP French", description: "Enhance your French proficiency.", icon: "🇫🇷" },
-    "AP German Language and Culture": { name: "AP German Language and Culture", short: "AP German", description: "Enhance your German proficiency.", icon: "🇩🇪" },
-    "AP Comparative Government and Politics": { name: "AP Comparative Government and Politics", short: "AP Comparative Government", description: "Compare and contrast different political systems.", icon: "🏛" },
-    "AP Human Geography": { name: "AP Human Geography", short: "AP Human Geography", description: "Study human populations and cultures.", icon: "🗺️" },
-    "AP Italian Language and Culture": { name: "AP Italian Language and Culture", short: "AP Italian", description: "Immerse yourself in Italian language.", icon: "🇮🇹" },
-    "AP Japanese Language and Culture": { name: "AP Japanese Language and Culture", short: "AP Japanese", description: "Explore Japanese language and society.", icon: "日本" },
-    "AP Latin": { name: "AP Latin", short: "AP Latin", description: "Read and analyze classical texts.", icon: "🏛️" },
-    "AP Macroeconomics": { name: "AP Macroeconomics", short: "AP Macroeconomics", description: "Study economy-wide phenomena.", icon: "📈" },
-    "AP Microeconomics": { name: "AP Microeconomics", short: "AP Microeconomics", description: "Analyze individual economic decisions.", icon: "📉" },
-    "AP Music Theory": { name: "AP Music Theory", short: "AP Music Theory", description: "Study musical structure, composition, and analysis.", icon: "🎵" },
-    "AP Physics 1: Algebra-Based": { name: "AP Physics 1: Algebra-Based", short: "AP Physics 1", description: "Explore the fundamental principles of physics.", icon: "🔬" },
-    "AP Physics 2: Algebra-Based": { name: "AP Physics 2: Algebra-Based", short: "AP Physics 2", description: "Advanced physics concepts and applications.", icon: "⚛️" },
-    "AP Physics C: Mechanics": { name: "AP Physics C: Mechanics", short: "AP Physics C: Mechanics", description: "Delve into classical mechanics with calculus.", icon: "📐" },
-    "AP Physics C: Electricity and Magnetism": { name: "AP Physics C: Electricity and Magnetism", short: "AP Physics C: E&M", description: "Master electromagnetism with calculus.", icon: "⚡" },
-    "AP Precalculus": { name: "AP Precalculus", short: "AP Precalculus", description: "Build foundations for calculus and beyond.", icon: "📐" },
-    "AP Psychology": { name: "AP Psychology", short: "AP Psychology", description: "Investigate the human mind and behavior.", icon: "🧠" },
-    "AP Spanish Language and Culture": { name: "AP Spanish Language and Culture", short: "AP Spanish Language", description: "Master the Spanish language.", icon: "🇪🇸" },
-    "AP Spanish Literature and Culture": { name: "AP Spanish Literature and Culture", short: "AP Spanish Literature", description: "Explore Spanish literature and culture.", icon: "📖" },
-    "AP Statistics": { name: "AP Statistics", short: "AP Statistics", description: "Learn to collect, analyze, and interpret data.", icon: "📊" },
-    "AP U.S. Government and Politics": { name: "AP U.S. Government and Politics", short: "AP U.S. Government", description: "Understand the American political system.", icon: "🇺🇸" },
-    "AP U.S. History": { name: "AP U.S. History", short: "AP U.S. History", description: "Explore the history of the United States.", icon: "🦅" },
-    "AP World History: Modern": { name: "AP World History: Modern", short: "AP World History", description: "Examine global history from 1200 CE.", icon: "🌐" },
+    "AP African American Studies": { name: "AP African American Studies", short: "AP African American Studies", description: "Origins of the African diaspora through emancipation, the Black freedom movements and today.", icon: "📜" },
+    "AP Art History": { name: "AP Art History", short: "AP Art History", description: "The 250 required works, from prehistoric art to contemporary, and how to compare them.", icon: "🎨" },
+    "AP Biology": { name: "AP Biology", short: "AP Biology", description: "Cells, energetics, genetics, evolution and ecology, plus the experiment and data FRQs.", icon: "🔬" },
+    "AP Business with Personal Finance": { name: "AP Business with Personal Finance", short: "AP Business with Personal Finance", description: "Starting a business, budgeting, credit, investing and taxes.", icon: "💼" },
+    "AP Cybersecurity": { name: "AP Cybersecurity", short: "AP Cybersecurity", description: "Spotting vulnerabilities, defending networks and devices, and responding to attacks.", icon: "🔐" },
+    "AP Calculus AB": { name: "AP Calculus AB", short: "AP Calculus AB", description: "Limits, derivatives, integrals and differential equations, with FRQ practice.", icon: "∫" },
+    "AP Calculus BC": { name: "AP Calculus BC", short: "AP Calculus BC", description: "Everything in AB plus series, and parametric, polar and vector functions.", icon: "∬" },
+    "AP Chemistry": { name: "AP Chemistry", short: "AP Chemistry", description: "Atoms, bonding, reactions, kinetics, equilibrium, acids and bases, and thermodynamics.", icon: "🧪" },
+    "AP Chinese Language and Culture": { name: "AP Chinese Language and Culture", short: "AP Chinese", description: "Mandarin conversation, story narration, emails and cultural presentations.", icon: "中文" },
+    "AP Computer Science A": { name: "AP Computer Science A", short: "AP Computer Science A", description: "Java: classes, loops, arrays, ArrayLists and 2D arrays, and the four FRQ types.", icon: "💻" },
+    "AP Computer Science Principles": { name: "AP Computer Science Principles", short: "AP CS Principles", description: "Algorithms, data, the internet and computing's impact, plus the Create task.", icon: "💻" },
+    "AP English Language and Composition": { name: "AP English Language and Composition", short: "AP English Language", description: "Rhetorical analysis, argument and synthesis essays, and close reading of nonfiction.", icon: "✍️" },
+    "AP English Literature and Composition": { name: "AP English Literature and Composition", short: "AP English Literature", description: "Poetry, prose fiction and drama, and the three literary-analysis essays.", icon: "📚" },
+    "AP Environmental Science": { name: "AP Environmental Science", short: "AP Environmental Science", description: "Ecosystems, populations, energy, pollution and the calculation FRQs.", icon: "🌍" },
+    "AP European History": { name: "AP European History", short: "AP European History", description: "Renaissance to the European Union, with DBQ, LEQ and SAQ practice.", icon: "🏰" },
+    "AP French Language and Culture": { name: "AP French Language and Culture", short: "AP French", description: "French emails, argumentative essays, conversations and cultural comparisons.", icon: "🇫🇷" },
+    "AP German Language and Culture": { name: "AP German Language and Culture", short: "AP German", description: "German grammar and reading, and the email, essay and conversation tasks.", icon: "🇩🇪" },
+    "AP Comparative Government and Politics": { name: "AP Comparative Government and Politics", short: "AP Comparative Government", description: "The governments of the UK, Mexico, Russia, Iran, China and Nigeria compared.", icon: "🏛" },
+    "AP Human Geography": { name: "AP Human Geography", short: "AP Human Geography", description: "Population, migration, culture, cities, farming and development, and the models behind them.", icon: "🗺️" },
+    "AP Italian Language and Culture": { name: "AP Italian Language and Culture", short: "AP Italian", description: "Italian reading and listening, and the email, essay and presentation tasks.", icon: "🇮🇹" },
+    "AP Japanese Language and Culture": { name: "AP Japanese Language and Culture", short: "AP Japanese", description: "Japanese in kana and kanji, conversation, and cultural presentations.", icon: "日本" },
+    "AP Latin": { name: "AP Latin", short: "AP Latin", description: "Translating and analyzing Vergil's Aeneid and Caesar's Gallic War.", icon: "🏛️" },
+    "AP Macroeconomics": { name: "AP Macroeconomics", short: "AP Macroeconomics", description: "GDP, inflation, unemployment, and monetary and fiscal policy, with the graphs.", icon: "📈" },
+    "AP Microeconomics": { name: "AP Microeconomics", short: "AP Microeconomics", description: "Supply and demand, firm costs, market structures and market failure, with the graphs.", icon: "📉" },
+    "AP Music Theory": { name: "AP Music Theory", short: "AP Music Theory", description: "Scales, harmony, voice leading, sight-singing and dictation.", icon: "🎵" },
+    "AP Physics 1: Algebra-Based": { name: "AP Physics 1: Algebra-Based", short: "AP Physics 1", description: "Kinematics, forces, energy, momentum, rotation and fluids, using algebra.", icon: "🔬" },
+    "AP Physics 2: Algebra-Based": { name: "AP Physics 2: Algebra-Based", short: "AP Physics 2", description: "Thermodynamics, electricity, magnetism, optics and modern physics.", icon: "⚛️" },
+    "AP Physics C: Mechanics": { name: "AP Physics C: Mechanics", short: "AP Physics C: Mechanics", description: "Calculus-based kinematics, Newton's laws, energy, momentum, rotation and oscillations.", icon: "📐" },
+    "AP Physics C: Electricity and Magnetism": { name: "AP Physics C: Electricity and Magnetism", short: "AP Physics C: E&M", description: "Calculus-based electrostatics, circuits, magnetic fields and induction.", icon: "⚡" },
+    "AP Precalculus": { name: "AP Precalculus", short: "AP Precalculus", description: "Polynomial, rational, exponential, logarithmic and trig functions, and modeling with them.", icon: "📐" },
+    "AP Psychology": { name: "AP Psychology", short: "AP Psychology", description: "Brain and behavior, cognition, development, learning and mental health, with the AAQ and EBQ.", icon: "🧠" },
+    "AP Spanish Language and Culture": { name: "AP Spanish Language and Culture", short: "AP Spanish Language", description: "Spanish emails, persuasive essays, conversations and cultural comparisons.", icon: "🇪🇸" },
+    "AP Spanish Literature and Culture": { name: "AP Spanish Literature and Culture", short: "AP Spanish Literature", description: "The required readings, from medieval Spain to modern Latin America, analyzed in Spanish.", icon: "📖" },
+    "AP Statistics": { name: "AP Statistics", short: "AP Statistics", description: "Exploring data, sampling and experiments, probability, and inference.", icon: "📊" },
+    "AP U.S. Government and Politics": { name: "AP U.S. Government and Politics", short: "AP U.S. Government", description: "The Constitution, the three branches, civil rights and liberties, and the required cases.", icon: "🇺🇸" },
+    "AP U.S. History": { name: "AP U.S. History", short: "AP U.S. History", description: "Colonization to the present, with DBQ, LEQ and SAQ practice.", icon: "🦅" },
+    "AP World History: Modern": { name: "AP World History: Modern", short: "AP World History", description: "Empires, trade networks, revolutions and globalization since 1200 CE.", icon: "🌐" },
 };
 
 // ---- One name per course --------------------------------------------------
@@ -90,6 +90,20 @@ Object.entries(LEGACY).forEach(([old, name]) => INDEX.set(norm(old), BY_NAME.get
 export function courseFor(subject) {
   return INDEX.get(norm(subject)) || null;
 }
+
+// Courses outside AP_SUBJECTS (portfolio and Capstone), so they stay out of the pickers.
+const EXTRA_BLURBS = {
+  studioArt: 'Planning your portfolio: the sustained investigation, selected works and written evidence.',
+  studioArt2D: 'Your 2-D portfolio: the sustained investigation, selected works and written evidence.',
+  studioArt3D: 'Your 3-D portfolio: the sustained investigation, selected works and written evidence.',
+  studioArtDrawing: 'Your Drawing portfolio: the sustained investigation, selected works and written evidence.',
+  research: 'Designing, carrying out and writing up your academic paper and presentation.',
+  seminar: 'The team project, individual research report, written argument and end-of-course exam.',
+};
+
+/** One line on what the course covers, for any name, key or slug, or ''. */
+export const subjectBlurb = (subject) =>
+  AP_SUBJECTS[courseFor(subject)?.name]?.description || EXTRA_BLURBS[subject] || '';
 
 /** Official College Board name; unknown input comes back unchanged. */
 export const subjectName = (subject) => courseFor(subject)?.name || subject;

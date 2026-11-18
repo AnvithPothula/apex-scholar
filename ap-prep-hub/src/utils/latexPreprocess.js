@@ -230,7 +230,7 @@ function stripNestedDollarsInExistingBlocks(text) {
  */
 function restoreEatenLatexEscapes(text) {
   return text
-    .replace(/\t(?=(?:ext(?:bf|it|rm|sf|tt)?|heta|imes|riangle|herefore|frac|anh?|au|ilde|op|o)(?![a-zA-Z]))/g, '\\t')
+    .replace(/\t(?=(?:ext(?:bf|it|rm|sf|tt|dollar)?|heta|imes|riangle|herefore|frac|anh?|au|ilde|op|o)(?![a-zA-Z]))/g, '\\t')
     .replace(/\r(?=(?:ight(?:arrow)?|angle|ho|floor|ceil)(?![a-zA-Z]))/g, '\\r')
     .replace(/[\b](?=[a-zA-Z])/g, '\\b')
     .replace(/\f(?=[a-zA-Z])/g, '\\f');
@@ -334,7 +334,9 @@ export function preprocessContent(content) {
 
   // Restore first: protectDollarSigns reads "$50 <TAB>imes" as money followed by
   // the word "imes" and would turn the opening $ into a literal dollar.
-  let processed = protectDollarSigns(restoreEatenLatexEscapes(repairInlineTables(content)));
+  // \textdollar is text-mode only in KaTeX (red error inside $...$); as \$ it
+  // takes the money path below.
+  let processed = protectDollarSigns(restoreEatenLatexEscapes(repairInlineTables(content)).replace(/\\textdollar(?![a-zA-Z])\s*/g, '\\$'));
 
   // 0. Strip control chars + normalize alternate delimiters BEFORE wrapping.
   // We deliberately do NOT strip nested $ here — doing it before the wrap

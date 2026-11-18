@@ -258,3 +258,16 @@ describe('JSON-eaten LaTeX escapes in saved strings', () => {
     expect(preprocessContent('a\tb\nnext\tother')).toBe('a\tb\nnext\tother');
   });
 });
+
+describe('textdollar', () => {
+  it.each([
+    ['Your fixed costs are \textdollar100. Next', 'eaten tab'],
+    ['Your fixed costs are $\\textdollar100$. Next', 'inside math'],
+    ['Your fixed costs are \\textdollar 100. Next', 'prose'],
+  ])('%s (%s) renders as a dollar, not extdollar', (input) => {
+    const out = preprocessContent(input);
+    expect(out).not.toMatch(/extdollar/);
+    expect(out).not.toMatch(/\$\\\$|\\\$\$/);
+    expect(out).toMatch(/\\\$100/);
+  });
+});

@@ -13,7 +13,7 @@ import errorLogger from '../../utils/errorLogger';
 //   \t \n \r          — real escapes, so only whole command names are matched;
 //                       "one.\nNext" or "\nnot" stay newlines.
 const LATEX_ESCAPE_COLLISION_RE =
-  /(?<!\\)\\(?=[bf][a-zA-Z]|u(?![0-9a-fA-F]{4})|(?:text(?:bf|it|rm|sf|tt)?|theta|times|triangle|therefore|tfrac|tanh|tan|tau|tilde|top|to|neq|nabla|nonumber|notin|not|nu|rightarrow|right|rangle|rho|rfloor|rceil)(?![a-zA-Z]))/g;
+  /(?<!\\)\\(?=[bf][a-zA-Z]|u(?![0-9a-fA-F]{4})|(?:text[a-z]*|theta|times|triangle|therefore|tfrac|tanh|tan|tau|tilde|top|to|neq|nabla|nonumber|notin|not|nu|rightarrow|right|rangle|rho|rfloor|rceil)(?![a-zA-Z]))/g;
 
 /** Double the backslash of LaTeX commands that would otherwise parse as JSON escapes. */
 export const protectLatexEscapes = (text) => text.replace(LATEX_ESCAPE_COLLISION_RE, '\\\\');

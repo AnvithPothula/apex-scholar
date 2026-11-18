@@ -82,3 +82,14 @@ describe('parseSimSpec', () => {
     expect(parseSimSpec('not json')).toBeNull();
   });
 });
+
+describe('textdollar in a sim spec', () => {
+  it('survives JSON parsing and renders as a plain dollar amount', () => {
+    const { preprocessContent } = require('./latexPreprocess');
+    const spec = parseModelJson('{"text": "Your fixed costs are $\\textdollar100$. What quantity?"}');
+    expect(spec.text).toContain('\\textdollar');
+    const out = preprocessContent(spec.text);
+    expect(out).not.toMatch(/extdollar/);
+    expect(out).toContain('100');
+  });
+});

@@ -42,7 +42,13 @@ export const MODEL_CHAINS = {
   // prompt in this app is an instruction list. It still absorbs overflow at the
   // tail, where a 2-in-3 answer beats none.
   bulk:        ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
-  interactive: ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
+  // Fast tutor mode. Measured 2026-11-17 with a tutor-sized answer: the
+  // lites and 2.5-flash-lite answer in about 2 s; the -flash models returned
+  // 503 or took 6-40+ s, so 2.5-flash-lite now comes before them.
+  interactive: ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-2.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash-preview', 'gemini-2.5-flash', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
+  // Thinking tutor mode: the reasoning -flash models first. They have 20 RPD
+  // per project, so once they run out the lites answer instead.
+  think:       ['gemini-3-flash-preview', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-2.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
   // FRQ grading is the one place output quality is worth the scarce pool, so
   // the newest -flash models lead and the lites catch the overflow.
   premium:     ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
@@ -200,6 +206,7 @@ export function coolPair(map, keyIdx, model, now, retryAfterSeconds) {
 }
 export const TASK_TO_CHAIN = {
   tutorChat: 'interactive',
+  tutorThink: 'think',
   // Review-card explanations, not live chat — see src/constants/modelChains.js.
   explain: 'bulk',
   solver: 'vision',
@@ -812,7 +819,10 @@ async function admitCall(env, who, guest, group) {
 // and the whole walk stops before the client gives up on it.
 // ---------------------------------------------------------------------------
 export const ATTEMPT_TIMEOUT_MS = {
-  interactive: 25000,
+  // A lite answers a full tutor reply in about 2 s; past 15 s that key is
+  // stuck, and the next one is the faster bet.
+  interactive: 15000,
+  think: 40000,
   verify: 45000,
   bulk: 60000,
   vision: 90000,

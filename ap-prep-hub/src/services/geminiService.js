@@ -1399,7 +1399,7 @@ class GeminiService {
     const data = await this._requestGoogleWithRotation(normalized, {
       context: 'Google payload fallback',
       maxAttempts: 4,
-      task: payload.usageCategory === 'practiceTest' ? 'practiceTest' : 'tutorChat'
+      task: payload.task || (payload.usageCategory === 'practiceTest' ? 'practiceTest' : 'tutorChat')
     });
     console.log('[AI] Google.generateFromPayload success', { ms: Date.now() - t1 });
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';

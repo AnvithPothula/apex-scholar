@@ -50,6 +50,8 @@ export const TEST_DAILY_LIMIT = 1;     // practice-test generations per day
 // untagged tasks cost DEFAULT_COST. Practice tests are exempt (own daily cap).
 export const TASK_COST = {
   tutor: 15,            // one tutor reply
+  tutorThink: 30,       // a Thinking-mode tutor reply (scarcer reasoning models)
+  tutorThinkFile: 60,   // Thinking with a file or photo
   tutorFile: 30,        // a tutor reply that reads an attached file or photo
   ask: 8,               // highlight Ask / Explain in a study pack
   timelineNote: 8,      // a timeline study note
@@ -66,6 +68,8 @@ export const DEFAULT_COST = 15;
 // price, charged at half load; quiet hours fall toward min, busy ones rise to max.
 export const TASK_COST_RANGE = {
   tutor: { min: 10, max: 30 },
+  tutorThink: { min: 20, max: 60 },
+  tutorThinkFile: { min: 40, max: 120 },
   tutorFile: { min: 20, max: 60 },
   ask: { min: 5, max: 16 },
   timelineNote: { min: 5, max: 16 },
@@ -115,6 +119,8 @@ function takeCharge(category) {
 /** What each task is called on the usage card. */
 export const TASK_LABELS = {
   tutor: 'Tutor reply',
+  tutorThink: 'Tutor reply (Thinking)',
+  tutorThinkFile: 'Tutor reply (Thinking) with a file or photo',
   tutorFile: 'Tutor reply with a file or photo',
   ask: 'Ask or Explain on highlighted text',
   timelineNote: 'Timeline study note',

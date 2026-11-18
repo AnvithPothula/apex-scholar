@@ -277,7 +277,7 @@ describe('router handler under failure', () => {
     expect(res.status).toBe(200);
     expect(n).toBe(2);
     // Tutor chat gets the interactive ceiling, not the client's whole budget.
-    expect(asked[0]).toBe(25000);
+    expect(asked[0]).toBe(15000);
   });
 
   it('refuses with the scope and a real wait once a guest has used their share', async () => {

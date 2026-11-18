@@ -32,43 +32,37 @@ import { Card, CardContent, Input } from '../ui/UIComponents';
 import { useAuth } from '../../contexts/AuthContext';
 import { getAvailableSubjects, getSubjectName } from '../../constants/comprehensiveCurriculum';
 import { getSubjectColor } from '../../constants/subjectColors';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, disableNetwork, enableNetwork } from 'firebase/firestore';
 import { db } from '../../config/firestore';
-import { subjectSlug } from '../../constants/subjects';
+import { subjectSlug, subjectBlurb } from '../../constants/subjects';
+import { withStallRecovery } from '../../utils/stallRecovery';
+import errorLogger from '../../utils/errorLogger';
 
 const SubjectSelector = ({ subjects, selectedSubject, onSelectSubject }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [hoveredSubject, setHoveredSubject] = useState(null);
-  const [userSubjects, setUserSubjects] = useState([]);
-  const [isLoadingUserSubjects, setIsLoadingUserSubjects] = useState(true);
+  // The profile AuthContext already loaded shows at once; a fresh read then
+  // picks up subjects changed in Settings since sign-in.
+  const [freshSubjects, setFreshSubjects] = useState(null);
+  const profileSubjects = user?.subjects;
+  const userSubjects = React.useMemo(() => freshSubjects || profileSubjects || [], [freshSubjects, profileSubjects]);
+  const uid = user?.uid;
 
-  // Load user's selected subjects from Settings
   React.useEffect(() => {
-    const loadUserSubjects = async () => {
-      if (!user?.uid) {
-        setIsLoadingUserSubjects(false);
-        return;
-      }
-
-      try {
-        const userDocRef = doc(db, 'users', user.uid);
-        const userDocSnap = await getDoc(userDocRef);
-
-        if (userDocSnap.exists()) {
-          const userData = userDocSnap.data();
-          setUserSubjects(userData.subjects || []);
-        }
-      } catch (error) {
-        console.error("Error loading user subjects:", error);
-      } finally {
-        setIsLoadingUserSubjects(false);
-      }
-    };
-
-    loadUserSubjects();
-  }, [user]);
+    if (!uid) return undefined;
+    let live = true;
+    // Same stall as Settings: a getDoc on a wedged connection never settles,
+    // and this section used to stay hidden until a reload.
+    withStallRecovery(
+      () => getDoc(doc(db, 'users', uid)),
+      async () => { await disableNetwork(db); await enableNetwork(db); },
+    )
+      .then((snap) => { if (live && snap.exists()) setFreshSubjects(snap.data().subjects || []); })
+      .catch((error) => errorLogger.warn('Could not load your subjects', { error: error?.message }));
+    return () => { live = false; };
+  }, [uid]);
 
   // Enhanced subject data with modern features - using comprehensive curriculum
   const enhancedSubjects = React.useMemo(() => {
@@ -79,7 +73,7 @@ const SubjectSelector = ({ subjects, selectedSubject, onSelectSubject }) => {
       return {
         id: subjectKey,
         name: name,
-        description: `Master ${name} with comprehensive tutoring`,
+        description: subjectBlurb(subjectKey),
         icon: getSubjectIcon(subjectKey),
         color: getSubjectColor(subjectKey),
         isUserSubject: userSubjects.includes(subjectKey)
@@ -110,7 +104,7 @@ const SubjectSelector = ({ subjects, selectedSubject, onSelectSubject }) => {
     navigate(createPageUrl('AITutors', subjectSlug(subjectId) || encodeURIComponent(subjectId)));
   };
 
-  const hasUserSubjects = user && !isLoadingUserSubjects && filteredUserSubjects.length > 0;
+  const hasUserSubjects = user && filteredUserSubjects.length > 0;
 
   return (
     <div className="min-h-screen bg-base-950">
