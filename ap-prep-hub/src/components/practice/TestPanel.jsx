@@ -11,10 +11,12 @@ import { useConfirm } from '../../contexts/ConfirmContext';
 import { wasSkipped } from '../../utils/whyWrong';
 
 // Bluebook shows the clock as M:SS (no leading zero on minutes).
+// Past the limit (keep-going tests) it counts up as "+M:SS".
 const formatTimeFromSeconds = (seconds) => {
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
+  const abs = Math.abs(seconds);
+  const mins = Math.floor(abs / 60);
+  const secs = abs % 60;
+  return `${seconds < 0 ? '+' : ''}${mins}:${secs.toString().padStart(2, '0')}`;
 };
 
 const SECTION_TITLES = { mcq: 'Section I: Multiple Choice', frq: 'Section II: Free Response' };
@@ -310,6 +312,7 @@ const TestPanel = ({
             ) : (
               <span role="timer" aria-live="off" className={`text-lg sm:text-xl font-bold tabular-nums ${lowTime ? 'text-[var(--bb-red)]' : ''}`}>
                 {formatTimeFromSeconds(timeRemaining)}
+                {timeRemaining < 0 && <span className="block text-[10px] font-semibold uppercase tracking-wide">Over time</span>}
               </span>
             )}
             <button type="button" onClick={() => setTimerHidden((h) => !h)}

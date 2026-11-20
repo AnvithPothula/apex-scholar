@@ -239,8 +239,10 @@ function TermsOfService() {
       <Section title="What Apex Scholar Is">
         <p>
           Apex Scholar is a free study tool for AP exam preparation. It provides AI tutoring, practice questions,
-          practice tests with AI scoring, study packs, score calculators, flashcards, spaced-repetition review, a problem
-          solver, classes, and study scheduling.
+          practice tests with AI scoring, study packs, score calculators, flashcards, spaced-repetition review, a grader
+          for free-response and multiple-choice answers, classes, and study scheduling. The grader links to College
+          Board's past exam questions on AP Central and reads their scoring guidelines from there when you grade; it
+          does not copy or republish them.
           The service is provided free of charge and we may change or discontinue features at any time.
         </p>
       </Section>

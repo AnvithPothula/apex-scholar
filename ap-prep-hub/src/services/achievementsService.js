@@ -123,22 +123,22 @@ class AchievementsService {
         requirement: { type: 'count', target: 50, activity: 'ai_chat_message' }
       },
 
-      // Problem Solver
+      // Grader (activity id kept from the old Solver)
       FIRST_SOLUTION: {
         id: 'first_solution',
-        title: 'Problem Solver',
-        description: 'Solve your first problem with AI Solver',
+        title: 'First Grade',
+        description: 'Get your first answer graded in the Grader',
         icon: '🔧',
-        category: 'Problem Solving',
+        category: 'Grading',
         points: 20,
         requirement: { type: 'count', target: 1, activity: 'solve_problem' }
       },
       SOLVER_EXPERT: {
         id: 'solver_expert',
-        title: 'Solver Expert',
-        description: 'Solve 25 problems with AI Solver',
+        title: 'Self-Grader',
+        description: 'Grade 25 answers in the Grader',
         icon: '🎓',
-        category: 'Problem Solving',
+        category: 'Grading',
         points: 125,
         requirement: { type: 'count', target: 25, activity: 'solve_problem' }
       },

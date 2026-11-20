@@ -228,7 +228,9 @@ const ResultsPanel = ({
                 {safeTestResults.timeSpent}
               </div>
               <p className="text-content-secondary mb-1">Minutes Used</p>
-              <p className="text-sm text-content-muted">Time Management</p>
+              {safeTestResults.overtimeMinutes > 0
+                ? <p className="text-sm text-warning-400">{safeTestResults.overtimeMinutes} min over the time limit</p>
+                : <p className="text-sm text-content-muted">Time Management</p>}
             </Card>
           </motion.div>
 

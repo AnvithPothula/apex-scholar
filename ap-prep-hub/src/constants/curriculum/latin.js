@@ -2,11 +2,12 @@
 const latin = {
   name: "AP Latin",
   description: "Develop proficiency in reading and understanding Latin literature while exploring the cultural and historical contexts of ancient Rome.",
+  // Current CED (2026 exam on): Pliny the Younger and Vergil; Caesar was dropped. Six units.
   examFormat: {
     duration: "3 hours",
     sections: [
-      { name: "Multiple Choice", questions: 50, time: "90 minutes", weight: "50%" },
-      { name: "Free Response", questions: 4, time: "90 minutes", weight: "50%" }
+      { name: "Multiple Choice", questions: 52, time: "65 minutes", weight: "50%" },
+      { name: "Free Response", questions: 5, time: "115 minutes", weight: "50% (short answer, translation, short essay, two course-project passage essays)" }
     ]
   },
   bigIdeas: [
@@ -17,60 +18,40 @@ const latin = {
   ],
   units: [
     {
-      name: "Unit 1: Caesar's Gallic Wars",
-      weight: "50%",
-      topics: [
-        "Book 1 selections",
-        "Book 4 selections", 
-        "Book 5 selections",
-        "Book 6 selections",
-        "Military campaigns and strategies",
-        "Cultural descriptions of Gallic peoples",
-        "Roman political and military organization"
-      ],
-      keyConcepts: [
-        "Caesar's prose style and narrative techniques",
-        "Military terminology and concepts",
-        "Roman attitudes toward foreign peoples",
-        "Political propaganda in historical writing",
-        "Geographic and ethnographic descriptions",
-        "Leadership and command decisions"
-      ],
-      essentialKnowledge: [
-        "Caesar wrote to promote his political career",
-        "The Gallic Wars established Caesar's military reputation",
-        "Roman expansion involved cultural conflict",
-        "Military success translated to political power",
-        "Historical writing served political purposes"
-      ]
+      name: "Unit 1: Teacher's Choice: Latin Prose",
+      topics: ["Sight reading of Latin prose", "Grammar and syntax in context", "Vocabulary in context"],
+      keyConcepts: ["Reading unfamiliar prose accurately", "Identifying constructions (ablative absolute, indirect statement, subjunctive uses)"],
+      essentialKnowledge: ["About 1,650 words of teacher's choice prose are read across the course"]
     },
     {
-      name: "Unit 2: Vergil's Aeneid",
-      weight: "50%",
-      topics: [
-        "Book 1 selections",
-        "Book 2 selections",
-        "Book 4 selections", 
-        "Book 6 selections",
-        "Epic conventions and heroic themes",
-        "Divine intervention and fate",
-        "Foundation mythology and Roman destiny"
-      ],
-      keyConcepts: [
-        "Epic poetry conventions and meter",
-        "Heroic character development",
-        "Divine-human relationships",
-        "Fate versus free will",
-        "Founding myths and national identity",
-        "Literary allusion and intertextuality"
-      ],
-      essentialKnowledge: [
-        "The Aeneid legitimizes Roman imperial power",
-        "Aeneas embodies Roman virtues and values",
-        "Epic poetry serves national and cultural purposes",
-        "Divine will guides human destiny",
-        "Literature preserves and promotes cultural values"
-      ]
+      name: "Unit 2: Pliny's Letters: Eruption of Mt. Vesuvius",
+      topics: ["Letter 6.16: the eruption and Pliny the Elder", "Letter 6.20: the eruption and Pliny the Younger"],
+      keyConcepts: ["Pliny's narrative and descriptive techniques", "Characterization of Pliny the Elder", "Roman values in a crisis"],
+      essentialKnowledge: ["Pliny wrote these letters to Tacitus for his histories, decades after 79 CE"]
+    },
+    {
+      name: "Unit 3: Pliny's Letters: Ghosts, Calpurnia, and Trajan",
+      topics: ["Letter 7.27: ghosts and apparitions", "Letters 10.37 and 10.90: aqueducts", "Letters 10.5–10.7: citizenship for Pliny's doctor", "Letters 6.4 and 6.7: to Calpurnia"],
+      keyConcepts: ["Epistolary style and self-presentation", "Roman provincial administration", "Roman marriage and private life"],
+      essentialKnowledge: ["Book 10 is Pliny's correspondence with Trajan as governor of Bithynia-Pontus"]
+    },
+    {
+      name: "Unit 4: Teacher's Choice: Latin Poetry and Vergil's Aeneid",
+      topics: ["Sight reading of Latin poetry", "Aeneid 1.1–33, 1.88–107, 1.496–508", "Aeneid 2.40–56, 2.201–249 (Laocoön)"],
+      keyConcepts: ["Dactylic hexameter and scansion", "Epic conventions", "Poetic devices and their effects"],
+      essentialKnowledge: ["About 1,350 words of teacher's choice poetry are read across the course"]
+    },
+    {
+      name: "Unit 5: Vergil's Aeneid, Books 4, 6, 7, 11, and 12",
+      topics: ["4.74–89, 4.165–197, 4.305–361 (Dido)", "6.450–476, 6.788–800, 6.847–853 (Underworld, Anchises)", "7.45–58, 7.783–792, 7.803–817 (Latinus, Turnus)", "11.532–594 (Camilla)", "12.791–796, 12.803–812, 12.818–828, 12.919–952 (the final battle)"],
+      keyConcepts: ["Fate, the gods and pietas", "Characterization of Dido, Turnus and Camilla", "Rome's destiny and the cost of empire"],
+      essentialKnowledge: ["The Aeneid connects Augustus's Rome to Troy and frames Roman identity"]
+    },
+    {
+      name: "Unit 6: Course Project and Teacher's Choice: Latin Poetry",
+      topics: ["Course project passages (prose and poetry)", "In-class checkpoints", "Short essays on project passages"],
+      keyConcepts: ["Analyzing an unfamiliar passage with evidence from the Latin"],
+      essentialKnowledge: ["Free-response questions 4 and 5 are short essays on project passages"]
     }
   ],
   keySkills: [
@@ -93,9 +74,8 @@ const latin = {
     "Connect Latin literature to modern works"
   ],
   commonTopics: [
-    "Roman military organization and tactics",
-    "Political propaganda in historical writing",
-    "Cultural conflict and Roman expansion",
+    "Pliny's letters: Vesuvius, ghosts, Trajan and Calpurnia",
+    "Roman provincial administration under Trajan",
     "Epic heroism and character development",
     "Divine intervention and human destiny",
     "Foundation myths and national identity",

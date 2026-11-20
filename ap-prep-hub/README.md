@@ -1,6 +1,6 @@
 # Apex Scholar - AI-Powered AP Exam Prep
 
-A modern web app for AP exam preparation with AI tutoring, practice test generation, intelligent scheduling, flashcards, and a problem solver. Built with React, Firebase, and Tailwind CSS.
+A modern web app for AP exam preparation with AI tutoring, practice test generation, intelligent scheduling, flashcards, a free-response grader, and class assignments. Built with React, Firebase, and Tailwind CSS.
 
 ## Features
 
@@ -16,8 +16,8 @@ Intelligent study planner with task management, calendar view, priority-based sc
 ### Flashcards
 Create, study, and share flashcard decks. Public deck marketplace with search. Spaced repetition support and LaTeX rendering for math/science content.
 
-### Problem Solver
-Upload photos or type problems to get AI-powered step-by-step solutions. PDF support for worksheets.
+### Grader
+Grades FRQs against the official College Board scoring guidelines (fetched from AP Central, never stored) or your own rubric, and checks MCQs; typed answers or photos.
 
 ### Settings
 Profile management, AP subject selection, AI model preferences, Schoology integration, and data sync controls.
@@ -104,7 +104,7 @@ ap-prep-hub/
       PracticeTests.js  # Practice test generation & taking
       SmartScheduler.js # Study scheduler
       Flashcards.js     # Flashcard system
-      Solver.js         # Problem solver
+      Grader.jsx        # FRQ / MCQ grader
       Settings.js       # User settings
       Review.jsx        # Spaced-repetition review queue
       Diagnostics.js    # Unit-level diagnostic assessments

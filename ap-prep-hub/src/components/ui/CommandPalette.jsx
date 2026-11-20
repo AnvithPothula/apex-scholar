@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Brain, Calendar, FileQuestion, Zap, Calculator, Settings, ArrowRight, Command, GraduationCap } from 'lucide-react';
+import { Search, Brain, Calendar, FileQuestion, Zap, ClipboardCheck, Settings, ArrowRight, Command, GraduationCap } from 'lucide-react';
 import { createPageUrl } from '../../utils/helpers';
 import { getAvailableSubjects, getSubjectName } from '../../constants/comprehensiveCurriculum';
 import { overlayVariants, modalVariants } from '../../utils/animations';
@@ -13,7 +13,7 @@ const PAGES = [
   { id: 'scheduler', name: 'Smart Scheduler', icon: Calendar, path: createPageUrl('SmartScheduler'), category: 'Pages' },
   { id: 'practice', name: 'Practice Tests', icon: FileQuestion, path: createPageUrl('PracticeTests'), category: 'Pages' },
   { id: 'flashcards', name: 'Flashcards', icon: Zap, path: createPageUrl('Flashcards'), category: 'Pages' },
-  { id: 'solver', name: 'Problem Solver', icon: Calculator, path: createPageUrl('Solver'), category: 'Pages' },
+  { id: 'grader', name: 'Grader', icon: ClipboardCheck, path: createPageUrl('Grader'), category: 'Pages' },
   { id: 'settings', name: 'Settings', icon: Settings, path: createPageUrl('Settings'), category: 'Pages' },
 ];
 

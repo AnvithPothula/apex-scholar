@@ -2,7 +2,7 @@ import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { overlayVariants, modalVariants } from '../utils/animations';
-import { Brain, Calendar, Settings, LogOut, Award, Shield, X, MessageSquare, Bug, FileQuestion, Calculator, Star, Code2, Sun, Moon, Lock, LogIn, FileText } from 'lucide-react';
+import { Brain, Calendar, Settings, LogOut, Award, Shield, X, MessageSquare, Bug, FileQuestion, ClipboardCheck, Star, Code2, Sun, Moon, Lock, LogIn, FileText } from 'lucide-react';
 import { Button, Avatar, AvatarFallback, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from './ui/UIComponents';
 import { useAuth } from '../contexts/AuthContext';
 import { createPageUrl, cn } from '../utils/helpers';
@@ -104,16 +104,16 @@ export function Layout({ children }) {
                                 {isGuest && <Lock strokeWidth={1.5} size={11} className="ml-0.5 flex-shrink-0 opacity-50" />}
                             </Link>
                             <Link
-                                to={createPageUrl("Solver")}
-                                aria-label="Problem Solver"
-                                aria-current={isActiveTab("Solver") ? "page" : undefined}
+                                to={createPageUrl("Grader")}
+                                aria-label="Grader"
+                                aria-current={isActiveTab("Grader") ? "page" : undefined}
                                 className={cn(
                                     "px-2 sm:px-2.5 md:px-3 lg:px-4 py-1.5 sm:py-2 flex items-center space-x-1 md:space-x-1.5 font-medium transition-all duration-200 text-xs sm:text-sm",
-                                    isActiveTab("Solver") ? "text-content-primary border-b-2 border-content-primary" : "text-content-muted hover:text-content-primary"
+                                    isActiveTab("Grader") ? "text-content-primary border-b-2 border-content-primary" : "text-content-muted hover:text-content-primary"
                                 )}
                             >
-                                <Calculator strokeWidth={1.5} size={14} className="sm:w-4 sm:h-4 flex-shrink-0" />
-                                <span className="hidden md:inline">Solver</span>
+                                <ClipboardCheck strokeWidth={1.5} size={14} className="sm:w-4 sm:h-4 flex-shrink-0" />
+                                <span className="hidden md:inline">Grader</span>
                                 {isGuest && <Lock strokeWidth={1.5} size={11} className="ml-0.5 flex-shrink-0 opacity-50" />}
                             </Link>
                             <Link
@@ -228,7 +228,7 @@ export function Layout({ children }) {
                         // (where it already was — it used to be duplicated here).
                         { page: 'AITutors', label: 'Tutors', Icon: Brain },
                         { page: 'Practice', label: 'Practice', Icon: FileQuestion, locked: true },
-                        { page: 'Solver', label: 'Solver', Icon: Calculator, locked: true },
+                        { page: 'Grader', label: 'Grader', Icon: ClipboardCheck, locked: true },
                         { page: 'SmartScheduler', label: 'Schedule', Icon: Calendar, locked: true },
                     ].map(({ page, label, Icon, locked }) => (
                         <Link

@@ -5,7 +5,7 @@
  */
 
 const TYPES = ['suggestion', 'confusing', 'feature', 'praise', 'content', 'other'];
-const AREAS = ['learn', 'tutors', 'practice-tests', 'review', 'flashcards', 'scheduler', 'solver',
+const AREAS = ['learn', 'tutors', 'practice-tests', 'review', 'flashcards', 'scheduler', 'grader', 'solver',
   'diagnostics', 'score-calculator', 'classes', 'progress', 'settings', 'whole-app', 'other'];
 const ROLES = ['student', 'teacher', 'parent', 'other'];
 const GRADES = ['9', '10', '11', '12', 'other'];

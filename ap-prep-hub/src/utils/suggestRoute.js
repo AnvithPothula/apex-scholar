@@ -5,7 +5,7 @@
 const ROUTES = [
   ['/ai-tutors', 'AI Tutors', true], ['/study', 'Study packs', true], ['/practice-tests', 'Practice tests', false],
   ['/practice', 'Practice', false], ['/flashcards', 'Flashcards', false], ['/review', 'Review', false],
-  ['/solver', 'Solver', false], ['/smart-scheduler', 'Study scheduler', false], ['/diagnostics', 'Diagnostics', true],
+  ['/grader', 'Grader', false], ['/smart-scheduler', 'Study scheduler', false], ['/diagnostics', 'Diagnostics', true],
   ['/ap-score-calculator', 'AP score calculator', true], ['/progress', 'Progress', false], ['/classes', 'Classes', true],
   ['/settings', 'Settings', false], ['/privacy', 'Privacy', false], ['/terms', 'Terms', false], ['/start', 'Get started', false],
 ];

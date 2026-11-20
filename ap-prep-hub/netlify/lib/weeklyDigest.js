@@ -141,6 +141,27 @@ function pickTryCard(due) {
  *   subject ≤ ~35 chars so it survives a phone inbox. `body` is the plain-text
  *   version; `html` is the inner HTML that email-broadcast's buildHtml wraps.
  */
+// A one-off note at the top of the weekly email, shown until `until`.
+const ANNOUNCEMENT = {
+  until: Date.parse('2026-11-24T00:00:00Z'), // the 2026-11-22 send only
+  title: 'New: the Grader',
+  text: 'Pick a past AP free-response question and get your answer scored against College Board\'s official scoring guidelines, point by point. Or use your teacher\'s rubric. Type your answer or add a photo of your handwritten work.',
+  label: 'Try the Grader',
+  path: '/grader',
+};
+
+function announcement(nowMs) {
+  if (!ANNOUNCEMENT || nowMs >= ANNOUNCEMENT.until) return null;
+  const url = `${SITE}${ANNOUNCEMENT.path}`;
+  return {
+    html: `<div style="background:${PANEL};border:1px solid ${LINE};border-radius:10px;padding:16px 18px;margin:0 0 20px">`
+      + `<p style="margin:0 0 6px;font-size:15px;line-height:1.5;color:${INK};font-weight:700">${esc(ANNOUNCEMENT.title)}</p>`
+      + `<p style="margin:0 0 10px;font-size:15px;line-height:1.55;color:${BODY}">${esc(ANNOUNCEMENT.text)}</p>`
+      + `<p style="margin:0;font-size:14px">${link(ANNOUNCEMENT.label, url)}</p></div>`,
+    text: [ANNOUNCEMENT.title.toUpperCase(), ANNOUNCEMENT.text, `${ANNOUNCEMENT.label}: ${url}`, ''],
+  };
+}
+
 function buildDigest({ user, cards = [], tests = [], responses = [], now = new Date() }) {
   const exams = examsFor(user, now);
   const kind = cadenceFor(exams, now);
@@ -213,6 +234,8 @@ function buildDigest({ user, cards = [], tests = [], responses = [], now = new D
     : !week.everActive ? ['Take the 10-question check', '/start']
       : ['Practice now', '/practice-tests'];
 
+  const news = announcement(nowMs);
+  if (news) { html.push(news.html); text.push(...news.text); }
   html.push(para(intro));
   text.push(introText);
   if (week.weakest) {

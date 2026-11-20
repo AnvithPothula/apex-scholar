@@ -107,7 +107,7 @@ exports.handler = async () => {
         if (!live) return;
         const unsubUrl = `${ORIGIN}/.netlify/functions/email-unsubscribe?t=${unsubscribeToken(uid)}`;
         const res = await sendBatch(apiKey, from, [user.email], digest.subject, digest.body, unsubUrl, {
-          html: digest.html, heading: digest.heading, preheader: digest.preheader, cta: null,
+          html: digest.html, heading: digest.heading, preheader: digest.preheader, cta: null, campaign: 'weekly',
         });
         if (!res.ok) { failed += 1; console.error(`[email-weekly] send failed for ${uid}: ${res.error}`); return; }
         sent += 1;

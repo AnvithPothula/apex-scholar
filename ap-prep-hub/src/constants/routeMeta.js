@@ -529,10 +529,10 @@ export const ROUTE_META = {
     description:
       'Create, study and share AP flashcard decks. Spaced repetition brings each card back exactly when you are about to forget it.',
   },
-  '/solver': {
-    title: 'AP Problem Solver — Photo or Text — Apex Scholar',
+  '/grader': {
+    title: 'AP FRQ Grader — Official Scoring Guidelines — Apex Scholar',
     description:
-      'Photograph a problem or type it in and get a worked solution, step by step, for AP maths and science.',
+      'Grade your AP free-response answers against the official College Board scoring guidelines or your own rubric, from typed work or photos. Checks multiple choice too.',
   },
   '/practice': {
     title: 'AP Practice Hub — Tests, Flashcards, Review — Apex Scholar',

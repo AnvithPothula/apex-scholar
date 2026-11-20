@@ -432,10 +432,13 @@ exports.handler = async (event) => {
   interactive: ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-2.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash-preview', 'gemini-2.5-flash', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
   // Thinking tutor mode: the reasoning -flash models first. They have 20 RPD
   // per project, so once they run out the lites answer instead.
-  think:       ['gemini-3-flash-preview', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-2.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
+  think:       ['gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-3.5-flash', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-2.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
   // FRQ grading is the one place output quality is worth the scarce pool, so
-  // the newest -flash models lead and the lites catch the overflow.
-  premium:     ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
+  // the -flash models lead and the lites catch the overflow.
+  // Reasoning models that answer first. Measured 2026-11-17 and 11-19: 3-flash-preview
+  // ~6-8 s, 2.5-flash ~8 s, 3.5-flash ~15 s; 3.8/3.7/3.6-flash hung past 45 s both
+  // days, so they moved behind the three that answer.
+  premium:     ['gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-3.5-flash', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-2.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'],
   // No Gemma. Gemma 4 is documented to accept images, but that is unverified
   // here and the solver is not the place to find out.
   vision:      ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'],

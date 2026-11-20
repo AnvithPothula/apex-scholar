@@ -2,7 +2,7 @@
 
 ## Architecture Overview
 
-React 18 single-page app built with Create React App, Tailwind CSS, and Firebase. Provides AI-powered AP exam tutoring, practice tests, flashcards, scheduling, and a problem solver.
+React 18 single-page app built with Create React App, Tailwind CSS, and Firebase. Provides AI-powered AP exam tutoring, practice tests, flashcards, scheduling, a free-response grader, and class assignments.
 
 ### Tech Stack
 - **Frontend:** React 18.3.1 (CRA), Tailwind CSS 3 with design tokens, Framer Motion
@@ -92,7 +92,7 @@ All user data is scoped under `users/{userId}/`:
 - `userProgress/` — Learning progress per subject
 - `diagnosticResults/` — Diagnostic assessment results
 - `userAchievements/` — Gamification achievements
-- `solverHistory/` — Problem solver history
+- `solverHistory/` — Old Solver history (Solver replaced by the Grader, 2026-11)
 - `schoologyTokens/` — Schoology OAuth tokens (sensitive)
 
 **Security rules:** `firestore.rules` — user-scoped access, default deny-all.
@@ -109,7 +109,7 @@ All user data is scoped under `users/{userId}/`:
 | `/smart-scheduler` | `SmartScheduler.js` | Intelligent study scheduler |
 | `/practice-tests` | `PracticeTests.js` | AI-generated AP practice tests |
 | `/flashcards` | `Flashcards.js` | Flashcard creation/study/sharing |
-| `/solver` | `Solver.js` | Photo/text problem solver |
+| `/grader` | `Grader.jsx` | FRQ/MCQ grader: official past-exam scoring guidelines or the student's rubric (`/solver` redirects here) |
 | `/settings` | `Settings.js` | User preferences, API keys, sync |
 
 All pages are lazy-loaded via `React.lazy()` in `App.js`.

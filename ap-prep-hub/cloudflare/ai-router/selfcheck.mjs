@@ -24,8 +24,8 @@ for (const author of LITE_HEAD) {
 }
 // A requested model outside the chain (the picker's 0-quota gemini-2.0-flash) is ignored.
 assert.ok(!orderModels(MODEL_CHAINS.interactive, { requested: 'gemini-2.0-flash' }).includes('gemini-2.0-flash'));
-// FRQ grading spends the scarce -flash pool, newest first.
-assert.equal(MODEL_CHAINS[TASK_TO_CHAIN.frqGrade][0], 'gemini-3.8-flash');
+// FRQ grading spends the scarce -flash pool, the models that actually answer first.
+assert.ok(/-flash(-preview)?$/.test(MODEL_CHAINS[TASK_TO_CHAIN.frqGrade][0]) && !/lite/.test(MODEL_CHAINS[TASK_TO_CHAIN.frqGrade][0]));
 // gemma + 3.x on v1beta, an old model on v1
 assert.equal(versionFor('gemma-4-31b-it'), 'v1beta');
 assert.equal(versionFor('gemini-3.1-flash-lite'), 'v1beta');

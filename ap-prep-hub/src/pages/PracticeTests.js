@@ -10,6 +10,7 @@ import { retryAfterFrom } from '../services/aiRetry';
 import aiUsageLimiter from '../services/aiUsageLimiter';
 import srs from '../services/srs';
 import { recordTestForClasses } from '../services/classes';
+import { getAssignment, saveMySubmission } from '../services/classAssignments';
 import { recordPracticeTest } from '../services/activityTracker';
 import { logResponses } from '../services/responseLog';
 import { wasSkipped, missFromResult, optionText, resultStatus, questionWithParts } from '../utils/whyWrong';
@@ -27,6 +28,7 @@ import TestPanel from '../components/practice/TestPanel';
 import ResultsPanel from '../components/practice/ResultsPanel';
 import { toImageParts, saveAnswerImages, loadAnswerImages, clearAnswerImages } from '../utils/answerImages';
 import { saveLocalProgress, loadLocalProgress, clearLocalProgress, pickNewerProgress, cloudSaveDue } from '../services/testProgressStore';
+import { requiredMaterialsFor } from '../constants/requiredMaterials';
 
 // TEST_CONFIGURATIONS and DEFAULT_CONFIG are now imported from ../constants/testConfigurations
 // Points per short free-response question on the real exams that have them.
@@ -43,6 +45,28 @@ const PracticeTests = () => {
   const [selectedUnits, setSelectedUnits] = useState([]);
   const [customTime, setCustomTime] = useState('');
   const [useDefaultTime, setUseDefaultTime] = useState(true);
+  // Keep going after the clock hits 0: the timer counts into overtime instead
+  // of submitting, and the results say how far over.
+  const [keepGoing, setKeepGoing] = useState(false);
+  // Opened from a class assignment (?assignment=CODE/ID): the teacher's
+  // settings are filled in, and the result goes to their gradebook.
+  const [assignment, setAssignment] = useState(null);
+  useEffect(() => {
+    const ref = new URLSearchParams(window.location.search).get('assignment') || '';
+    const [code, id] = ref.split('/');
+    if (!code || !id) return;
+    getAssignment(code, id).then((a) => {
+      if (!a || a.type !== 'practiceTest') return;
+      const c = a.config || {};
+      setAssignment({ code, id, title: a.title, by: a.createdByName, dueAt: a.dueAt, countsOnLeaderboard: a.countsOnLeaderboard === true });
+      setSelectedSubject(a.subject || '');
+      setSelectedSection(c.section || 'mcq');
+      setSelectedUnits(Array.isArray(c.units) ? c.units : []);
+      if (Number(c.questionCount) > 0) { setUseDefaultQuestionCount(false); setCustomQuestionCount(String(c.questionCount)); }
+      if (Number(c.timeMinutes) > 0) { setUseDefaultTime(false); setCustomTime(String(c.timeMinutes)); }
+      setKeepGoing(c.keepGoing === true);
+    }).catch(() => toast.error("Couldn't open that assignment."));
+  }, [toast]);
   const [useDefaultQuestionCount, setUseDefaultQuestionCount] = useState(true);
   const [customQuestionCount, setCustomQuestionCount] = useState('');
   const [questions, setQuestions] = useState([]);
@@ -761,9 +785,11 @@ Format as JSON:
       } : null,
       questionResults,
       timeSpent: getTimeSpent(),
+      // Same basis as timeSpent, so "Minutes Used" and "N min over" always agree.
+      overtimeMinutes: Math.max(0, getTimeSpent() - timeLimitMinutes),
       breakdown
     };
-  }, [questions, userAnswers, answerImages, getTimeSpent, scoreQuestion, selectedSubject, cleanBreakdownObject]);
+  }, [questions, userAnswers, answerImages, getTimeSpent, scoreQuestion, selectedSubject, cleanBreakdownObject, timeLimitMinutes]);
 
   const handleSubmitTest = useCallback(async () => {
     setTestStarted(false);
@@ -815,6 +841,7 @@ Format as JSON:
           // Sanitize data to avoid undefined values
           const sanitizedData = deepSanitize({
             userId: user.uid,
+            ...(assignment ? { assignment: { classId: assignment.code, assignmentId: assignment.id } } : {}),
             subject: selectedSubject || '',
             section: selectedSection || '',
             // Difficulty removed from schema
@@ -866,6 +893,20 @@ Format as JSON:
           }
           const savedTest = await addDoc(collection(db, 'practiceTests'), sanitizedData);
           setTestResults((r) => (r ? { ...r, docId: savedTest.id } : r));
+          if (assignment) {
+            const r = emergencyCleanedResults || {};
+            saveMySubmission(assignment.code, assignment.id, user, {
+              status: 'submitted',
+              testId: savedTest.id,
+              score: Number(r.score) || 0,
+              maxScore: Number(r.totalPoints) || 0,
+              percentage: Number(r.percentage) || 0,
+              apScore: r.apScore ?? null,
+              timeSpent: r.timeSpent ?? null,
+              overtimeMinutes: r.overtimeMinutes || 0,
+              submittedAt: new Date().toISOString(),
+            }).catch((e) => console.error('Assignment submission failed', e));
+          }
           console.log('Test saved to history successfully');
 
           // Append-only response log, one row per attempted item. `userAnswer`
@@ -1002,7 +1043,7 @@ Format as JSON:
       setTestResults(cleaned);
       setCurrentView('results');
     }
-  }, [user, selectedSubject, selectedSection, selectedSubSection, selectedUnits, questions, userAnswers, calculateResults, getTimeSpent, sanitizeResultsData, emergencyCleanResults]);
+  }, [user, selectedSubject, selectedSection, selectedSubSection, selectedUnits, questions, userAnswers, calculateResults, getTimeSpent, sanitizeResultsData, emergencyCleanResults, assignment]);
 
   // Open a saved test's results (History and Recent Tests both use this).
   // docId lets "Grade it now" save back; this session's photos belong to
@@ -1043,10 +1084,10 @@ Format as JSON:
   }, [handleSubmitTest]);
 
   useEffect(() => {
-    if (testStarted && !testPaused && timeRemaining > 0) {
+    if (testStarted && !testPaused && (timeRemaining > 0 || keepGoing)) {
       timerRef.current = setInterval(() => {
         setTimeRemaining(prev => {
-          if (prev <= 1) {
+          if (prev <= 1 && !keepGoing) {
             clearInterval(timerRef.current);
             return 0;
           }
@@ -1058,14 +1099,14 @@ Format as JSON:
     }
 
     return () => clearInterval(timerRef.current);
-  }, [testStarted, testPaused, timeRemaining]); // Timer only starts/stops based on test state; time-up is handled by separate effect
+  }, [testStarted, testPaused, timeRemaining, keepGoing]); // Timer only starts/stops based on test state; time-up is handled by separate effect
 
   // Separate effect for time-up detection (avoids side effects inside state updater)
   useEffect(() => {
-    if (testStarted && !testPaused && timeRemaining === 0) {
-      handleTimeUp();
-    }
-  }, [timeRemaining, testStarted, testPaused, handleTimeUp]);
+    if (!testStarted || testPaused || timeRemaining !== 0) return;
+    if (keepGoing) toast.info("Time's up. Keep going: the timer now shows how far over you are.");
+    else handleTimeUp();
+  }, [timeRemaining, testStarted, testPaused, handleTimeUp, keepGoing, toast]);
 
   // Look for an unfinished test once, on load. This is the missing half of
   // auto-save: the write existed, the read never did.
@@ -1131,8 +1172,13 @@ Format as JSON:
     setTimeLimitMinutes(resumable.timeLimitMinutes || sub?.time || cfg?.time || 90);
     // A save taken as time ran out would submit the instant it resumed.
     const left = resumable.timeRemaining || 0;
-    if (left < 60) toast.info('Your time had nearly run out, so you have 1 minute to finish.');
-    setTimeRemaining(Math.max(60, left));
+    setKeepGoing(resumable.keepGoing === true);
+    if (resumable.keepGoing === true) {
+      setTimeRemaining(left);
+    } else {
+      if (left < 60) toast.info('Your time had nearly run out, so you have 1 minute to finish.');
+      setTimeRemaining(Math.max(60, left));
+    }
     setResumable(null);
     setTestStarted(true);
     setCurrentView('test');
@@ -1144,7 +1190,7 @@ Format as JSON:
   const saveProgressRef = useRef(null);
   autoSaveState.current = {
     selectedSubject, selectedSection, selectedSubSection, selectedUnits, questions, userAnswers,
-    currentQuestionIndex, timeRemaining, testMarks, answerImages, timeLimitMinutes,
+    currentQuestionIndex, timeRemaining, testMarks, answerImages, timeLimitMinutes, keepGoing,
   };
 
   // Auto-save functionality.
@@ -1226,6 +1272,7 @@ Format as JSON:
             currentQuestionIndex: live.currentQuestionIndex || 0,
             timeRemaining: live.timeRemaining || 0,
             timeLimitMinutes: live.timeLimitMinutes || 0,
+            keepGoing: live.keepGoing === true,
             savedAtMs: now,
           };
           const localOk = saveLocalProgress(user.uid, deepSanitize({ ...base, lastSaved: now }));
@@ -2556,7 +2603,7 @@ Generate EXACTLY ${mcqCount + frqCount} questions - no extras!`;
     // Use the API to generate questions based on the section instructions
     const prompt = `[Batch starting at ID ${startId}, seed: ${Date.now()}]
 You are an expert ${subject} question generator. ${sectionInstructions}
-
+${requiredMaterialsFor(subject) ? `\n${requiredMaterialsFor(subject)}\nWhere the exam would use a required document, case, text or work, use one from this list.\n` : ''}
 CRITICAL INSTRUCTIONS - FOLLOW EXACTLY:
 1. Return ONLY valid JSON array starting with [ and ending with ]
 2. Generate EXACTLY ${numQuestions} complete, UNIQUE questions (different from any previous batch)
@@ -3063,6 +3110,7 @@ Answer the student's question about the specific parts it asks about. Refer to p
   // Difficulty setting removed
     setCustomTime('');
     setUseDefaultTime(true);
+    setKeepGoing(false);
     setQuestions([]);
     setCurrentQuestionIndex(0);
     setUserAnswers({});
@@ -3102,6 +3150,18 @@ Answer the student's question about the specific parts it asks about. Refer to p
   if (currentView === 'setup') {
     return (
       <>
+      {assignment && (
+        <div className="max-w-6xl mx-auto px-4 pt-4">
+          <div className="rounded-lg border border-primary-500/40 bg-primary-500/10 p-3 text-sm">
+            <span className="font-medium text-content-primary">Assignment: {assignment.title}</span>
+            <span className="text-content-secondary">
+              {assignment.by ? ` from ${assignment.by}` : ''}
+              {assignment.dueAt ? `, due ${new Date(assignment.dueAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}` : ''}.
+              {' '}Your teacher's settings are filled in below. {assignment.countsOnLeaderboard ? 'This test counts on the class leaderboard.' : 'Only you and your teacher see your score.'}
+            </span>
+          </div>
+        </div>
+      )}
       {/* Resume prompt — the payoff of auto-save. Rendered above the setup
           panel rather than inside it so SetupPanel keeps one job. */}
       {resumable && (
@@ -3139,6 +3199,8 @@ Answer the student's question about the specific parts it asks about. Refer to p
         setCustomTime={setCustomTime}
         useDefaultTime={useDefaultTime}
         setUseDefaultTime={setUseDefaultTime}
+        keepGoing={keepGoing}
+        setKeepGoing={setKeepGoing}
         useDefaultQuestionCount={useDefaultQuestionCount}
         setUseDefaultQuestionCount={setUseDefaultQuestionCount}
         customQuestionCount={customQuestionCount}

@@ -1,0 +1,1306 @@
+{
+ "AP African American Studies": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-african-american-studies.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-african-american-studies.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-african-american-studies-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-african-american-studies-set-1.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-african-american-studies-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-african-american-studies-set-2.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-african-american-studies.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-african-american-studies.pdf"
+  }
+ ],
+ "AP Art History": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-art-history.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-art-history.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-art-history.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-art-history.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-art-history.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-art-history.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-art-history.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-art-history.pdf"
+  }
+ ],
+ "AP Biology": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-biology.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-biology.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-biology.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-biology.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-biology.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-biology.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-biology.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-biology.pdf"
+  }
+ ],
+ "AP Calculus AB": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-calculus-ab.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-calculus-ab.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-calculus-ab.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-calculus-ab.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-calculus-ab.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-calculus-ab.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-calculus-ab.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-calculus-ab.pdf"
+  }
+ ],
+ "AP Calculus BC": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-calculus-bc.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-calculus-bc.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-calculus-bc.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-calculus-bc.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-calculus-bc.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-calculus-bc.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-calculus-bc.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-calculus-bc.pdf"
+  }
+ ],
+ "AP Chemistry": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-chemistry.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-chemistry.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-chemistry.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-chemistry.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-chemistry.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-chemistry.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-chemistry.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-chemistry.pdf"
+  }
+ ],
+ "AP Chinese Language and Culture": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-chinese-language.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-chinese-language.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-chinese-language.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-chinese-language.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-chinese-language.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-chinese-language.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-chinese-language.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-chinese-language.pdf"
+  }
+ ],
+ "AP Comparative Government and Politics": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-comp-gov-pol.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-comp-gov-pol.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-comp-gov-pol-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-comp-gov-pol-set-1.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-comp-gov-pol-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-comp-gov-pol-set-2.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-comp-gov-pol-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-comp-go-po-set-1.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-comp-gov-pol-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-comp-go-po-set-2.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-comp-gov-pol-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-comp-go-po-set-1.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-comp-gov-pol-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-comp-go-po-set-2.pdf"
+  }
+ ],
+ "AP Computer Science A": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-computer-science-a.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-computer-science-a.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-computer-science-a.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-computer-science-a.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-comp-sci-a.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-computer-science-a.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-comp-sci-a.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-computer-science-a.pdf"
+  }
+ ],
+ "AP Computer Science Principles": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-computer-science-principles.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-computer-science-principles.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-computer-science-principles-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-computer-science-principles-set-1.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-computer-science-principles-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-computer-science-principles-set-2.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-csp-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-computer-science-principles-set-1.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-csp-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-computer-science-principles-set-2.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "",
+   "frq": null,
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-computer-science-principles.pdf"
+  }
+ ],
+ "AP English Language and Composition": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-english-language.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-english-language.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-english-language-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-english-language-set-1.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-english-language-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-english-language-set-2.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-english-language-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-english-language-set-1.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-english-language-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-english-language-set-2.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-english-language-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-english-language-set-1.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-english-language-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-english-language-set-2.pdf"
+  }
+ ],
+ "AP English Literature and Composition": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-english-literature.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-english-literature.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-english-literature-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-english-literature-set-1.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-english-literature-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-english-literature-set-2.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-english-lit-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-english-literature-set-1.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-english-lit-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-english-literature-set-2.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-english-lit-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-english-literature-set-1.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-english-lit-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-english-literature-set-2.pdf"
+  }
+ ],
+ "AP Environmental Science": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-environmental-science.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-environmental-science.pdf"
+  },
+  {
+   "year": 2026,
+   "label": "Set 2",
+   "frq": null,
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-environmental-science-set-2.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-environmental-science-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-environmental-science-set-1.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-environmental-science-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-environmental-science-set-2.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-environmental-science-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-environmental-science-set-1.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-environmental-science-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-environmental-science-set-2.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-environmental-science-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-environmental-science-set-1.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-environmental-science-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-environmental-science-set-2.pdf"
+  }
+ ],
+ "AP European History": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-european-history.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-european-history.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-european-history-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-european-history-set-1.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-european-history-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-european-history-set-2.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-european-history-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-european-history-set-1.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-european-history-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-european-history-set-2.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-european-history-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-european-history-set-1.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-european-history-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-european-history-set-2.pdf"
+  }
+ ],
+ "AP French Language and Culture": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-french-language-script.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-french-language.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-french-language-scripts.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-french-language.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-french-language-scripts.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-french-language.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-french-language-scripts.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-french-language.pdf"
+  }
+ ],
+ "AP German Language and Culture": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-german-language-script.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-german-language.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-german-language-scripts.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-german-language.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-german-language-scripts.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-german-language.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-german-language-scripts.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-german-language.pdf"
+  }
+ ],
+ "AP Human Geography": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-human-geography.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-human-geography.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-human-geography-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-human-geography-set-1.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-human-geography-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-human-geography-set-2.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-human-geography-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-human-geography-set-1.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-human-geography-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-human-geography-set-2.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-human-geography-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-human-geography-set-1.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-human-geography-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-human-geography-set-2.pdf"
+  }
+ ],
+ "AP Italian Language and Culture": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-italian-language-script.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-italian-language.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-italian-language-scripts.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-italian-language.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-italian-language-scripts.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-italian-language.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-italian-language-scripts.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-italian-language.pdf"
+  }
+ ],
+ "AP Japanese Language and Culture": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-japanese-language.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-japanese-language.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-japanese-language.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-japanese-language.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-japanese-language.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-japanese-language.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-japanese-language.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-japanese-language.pdf"
+  }
+ ],
+ "AP Latin": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-latin.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-latin.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-latin.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-latin.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-latin.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-latin.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-latin.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-latin.pdf"
+  }
+ ],
+ "AP Macroeconomics": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-macroeconomics.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-macroeconomics.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-macroeconomics-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-macroeconomics-set-1.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-macroeconomics-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-macroeconomics-set-2.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-macroeconomics-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-macroeconomics-set-1.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-macroeconomics-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-macroeconomics-set-2.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-macroeconomics-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-macroeconomics-set-1.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-macroeconomics-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-macroeconomics-set-2.pdf"
+  }
+ ],
+ "AP Microeconomics": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-microeconomics.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-microeconomics.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-microeconomics-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-microeconomics-set-1.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-microeconomics-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-microeconomics-set-2.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-microeconomics-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-microeconomics-set-1.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-microeconomics-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-microeconomics-set-2.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-microeconomics-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-microeconomics-set-1.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-microeconomics-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-microeconomics-set-2.pdf"
+  }
+ ],
+ "AP Music Theory": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-music-theory.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-music-theory.pdf"
+  },
+  {
+   "year": 2026,
+   "label": "Sight-singing",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-music-theory-sight-singing.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-music-theory-sight-singing.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-music-theory.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-music-theory.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "Sight-singing",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-music-theory-sight-singing.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-music-theory-sight-singing.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-music-theory.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-music-theory.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Sight-singing",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-music-theory-sight-singing.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-music-theory-sight-singing.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-music-theory.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-music-theory.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "Sight-singing",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-music-theory-sight-singing.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-music-theory-sight-singing.pdf"
+  }
+ ],
+ "AP Physics 1: Algebra-Based": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-physics-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-physics-1.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-physics-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-physics-1.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-physics-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-physics-1.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-physics-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-physics-1.pdf"
+  }
+ ],
+ "AP Physics 2: Algebra-Based": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-physics-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-physics-2.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-physics-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-physics-2.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-physics-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-physics-2.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-physics-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-physics-2.pdf"
+  }
+ ],
+ "AP Physics C: Electricity and Magnetism": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-physics-c-em.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-physics-c-em.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-physics-c-em.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-physics-c-em.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-physics-c-em-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-physics-c-em-set-1.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-physics-c-em-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-physics-c-em-set-2.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-physics-c-em-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-physics-c-em-set-1.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-physics-c-em-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-physics-c-em-set-2.pdf"
+  }
+ ],
+ "AP Physics C: Mechanics": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-physics-c-mech.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-physics-c-mech.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-physics-c-mech.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-physics-c-mech.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-physics-c-mech-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-physics-c-mech-set-1.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-physics-c-mech-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-physics-c-mech-set-2.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-physics-c-mechanics-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-physics-c-mech-set-1.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-physics-c-mechanics-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-physics-c-mech-set-2.pdf"
+  }
+ ],
+ "AP Precalculus": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-precalculus.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-precalculus.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-precalculus.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-precalculus.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-precalculus.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-precalculus.pdf"
+  }
+ ],
+ "AP Psychology": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-psychology.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-psychology.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-psychology-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-psychology-set-1.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-psychology-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-psychology-set-2.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-psychology-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-psychology-set-1.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-psychology-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-psychology-set-2.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-psychology-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-psychology-set-1.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-psychology-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-psychology-set-2.pdf"
+  }
+ ],
+ "AP Spanish Language and Culture": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-spanish-language-script.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-spanish-language.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-spanish-language-scripts.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-spanish-language.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-spanish-language-scripts.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-spanish-language.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-spanish-language-scripts.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-spanish-language.pdf"
+  }
+ ],
+ "AP Spanish Literature and Culture": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-spanish-literature.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-spanish-literature.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-spanish-literature.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-spanish-literature.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-spanish-literature.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-spanish-literature.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-spanish-literature.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-spanish-literature.pdf"
+  }
+ ],
+ "AP Statistics": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-statistics.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-statistics.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-statistics.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-statistics.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-statistics.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-statistics.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-statistics.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-statistics.pdf"
+  }
+ ],
+ "AP U.S. Government and Politics": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-us-gov-pol.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-us-gov-pol.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-us-gov-pol-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-us-gov-pol-set-1.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-us-gov-pol-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-us-gov-pol-set-2.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-us-gov-pol-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-us-go-po-set-1.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-us-gov-pol-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-us-go-po-set-2.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-us-gov-pol-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-us-go-po-set-1.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-us-gov-pol-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-us-go-po-set-2.pdf"
+  }
+ ],
+ "AP U.S. History": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-us-history.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-us-history.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-us-history-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-us-history-set-1.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-us-history-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-us-history-set-2.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-us-history-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-us-history-set-1.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-us-history-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-us-history-set-2.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-us-history-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-us-history-set-1.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-us-history-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-us-history-set-2.pdf"
+  }
+ ],
+ "AP World History: Modern": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-world-history-modern.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-world-history-modern.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-world-history-modern-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-world-history-modern-set-1.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-world-history-modern-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-world-history-modern-set-2.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-world-history-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-world-history-modern-set-1.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-world-history-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-world-history-modern-set-2.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-world-history-modern-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-world-history-modern-set-1.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-world-history-modern-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-world-history-modern-set-2.pdf"
+  }
+ ],
+ "AP Seminar": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap26-frq-seminar.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-seminar-eoc.pdf"
+  },
+  {
+   "year": 2026,
+   "label": "Performance task 1",
+   "frq": null,
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-seminar-pt1.pdf"
+  },
+  {
+   "year": 2026,
+   "label": "Performance task 2",
+   "frq": null,
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-seminar-pt2.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "Performance task 1",
+   "frq": null,
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-seminar-pt1.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "Performance task 2",
+   "frq": null,
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-seminar-pt2.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-seminar-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-seminar-eoc-set-1.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap25-frq-seminar-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-seminar-eoc-set-2.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Performance task 1",
+   "frq": null,
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-seminar-pt1.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Performance task 2",
+   "frq": null,
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-seminar-pt2.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-seminar-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-seminar-eoc-set-1.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap24-frq-seminar-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-seminar-eoc-set-2.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "Performance task 1",
+   "frq": null,
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-seminar-pt1-with-presentation.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "Performance task 2",
+   "frq": null,
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-seminar-pt2-with-presentation.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "Set 1",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-seminar-set-1.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-seminar-eoc-set-1.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "Set 2",
+   "frq": "https://apcentral.collegeboard.org/media/pdf/ap23-frq-seminar-set-2.pdf",
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-seminar-eoc-set-2.pdf"
+  }
+ ],
+ "AP Research": [
+  {
+   "year": 2026,
+   "label": "",
+   "frq": null,
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap26-sg-research-oral-presentation.pdf"
+  },
+  {
+   "year": 2025,
+   "label": "",
+   "frq": null,
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap25-sg-research-oral-presentation.pdf"
+  },
+  {
+   "year": 2024,
+   "label": "",
+   "frq": null,
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap24-sg-research-oral-defense.pdf"
+  },
+  {
+   "year": 2023,
+   "label": "",
+   "frq": null,
+   "sg": "https://apcentral.collegeboard.org/media/pdf/ap23-sg-research-oral-presentation.pdf"
+  }
+ ]
+}

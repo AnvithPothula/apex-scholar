@@ -18,6 +18,7 @@ import OverdueTasksBanner from "../components/scheduler/OverdueTasksBanner.jsx";
 import { Button, ScrollArea, Badge } from "../components/ui/UIComponents.jsx";
 import IntelligentScheduler from "../utils/intelligentScheduler";
 import useScheduleGeneration from "../hooks/useScheduleGeneration";
+import { syncAssignmentsToTasks } from '../services/classAssignments';
 
 // Gate debug logging behind development mode
 const IS_DEV = process.env.NODE_ENV === 'development';
@@ -266,6 +267,11 @@ export default function SmartScheduler() {
     
     loadUserData();
   }, [user, saveUserPreferencesToFirebase]);
+
+  // Class assignments become tasks (the listener below picks them up).
+  useEffect(() => {
+    if (user?.uid) syncAssignmentsToTasks(user.uid);
+  }, [user?.uid]);
 
   // Load tasks from Firebase
   useEffect(() => {

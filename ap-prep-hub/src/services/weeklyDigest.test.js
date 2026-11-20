@@ -127,3 +127,12 @@ describe('personalised week', () => {
     expect(d.body).not.toContain('/start');
   });
 });
+
+test('the Grader announcement leads the 2026-11-22 email and is gone the week after', () => {
+  const on = buildDigest({ user: bio, now: new Date(Date.UTC(2026, 10, 22, 14)) });
+  expect(on.html.indexOf('New: the Grader')).toBeGreaterThan(-1);
+  expect(on.html.indexOf('New: the Grader')).toBeLessThan(on.html.indexOf('<p', on.html.indexOf('</div>')));
+  expect(on.body).toContain('Try the Grader: https://apex-scholar.com/grader');
+  const off = buildDigest({ user: bio, now: new Date(Date.UTC(2026, 10, 29, 14)) });
+  expect(off.html).not.toContain('New: the Grader');
+});

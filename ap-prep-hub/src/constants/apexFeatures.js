@@ -15,7 +15,7 @@ export const APEX_FEATURES = [
   { name: 'AP score calculator', path: '/ap-score-calculator', blurb: 'raw scores to an estimated 1-5, with the curve shown' },
   { name: 'flashcards', path: '/flashcards', blurb: 'build a deck, study it, or use a public one' },
   { name: 'review', path: '/review', blurb: 'questions you missed, resurfaced on a spaced schedule' },
-  { name: 'solver', path: '/solver', blurb: 'photo or typed problem, worked through step by step' },
+  { name: 'grader', path: '/grader', blurb: 'grades FRQs against official scoring guidelines or your rubric, and checks MCQs, from text or photos' },
   { name: 'diagnostic', path: '/diagnostics', blurb: 'short assessment that finds weak units' },
   { name: 'study scheduler', path: '/smart-scheduler', blurb: 'builds a study plan around deadlines' },
   { name: 'progress', path: '/progress', blurb: 'mastery and accuracy over time' },

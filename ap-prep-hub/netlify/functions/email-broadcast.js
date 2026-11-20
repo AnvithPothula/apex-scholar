@@ -22,6 +22,7 @@
 const crypto = require('crypto');
 const { getAdminApp } = require('../lib/firebaseAdmin');
 const { wants } = require('../lib/emailPrefs');
+const { tagLinks } = require('../lib/emailLinks');
 
 const ADMIN_UIDS = ['b0eUycwZDHcmrkoeSEiD69QSbK32', 'A0yRGP86ZTahByzS0ALYeKAXOn52'];
 
@@ -381,7 +382,7 @@ exports.handler = async (event) => {
 // Inboxes show the display name, not the address; a bare address showed as "no-reply".
 const senderOf = (from) => (/</.test(from) ? from : `Apex Scholar <${String(from).trim()}>`);
 
-async function sendBatch(apiKey, from, to, subject, bodyText, unsubUrl, { html, heading, preheader, cta } = {}) {
+async function sendBatch(apiKey, from, to, subject, bodyText, unsubUrl, { html, heading, preheader, cta, campaign = 'announcement' } = {}) {
   try {
     const res = await fetch('https://api.smtp2go.com/v3/email/send', {
       method: 'POST',
@@ -390,8 +391,8 @@ async function sendBatch(apiKey, from, to, subject, bodyText, unsubUrl, { html, 
         sender: senderOf(from),
         to,
         subject,
-        text_body: `${bodyText}\n\n---\nApex Scholar · https://apex-scholar.com\nUnsubscribe: ${unsubUrl}`,
-        html_body: buildHtml(html ?? bodyToHtml(bodyText), unsubUrl, subject, { heading, preheader, cta }),
+        text_body: tagLinks(`${bodyText}\n\n---\nApex Scholar · https://apex-scholar.com\nUnsubscribe: ${unsubUrl}`, campaign),
+        html_body: tagLinks(buildHtml(html ?? bodyToHtml(bodyText), unsubUrl, subject, { heading, preheader, cta }), campaign),
         // Mail clients surface this as a native one-click unsubscribe button.
         custom_headers: [
           { header: 'List-Unsubscribe', value: `<${unsubUrl}>` },

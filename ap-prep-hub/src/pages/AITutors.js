@@ -96,6 +96,7 @@ import aiUsageLimiter from '../services/aiUsageLimiter';
 import useAiUsage from '../hooks/useAiUsage';
 import useDocumentMeta from '../hooks/useDocumentMeta';
 import { canonicalFor } from '../utils/pageMeta';
+import { requiredMaterialsFor } from '../constants/requiredMaterials';
 
 /**
  * Tutor answer modes.
@@ -1733,6 +1734,7 @@ ${citations.map(c => `- Page ${c.page}: ${c.snippet}`).join('\n')}
 ${personalDirective ? `\n${personalDirective}` : ''}
 
 ${curriculumBlock}
+${requiredMaterialsFor(subjectName, { compact: true })}
 ${scoringBrief && budget.scoringBrief ? `\n${scoringBrief}\n` : ''}
 ${budget.siteBrief ? siteBrief : ''}
 ${langDirective ? `\n${langDirective}\n` : ''}

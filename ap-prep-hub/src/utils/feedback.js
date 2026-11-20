@@ -35,7 +35,7 @@ export const AREAS = [
   { value: 'review', label: 'Review', paths: ['/review'] },
   { value: 'flashcards', label: 'Flashcards', paths: ['/flashcards'] },
   { value: 'scheduler', label: 'Scheduler', paths: ['/smart-scheduler'] },
-  { value: 'solver', label: 'Solver', paths: ['/solver'] },
+  { value: 'grader', label: 'Grader', paths: ['/grader'] },
   { value: 'diagnostics', label: 'Diagnostics', paths: ['/diagnostics', '/start'] },
   { value: 'score-calculator', label: 'Score calculator', paths: ['/ap-score-calculator'] },
   { value: 'classes', label: 'Classes', paths: ['/classes', '/join'] },

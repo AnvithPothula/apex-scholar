@@ -56,8 +56,9 @@ export const TASK_COST = {
   ask: 8,               // highlight Ask / Explain in a study pack
   timelineNote: 8,      // a timeline study note
   reviewExplain: 10,    // "why was I wrong" in Review
-  solver: 25,           // typed problem
-  solverImage: 40,      // photo of a problem
+  grade: 30,            // an FRQ graded from typed work
+  gradeImage: 45,       // grading that reads photos
+  gradeMcq: 20,         // multiple-choice answers checked
   flashcards: 50,       // a generated deck
   diagnostic: 50,       // generated diagnostic questions
   progressInsights: 20, // the Progress page study analysis
@@ -74,8 +75,9 @@ export const TASK_COST_RANGE = {
   ask: { min: 5, max: 16 },
   timelineNote: { min: 5, max: 16 },
   reviewExplain: { min: 6, max: 20 },
-  solver: { min: 15, max: 50 },
-  solverImage: { min: 25, max: 80 },
+  grade: { min: 20, max: 60 },
+  gradeImage: { min: 30, max: 90 },
+  gradeMcq: { min: 12, max: 40 },
   flashcards: { min: 30, max: 100 },
   diagnostic: { min: 30, max: 100 },
   progressInsights: { min: 12, max: 40 },
@@ -125,8 +127,9 @@ export const TASK_LABELS = {
   ask: 'Ask or Explain on highlighted text',
   timelineNote: 'Timeline study note',
   reviewExplain: 'Review explanation',
-  solver: 'Solver (typed)',
-  solverImage: 'Solver (photo)',
+  grade: 'Grader (typed FRQ)',
+  gradeImage: 'Grader (photos)',
+  gradeMcq: 'Grader (multiple choice)',
   flashcards: 'AI flashcard deck',
   diagnostic: 'Diagnostic questions',
   progressInsights: 'Progress analysis',

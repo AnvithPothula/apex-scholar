@@ -34,6 +34,27 @@ async function loadPdfJs() {
   }
 }
 
+/** Every text line of a PDF (Uint8Array or ArrayBuffer), in reading order. */
+export async function extractPdfLines(data) {
+  const pdfjs = await loadPdfJs();
+  const doc = await pdfjs.getDocument({ data: data instanceof Uint8Array ? data : new Uint8Array(data) }).promise;
+  const lines = [];
+  for (let p = 1; p <= doc.numPages; p++) {
+    const { items } = await (await doc.getPage(p)).getTextContent();
+    let cur = '';
+    for (const it of items) {
+      if (!('str' in it)) continue;
+      cur += it.str;
+      if (it.hasEOL) {
+        if (cur.trim()) lines.push(cur.trim());
+        cur = '';
+      } else if (it.str && !/\s$/.test(it.str)) cur += ' ';
+    }
+    if (cur.trim()) lines.push(cur.trim());
+  }
+  return lines;
+}
+
 export function base64ToUint8Array(b64) {
   try {
     const raw = atob(b64);

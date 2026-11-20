@@ -41,8 +41,8 @@ const FEATURES = [
     blurb: 'Every question you miss comes back until it sticks.' },
   { icon: Calendar, color: 'text-info-400', bg: 'bg-info-500/15', name: 'Smart Scheduler',
     blurb: 'Study blocks around your real Schoology assignments.' },
-  { icon: Zap, color: 'text-warning-400', bg: 'bg-warning-500/15', name: 'Flashcards & Solver',
-    blurb: 'Spaced repetition, and a photo solver for stuck problems.' },
+  { icon: Zap, color: 'text-warning-400', bg: 'bg-warning-500/15', name: 'Flashcards & Grader',
+    blurb: 'Spaced repetition, and a grader that scores your FRQs against official rubrics.' },
   { icon: Calculator, color: 'text-primary-400', bg: 'bg-primary-500/15', name: 'Score calculators',
     blurb: 'All 36 subjects, and the only one that shows you the curve.' },
 ];

@@ -20,6 +20,8 @@ const SetupPanel = ({
   customTime,
   setCustomTime,
   useDefaultTime,
+  keepGoing,
+  setKeepGoing,
   setUseDefaultTime,
   useDefaultQuestionCount,
   setUseDefaultQuestionCount,
@@ -341,6 +343,18 @@ const SetupPanel = ({
                           />
                         </div>
                       </div>
+                      <label className="flex items-start gap-3 p-3 rounded-lg border border-border-strong bg-base-800 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={keepGoing}
+                          onChange={(e) => setKeepGoing(e.target.checked)}
+                          className="mt-1 h-4 w-4 accent-primary-500"
+                        />
+                        <span>
+                          <span className="block text-content-primary">Keep going after time runs out</span>
+                          <span className="block text-sm text-content-muted">The test won't submit itself. The timer counts the extra time, and your results show it.</span>
+                        </span>
+                      </label>
                     </div>
                   </motion.div>
                 )}

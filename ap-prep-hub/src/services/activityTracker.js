@@ -169,8 +169,8 @@ export async function recordLearnSession(userId, subject = '') {
   ]);
 }
 
-/** One problem run through the solver. Counter only. */
-export async function recordSolve(userId) {
+/** One answer run through the Grader. Counter only (kept as 'solve_problem' so earned badges stay earned). */
+export async function recordGrade(userId) {
   if (!userId) return;
   await safely('solve', () => achievementsService.trackActivity(userId, 'solve_problem'));
 }
@@ -183,7 +183,7 @@ const activityTracker = {
   recordLearnSession,
   recordDeckCreated,
   recordReviewEvent,
-  recordSolve,
+  recordGrade,
 };
 
 export default activityTracker;

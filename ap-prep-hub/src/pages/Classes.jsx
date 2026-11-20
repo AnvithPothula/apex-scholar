@@ -20,6 +20,7 @@ import { useConfirm } from '../contexts/ConfirmContext';
 import { createPageUrl } from '../utils/helpers';
 import classesService, { MIN_RANKED_ANSWERS } from '../services/classes';
 import { normalizeClassCode } from '../utils/classCode';
+import ClassAssignments from '../components/classes/ClassAssignments';
 
 function Shell({ children, back }) {
   return (
@@ -368,6 +369,9 @@ function ClassDetail({ code }) {
 
       {isMember && (
         <>
+          <div className="mb-6">
+            <ClassAssignments code={normalized} klass={klass} isOwner={isOwner} members={rows} />
+          </div>
           <div className="flex items-center gap-2 mb-3">
             <Trophy className="w-5 h-5 text-content-primary" strokeWidth={1.5} />
             <h3 className="text-h4 font-display">Leaderboard</h3>
@@ -410,7 +414,7 @@ function ClassDetail({ code }) {
             ))}
           </Card>
           <p className="text-caption text-content-muted mt-3">
-            Accuracy across every practice test taken since joining. Ties break toward more questions answered.
+            Accuracy across every practice test taken since joining, except assigned tests the teacher kept private. Ties break toward more questions answered.
           </p>
 
           <div className="mt-6 flex flex-wrap gap-2">

@@ -57,7 +57,7 @@ export default function AiDowngradeNotice() {
           <p className="text-content-secondary text-sm leading-relaxed">
             Premium AI is no longer available for this account, so all AI features now use
             Apex Scholar's <strong className="text-content-primary">standard AI model</strong> from here on.
-            Everything keeps working as normal — your tutors, practice, flashcards, and solver are unaffected.
+            Everything keeps working as normal — your tutors, practice, flashcards, and grader are unaffected.
           </p>
         </div>
 

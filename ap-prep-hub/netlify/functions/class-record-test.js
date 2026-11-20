@@ -121,6 +121,15 @@ exports.handler = async (event) => {
 
     const score = scoreSavedTest(test);
     if (!score) return reply(422, headers, { error: 'Not a scoreable test' });
+
+    // A practice test set as class homework stays off every leaderboard unless
+    // the teacher chose "count on leaderboard" (read from the assignment, not
+    // from the student's copy of the flag).
+    const asg = test.assignment;
+    if (asg && TEST_ID.test(String(asg.classId || '')) && TEST_ID.test(String(asg.assignmentId || ''))) {
+      const a = await db.doc(`classes/${asg.classId}/assignments/${asg.assignmentId}`).get();
+      if (!a.exists || a.get('countsOnLeaderboard') !== true) return reply(200, headers, { classes: 0, private: true, ...score });
+    }
     if (score.answered === 0) return reply(200, headers, { classes: 0, ...score });
 
     const pointers = await db.collection(`users/${uid}/classes`).get();

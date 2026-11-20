@@ -16,9 +16,13 @@ const EMAIL_CATEGORIES = {
   announcements: 'Occasional announcements: new subjects and features',
 };
 
-/** Should this user get an email of this category? */
+/**
+ * Should this user get an email of this category? Never to an address that
+ * hard-bounced (`emailBounced`): sending to dead addresses hurts the sender
+ * reputation every other email depends on.
+ */
 function wants(user, category) {
-  return Boolean(user) && user.emailOptIn !== false && user.emailPrefs?.[category] !== false;
+  return Boolean(user) && user.emailOptIn !== false && user.emailBounced !== true && user.emailPrefs?.[category] !== false;
 }
 
 /** Fields of an application/x-www-form-urlencoded body (Netlify may base64 it). */

@@ -18,7 +18,7 @@ import GuestGate from './components/GuestGate';
 import { metaFor } from './constants/routeMeta';
 import { canonicalFor, INDEX_ROBOTS } from './utils/pageMeta';
 import useDocumentMeta from './hooks/useDocumentMeta';
-import { Calendar, FileQuestion, Zap, Calculator, Settings as SettingsIcon, Activity, Brain, TrendingUp, Users } from 'lucide-react';
+import { Calendar, FileQuestion, Zap, ClipboardCheck, Settings as SettingsIcon, Activity, Brain, TrendingUp, Users } from 'lucide-react';
 import ErrorBoundary from './components/ErrorBoundary';
 import PageSkeleton from './components/ui/PageSkeleton';
 import { ToastProvider } from './contexts/ToastContext';
@@ -36,7 +36,7 @@ const Settings = lazy(retryingImport(() => import('./pages/Settings')));
 // eslint-disable-next-line import/first
 const Flashcards = lazy(retryingImport(() => import('./pages/Flashcards')));
 // eslint-disable-next-line import/first
-const Solver = lazy(retryingImport(() => import('./pages/Solver')));
+const Grader = lazy(retryingImport(() => import('./pages/Grader')));
 // eslint-disable-next-line import/first
 const Diagnostics = lazy(retryingImport(() => import('./pages/Diagnostics')));
 // eslint-disable-next-line import/first
@@ -122,14 +122,14 @@ const FEATURES = {
       'Share a deck publicly so classmates can study it, or study decks other students have shared.',
     ],
   },
-  solver: {
-    icon: Calculator, title: 'Problem Solver', preview: '/guest-previews/solver.jpg',
-    heading: 'AP problem solver, step by step',
-    blurb: 'Sign in for free to get step-by-step solutions to any problem from a photo or text.',
+  grader: {
+    icon: ClipboardCheck, title: 'Grader',
+    heading: 'AP free-response and multiple-choice grader',
+    blurb: 'Sign in for free to grade your FRQs against the official College Board scoring guidelines.',
     about: [
-      'Take a photo of a problem or type it in. The solver works through it step by step, so you see the method and not just the answer.',
-      'Each solution lists the key concepts it uses and the common mistakes to watch for.',
-      'Built for AP math and science: calculus, precalculus, statistics, physics, chemistry and more.',
+      'Pick a past AP exam question and the Grader scores your answer against College Board\'s own scoring guidelines, point by point.',
+      'Have a rubric from your teacher? Paste it or add a photo, and it grades against that instead.',
+      'Type your answer or photograph your handwritten work. Multiple-choice answers can be checked too.',
     ],
   },
   settings:    { icon: SettingsIcon, title: 'Settings',          preview: '/guest-previews/settings.jpg',    blurb: 'Sign in for free to pick your AP subjects, customize your tutor, and manage your account.' },
@@ -271,7 +271,9 @@ function MainApp() {
           <Route path={createPageUrl("SmartScheduler")} element={<GuestGate feature={FEATURES.scheduler}><SmartScheduler /></GuestGate>} />
           <Route path={createPageUrl("PracticeTests")} element={<GuestGate feature={FEATURES.practice}><PracticeTests /></GuestGate>} />
           <Route path={createPageUrl("Flashcards")} element={<GuestGate feature={FEATURES.flashcards}><Flashcards /></GuestGate>} />
-          <Route path={createPageUrl("Solver")} element={<GuestGate feature={FEATURES.solver}><Solver /></GuestGate>} />
+          <Route path={createPageUrl("Grader")} element={<GuestGate feature={FEATURES.grader}><Grader /></GuestGate>} />
+          {/* The Solver was replaced by the Grader (2026-11). */}
+          <Route path="/solver/*" element={<Navigate to="/grader" replace />} />
           <Route path={createPageUrl("Settings")} element={<GuestGate feature={FEATURES.settings}><Settings /></GuestGate>} />
           <Route path={createPageUrl("Diagnostics")} element={<GuestGate feature={FEATURES.diagnostics}><Diagnostics /></GuestGate>} />
           <Route path={createPageUrl("Diagnostics", ":subject")} element={<GuestGate feature={FEATURES.diagnostics}><Diagnostics /></GuestGate>} />
@@ -306,7 +308,7 @@ function MainApp() {
           <Route path="/SmartScheduler/*" element={<LegacyRedirect to="/smart-scheduler" />} />
           <Route path="/PracticeTests/*"  element={<LegacyRedirect to="/practice-tests" />} />
           <Route path="/Flashcards/*"     element={<LegacyRedirect to="/flashcards" />} />
-          <Route path="/Solver/*"         element={<LegacyRedirect to="/solver" />} />
+          <Route path="/Solver/*"         element={<Navigate to="/grader" replace />} />
           <Route path="/Settings/*"       element={<LegacyRedirect to="/settings" />} />
           <Route path="/Diagnostics/*"    element={<LegacyRedirect to="/diagnostics" />} />
         </Route>

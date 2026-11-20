@@ -40,6 +40,8 @@ const IN_PROCESS = {
   'schoology-oauth': [],
   'admin-stats': [],
   feedback: [],
+  'past-frq': [],
+  'class-assignment-submit': [],
 };
 
 function runInProcess(name) {
@@ -70,7 +72,7 @@ function runInProcess(name) {
           isBase64Encoded: false,
         });
         res.writeHead(out.statusCode || 200, out.headers || {});
-        res.end(out.body || '');
+        res.end(out.isBase64Encoded ? Buffer.from(out.body || '', 'base64') : (out.body || ''));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: `${name} failed in the dev server: ${err.message}` }));

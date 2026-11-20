@@ -369,6 +369,51 @@ service cloud.firestore {
           request.auth.uid in get(/databases/$(database)/documents/classes/$(classId)).data.ownerIds
         );
       }
+
+      // ---- Assignments ----------------------------------------------------
+      // Owners set work; members see it. Inside these nested matches
+      // `resource` is the assignment, not the class, so ownership is read
+      // from the class doc.
+      function classOwner() {
+        return signedIn() &&
+          request.auth.uid in get(/databases/$(database)/documents/classes/$(classId)).data.ownerIds;
+      }
+      match /assignments/{assignmentId} {
+        allow read: if classOwner() || isMember();
+        allow create, update, delete: if classOwner();
+
+        // Answer keys, rubrics and teacher notes. Students never read these;
+        // netlify/functions/class-assignment-submit marks multiple choice
+        // against them and hands back only the student's own keys after they
+        // submit.
+        match /private/{docId} {
+          allow read, write: if classOwner();
+        }
+
+        // One submission per student. Only that student and the class's
+        // owners can read it: responses and scores never reach classmates.
+        //   mcq*        written only by class-assignment-submit (admin SDK)
+        //   teacher*    written only by an owner (override score, comment)
+        // A student writes the rest of their own row.
+        match /submissions/{studentId} {
+          allow read: if (signedIn() && request.auth.uid == studentId) || classOwner();
+          allow create: if signedIn() && request.auth.uid == studentId && isMember()
+                        && request.resource.data.userId == request.auth.uid
+                        && !request.resource.data.keys().hasAny(['mcqScore', 'mcqMax', 'mcqResults', 'teacherScore', 'teacherNote']);
+          allow update: if (signedIn() && request.auth.uid == studentId && isMember()
+                            && request.resource.data.userId == request.auth.uid
+                            && !request.resource.data.diff(resource.data).affectedKeys()
+                                 .hasAny(['userId', 'mcqScore', 'mcqMax', 'mcqResults', 'teacherScore', 'teacherNote'])
+                            // Once marked, answers are frozen; only the AI grades
+                            // of the written answers can still be added.
+                            && (!('mcqScore' in resource.data)
+                                || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['frqGrades', 'frqGradedAt'])))
+                        || (classOwner()
+                            && request.resource.data.diff(resource.data).affectedKeys()
+                                 .hasOnly(['teacherScore', 'teacherNote', 'teacherAt']));
+          allow delete: if classOwner();
+        }
+      }
     }
 
     // Deny all other access by default

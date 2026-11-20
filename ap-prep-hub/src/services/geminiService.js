@@ -1456,36 +1456,6 @@ Output ONLY a JSON array. Each object: {"question":"...","answer":"..."}. Use $L
     throw new Error('Could not parse generated flashcards');
   }
 
-  async solveProblem(problemText, subject = '', imageData = null) {
-    const isHumanities = /(history|government|politics|english|literature|world|u\s*s\s*history)/i.test(subject || '');
-    
-    const prompt = `Solve this ${subject || 'AP'} problem. ${isHumanities ? '' : 'Use $LaTeX$ for math.'}
-Problem: ${problemText}
-
-Output ONLY JSON:
-{${subject ? '' : '"subject":"the AP course it belongs to, e.g. AP Calculus AB",'}"problemType":"...","steps":[{"step":1,"title":"...","content":"...","explanation":"..."}],"finalAnswer":"...","concepts":["..."],"commonMistakes":["..."],"difficulty":"Easy|Medium|Hard","timeToSolve":"X-Y minutes"}`;
-
-    let response;
-    if (imageData) {
-      response = await this.generateWithImages(prompt, [imageData], { temperature: 0.3, maxTokens: 2048, usageCategory: 'solverImage' });
-    } else {
-      response = await this.generateContent(prompt, { temperature: 0.3, maxTokens: 2048, usageCategory: 'solver' });
-    }
-    
-    // Try to extract JSON, but return raw text if it fails (caller can handle it)
-    const result = this._extractJSON(response, false);
-    if (result.success) {
-      // Validate required fields
-      const data = result.data;
-      if (data.steps && data.finalAnswer) {
-        return JSON.stringify(data); // Return as string for compatibility
-      }
-    }
-    
-    // Return raw response - caller has fallback parsing
-    return response;
-  }
-
   async generateDiagnosticQuestions(subject, topic, difficulty = 'medium', count = 10) {
     // Concept spread is load-bearing, not cosmetic. Left unconstrained the model
     // gives every question its own concept, so a 15-question diagnostic produces

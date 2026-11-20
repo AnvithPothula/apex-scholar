@@ -347,36 +347,6 @@ class DataService {
     }
   }
 
-  // Solver History Management
-  async saveSolverHistory(userId, problemData) {
-    try {
-      await addDoc(collection(this.db, 'solverHistory'), {
-        userId,
-        ...problemData,
-        timestamp: serverTimestamp()
-      });
-    } catch (error) {
-      console.error('Error saving solver history:', error);
-      throw error;
-    }
-  }
-
-  async getUserSolverHistory(userId, limitCount = 20) {
-    try {
-      const q = query(
-        collection(this.db, 'solverHistory'),
-        where('userId', '==', userId),
-        orderBy('timestamp', 'desc'),
-        firestoreLimit(limitCount)
-      );
-      const snapshot = await getDocs(q);
-      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    } catch (error) {
-      console.error('Error fetching solver history:', error);
-      return [];
-    }
-  }
-
   // Achievements Management
   async saveUserAchievement(userId, achievementData) {
     try {

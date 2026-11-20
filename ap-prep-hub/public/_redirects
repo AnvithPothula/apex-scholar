@@ -13,8 +13,10 @@
 /PracticeTests/*   /practice-tests/:splat   301
 /Flashcards        /flashcards         301
 /Flashcards/*      /flashcards/:splat  301
-/Solver            /solver             301
-/Solver/*          /solver/:splat      301
+/Solver            /grader             301
+/Solver/*          /grader             301
+/solver            /grader             301
+/solver/*          /grader             301
 /Settings          /settings           301
 /Settings/*        /settings/:splat    301
 
@@ -48,7 +50,7 @@
 /smart-scheduler/*     /index.html  200
 /practice-tests/*      /index.html  200
 /flashcards/*          /index.html  200
-/solver/*              /index.html  200
+/grader/*              /index.html  200
 /settings/*            /index.html  200
 /diagnostics/*         /index.html  200
 /ap-score-calculator/* /index.html  200
